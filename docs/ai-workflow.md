@@ -62,3 +62,10 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **What I did:** Rewrote #7 with the task template. Decisions taken by the standing rule: token table in its own migration, cascading from users; random 32-byte tokens stored only as SHA-256 hashes; 7-day lifetime from an environment variable; one token per login (several devices at once); expired tokens deleted at login; same error and similar timing for unknown email and wrong password (dummy hash check); emails compared in lower case; login applies only the 128-character maximum; logout deletes only the current token; `WWW-Authenticate: Bearer` on 401; a test that tokens and passwords are not logged. Removed the original "signing keys or session secrets" line, because hashed random tokens need none. Out-of-scope items link to #20, #21, #25, #26 and #35.
 - **How I verified it:** Checked the issue against the definition of done in `docs/pm.md`.
 - **Left open (outside product scope, for the product owner):** The spec has no limit on failed login attempts (brute-force protection). I did not add it or file an issue.
+
+## 2026-11-01: Groom issue #8 (Implement tag listing and tag name resolution)
+
+- **Task:** Groom issue #8 following `docs/pm.md`.
+- **What I did:** Rewrote #8 with the task template. Decisions taken by the standing rule: tag names are trimmed and inner spaces collapsed; matching ignores case and keeps the first spelling; a new migration makes names unique per user using `lower(name)`; empty names are a validation error; duplicates in one request become one tag; a resolve function that runs inside the caller's transaction (so tags only exist once the entry is saved); a lookup-only function for #16; simultaneous creation gives one tag; the list includes unused tags, sorted alphabetically ignoring case. Out-of-scope items link to #9, #10, #11, #16, #27 and #43.
+- **How I verified it:** Checked the issue against the definition of done in `docs/pm.md`.
+- **Left open (outside product scope, for the product owner):** The spec has no way to rename or delete a tag, so a mistyped tag stays in autocomplete forever. I did not add it or file an issue.
