@@ -1,0 +1,110 @@
+# AGENTS.md
+
+Instructions for AI coding agents working on Winlog.
+
+## Project
+
+Winlog is a personal success diary web app. Users capture work achievements, learnings and feedback, and turn them into AI-generated, editable summaries for performance reviews.
+
+Sources of truth (read them before starting any task):
+
+- `product-spec.md`: scope, requirements, acceptance criteria
+- `openapi.yaml`: the API contract between frontend and backend
+
+## Working rules
+
+- Implement only what `product-spec.md` describes. If a task needs behaviour the spec does not cover, stop and ask. Do not invent requirements.
+- Contract first: every API change starts in `openapi.yaml`, then the backend, then the frontend.
+- Do not edit `product-spec.md` or `openapi.yaml` unless the task explicitly says so.
+- For a task that touches more than one module, propose a plan before editing.
+- Keep changes small and focused on the task. Do not refactor unrelated code.
+- A task is done only when lint and all tests pass.
+- If you are unsure how a library works, check its documentation instead of guessing.
+- After each task, add an entry to `docs/ai-workflow.md` with the date, the task, what you did, how you verified it, and anything left open.
+
+## Repository layout
+
+```
+backend/              FastAPI app (Python)
+  app/                application code
+  app/ai/             AI adapter (real provider + mock provider)
+  migrations/         Alembic migrations
+  tests/unit/         unit tests
+  tests/integration/  integration tests (real PostgreSQL)
+frontend/             React + TypeScript app (Vite)
+  src/api/            the only place that calls the backend
+mcp-server/           developer MCP server for coding agents
+docs/                 architecture and process docs
+security/             scan reports and security notes
+ops/                  operational notes
+.github/workflows/    CI/CD pipelines
+openapi.yaml          API contract
+docker-compose.yml    full system for local dev and integration tests
+```
+
+## Commands
+
+Keep these commands working. If you change one, update this file.
+
+Backend (run in `backend/`):
+
+- Install dependencies: `uv sync`
+- Dev server: `uv run uvicorn app.main:app --reload`
+- Lint: `uv run ruff check .`
+- Format: `uv run ruff format .`
+- Unit tests: `uv run pytest tests/unit`
+- Integration tests (needs PostgreSQL): `uv run pytest tests/integration`
+- Apply migrations: `uv run alembic upgrade head`
+- New migration: `uv run alembic revision --autogenerate -m "<message>"`
+
+Frontend (run in `frontend/`):
+
+- Install dependencies: `npm ci`
+- Dev server: `npm run dev`
+- Lint: `npm run lint`
+- Tests: `npm test`
+- Build: `npm run build`
+
+Full system (repo root): `docker compose up --build`
+
+## Backend conventions
+
+- FastAPI with Pydantic models that match the schemas in `openapi.yaml`.
+- PostgreSQL via SQLAlchemy 2.x. Change the schema only through new Alembic migrations, and never edit a migration that is already merged.
+- All configuration comes from environment variables (documented in `.env.example`). No hard-coded URLs, keys or limits.
+- Scope every query on user data to the authenticated user, and add a test that another user cannot access it.
+- Hash passwords with an established library (argon2 or bcrypt). Never store or log them in plain text.
+- All AI calls go through the adapter in `app/ai/`. Provider and model come from environment variables.
+- Check the AI usage limits (per user and global, per day) before every AI call.
+- Send only the data a request needs to the AI provider.
+- Never log entry text, summaries or passwords.
+
+## Frontend conventions
+
+- React + TypeScript, built with Vite.
+- All backend calls go through `src/api/`. Components never call `fetch` directly.
+- API data types are derived from `openapi.yaml`.
+- Mobile-first responsive layout: every screen must work at a 360px viewport width.
+- All UI text is in English.
+- Tests use Vitest and React Testing Library.
+
+## Testing
+
+- Unit tests and integration tests live in separate folders and run separately.
+- Integration tests run against real PostgreSQL (via Docker Compose), never SQLite.
+- Tests never call a real AI API. They use the mock provider.
+- Every new endpoint gets tests for the success case, validation errors, and access by another user.
+- Cover each acceptance criterion in `product-spec.md` with at least one test, and name the test after its requirement ID (for example `test_fr_e1_one_text_creates_one_entry`).
+- Never weaken or delete a failing test to make it pass. Fix the code or ask.
+
+## Security
+
+- Never commit secrets. Real values go in `.env` (git-ignored). Keep `.env.example` up to date with placeholder values.
+- Validate all input at the API boundary.
+- Do not add a new dependency without saying why in your task summary.
+
+## Git
+
+- Work on a branch per task. Never push to `main` directly.
+- Commit messages follow Conventional Commits (`feat:`, `fix:`, `test:`, `docs:`, `chore:`).
+- Keep commits small and focused.
