@@ -44,3 +44,14 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **What I did:** Rewrote #5 with the task template. Decisions confirmed by the product owner: #7 adds the token table in its own migration; and eight smaller proposals (time-zone-aware timestamps; migrations run when the backend container starts; a downgrade-and-upgrade test; `alembic check`; summary filters stored as values; the database restricts categories; email and tag case handling go to #6 and #8; usage counting goes to #15). Noted that `AGENTS.md` already settles the original "choose a database access layer and migration tool" as SQLAlchemy 2.x and Alembic. Out-of-scope items link to #6, #7, #8, #15, #21 and #38.
 - **How I verified it:** Checked that Alembic 1.20.1 has the `check`, `upgrade` and `downgrade` commands. Checked the issue against the definition of done in `docs/pm.md`.
 - **Left open:** When grooming #15: deleting an account deletes its AI usage rows, which lowers the day's global count; raise this with the product owner.
+
+## 2026-11-01: Standing rule for grooming decisions
+
+- **Rule from the product owner:** while grooming, accept the PM's recommended option without asking, as long as it fits the product scope and keeps development simple, maintainable and scalable. Anything outside the product scope is still asked. Each decision taken this way is listed in the issue and in this log.
+
+## 2026-11-01: Groom issue #6 (Implement user registration)
+
+- **Task:** Groom issue #6 following `docs/pm.md`.
+- **What I did:** Rewrote #6 with the task template. Product owner's direct decision: passwords must be at least 15 characters (up to 128, any characters, no composition rules). Decisions taken by the standing rule: the frontend logs in right after registering (#26), so registration returns no token; emails are trimmed and stored in lower case; `EmailStr` validation; argon2 hashing; passwords used exactly as typed; responses never contain the password or hash; a test checks the password is not logged; simultaneous registrations for one email give "email already registered", not a server error. `openapi.yaml` gets the register rules first, as #2 requires.
+- **How I verified it:** Checked with pydantic 2.13.5 and email-validator 2.3.0 that `EmailStr` lowercases only the domain, strips surrounding spaces and makes no DNS lookups (so the full lowercasing must be done by the app). The NIST page was blocked from this session; the 15-character figure for password-only login comes from several agreeing secondary sources.
+- **Left open (outside product scope, for the product owner):** NIST also recommends checking new passwords against a list of common or breached passwords. The spec doesn't ask for it, so I did not add it or file an issue.
