@@ -238,3 +238,24 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - a new §14 change log
 - **How I verified it:** Compared each change with the issue it came from (#2, #6–#11, #13, #15, #16, #19–#21, #30, #33, #38, #39, #43, #46). Searched the spec for the outdated phrases ("15 characters", "summed for the global cap", "defaults to today"): none remain.
 - **Left open:** The issues still say "product-spec.md v0.1". Their section references remain correct, because no section was renumbered.
+
+## 2026-11-01: Number the issue titles in build order and point all issues to spec v0.2
+
+- **Task:** Update every issue's spec reference from v0.1 to v0.2, and start each issue title with its position in the build order.
+- **What I did:** Renamed all 41 open issues to "N. Title" in build order (1–41). #43 is task 33 and #46 is task 36, so tasks after them moved up by one or two. Renamed #43 to "Enforce maximum input sizes", because its values are decided. In every issue body, changed `product-spec.md` v0.1 to v0.2 and the last line to "Task N of 41 in the build order". Small alignment edits while doing so:
+  - #5 lists the later tables from spec §10.5.
+  - #7, #21, #25, #26, #28, #32, #33 and #35 link to #43 or #46 where those issues change them.
+  - #15 notes that spec v0.2 reflects the global counter.
+  - #25 adds the "wrong current password" error.
+  - #33 and #46 name tests after the new FR-R6 and FR-A4.
+  - #36, #38 and #40 list #43 and #46 as dependencies, and #38 adds their environment variables.
+  - Renumbered `tasks.md` to the same 1–41 sequence and updated its intro.
+- **How I verified it:** Listed all open issues and checked that the titles run 1–41 without gaps or duplicates and match `tasks.md`.
+- **Left open:** Earlier log entries refer to the old task numbers (out of 39); the issue titles and `tasks.md` are now the reference.
+
+## 2026-11-01: Task 1 (#2): write the OpenAPI contract
+
+- **Task:** Implement issue #2 as the engineer, following `docs/software-engineer.md`: create `openapi.yaml`.
+- **What I did:** Wrote `openapi.yaml` (OpenAPI 3.1.0) with the 19 operations from the issue's endpoint table and no others. It has bearer-token security (public: health, register, login), one shared `Error` schema with an enum of error codes, a `fields` list for validation errors and a `limit` field for reached AI limits, and every decision and edge case from the issue written in `info.description` and on the relevant schemas. Engineer's choices within the issue: plain resource paths, UUID ids, PUT for entry replacement, PATCH for summary text, separate `/export/json` and `/export/markdown`, and status codes: 422 validation, 401 not authenticated and wrong credentials, 403 wrong current password, 404, 409, 422 no matching entries, 429 and 503. Also merged `main` into the branch, because PR #47 had been merged and `main` had new commits (`docs/software-engineer.md`, `AGENTS.md`, `docs/process.md`). Force-pushing a rebase was blocked, so I merged instead.
+- **How I verified it:** `npx @redocly/cli@2.72.1 lint openapi.yaml` reports 0 errors and 3 warnings: no license (the repository has none), a localhost server URL (the real development URL), and no 4xx on health (it takes no input). `openapi-spec-validator` confirms valid OpenAPI 3.1. A scripted check of the acceptance criteria (operations, operationIds, summaries, requirement IDs, security, error codes per operation, schemas, export headers, and the statements in `info.description`) passes. A deliberately broken copy made it fail, which shows the check works. The script is in my scratchpad, not the repository, because the issue allows changes only to `openapi.yaml` and this log.
+- **Left open:** There is no project test suite yet (backend and frontend start in tasks 2 and 22), and CI linting of the contract comes with task 23 (#24). Issue #2 stays open for the product owner to review and close.
