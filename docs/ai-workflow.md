@@ -238,3 +238,17 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - a new §14 change log
 - **How I verified it:** Compared each change with the issue it came from (#2, #6–#11, #13, #15, #16, #19–#21, #30, #33, #38, #39, #43, #46). Searched the spec for the outdated phrases ("15 characters", "summed for the global cap", "defaults to today"): none remain.
 - **Left open:** The issues still say "product-spec.md v0.1". Their section references remain correct, because no section was renumbered.
+
+## 2026-11-01: Number the issue titles in build order and point all issues to spec v0.2
+
+- **Task:** Update every issue's spec reference from v0.1 to v0.2, and start each issue title with its position in the build order.
+- **What I did:** Renamed all 41 open issues to "N. Title" in build order (1–41). #43 is task 33 and #46 is task 36, so tasks after them moved up by one or two. Renamed #43 to "Enforce maximum input sizes", because its values are decided. In every issue body, changed `product-spec.md` v0.1 to v0.2 and the last line to "Task N of 41 in the build order". Small alignment edits while doing so:
+  - #5 lists the later tables from spec §10.5.
+  - #7, #21, #25, #26, #28, #32, #33 and #35 link to #43 or #46 where those issues change them.
+  - #15 notes that spec v0.2 reflects the global counter.
+  - #25 adds the "wrong current password" error.
+  - #33 and #46 name tests after the new FR-R6 and FR-A4.
+  - #36, #38 and #40 list #43 and #46 as dependencies, and #38 adds their environment variables.
+  - Renumbered `tasks.md` to the same 1–41 sequence and updated its intro.
+- **How I verified it:** Listed all open issues and checked that the titles run 1–41 without gaps or duplicates and match `tasks.md`.
+- **Left open:** Earlier log entries refer to the old task numbers (out of 39); the issue titles and `tasks.md` are now the reference.
