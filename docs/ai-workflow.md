@@ -202,3 +202,10 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **What I did:** The product owner chose "unused tags vanish". Decisions taken by the standing rule: hide unused tags instead of deleting them (no clash with concurrent saves; retyping the name brings the tag back); and add the rule to #8 directly instead of filing a separate issue, because #8 is not built yet, so nothing has to be redone. Updated #8 (the tag list returns only tags used by at least one entry, plus tests) and #10 (removed or deleted tags stay in the database and leave the tag list once unused).
 - **How I verified it:** Re-read #5, #11, #16, #27 and #31 for conflicts. #5's "deleting an entry keeps the tags" is still true at database level, and the others take their tags from #8's list or lookup.
 - **Left open:** Items 4–5 of the outside-scope list.
+
+## 2026-11-01: Outside-scope item 4: password required for account deletion (#2, #20, #34, #46)
+
+- **Task:** Product owner decision on asking for the password before account deletion.
+- **What I did:** The product owner chose to require the current password, added to the existing issues because they are not built yet. Updated #2 (password field on delete-account, a "wrong current password" error, the tag list showing only used tags from item 3, and #46 among later contract changes), #20 (password check before deleting; the demo error comes first; tests for missing and wrong passwords), #34 (a password field in the confirmation step; the button needs both `DELETE` and a password; "That password is incorrect." keeps the user logged in) and #46 (wrong deletion passwords count toward the per-email attempt limit, so deletion can't be used to guess passwords around the login limit). Decisions beyond the product owner's choice were taken by the standing rule.
+- **How I verified it:** Re-read #21, #22 and #35 for conflicts: none (the demo error comes before the password check, and #22 checks authentication only).
+- **Left open:** Item 5 of the outside-scope list.
