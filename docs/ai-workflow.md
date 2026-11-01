@@ -30,3 +30,10 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **What I did:** Rewrote #3 with the task template. Decisions confirmed by the product owner: each later issue adds its own environment variables, so #3 only reads `DATABASE_URL` and the CORS origins; CORS belongs in #3; and eight smaller proposals (missing required variable stops startup and names it; secrets masked; `.env.example` at the repo root; new `.gitignore`; pinned Python version; pydantic-settings; 404 and 405 use the shared error format; no `tests/integration/` until #4). Out-of-scope items link to #4, #5, #7, #12–#15, #21 and #24. Left to the engineer, as stated in the issue: the CORS variable's name, the Python version, and which variables are required.
 - **How I verified it:** Checked with pydantic-settings 2.16.2 that a missing variable raises an error naming it and that `SecretStr` masks its value; checked that pytest exits with code 5 on a folder with no tests; confirmed that FastAPI's documentation recommends pydantic-settings. Checked the issue against the definition of done in `docs/pm.md`.
 - **Left open:** Nothing for #3.
+
+## 2026-11-01: Groom issue #4 (Run the backend and PostgreSQL with Docker Compose)
+
+- **Task:** Groom issue #4 following `docs/pm.md`.
+- **What I did:** Rewrote #4 with the task template. Decisions confirmed by the product owner: a separate test database in the same PostgreSQL container; a `.dockerignore` so `.env` never goes into the image; and eight smaller proposals (PostgreSQL healthcheck before the backend starts; image pinned to a major version Neon offers; named volume; credentials from `.env`; published, configurable port; timeout on the health database check; non-root container; #4 adds the SQLAlchemy engine and driver). Two criteria follow from those decisions and `AGENTS.md`: integration tests use their own database URL variable and never fall back to `DATABASE_URL`, and the health timeout comes from an environment variable. Out-of-scope items link to #5, #23, #24 and #38.
+- **How I verified it:** Checked the issue against the definition of done in `docs/pm.md`.
+- **Left open:** Nothing for #4.
