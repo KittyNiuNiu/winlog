@@ -259,3 +259,31 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **What I did:** Wrote `openapi.yaml` (OpenAPI 3.1.0) with the 19 operations from the issue's endpoint table and no others. It has bearer-token security (public: health, register, login), one shared `Error` schema with an enum of error codes, a `fields` list for validation errors and a `limit` field for reached AI limits, and every decision and edge case from the issue written in `info.description` and on the relevant schemas. Engineer's choices within the issue: plain resource paths, UUID ids, PUT for entry replacement, PATCH for summary text, separate `/export/json` and `/export/markdown`, and status codes: 422 validation, 401 not authenticated and wrong credentials, 403 wrong current password, 404, 409, 422 no matching entries, 429 and 503. Also merged `main` into the branch, because PR #47 had been merged and `main` had new commits (`docs/software-engineer.md`, `AGENTS.md`, `docs/process.md`). Force-pushing a rebase was blocked, so I merged instead.
 - **How I verified it:** `npx @redocly/cli@2.72.1 lint openapi.yaml` reports 0 errors and 3 warnings: no license (the repository has none), a localhost server URL (the real development URL), and no 4xx on health (it takes no input). `openapi-spec-validator` confirms valid OpenAPI 3.1. A scripted check of the acceptance criteria (operations, operationIds, summaries, requirement IDs, security, error codes per operation, schemas, export headers, and the statements in `info.description`) passes. A deliberately broken copy made it fail, which shows the check works. The script is in my scratchpad, not the repository, because the issue allows changes only to `openapi.yaml` and this log.
 - **Left open:** There is no project test suite yet (backend and frontend start in tasks 2 and 22), and CI linting of the contract comes with task 23 (#24). Issue #2 stays open for the product owner to review and close.
+
+## 2026-11-01: Task 2 (#3): set up the backend project skeleton
+
+- **Task:** Implement issue #3 as the engineer, following `docs/software-engineer.md`.
+- **What I did:** Created `backend/` (uv project, Python 3.13 pinned in `requires-python` and `.python-version`):
+  - `app/settings.py`: pydantic-settings with exactly two required variables, `DATABASE_URL` (a `SecretStr`) and `CORS_ALLOWED_ORIGINS` (comma-separated, each origin checked). A startup error names every missing or invalid variable and never shows values.
+  - `app/errors.py`: the shared error format from `openapi.yaml` for validation errors (with `fields`), 404, 405 and unexpected 500s. Submitted values are never echoed.
+  - `app/health.py`: `GET /health` with the documented body.
+  - `app/main.py`: `create_app()` plus the module-level `app`, with CORS that allows the `Authorization` header and exposes `Content-Disposition` for export downloads (#25).
+  - 23 unit tests. They validate response bodies against the schemas in `openapi.yaml`.
+  - A root `.gitignore` and `.env.example`.
+- **Dependencies and why:**
+  - `fastapi`: the framework (`AGENTS.md`).
+  - `uvicorn`: the dev server in the `AGENTS.md` command.
+  - `pydantic-settings`: settings from environment variables (issue #3).
+  - Dev group:
+    - `pytest` and `ruff` (`AGENTS.md`).
+    - `httpx2`: required by FastAPI's TestClient. Starlette 1.10 imports `httpx2` first and warns that plain `httpx` is deprecated. The PyPI project lists Tom Christie (the httpx author) and `github.com/pydantic/httpx2`.
+    - `jsonschema` and `pyyaml`: load `openapi.yaml` and check that responses match its schemas. The tests also use `referencing`, which ships with `jsonschema`.
+- **How I verified it:**
+  - `uv sync`, `uv run ruff check .`, `uv run ruff format --check .` and `uv run pytest tests/unit` (23 passed, no warnings) all succeed in `backend/`.
+  - Started `uv run uvicorn app.main:app --reload` with the two variables set: `/health` returned 200 with the documented body and `/nope` returned 404 in the shared format.
+  - Started it with no variables and no `.env`: it exited with "DATABASE_URL is required but not set; CORS_ALLOWED_ORIGINS is required but not set".
+  - `git status` after syncing and testing showed only the new source files; `.venv` and the caches are ignored.
+- **Left open:**
+  - Until #4 adds the real check, `/health` reports `"database": "ok"` without checking the database, because the documented body requires that field.
+  - A CORS preflight from a disallowed origin gets Starlette's plain-text 400 instead of the shared error format. It carries no CORS headers, as required, and browsers don't show preflight bodies.
+  - The integration-test command in `AGENTS.md` won't work until #4 adds the first integration test.
