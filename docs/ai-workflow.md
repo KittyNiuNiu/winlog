@@ -209,3 +209,10 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **What I did:** The product owner chose to require the current password, added to the existing issues because they are not built yet. Updated #2 (password field on delete-account, a "wrong current password" error, the tag list showing only used tags from item 3, and #46 among later contract changes), #20 (password check before deleting; the demo error comes first; tests for missing and wrong passwords), #34 (a password field in the confirmation step; the button needs both `DELETE` and a password; "That password is incorrect." keeps the user logged in) and #46 (wrong deletion passwords count toward the per-email attempt limit, so deletion can't be used to guess passwords around the login limit). Decisions beyond the product owner's choice were taken by the standing rule.
 - **How I verified it:** Re-read #21, #22 and #35 for conflicts: none (the demo error comes before the password check, and #22 checks authentication only).
 - **Left open:** Item 5 of the outside-scope list.
+
+## 2026-11-01: Outside-scope item 5: Copy button on the summary page (#33)
+
+- **Task:** Product owner decision on a "Copy summary" button.
+- **What I did:** The product owner chose to add it to #33, which is not built yet. Decisions taken by the standing rule: copies the saved text as plain text with line breaks; shows "Copied" for about 2 seconds; a fallback message if the browser refuses; hidden while editing so unsaved changes are never copied; uses the browser's Clipboard API with no new dependency; tests use a mocked clipboard.
+- **How I verified it:** Re-read #33 against the definition of done in `docs/pm.md`.
+- **Left open:** All five outside-scope items are decided. Still the product owner's call: whether to update `product-spec.md` §10.5 (the global AI counter from #15) and §13 (the default model, once #14 is done).
