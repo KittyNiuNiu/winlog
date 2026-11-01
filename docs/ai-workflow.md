@@ -69,3 +69,10 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **What I did:** Rewrote #8 with the task template. Decisions taken by the standing rule: tag names are trimmed and inner spaces collapsed; matching ignores case and keeps the first spelling; a new migration makes names unique per user using `lower(name)`; empty names are a validation error; duplicates in one request become one tag; a resolve function that runs inside the caller's transaction (so tags only exist once the entry is saved); a lookup-only function for #16; simultaneous creation gives one tag; the list includes unused tags, sorted alphabetically ignoring case. Out-of-scope items link to #9, #10, #11, #16, #27 and #43.
 - **How I verified it:** Checked the issue against the definition of done in `docs/pm.md`.
 - **Left open (outside product scope, for the product owner):** The spec has no way to rename or delete a tag, so a mistyped tag stays in autocomplete forever. I did not add it or file an issue.
+
+## 2026-11-01: Groom issue #9 (Implement entry creation)
+
+- **Task:** Groom issue #9 following `docs/pm.md`.
+- **What I did:** Rewrote #9 with the task template. Fixed the conflict with #2: the API now requires a date, and the form (#27) pre-fills today. Decisions taken by the standing rule: text stored exactly as typed; empty or whitespace-only Result/Impact stored as null; any real calendar date accepted, including future dates; a user id in the body is ignored; tags resolved inside the entry's transaction; the response shows stored tag spelling. Out-of-scope items link to #10, #11, #16, #27, #28 and #43.
+- **How I verified it:** Checked the issue against the definition of done in `docs/pm.md`.
+- **Left open:** Nothing for #9.
