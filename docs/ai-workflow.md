@@ -216,3 +216,25 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **What I did:** The product owner chose to add it to #33, which is not built yet. Decisions taken by the standing rule: copies the saved text as plain text with line breaks; shows "Copied" for about 2 seconds; a fallback message if the browser refuses; hidden while editing so unsaved changes are never copied; uses the browser's Clipboard API with no new dependency; tests use a mocked clipboard.
 - **How I verified it:** Re-read #33 against the definition of done in `docs/pm.md`.
 - **Left open:** All five outside-scope items are decided. Still the product owner's call: whether to update `product-spec.md` §10.5 (the global AI counter from #15) and §13 (the default model, once #14 is done).
+
+## 2026-11-01: Update product-spec.md to v0.2 with the groomed decisions
+
+- **Task:** Update `product-spec.md` to match the groomed issues. The product owner explicitly asked for this edit, as `AGENTS.md` requires.
+- **What I did:** Raised the version to 0.2 and kept every section number, so the "§" references in the issues stay valid. Added to the existing sections:
+  - accounts: password rule, case-insensitive emails, login after registering, 7-day logins, and a new **FR-A4** for failed-login limits
+  - entries: required date with a local-date default, size limits, tag rules, hidden unused tags
+  - suggestions: fill only empty fields, at most 5 tags
+  - review: inclusive dates, "any" within a filter type and AND across types, sort order, required period, summary input limit, and a new **FR-R6** for copying a summary
+  - nudge: exact "last 7 days"
+  - data control: export contents, deletion with password
+  - demo rules
+  - AI guardrails: UTC days, which calls count, separate global counter, data sent for summaries
+  - NFR: 360px, token security
+  - architecture: bearer tokens, test database, deploy after CI checks, Blueprint
+  - data model: new `Token`, `AiUsageGlobal` and `LoginAttempt`; removed "summed for the global cap"
+  - known limitations: shared demo data, possible 15-minute login lockout
+  - open question §13: points to #14
+  - a non-goal for manual tag management
+  - a new §14 change log
+- **How I verified it:** Compared each change with the issue it came from (#2, #6–#11, #13, #15, #16, #19–#21, #30, #33, #38, #39, #43, #46). Searched the spec for the outdated phrases ("15 characters", "summed for the global cap", "defaults to today"): none remain.
+- **Left open:** The issues still say "product-spec.md v0.1". Their section references remain correct, because no section was renumbered.
