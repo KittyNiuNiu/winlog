@@ -160,3 +160,10 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **What I did:** Rewrote both with the task template. Decisions taken by the standing rule. For #34: downloads fetched through the API client and saved under the server's file name; progress and error states; the delete confirmation explains the consequences, offers downloads first and requires typing `DELETE`; after deletion, `/login` shows "Your account has been deleted." For #35: the demo button calls demo-login and stores the token and flag; a "demo isn't available" message; a shared-account notice on every app page, including a warning not to enter personal information; "Create your own account" logs out of the demo; "Delete account" is replaced with an explanation. Out-of-scope items link to #19, #20, #21, #35, #36 and #38.
 - **How I verified it:** Checked both issues against the definition of done in `docs/pm.md`.
 - **Left open:** Nothing for #34 or #35.
+
+## 2026-11-01: Groom issues #36 and #37 (viewport checks; end-to-end test)
+
+- **Task:** Groom issues #36 and #37 following `docs/pm.md`.
+- **What I did:** Rewrote both with the task template. Decisions taken by the standing rule. For #36: Playwright tests at 360×640 and 1280×800 with mocked API calls cover every screen; no sideways scrolling; 44×44 px controls at 360px (inline links exempt); text columns at most 960 px wide on desktop; a quick-capture test (New entry, type, category, Save); screenshots saved as CI artifacts; problems fixed in the same task. For #37: one Playwright flow (register, banner, entry with a new tag, review filter, mock summary, JSON export, logout) against Docker Compose with the mock AI; unique emails; no fixed sleeps; a CI job after the other jobs, uploading traces on failure. Out-of-scope items link to #21, #35, #36 and #37.
+- **How I verified it:** Checked both issues against the definition of done in `docs/pm.md`.
+- **Left open:** Nothing for #36 or #37.
