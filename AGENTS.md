@@ -21,6 +21,7 @@ Sources of truth (read them before starting any task):
 - A task is done only when lint and all tests pass.
 - If you are unsure how a library works, check its documentation instead of guessing.
 - After each task, add an entry to `docs/ai-workflow.md` with the date, the task, what you did, how you verified it, and anything left open.
+- Follow the process in docs/process.md
 
 ## Repository layout
 
