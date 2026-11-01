@@ -37,3 +37,10 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **What I did:** Rewrote #4 with the task template. Decisions confirmed by the product owner: a separate test database in the same PostgreSQL container; a `.dockerignore` so `.env` never goes into the image; and eight smaller proposals (PostgreSQL healthcheck before the backend starts; image pinned to a major version Neon offers; named volume; credentials from `.env`; published, configurable port; timeout on the health database check; non-root container; #4 adds the SQLAlchemy engine and driver). Two criteria follow from those decisions and `AGENTS.md`: integration tests use their own database URL variable and never fall back to `DATABASE_URL`, and the health timeout comes from an environment variable. Out-of-scope items link to #5, #23, #24 and #38.
 - **How I verified it:** Checked the issue against the definition of done in `docs/pm.md`.
 - **Left open:** Nothing for #4.
+
+## 2026-11-01: Groom issue #5 (Create the database schema and migrations)
+
+- **Task:** Groom issue #5 following `docs/pm.md`.
+- **What I did:** Rewrote #5 with the task template. Decisions confirmed by the product owner: #7 adds the token table in its own migration; and eight smaller proposals (time-zone-aware timestamps; migrations run when the backend container starts; a downgrade-and-upgrade test; `alembic check`; summary filters stored as values; the database restricts categories; email and tag case handling go to #6 and #8; usage counting goes to #15). Noted that `AGENTS.md` already settles the original "choose a database access layer and migration tool" as SQLAlchemy 2.x and Alembic. Out-of-scope items link to #6, #7, #8, #15, #21 and #38.
+- **How I verified it:** Checked that Alembic 1.20.1 has the `check`, `upgrade` and `downgrade` commands. Checked the issue against the definition of done in `docs/pm.md`.
+- **Left open:** When grooming #15: deleting an account deletes its AI usage rows, which lowers the day's global count; raise this with the product owner.
