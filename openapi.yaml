@@ -1,0 +1,1087 @@
+openapi: 3.1.0
+
+info:
+  title: Winlog API
+  version: 0.1.0
+  summary: REST API for Winlog, a personal success diary.
+  description: |
+    The single source of truth for the Winlog API (`product-spec.md` §10.3).
+    The backend implements this contract and the frontend API client is built
+    against it. Every API change starts here.
+
+    ## Authentication
+
+    - Authentication uses bearer tokens. Login returns a random token that the
+      server stores, so it can be revoked. Clients send it on every protected
+      request as `Authorization: Bearer <token>`.
+    - Logout revokes the token used for that request. The user's other tokens
+      keep working.
+    - Account deletion revokes all of the user's tokens.
+    - Tokens expire after a time set by an environment variable (the value is
+      chosen in issue #7).
+    - Every operation needs a valid token except health, register and login.
+    - After account deletion, the old token gets `not_authenticated` and the
+      old email and password get `invalid_credentials` (`product-spec.md` §7.6).
+
+    ## Entries
+
+    - The entry date is required on create and update. The API never fills it
+      in; the entry form pre-fills today's date in the user's own time zone.
+    - Tags are given as a list of names. Names the user does not have yet are
+      created when the entry is saved (FR-E3, §7.3).
+    - Updating an entry is a full replacement: the request has the same fields
+      as create, and the entry's tags become exactly the list sent.
+    - Text that is empty or only whitespace counts as missing. This applies to
+      entry text, suggestion text and summary text.
+
+    ## Filtering entries
+
+    - Listing with no filters returns all of the user's entries.
+    - Several categories match entries in any of them. Several tags match
+      entries that have any of them. Different filter types (period,
+      categories, tags) combine with AND.
+    - Start date and end date both include their own day. Either may be left
+      out when listing. A start date after the end date is a validation error.
+    - Filtering by a tag name the user does not have matches nothing and is not
+      an error. This includes tag names that belong to another user.
+    - Entries are sorted by date, newest first. Entries with the same date are
+      sorted by creation time, newest first.
+    - The entry list is not paginated in v1: it returns all matching entries in
+      one response.
+
+    ## Summaries
+
+    - Generating a summary needs a period start and end. Categories and tags
+      are optional; leaving them empty means no restriction.
+    - When no entries match the filter, generating a summary makes no AI call
+      and saves nothing.
+    - Updating a summary changes only its text. The stored filter and the
+      entries stay unchanged (§7.4).
+
+    ## Export
+
+    - Exporting an account with no entries and no summaries succeeds. The JSON
+      has empty lists, and the Markdown has its title and both section
+      headings, each followed by "None".
+    - Exports are file downloads. Because the token travels in a header, the
+      frontend fetches them through the API client instead of a plain link.
+
+    ## Size limits
+
+    There are no field size limits yet. Issue #43 adds them.
+
+    ## Errors
+
+    Every 4xx and 5xx response uses the shared `Error` schema, with a
+    machine-readable `code` and a human-readable `message`. Validation errors
+    also list each failing field in `fields`. A reached AI limit names the limit
+    in `limit`. An unknown path returns 404 with `code: not_found`, and an
+    unsupported method returns 405 with `code: method_not_allowed`.
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+
+tags:
+  - name: Health
+    description: Service status.
+  - name: Accounts
+    description: Registration, login, logout and account deletion.
+  - name: Entries
+    description: Creating, reading, editing, deleting and filtering entries.
+  - name: Tags
+    description: The user's tags.
+  - name: AI
+    description: AI suggestions for category and tags.
+  - name: Summaries
+    description: Generating and managing AI summaries.
+  - name: Export
+    description: Downloading all of the user's data.
+
+security:
+  - bearerAuth: []
+
+paths:
+  /health:
+    get:
+      tags: [Health]
+      operationId: getHealth
+      summary: Check that the API and the database are up.
+      description: |
+        Covers no functional requirement; supports reliability (§9) and the
+        health check from issue #4. Needs no authentication.
+      security: []
+      responses:
+        '200':
+          description: The API and the database are up.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/DatabaseUnreachable'
+
+  /auth/register:
+    post:
+      tags: [Accounts]
+      operationId: register
+      summary: Register with an email address and a password.
+      description: |
+        Covers FR-A1. Needs no authentication. Returns the new account and no
+        token; the client logs in separately. The email and password rules are
+        added by issue #6.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Credentials'
+      responses:
+        '201':
+          description: The account was created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '409':
+          $ref: '#/components/responses/EmailAlreadyRegistered'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /auth/login:
+    post:
+      tags: [Accounts]
+      operationId: login
+      summary: Log in with an email address and a password.
+      description: |
+        Covers FR-A2. Needs no authentication. Returns a new token. A wrong
+        email and a wrong password get the same `invalid_credentials` error.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Credentials'
+      responses:
+        '200':
+          description: Logged in.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResult'
+        '401':
+          $ref: '#/components/responses/InvalidCredentials'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /auth/logout:
+    post:
+      tags: [Accounts]
+      operationId: logout
+      summary: Log out by revoking the current token.
+      description: |
+        Covers FR-A2. Revokes only the token used for this request; the user's
+        other tokens keep working.
+      responses:
+        '204':
+          description: The token was revoked.
+        '401':
+          $ref: '#/components/responses/NotAuthenticated'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /account:
+    delete:
+      tags: [Accounts]
+      operationId: deleteAccount
+      summary: Delete the current user's account and all of its data.
+      description: |
+        Covers FR-D2. The request must include the user's current password
+        (issue #20). Deletes the user with all their entries, tags, summaries,
+        AI usage and tokens, so every token of the user stops working.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountDeletion'
+      responses:
+        '204':
+          description: The account and all of its data were deleted.
+        '401':
+          $ref: '#/components/responses/NotAuthenticated'
+        '403':
+          $ref: '#/components/responses/WrongPassword'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /entries:
+    get:
+      tags: [Entries]
+      operationId: listEntries
+      summary: List the user's entries, optionally filtered.
+      description: |
+        Covers FR-R1 and FR-R2. All filters are optional; with none, all of the
+        user's entries are returned. Several categories or several tags match
+        entries with any of them, and different filter types combine with AND.
+        Dates include both end days, and a start date after the end date is a
+        validation error. Unknown tag names match nothing. Entries are sorted
+        by date, newest first, then by creation time, newest first. Not
+        paginated in v1.
+      parameters:
+        - name: start_date
+          in: query
+          required: false
+          description: First day of the period, inclusive.
+          schema:
+            type: string
+            format: date
+          example: '2026-01-01'
+        - name: end_date
+          in: query
+          required: false
+          description: Last day of the period, inclusive.
+          schema:
+            type: string
+            format: date
+          example: '2026-06-30'
+        - name: category
+          in: query
+          required: false
+          description: Categories to include, as a repeated parameter (`?category=Achievement&category=Learning`).
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              $ref: '#/components/schemas/Category'
+        - name: tag
+          in: query
+          required: false
+          description: Tag names to include, as a repeated parameter (`?tag=a&tag=b`), because tag names can contain commas.
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              type: string
+      responses:
+        '200':
+          description: The matching entries.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntryList'
+        '401':
+          $ref: '#/components/responses/NotAuthenticated'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags: [Entries]
+      operationId: createEntry
+      summary: Create an entry.
+      description: |
+        Covers FR-E1, FR-E2 and FR-E3. One request always creates exactly one
+        entry. The date is required and never filled in by the API. Tag names
+        the user does not have yet are created when the entry is saved.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EntryInput'
+      responses:
+        '201':
+          description: The entry was created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Entry'
+        '401':
+          $ref: '#/components/responses/NotAuthenticated'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /entries/{entryId}:
+    parameters:
+      - $ref: '#/components/parameters/EntryId'
+    get:
+      tags: [Entries]
+      operationId: getEntry
+      summary: Get one of the user's entries.
+      description: |
+        Covers FR-E4 and FR-A3. Another user's entry returns `not_found`, as if
+        it did not exist.
+      responses:
+        '200':
+          description: The entry.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Entry'
+        '401':
+          $ref: '#/components/responses/NotAuthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    put:
+      tags: [Entries]
+      operationId: updateEntry
+      summary: Replace one of the user's entries.
+      description: |
+        Covers FR-E4 and FR-A3. A full replacement: the request has the same
+        fields as create, and the entry's tags become exactly the list sent.
+        Another user's entry returns `not_found`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EntryInput'
+      responses:
+        '200':
+          description: The updated entry.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Entry'
+        '401':
+          $ref: '#/components/responses/NotAuthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags: [Entries]
+      operationId: deleteEntry
+      summary: Delete one of the user's entries.
+      description: |
+        Covers FR-E4 and FR-A3. Saved summaries are not changed. Another user's
+        entry returns `not_found`.
+      responses:
+        '204':
+          description: The entry was deleted.
+        '401':
+          $ref: '#/components/responses/NotAuthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /tags:
+    get:
+      tags: [Tags]
+      operationId: listTags
+      summary: List the user's tags that at least one entry uses.
+      description: |
+        Covers FR-E3 and FR-R1 (autocomplete and filters). Only tags used by at
+        least one of the user's entries are returned (issue #8), sorted
+        alphabetically without regard to case.
+      responses:
+        '200':
+          description: The user's tags.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TagList'
+        '401':
+          $ref: '#/components/responses/NotAuthenticated'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /suggestions:
+    post:
+      tags: [AI]
+      operationId: suggestCategoryAndTags
+      summary: Get AI suggestions for an entry's category and tags.
+      description: |
+        Covers FR-S1, FR-S2 and FR-S3. Saves nothing. Only the entry text is
+        sent to the AI provider (§8). Limits are checked before the AI is
+        called.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SuggestionRequest'
+      responses:
+        '200':
+          description: The suggested category and tags.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Suggestion'
+        '401':
+          $ref: '#/components/responses/NotAuthenticated'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/LimitReached'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/AiUnavailable'
+
+  /summaries:
+    get:
+      tags: [Summaries]
+      operationId: listSummaries
+      summary: List the user's saved summaries.
+      description: |
+        Covers FR-R5. Sorted by creation time, newest first. Not paginated in
+        v1.
+      responses:
+        '200':
+          description: The user's summaries.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SummaryList'
+        '401':
+          $ref: '#/components/responses/NotAuthenticated'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags: [Summaries]
+      operationId: generateSummary
+      summary: Generate a summary of the entries matching a filter and save it.
+      description: |
+        Covers FR-R3 and FR-R4. Entries are selected with the same filter rules
+        as the entry list. When no entries match, the request returns
+        `no_matching_entries`, makes no AI call and saves nothing. Limits are
+        checked before the AI is called. The summary is saved together with its
+        filter.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SummaryFilter'
+      responses:
+        '201':
+          description: The summary was generated and saved.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Summary'
+        '401':
+          $ref: '#/components/responses/NotAuthenticated'
+        '422':
+          description: |
+            Either the request failed validation (`code: validation_failed`), or
+            no entries match the filter (`code: no_matching_entries`, §7.4).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                validationFailed:
+                  $ref: '#/components/examples/ValidationFailed'
+                noMatchingEntries:
+                  $ref: '#/components/examples/NoMatchingEntries'
+        '429':
+          $ref: '#/components/responses/LimitReached'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/AiUnavailable'
+
+  /summaries/{summaryId}:
+    parameters:
+      - $ref: '#/components/parameters/SummaryId'
+    get:
+      tags: [Summaries]
+      operationId: getSummary
+      summary: Get one of the user's summaries.
+      description: |
+        Covers FR-R5 and FR-A3. Another user's summary returns `not_found`.
+      responses:
+        '200':
+          description: The summary.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Summary'
+        '401':
+          $ref: '#/components/responses/NotAuthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      tags: [Summaries]
+      operationId: updateSummary
+      summary: Change the text of one of the user's summaries.
+      description: |
+        Covers FR-R5 and FR-A3. Only the text changes; the stored filter and the
+        entries stay unchanged (§7.4). Another user's summary returns
+        `not_found`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SummaryUpdate'
+      responses:
+        '200':
+          description: The updated summary.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Summary'
+        '401':
+          $ref: '#/components/responses/NotAuthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags: [Summaries]
+      operationId: deleteSummary
+      summary: Delete one of the user's summaries.
+      description: |
+        Covers FR-R5 and FR-A3. Entries are not affected. Another user's summary
+        returns `not_found`.
+      responses:
+        '204':
+          description: The summary was deleted.
+        '401':
+          $ref: '#/components/responses/NotAuthenticated'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /export/json:
+    get:
+      tags: [Export]
+      operationId: exportJson
+      summary: Download all entries and summaries as JSON.
+      description: |
+        Covers FR-D1. Complete and machine-readable, built from the same data as
+        the Markdown export. An account without data gets empty lists.
+      responses:
+        '200':
+          description: The JSON export file.
+          headers:
+            Content-Disposition:
+              $ref: '#/components/headers/ContentDisposition'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExportFile'
+        '401':
+          $ref: '#/components/responses/NotAuthenticated'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /export/markdown:
+    get:
+      tags: [Export]
+      operationId: exportMarkdown
+      summary: Download all entries and summaries as Markdown.
+      description: |
+        Covers FR-D1. Readable, built from the same data as the JSON export. An
+        account without data gets the title and both section headings, each
+        followed by "None".
+      responses:
+        '200':
+          description: The Markdown export file.
+          headers:
+            Content-Disposition:
+              $ref: '#/components/headers/ContentDisposition'
+          content:
+            text/markdown:
+              schema:
+                type: string
+              example: |
+                # Winlog export
+
+                Exported on 2026-11-01
+
+                ## Entries
+
+                None
+
+                ## Summaries
+
+                None
+        '401':
+          $ref: '#/components/responses/NotAuthenticated'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        A random token returned by login and stored by the server, so logout and
+        account deletion can revoke it. Send it as `Authorization: Bearer <token>`.
+        Tokens expire after a time set by an environment variable (issue #7).
+
+  parameters:
+    EntryId:
+      name: entryId
+      in: path
+      required: true
+      description: The entry's id. An id in the wrong format is a validation error.
+      schema:
+        type: string
+        format: uuid
+    SummaryId:
+      name: summaryId
+      in: path
+      required: true
+      description: The summary's id. An id in the wrong format is a validation error.
+      schema:
+        type: string
+        format: uuid
+
+  headers:
+    ContentDisposition:
+      description: Marks the response as a file download and names the file (UTC date).
+      schema:
+        type: string
+      example: attachment; filename="winlog-export-2026-11-01.json"
+
+  schemas:
+    Category:
+      type: string
+      description: One of the four fixed categories (§6).
+      enum:
+        - Achievement
+        - Learning
+        - Feedback
+        - Side project
+
+    Health:
+      type: object
+      required: [status, database]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+        database:
+          type: string
+          enum: [ok]
+
+    Credentials:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: alice@example.com
+        password:
+          type: string
+          format: password
+          description: The password rule is added by issue #6.
+
+    User:
+      type: object
+      required: [id, email, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        created_at:
+          type: string
+          format: date-time
+
+    LoginResult:
+      type: object
+      required: [token, expires_at]
+      properties:
+        token:
+          type: string
+          description: 'Send as `Authorization: Bearer <token>`.'
+        expires_at:
+          type: string
+          format: date-time
+          description: When the token stops working.
+
+    AccountDeletion:
+      type: object
+      required: [current_password]
+      properties:
+        current_password:
+          type: string
+          format: password
+          description: The user's current password (issue #20).
+
+    EntryInput:
+      type: object
+      description: |
+        Used for both create and update. Update is a full replacement: the
+        entry's tags become exactly the list sent, and a missing, empty or
+        whitespace-only `result_impact` clears it.
+      required: [text, date, category]
+      properties:
+        text:
+          type: string
+          pattern: '\S'
+          description: Free text. Empty or whitespace-only text counts as missing.
+        date:
+          type: string
+          format: date
+          description: Required. The API never fills it in; the entry form pre-fills today's date in the user's own time zone.
+        category:
+          $ref: '#/components/schemas/Category'
+        tags:
+          type: array
+          description: Tag names. Names the user does not have yet are created when the entry is saved. Missing or empty means no tags.
+          items:
+            type: string
+        result_impact:
+          type:
+            - string
+            - 'null'
+          description: Optional Result/Impact.
+
+    Entry:
+      type: object
+      required: [id, date, text, category, tags, result_impact, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        text:
+          type: string
+        category:
+          $ref: '#/components/schemas/Category'
+        tags:
+          type: array
+          description: Tag names, with their stored spelling.
+          items:
+            type: string
+        result_impact:
+          type:
+            - string
+            - 'null'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    EntryList:
+      type: object
+      required: [entries]
+      properties:
+        entries:
+          type: array
+          description: Sorted by date, newest first, then by creation time, newest first.
+          items:
+            $ref: '#/components/schemas/Entry'
+
+    TagList:
+      type: object
+      required: [tags]
+      properties:
+        tags:
+          type: array
+          description: Tag names used by at least one entry, sorted alphabetically without regard to case.
+          items:
+            type: string
+
+    SuggestionRequest:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+          pattern: '\S'
+          description: The entry text. Empty or whitespace-only text counts as missing.
+
+    Suggestion:
+      type: object
+      required: [category, tags]
+      properties:
+        category:
+          $ref: '#/components/schemas/Category'
+        tags:
+          type: array
+          description: Suggested tag names. A name matching one of the user's tags uses that tag's spelling.
+          maxItems: 5
+          items:
+            type: string
+
+    SummaryFilter:
+      type: object
+      description: The filter a summary is generated from and saved with.
+      required: [period_start, period_end]
+      properties:
+        period_start:
+          type: string
+          format: date
+          description: First day of the period, inclusive.
+        period_end:
+          type: string
+          format: date
+          description: Last day of the period, inclusive. Must not be before `period_start`.
+        categories:
+          type: array
+          description: Categories to include. Empty or missing means no restriction.
+          items:
+            $ref: '#/components/schemas/Category'
+        tags:
+          type: array
+          description: Tag names to include; entries with any of them match. Empty or missing means no restriction.
+          items:
+            type: string
+
+    Summary:
+      type: object
+      required: [id, text, filter, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        text:
+          type: string
+        filter:
+          $ref: '#/components/schemas/SummaryFilter'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    SummaryList:
+      type: object
+      required: [summaries]
+      properties:
+        summaries:
+          type: array
+          description: Sorted by creation time, newest first.
+          items:
+            $ref: '#/components/schemas/Summary'
+
+    SummaryUpdate:
+      type: object
+      description: Only the text can change. The filter and the entries stay unchanged.
+      required: [text]
+      properties:
+        text:
+          type: string
+          pattern: '\S'
+          description: The new summary text. Empty or whitespace-only text counts as missing.
+
+    ExportFile:
+      type: object
+      required: [format_version, exported_at, entries, summaries]
+      properties:
+        format_version:
+          type: integer
+          const: 1
+        exported_at:
+          type: string
+          format: date-time
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entry'
+        summaries:
+          type: array
+          items:
+            $ref: '#/components/schemas/Summary'
+
+    Error:
+      type: object
+      description: The shared error format for every 4xx and 5xx response.
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code.
+          enum:
+            - validation_failed
+            - not_authenticated
+            - invalid_credentials
+            - wrong_password
+            - email_already_registered
+            - not_found
+            - method_not_allowed
+            - no_matching_entries
+            - limit_reached
+            - ai_unavailable
+            - database_unreachable
+            - internal_error
+        message:
+          type: string
+          description: Human-readable explanation.
+        fields:
+          type: array
+          description: Only for `validation_failed`. Each failing field and why it failed.
+          items:
+            $ref: '#/components/schemas/FieldError'
+        limit:
+          type: string
+          description: Only for `limit_reached`. Which daily limit was reached.
+          enum:
+            - user_suggestions
+            - user_summaries
+            - global
+
+    FieldError:
+      type: object
+      required: [field, reason]
+      properties:
+        field:
+          type: string
+          description: The failing field, for example `text` or `period_end`.
+        reason:
+          type: string
+          description: Why it failed.
+
+  examples:
+    ValidationFailed:
+      summary: A field failed validation
+      value:
+        code: validation_failed
+        message: The request has invalid fields.
+        fields:
+          - field: text
+            reason: Text must not be empty.
+    NoMatchingEntries:
+      summary: No entries match the filter
+      value:
+        code: no_matching_entries
+        message: No entries match this filter, so no summary was generated.
+
+  responses:
+    ValidationFailed:
+      description: 'A field is missing or invalid (`code: validation_failed`).'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            validationFailed:
+              $ref: '#/components/examples/ValidationFailed'
+    NotAuthenticated:
+      description: 'The token is missing, invalid, expired or revoked (`code: not_authenticated`).'
+      headers:
+        WWW-Authenticate:
+          description: Always `Bearer`.
+          schema:
+            type: string
+          example: Bearer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: not_authenticated
+            message: Please log in.
+    InvalidCredentials:
+      description: 'The email or the password is wrong; the same error for both (`code: invalid_credentials`).'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: invalid_credentials
+            message: Wrong email or password.
+    WrongPassword:
+      description: 'The current password is wrong (`code: wrong_password`). Nothing was deleted.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: wrong_password
+            message: That password is incorrect.
+    EmailAlreadyRegistered:
+      description: 'An account with this email already exists (`code: email_already_registered`).'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: email_already_registered
+            message: This email is already registered.
+    NotFound:
+      description: 'The entry or summary does not exist or belongs to another user (`code: not_found`, FR-A3).'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: not_found
+            message: Not found.
+    LimitReached:
+      description: 'A daily AI limit is reached (`code: limit_reached`); `limit` names which one (§8).'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: limit_reached
+            message: You've used today's suggestions.
+            limit: user_suggestions
+    AiUnavailable:
+      description: 'The AI provider failed or timed out (`code: ai_unavailable`, §7.3). Nothing was saved.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: ai_unavailable
+            message: The AI is not available right now.
+    DatabaseUnreachable:
+      description: 'The database cannot be reached (`code: database_unreachable`).'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: database_unreachable
+            message: The database is not reachable.
+    InternalError:
+      description: 'An unexpected server error (`code: internal_error`).'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: internal_error
+            message: Something went wrong.
