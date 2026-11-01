@@ -15,3 +15,10 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **What I did:** Created `docs/process.md` with the three rules exactly as given.
 - **How I verified it:** Compared the file's content with the requested text.
 - **Left open:** The issues have a Goal and a Description but no "Acceptance criteria" section. The acceptance criteria live in `product-spec.md`, linked from each issue through its requirement IDs (for example FR-E1).
+
+## 2026-11-01: Groom issue #2 (Write the OpenAPI contract)
+
+- **Task:** Groom task 1 of the backlog (requested as "issue #1"; #1 is a pull request, so task 1 is issue #2), following `docs/pm.md`.
+- **What I did:** Rewrote issue #2 using `docs/task-template.md`: Goal, checkable acceptance criteria, Out of scope with links, and Constraints. The product owner made five decisions during grooming: bearer-token authentication with server-side, revocable tokens; a tag filter that matches entries with any of the selected tags; entry date required in the API, with the form pre-filling today's date; no pagination on the entry list in v1; size limits moved to a follow-up issue. Filed #43 (Decide maximum input sizes) for those limits. Other items moved out of scope link to existing issues (#3–#20, #6, #7, #8, #15, #21, #25, #30, #35).
+- **How I verified it:** Checked that onrender.com is on the Public Suffix List (the reason a cross-site cookie session would fail in Safari on the planned Render setup). Checked that FastAPI 0.162.0 generates OpenAPI 3.1.0, and that `npx @redocly/cli lint` (2.72.1) runs and validates an OpenAPI 3.1 file. Re-read the issue against the definition of done in `docs/pm.md`: all four sections are filled, and every out-of-scope item links to an issue.
+- **Left open:** Issue #9 still says the backend defaults the entry date to today, which conflicts with the decision in #2; #9 should be updated when it is groomed. #43 is not listed in `tasks.md`.
