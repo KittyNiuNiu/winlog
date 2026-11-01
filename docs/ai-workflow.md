@@ -195,3 +195,10 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **What I did:** The product owner asked for a follow-up issue. Filed #46, groomed with the task template. Decisions taken by the standing rule: 10 failed logins per email in 15 minutes block that email for the rest of the window, even with the correct password; 20 demo-logins per IP per hour; all values configurable; unknown emails counted the same way; a successful login clears the count; a new "too many attempts" error with `Retry-After`; IP read from Render's `X-Forwarded-For`; counts in a new table with hashed emails and IPs and expired rows deleted; messages on the login page and demo button. Added #46 to `tasks.md` under task 34 (#35), without renumbering.
 - **How I verified it:** Checked #46 against the definition of done in `docs/pm.md`.
 - **Left open:** Items 3–5 of the outside-scope list.
+
+## 2026-11-01: Outside-scope item 3: unused tags disappear (#8, #10)
+
+- **Task:** Product owner decision on tag cleanup.
+- **What I did:** The product owner chose "unused tags vanish". Decisions taken by the standing rule: hide unused tags instead of deleting them (no clash with concurrent saves; retyping the name brings the tag back); and add the rule to #8 directly instead of filing a separate issue, because #8 is not built yet, so nothing has to be redone. Updated #8 (the tag list returns only tags used by at least one entry, plus tests) and #10 (removed or deleted tags stay in the database and leave the tag list once unused).
+- **How I verified it:** Re-read #5, #11, #16, #27 and #31 for conflicts. #5's "deleting an entry keeps the tags" is still true at database level, and the others take their tags from #8's list or lookup.
+- **Left open:** Items 4–5 of the outside-scope list.
