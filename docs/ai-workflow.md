@@ -76,3 +76,10 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **What I did:** Rewrote #9 with the task template. Fixed the conflict with #2: the API now requires a date, and the form (#27) pre-fills today. Decisions taken by the standing rule: text stored exactly as typed; empty or whitespace-only Result/Impact stored as null; any real calendar date accepted, including future dates; a user id in the body is ignored; tags resolved inside the entry's transaction; the response shows stored tag spelling. Out-of-scope items link to #10, #11, #16, #27, #28 and #43.
 - **How I verified it:** Checked the issue against the definition of done in `docs/pm.md`.
 - **Left open:** Nothing for #9.
+
+## 2026-11-01: Groom issues #10 and #11 (entries: read, edit, delete; filtering)
+
+- **Task:** Groom issues #10 and #11 following `docs/pm.md`.
+- **What I did:** Rewrote both with the task template. Decisions taken by the standing rule. For #10: update is a full replacement (tags become exactly the list sent); removed tags stay in the tag list; last write wins; deleting twice gives "not found"; ids in the wrong format give a validation error; editing or deleting entries never changes saved summaries. For #11: sorted by date, then creation time, newest first; an entry appears once even if several tags match; flat list, grouping in the frontend; repeated query parameters for categories and tags; tag matching uses #8's rules; one shared filter function for the list and #17; a new index on entries (user_id, date). Added one line to #2 saying entry update is a full replacement. Out-of-scope items link to #9, #17, #27, #29, #31 and #43.
+- **How I verified it:** Checked both issues against the definition of done in `docs/pm.md`.
+- **Left open:** #2 must also state #11's sort order and repeated query parameters, and its "Conflict with #9" line is now out of date. I'll fix those in a final consistency pass.
