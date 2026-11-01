@@ -36,8 +36,10 @@ Tasks are derived from `product-spec.md` (v0.1) and listed in a suggested build 
 30. [Build the review page with filters](https://github.com/KittyNiuNiu/winlog/issues/31) (#31)
 31. [Add summary generation to the review page](https://github.com/KittyNiuNiu/winlog/issues/32) (#32)
 32. [Build the saved summaries pages](https://github.com/KittyNiuNiu/winlog/issues/33) (#33)
+    - Then: [Decide maximum input sizes](https://github.com/KittyNiuNiu/winlog/issues/43) (#43). Added while grooming; it changes endpoints and screens from earlier tasks, so do it after #33.
 33. [Build the data and account settings page](https://github.com/KittyNiuNiu/winlog/issues/34) (#34)
 34. [Add "Try the demo" to the login page](https://github.com/KittyNiuNiu/winlog/issues/35) (#35)
+    - Then: [Limit login and demo-login attempts](https://github.com/KittyNiuNiu/winlog/issues/46) (#46). Added after grooming; it changes login, demo-login and their screens, so do it after #35.
 35. [Check every screen on mobile and desktop](https://github.com/KittyNiuNiu/winlog/issues/36) (#36)
 36. [Add an end-to-end smoke test](https://github.com/KittyNiuNiu/winlog/issues/37) (#37)
 37. [Deploy to Render and Neon](https://github.com/KittyNiuNiu/winlog/issues/38) (#38)
