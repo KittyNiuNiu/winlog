@@ -188,3 +188,10 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **What I did:** The product owner chose: at least 10 characters (up to 128), with at least one uppercase letter, one digit and one special character. This replaces the earlier 15-character rule with no composition rules. Two interpretations, taken by the standing rule: "10 letters" means 10 characters, and a special character is anything that is not a letter or a digit (for example `!`, `#`, `-` or a space). Updated #6 (rule, contract, per-requirement error messages, boundary tests, and a note that the rule deliberately differs from NIST SP 800-63B-4), #26 (hint and per-requirement messages on the registration form), #37 (test password) and #21 (the demo's random password must meet the rule). No follow-up issue for password screening.
 - **How I verified it:** Re-read the four issues for any remaining mention of the 15-character rule.
 - **Left open:** Items 2–5 of the outside-scope list still need the product owner's decision.
+
+## 2026-11-01: Outside-scope item 2: filed #46 (Limit login and demo-login attempts)
+
+- **Task:** Product owner decision on limiting login and demo-login attempts.
+- **What I did:** The product owner asked for a follow-up issue. Filed #46, groomed with the task template. Decisions taken by the standing rule: 10 failed logins per email in 15 minutes block that email for the rest of the window, even with the correct password; 20 demo-logins per IP per hour; all values configurable; unknown emails counted the same way; a successful login clears the count; a new "too many attempts" error with `Retry-After`; IP read from Render's `X-Forwarded-For`; counts in a new table with hashed emails and IPs and expired rows deleted; messages on the login page and demo button. Added #46 to `tasks.md` under task 34 (#35), without renumbering.
+- **How I verified it:** Checked #46 against the definition of done in `docs/pm.md`.
+- **Left open:** Items 3–5 of the outside-scope list.
