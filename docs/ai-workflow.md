@@ -347,3 +347,65 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - `uv run pytest tests/unit`: 35 passed, also with PostgreSQL stopped. They include categories matching `openapi.yaml` and every foreign key cascading.
   - Ruff check and format are clean.
 - **Left open:** the token table (#7), case-insensitive tag names (#8), the global AI counter (#15), and the entries index (#11) come in their own migrations.
+
+## 2026-11-02: Task 5 (#6): implement user registration
+
+- **Task:** Implement issue #6 as the engineer, following `docs/software-engineer.md`.
+- **What I did:**
+  - **Contract first** (separate commit): added a `Registration` schema to `openapi.yaml` for the register request, with `minLength: 10`, `maxLength: 128`, the character requirements and the email rule. Login keeps `Credentials`, because #7 checks no strength rule at login.
+  - **Backend:** `POST /auth/register` in `app/accounts.py`.
+    - The email goes through `EmailStr`, is trimmed, and is stored in lower case.
+    - The password rule lives in `app/passwords.py` and names every missing requirement in one validation message. Length is counted in characters, and the password is used exactly as typed.
+    - Passwords are hashed with argon2id (`argon2-cffi` defaults).
+    - A duplicate email returns 409 `email_already_registered`, decided by the unique constraint, so simultaneous registrations are safe.
+    - Responses contain only `id`, `email` and `created_at`.
+  - Added a small `ApiError` for shared-format errors from endpoints, a per-request `get_session` dependency, and a helper that identifies which constraint rejected a change.
+  - Moved the `contract` test fixture to `tests/conftest.py`, so integration tests can also validate responses against `openapi.yaml`.
+- **Dependencies:**
+  - `argon2-cffi`: an established argon2 library (`AGENTS.md`); bcrypt would ignore everything after 72 bytes.
+  - `pydantic[email]`: email validation through email-validator, which makes no DNS lookups when used through pydantic.
+- **How I verified it:**
+  - `npx @redocly/cli@2.72.1 lint openapi.yaml`: valid, with the same 3 known warnings.
+  - `uv run pytest tests/unit`: 52 passed. They cover each password requirement and its message, the 9- and 129-character boundaries, all missing requirements named together, non-ASCII uppercase letters, characters rather than bytes, invalid emails, missing fields, and rejected passwords never echoed.
+  - `uv run pytest tests/integration`: 44 passed. They cover account creation validated against the `User` schema, no password or hash in responses, argon2id storage, spaces kept, the 10-character password accepted, trimming and lower-casing, duplicates in any case (409), five simultaneous registrations (one 201, four 409), and the password absent from logs at DEBUG level.
+  - Live in the rebuilt container: 201 for a mixed-case email with spaces, 409 for the same email in upper case, 422 naming the missing requirements.
+  - Ruff check and format are clean.
+- **Left open:** login, logout and tokens come in #7, and the registration screen in #26.
+
+## 2026-11-02: Draft the orchestration setup (subagents, /orchestrate skill, process rules)
+
+- **Task:** Product owner request: one subagent per role, so the main session can orchestrate them as `docs/process.md` describes.
+- **What I did:**
+  - Merged `main`, which brings the new `docs/qa-engineer.md` and the updated `docs/process.md`.
+  - Added `.claude/agents/pm.md`, `software-engineer.md` and `qa-engineer.md`. Each is a thin wrapper that points to its role file in `docs/` and defines a final report for the orchestrator.
+    - None of them can launch agents.
+    - The engineer and QA can't close issues, and none of them can merge pull requests.
+    - QA may only read, run commands and comment.
+  - Added the `/orchestrate` skill (`.claude/skills/orchestrate/SKILL.md`), with an optional issue number or `all`.
+  - Appended to `docs/process.md`: how the orchestrator works, stop points (including after two QA FAILs), the product owner's standing rule for decisions, and branch and logging rules.
+  - These are drafts for the product owner's review, committed because the stop hook requires a clean working tree.
+- **How I verified it:**
+  - Checked the [Claude Code subagents docs](https://code.claude.com/docs/en/sub-agents):
+    - the file format and fields
+    - subagents inherit MCP tools
+    - background subagents keep Read, Grep, Glob, Bash, Edit, Write and MCP tools
+    - subagents can't ask the user questions
+    - a new `agents` folder loads only after a restart
+  - Checked the [skills docs](https://code.claude.com/docs/en/skills): skills are the current format for slash commands.
+  - Parsed every frontmatter block as YAML.
+- **Left open:**
+  - The setup works only in a new session.
+  - QA's tool list includes `ToolSearch` because this environment loads GitHub tools on demand; that's an inference, not documented.
+  - The product owner still has to decide about the commit identity, because the environment sets `GIT_AUTHOR_*` and `GIT_COMMITTER_*`.
+
+## 2026-11-02: Add status labels for the issue lifecycle
+
+- **Task:** Product owner request: make each issue's status explicit, so the orchestrator skips steps that are already done and QA checks the five implemented tasks before new work starts.
+- **What I did:**
+  - Added the status labels `groomed` and `implemented`, created on first use. `qa-failed` will be created the first time QA fails.
+  - Labelled #2–#6 (tasks 1–5) `implemented`, and #7–#40, #43 and #46 `groomed`.
+  - Added a "Status labels" section to `docs/process.md`: one status label per open issue; no label means it needs grooming; closed means QA passed; only the orchestrator changes labels and keeps any other labels.
+  - The picking order now puts `implemented` and `qa-failed` issues first, then `docs/tasks.md` order, then unlisted issues, oldest first.
+  - The `/orchestrate` skill now decides each step from the label and sets the next label from each role's report. The three agent files say not to change labels.
+- **How I verified it:** listed all open issues with their labels: #2–#6 have `implemented`, the other 36 have `groomed`, and no issue has none or two.
+- **Left open:** the labels are grey with no description, because the GitHub tools available here can't edit labels. The product owner can change their colours in the repository's label settings.

@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app import health
+from app import accounts, health
 from app.db import create_db_engine
 from app.errors import register_error_handlers
 from app.settings import Settings, load_settings
@@ -37,6 +37,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     register_error_handlers(app)
     app.include_router(health.router)
+    app.include_router(accounts.router)
     return app
 
 

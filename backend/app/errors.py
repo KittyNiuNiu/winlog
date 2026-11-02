@@ -26,6 +26,17 @@ def error_response(
     return JSONResponse(status_code=status_code, content=content, headers=headers)
 
 
+class ApiError(Exception):
+    """Raise from an endpoint to answer with the shared error format."""
+
+    def __init__(self, status_code: int, code: str, message: str, **extra: Any) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.code = code
+        self.message = message
+        self.extra = extra
+
+
 def _field_name(location: Sequence[Any]) -> str:
     """Turn a location such as ("body", "tags", 0) into "tags.0"."""
     parts = list(location)
@@ -52,11 +63,16 @@ async def _handle_http_error(request: Request, exc: StarletteHTTPException) -> J
     )
 
 
+async def _handle_api_error(request: Request, exc: ApiError) -> JSONResponse:
+    return error_response(exc.status_code, exc.code, exc.message, **exc.extra)
+
+
 async def _handle_unexpected_error(request: Request, exc: Exception) -> JSONResponse:
     return error_response(500, "internal_error", "Something went wrong.")
 
 
 def register_error_handlers(app: FastAPI) -> None:
+    app.add_exception_handler(ApiError, _handle_api_error)
     app.add_exception_handler(RequestValidationError, _handle_validation_error)
     app.add_exception_handler(StarletteHTTPException, _handle_http_error)
     app.add_exception_handler(Exception, _handle_unexpected_error)
