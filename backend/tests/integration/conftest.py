@@ -50,7 +50,8 @@ def test_database_url() -> str:
 
 
 @pytest.fixture
-def client(test_database_url: str) -> TestClient:
+def client(test_database_url: str, migrated_db: Engine) -> TestClient:
+    """The app, connected to the migrated test database. Data is removed after the test."""
     settings = Settings(
         _env_file=None,
         database_url=test_database_url,

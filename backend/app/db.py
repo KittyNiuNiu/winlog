@@ -1,7 +1,11 @@
 """Database access: one SQLAlchemy engine per app, using the psycopg (v3) driver."""
 
+from collections.abc import Iterator
+
+from fastapi import Request
 from sqlalchemy import Engine, create_engine, text
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.orm import Session
 
 from app.settings import Settings
 
@@ -32,3 +36,15 @@ def database_is_reachable(engine: Engine) -> bool:
     except SQLAlchemyError:
         return False
     return True
+
+
+def get_session(request: Request) -> Iterator[Session]:
+    """FastAPI dependency: one database session per request."""
+    with Session(request.app.state.engine) as session:
+        yield session
+
+
+def violates(error: IntegrityError, constraint: str) -> bool:
+    """True if the database rejected the change because of the named constraint."""
+    diag = getattr(error.orig, "diag", None)
+    return getattr(diag, "constraint_name", None) == constraint
