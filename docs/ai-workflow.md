@@ -371,3 +371,29 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Live in the rebuilt container: 201 for a mixed-case email with spaces, 409 for the same email in upper case, 422 naming the missing requirements.
   - Ruff check and format are clean.
 - **Left open:** login, logout and tokens come in #7, and the registration screen in #26.
+
+## 2026-11-02: Draft the orchestration setup (subagents, /orchestrate skill, process rules)
+
+- **Task:** Product owner request: one subagent per role, so the main session can orchestrate them as `docs/process.md` describes.
+- **What I did:**
+  - Merged `main`, which brings the new `docs/qa-engineer.md` and the updated `docs/process.md`.
+  - Added `.claude/agents/pm.md`, `software-engineer.md` and `qa-engineer.md`. Each is a thin wrapper that points to its role file in `docs/` and defines a final report for the orchestrator.
+    - None of them can launch agents.
+    - The engineer and QA can't close issues, and none of them can merge pull requests.
+    - QA may only read, run commands and comment.
+  - Added the `/orchestrate` skill (`.claude/skills/orchestrate/SKILL.md`), with an optional issue number or `all`.
+  - Appended to `docs/process.md`: how the orchestrator works, stop points (including after two QA FAILs), the product owner's standing rule for decisions, and branch and logging rules.
+  - These are drafts for the product owner's review, committed because the stop hook requires a clean working tree.
+- **How I verified it:**
+  - Checked the [Claude Code subagents docs](https://code.claude.com/docs/en/sub-agents):
+    - the file format and fields
+    - subagents inherit MCP tools
+    - background subagents keep Read, Grep, Glob, Bash, Edit, Write and MCP tools
+    - subagents can't ask the user questions
+    - a new `agents` folder loads only after a restart
+  - Checked the [skills docs](https://code.claude.com/docs/en/skills): skills are the current format for slash commands.
+  - Parsed every frontmatter block as YAML.
+- **Left open:**
+  - The setup works only in a new session.
+  - QA's tool list includes `ToolSearch` because this environment loads GitHub tools on demand; that's an inference, not documented.
+  - The product owner still has to decide about the commit identity, because the environment sets `GIT_AUTHOR_*` and `GIT_COMMITTER_*`.
