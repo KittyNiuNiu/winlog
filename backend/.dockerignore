@@ -1,9 +1,10 @@
 # Keep secrets, local environments, caches and tests out of the image.
-.env
-.env.*
+# Patterns start with **/ so they match in every folder, not only the top level.
+**/.env
+**/.env.*
 .venv/
-__pycache__/
-*.py[cod]
-.pytest_cache/
-.ruff_cache/
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.ruff_cache/
 tests/

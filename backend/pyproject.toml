@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Winlog backend: the REST API defined in ../openapi.yaml."
 requires-python = "==3.13.*"
 dependencies = [
+    "alembic>=1.14",
     "fastapi>=0.115",
     "psycopg[binary]>=3.2",
     "pydantic-settings>=2.7",
