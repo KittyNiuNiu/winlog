@@ -15,6 +15,8 @@ WORKDIR /app
 COPY pyproject.toml uv.lock .python-version ./
 RUN uv sync --locked --no-dev --no-cache
 
+COPY alembic.ini ./
+COPY migrations ./migrations
 COPY app ./app
 
 # Run as an unprivileged user.
@@ -22,4 +24,6 @@ RUN useradd --create-home --uid 10001 winlog
 USER winlog
 
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Apply the database migrations, then start the server. `exec` makes uvicorn the main
+# process, so it receives stop signals directly.
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000"]
