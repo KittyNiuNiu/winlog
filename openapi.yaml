@@ -131,14 +131,14 @@ paths:
       description: |
         Covers FR-A1. Needs no authentication. Returns the new account and no
         token; the client logs in separately. The email and password rules are
-        added by issue #6.
+        described on the `Registration` schema.
       security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Credentials'
+              $ref: '#/components/schemas/Registration'
       responses:
         '201':
           description: The account was created.
@@ -694,6 +694,31 @@ components:
           type: string
           enum: [ok]
 
+    Registration:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          description: |
+            A valid email address. It is trimmed and stored in lower case, so
+            addresses that differ only in upper- or lower-case are the same account.
+          example: alice@example.com
+        password:
+          type: string
+          format: password
+          minLength: 10
+          maxLength: 128
+          description: |
+            10 to 128 characters, counted as characters (not bytes). It must contain
+            at least one uppercase letter (for example `A` or `Ä`), at least one digit
+            (`0`–`9`) and at least one special character: any character that is not
+            a letter or a digit, for example `!`, `#`, `-` or a space. The password
+            is used exactly as typed; spaces at the start or end are kept. A
+            validation error says which requirement is missing.
+          example: Correct-Horse-7
+
     Credentials:
       type: object
       required: [email, password]
@@ -705,7 +730,7 @@ components:
         password:
           type: string
           format: password
-          description: The password rule is added by issue #6.
+          description: The password exactly as typed. Login checks no strength rule.
 
     User:
       type: object
