@@ -1,0 +1,51 @@
+"""Fixtures for integration tests, which run against real PostgreSQL (never SQLite).
+
+Start the database first: `docker compose up -d db` in the repository root.
+"""
+
+import os
+
+import pytest
+from fastapi.testclient import TestClient
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# app.main builds the app from the environment when it is imported. These defaults let the
+# import work without a .env file; tests build their own apps from explicit settings.
+os.environ.setdefault("DATABASE_URL", "postgresql://unused:unused@localhost:5432/unused")
+os.environ.setdefault("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
+
+from app.main import create_app  # noqa: E402
+from app.settings import ENV_FILE, Settings  # noqa: E402
+
+ALLOWED_ORIGIN = "http://localhost:5173"
+
+
+class _IntegrationSettings(BaseSettings):
+    """Reads only TEST_DATABASE_URL. There is deliberately no fallback to DATABASE_URL."""
+
+    model_config = SettingsConfigDict(env_file=ENV_FILE, env_file_encoding="utf-8", extra="ignore")
+
+    test_database_url: str | None = None
+
+
+@pytest.fixture(scope="session")
+def test_database_url() -> str:
+    url = _IntegrationSettings().test_database_url
+    if not url:
+        pytest.exit(
+            "TEST_DATABASE_URL is not set. Integration tests use their own database and never "
+            "fall back to DATABASE_URL. Set it in .env (see .env.example) and start PostgreSQL "
+            "with `docker compose up -d db`.",
+            returncode=4,
+        )
+    return url
+
+
+@pytest.fixture
+def client(test_database_url: str) -> TestClient:
+    settings = Settings(
+        _env_file=None,
+        database_url=test_database_url,
+        cors_allowed_origins=[ALLOWED_ORIGIN],
+    )
+    return TestClient(create_app(settings))

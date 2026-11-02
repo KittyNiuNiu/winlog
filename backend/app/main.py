@@ -1,9 +1,13 @@
 """FastAPI application. Run it with `uv run uvicorn app.main:app --reload`."""
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import health
+from app.db import create_db_engine
 from app.errors import register_error_handlers
 from app.settings import Settings, load_settings
 
@@ -11,9 +15,16 @@ from app.settings import Settings, load_settings
 def create_app(settings: Settings | None = None) -> FastAPI:
     """Build the app. Without explicit settings, they are loaded from the environment."""
     settings = settings or load_settings()
+    engine = create_db_engine(settings)  # connects lazily, on first use
 
-    app = FastAPI(title="Winlog API", version="0.1.0")
+    @asynccontextmanager
+    async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+        yield
+        engine.dispose()
+
+    app = FastAPI(title="Winlog API", version="0.1.0", lifespan=lifespan)
     app.state.settings = settings
+    app.state.engine = engine
 
     app.add_middleware(
         CORSMiddleware,

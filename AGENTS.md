@@ -54,7 +54,7 @@ Backend (run in `backend/`):
 - Lint: `uv run ruff check .`
 - Format: `uv run ruff format .`
 - Unit tests: `uv run pytest tests/unit`
-- Integration tests (needs PostgreSQL): `uv run pytest tests/integration`
+- Integration tests (needs PostgreSQL and `TEST_DATABASE_URL` in `.env`; start it first with `docker compose up -d db` in the repo root): `uv run pytest tests/integration`
 - Apply migrations: `uv run alembic upgrade head`
 - New migration: `uv run alembic revision --autogenerate -m "<message>"`
 

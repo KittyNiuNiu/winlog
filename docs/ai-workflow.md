@@ -287,3 +287,37 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Until #4 adds the real check, `/health` reports `"database": "ok"` without checking the database, because the documented body requires that field.
   - A CORS preflight from a disallowed origin gets Starlette's plain-text 400 instead of the shared error format. It carries no CORS headers, as required, and browsers don't show preflight bodies.
   - The integration-test command in `AGENTS.md` won't work until #4 adds the first integration test.
+
+## 2026-11-01: Task 3 (#4): run the backend and PostgreSQL with Docker Compose
+
+- **Task:** Implement issue #4 as the engineer, following `docs/software-engineer.md`.
+- **What I did:**
+  - `docker-compose.yml` with `db` and `backend` services:
+    - PostgreSQL pinned to `postgres:18`, which Neon supports and uses by default for new projects.
+    - A healthcheck, and the backend waits for it.
+    - A named volume at `/var/lib/postgresql`, where the PostgreSQL 18 image keeps its data.
+    - Credentials and ports from `.env`.
+    - An inline init script that creates the test database on first start.
+  - `backend/Dockerfile`: Python 3.13, uv 0.11.32 from PyPI, runtime dependencies only, non-root user `winlog`.
+  - `backend/.dockerignore`: keeps `.env`, `.venv`, caches and tests out of the image. It lives in `backend/` because that is the build context.
+  - `app/db.py`: a sync SQLAlchemy 2.x engine with psycopg 3. Plain `postgresql://` URLs are switched to the psycopg driver, and `pool_pre_ping` lets it recover after a database restart.
+  - Health now checks the database and returns 503 `database_unreachable` when it can't connect. A new setting, `DATABASE_CONNECT_TIMEOUT_SECONDS` (default 3, range 2–60), bounds the wait.
+  - `tests/integration/` reads only `TEST_DATABASE_URL` (environment or `.env`) and stops with a message naming it when missing.
+  - New variables added to `.env.example`, and the integration-test command in `AGENTS.md` now says to start PostgreSQL first.
+- **Why sync + psycopg:**
+  - The app is small and low-traffic, and FastAPI runs sync endpoints in a thread pool, so async adds complexity without benefit.
+  - psycopg 3 is the maintained PostgreSQL driver; its `binary` extra brings libpq, so the slim image needs no system packages.
+- **Dependencies:**
+  - `sqlalchemy`: required by `AGENTS.md`.
+  - `psycopg[binary]`: the PostgreSQL driver.
+- **How I verified it:**
+  - `docker compose up --build -d` started `db` (healthy), then `backend`.
+  - Through the published ports: `/health` returned 200 `{"status":"ok","database":"ok"}`.
+  - With `db` stopped, health returned 503 `database_unreachable` immediately; after restarting `db` it returned 200 again.
+  - Both `winlog` and `winlog_test` existed. The backend ran as uid 10001. The image contains no `.env` (checked with `find`).
+  - A marker table survived `down`/`up` and was gone after `down -v`, and the fresh volume recreated both databases.
+  - `uv run pytest tests/integration`: 1 passed. With `TEST_DATABASE_URL` empty it exited with code 4 and a message naming the variable.
+  - `uv run pytest tests/unit`: 32 passed, with and without PostgreSQL running. The timeout test uses a local socket that never answers and gets 503 after about 2 seconds.
+  - Ruff check and format are clean.
+- **Sandbox note:** this session intercepts TLS, so containers here can't reach PyPI with their own certificates, and `ghcr.io` is blocked. To build here, I created a local copy of `python:3.13-slim` that trusts the session's proxy CA. It exists only in this container's Docker cache; the committed Dockerfile has no sandbox-specific settings.
+- **Left open:** running migrations when the container starts comes in #5, the frontend service in #23, CI in #24 and production settings in #38.

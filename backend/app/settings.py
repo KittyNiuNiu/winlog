@@ -7,7 +7,7 @@ Real environment variables take precedence over the file, and a missing file is 
 from pathlib import Path
 from typing import Annotated
 
-from pydantic import SecretStr, ValidationError, field_validator
+from pydantic import Field, SecretStr, ValidationError, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
@@ -26,6 +26,9 @@ class Settings(BaseSettings):
 
     database_url: SecretStr
     cors_allowed_origins: Annotated[list[str], NoDecode]
+    # Seconds to wait for the database to answer a new connection. libpq treats values
+    # below 2 as 2, so 2 is the minimum.
+    database_connect_timeout_seconds: int = Field(default=3, ge=2, le=60)
 
     @field_validator("database_url")
     @classmethod

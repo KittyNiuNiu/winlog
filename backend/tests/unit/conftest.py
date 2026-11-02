@@ -16,6 +16,7 @@ from referencing.jsonschema import DRAFT202012
 os.environ.setdefault("DATABASE_URL", "postgresql://unit:unit@localhost:5432/unit")
 os.environ.setdefault("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
 
+from app.health import check_database  # noqa: E402
 from app.main import create_app  # noqa: E402
 from app.settings import Settings  # noqa: E402
 
@@ -35,7 +36,10 @@ def settings() -> Settings:
 
 @pytest.fixture
 def client(settings: Settings) -> TestClient:
-    return TestClient(create_app(settings))
+    """A client whose database check always succeeds, so unit tests need no PostgreSQL."""
+    app = create_app(settings)
+    app.dependency_overrides[check_database] = lambda: True
+    return TestClient(app)
 
 
 @pytest.fixture
@@ -44,6 +48,7 @@ def no_env_file(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(Settings.model_config, "env_file", None)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.delenv("CORS_ALLOWED_ORIGINS", raising=False)
+    monkeypatch.delenv("DATABASE_CONNECT_TIMEOUT_SECONDS", raising=False)
 
 
 @pytest.fixture(scope="session")
