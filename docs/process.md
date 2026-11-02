@@ -34,12 +34,24 @@ How the orchestrator works
   The steps are in `.claude/skills/orchestrate/SKILL.md`.
 - The subagents are defined in `.claude/agents/`: `pm`, `software-engineer` and
   `qa-engineer`. Only the orchestrator launches them; they do not launch agents.
-- Next issue: the lowest-numbered task in `docs/tasks.md` whose issue is still open.
-- Groomed: the issue body has the four sections from `docs/task-template.md`.
-- Implemented: the issue has an engineer comment ("Implemented in commit …") that is newer
-  than any QA FAIL comment.
+- Next issue: issues labelled `implemented` or `qa-failed` come first, so finished work is
+  checked before new work starts. Otherwise, the lowest-numbered task in `docs/tasks.md`
+  whose issue is still open. Open issues not listed in `docs/tasks.md` come after the listed
+  ones, oldest first.
 - Subagents cannot ask the product owner directly. They return their questions, and the
   orchestrator asks them one at a time and passes the answers back.
+
+Status labels
+
+Every open issue has exactly one status label, which shows where it is in the lifecycle.
+The orchestrator sets it after each step, keeping any other labels; the roles do not change
+labels.
+
+- No status label: a new issue that needs grooming (step 2).
+- `groomed`: ready to implement (step 3).
+- `implemented`: waiting for QA (step 4).
+- `qa-failed`: QA failed; back to the engineer (step 3, with the QA comment).
+- Closed: QA passed. The last status label stays on the closed issue.
 
 Stop points (the orchestrator stops and asks the product owner)
 

@@ -397,3 +397,15 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - The setup works only in a new session.
   - QA's tool list includes `ToolSearch` because this environment loads GitHub tools on demand; that's an inference, not documented.
   - The product owner still has to decide about the commit identity, because the environment sets `GIT_AUTHOR_*` and `GIT_COMMITTER_*`.
+
+## 2026-11-02: Add status labels for the issue lifecycle
+
+- **Task:** Product owner request: make each issue's status explicit, so the orchestrator skips steps that are already done and QA checks the five implemented tasks before new work starts.
+- **What I did:**
+  - Added the status labels `groomed` and `implemented`, created on first use. `qa-failed` will be created the first time QA fails.
+  - Labelled #2–#6 (tasks 1–5) `implemented`, and #7–#40, #43 and #46 `groomed`.
+  - Added a "Status labels" section to `docs/process.md`: one status label per open issue; no label means it needs grooming; closed means QA passed; only the orchestrator changes labels and keeps any other labels.
+  - The picking order now puts `implemented` and `qa-failed` issues first, then `docs/tasks.md` order, then unlisted issues, oldest first.
+  - The `/orchestrate` skill now decides each step from the label and sets the next label from each role's report. The three agent files say not to change labels.
+- **How I verified it:** listed all open issues with their labels: #2–#6 have `implemented`, the other 36 have `groomed`, and no issue has none or two.
+- **Left open:** the labels are grey with no description, because the GitHub tools available here can't edit labels. The product owner can change their colours in the repository's label settings.

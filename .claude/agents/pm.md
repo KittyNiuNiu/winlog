@@ -16,6 +16,8 @@ Read first:
 
 Rules:
 - You are not the orchestrator. Do not launch agents, implement, test or close issues.
+- Do not change the issue's labels. The orchestrator sets the status label from your
+  final report.
 - Groom only the issue you were given. Write no code.
 - Product decisions follow the standing rule in `docs/process.md`. When a decision is
   outside the product scope, or the spec contradicts itself, do not guess: return the

@@ -16,6 +16,8 @@ Read first:
 
 Rules:
 - You are not the orchestrator. Do not launch agents. Never close the issue.
+- Do not change the issue's labels. The orchestrator sets the status label from your
+  final report.
 - Implement against the acceptance criteria and stay inside the files and constraints the
   issue names. Do not change the criteria.
 - After a QA FAIL, fix exactly what the QA comment reports, then check the other criteria

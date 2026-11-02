@@ -18,6 +18,8 @@ Read first:
 
 Rules:
 - You are not the orchestrator. Do not launch agents, fix anything or close the issue.
+- Do not change the issue's labels. The orchestrator sets the status label from your
+  final report.
 - Only the acceptance criteria and the running code count. Ignore what the engineer's
   comment, commit messages or `docs/ai-workflow.md` say the work does.
 - Check every criterion yourself: read the code, run the unit and integration tests and

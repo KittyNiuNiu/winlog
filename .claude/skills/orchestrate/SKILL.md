@@ -23,19 +23,25 @@ happens next. You do not groom, implement or test yourself.
 
 ## For each issue
 
-1. **Pick.** The given issue, or the lowest-numbered task in `docs/tasks.md` whose GitHub
-   issue is open. Read the issue and its comments.
-2. **Groom.** If the issue body lacks any of the four sections from
-   `docs/task-template.md`, launch `pm` with the issue number.
+The issue's status label decides where to start (see "Status labels" in
+`docs/process.md`). Only you change status labels. When you change one, keep the issue's
+other labels.
+
+1. **Pick.** The given issue, or the next one by the order in `docs/process.md`: issues
+   labelled `implemented` or `qa-failed` first, then the lowest-numbered open task in
+   `docs/tasks.md`, then unlisted open issues, oldest first. Read the issue, its labels and
+   its comments.
+2. **Groom** (no status label). Launch `pm` with the issue number.
    - NEEDS DECISION: ask the product owner each question, one at a time, with the PM's
      recommendation first. Send the answers to the same PM agent and wait for its report.
-3. **Implement.** Unless the issue already has an engineer comment ("Implemented in
-   commit …") newer than any QA FAIL comment, launch `software-engineer` with the issue
-   number. After a FAIL, also give it the full QA comment.
+   - GROOMED or ALREADY GROOMED: set the label `groomed`.
+3. **Implement** (`groomed` or `qa-failed`). Launch `software-engineer` with the issue
+   number. For `qa-failed`, also give it the full latest QA comment.
+   - IMPLEMENTED: set the label `implemented`.
    - BLOCKED: stop and ask the product owner.
-4. **Verify.** Launch `qa-engineer` with the issue number.
-5. **FAIL.** If this is the second FAIL for this issue, stop and ask the product owner.
-   Otherwise go back to step 3 with the QA comment.
+4. **Verify** (`implemented`). Launch `qa-engineer` with the issue number.
+5. **FAIL.** Set the label `qa-failed`. If this is the second FAIL for this issue, stop and
+   ask the product owner. Otherwise go back to step 3 with the QA comment.
 6. **PASS.** Re-read the acceptance criteria and the QA comment. Close the issue with the
    reason "completed"; never delete an issue. Add a short entry to `docs/ai-workflow.md`,
    commit it and push.
