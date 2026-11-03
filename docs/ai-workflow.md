@@ -409,3 +409,8 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - The `/orchestrate` skill now decides each step from the label and sets the next label from each role's report. The three agent files say not to change labels.
 - **How I verified it:** listed all open issues with their labels: #2–#6 have `implemented`, the other 36 have `groomed`, and no issue has none or two.
 - **Left open:** the labels are grey with no description, because the GitHub tools available here can't edit labels. The product owner can change their colours in the repository's label settings.
+
+## 2026-11-03: Orchestrator: QA PASS and closed #2 (task 1, OpenAPI contract)
+
+- QA PASS (https://github.com/KittyNiuNiu/winlog/issues/2#issuecomment-6615753550): all criteria met; Redocly 0 errors, spec validator OK, unit tests 52 passed. Closed #2 as completed.
+- QA notes, none failing: a few cases share an HTTP status (each still has its own code); the Markdown export's header example names a `.json` file; schemas allow extra fields; the "no field size limits yet" sentence sits next to #6's password rule.
