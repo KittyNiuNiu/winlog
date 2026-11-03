@@ -428,3 +428,9 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - `uv run pytest tests/unit`: 79 passed. `uv run pytest tests/integration`: 44 passed. `uv run ruff check .` and `uv run ruff format --check .` are clean.
   - Live with `uv run uvicorn app.main:app`: QA's curl requests for all seven other origins, simple and preflight, on `/health` and `/nope`, return no `Access-Control-*` header. The allowed origin still gets `Access-Control-Allow-Origin` and `Access-Control-Expose-Headers: Content-Disposition`, and its preflight still allows `Authorization`.
 - **Left open:** nothing for this criterion. Responses keep `Vary: Origin` (and, on preflights, `Vary` naming the `Access-Control-Request-*` request headers), because caches need it; it is a caching header, not a CORS header.
+
+## 2026-11-03: Orchestrator: #3 failed QA twice, stopped for the product owner
+
+- **First FAIL** (https://github.com/KittyNiuNiu/winlog/issues/3#issuecomment-6615875013): origins outside the allowed list still got some CORS headers. The engineer fixed it in 4b9fcd5 with stronger tests (https://github.com/KittyNiuNiu/winlog/issues/3#issuecomment-6615999045).
+- **Second FAIL** (https://github.com/KittyNiuNiu/winlog/issues/3#issuecomment-6616147710): the earlier problem is fixed, but a 500 response to the allowed origin has no CORS headers, so a browser can't read the error. Starlette's server-error handler runs outside the CORS middleware. No test covers it. It has been there since 4f982da.
+- Set #3 to `qa-failed` and stopped, as `docs/process.md` requires after a second FAIL. #4–#6 are still `implemented` and waiting for QA.
