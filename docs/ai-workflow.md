@@ -434,3 +434,20 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **First FAIL** (https://github.com/KittyNiuNiu/winlog/issues/3#issuecomment-6615875013): origins outside the allowed list still got some CORS headers. The engineer fixed it in 4b9fcd5 with stronger tests (https://github.com/KittyNiuNiu/winlog/issues/3#issuecomment-6615999045).
 - **Second FAIL** (https://github.com/KittyNiuNiu/winlog/issues/3#issuecomment-6616147710): the earlier problem is fixed, but a 500 response to the allowed origin has no CORS headers, so a browser can't read the error. Starlette's server-error handler runs outside the CORS middleware. No test covers it. It has been there since 4f982da.
 - Set #3 to `qa-failed` and stopped, as `docs/process.md` requires after a second FAIL. #4–#6 are still `implemented` and waiting for QA.
+
+## 2026-11-04: Fix second QA FAIL on #3 (no CORS headers on the shared 500 response)
+
+- **Task:** QA failed #3 a second time (https://github.com/KittyNiuNiu/winlog/issues/3#issuecomment-6616147710) on "A request from an allowed origin gets CORS headers". A request from the allowed origin that ended in the shared 500 `internal_error` response got no CORS headers. Starlette runs the handler registered for `Exception` in `ServerErrorMiddleware`, which wraps every middleware the app adds, so the CORS middleware never saw the 500. The product owner decided the engineer fixes it and QA runs again.
+- **What I did:**
+  - Added `UnexpectedErrorMiddleware` to `backend/app/errors.py`, a small ASGI middleware. `app/main.py` adds it before the CORS middleware, so it runs inside it. It answers an unexpected error with the same shared 500 body, so the response passes through the CORS middleware: the allowed origin gets the usual CORS headers, and other origins still get none (the fix from 4b9fcd5).
+  - It then raises the error again, so uvicorn still logs it. `ServerErrorMiddleware` sees that a response has started and sends no second one. The `Exception` handler stays registered as a fallback for errors outside the new middleware.
+  - The 500 body is unchanged (`{"code":"internal_error","message":"Something went wrong."}`) and shows no exception details.
+  - Tests in `tests/unit/test_cors.py`, with a route defined only in the test that raises `RuntimeError`, for GET and POST: the allowed origin gets the same `Access-Control-*` and `Vary` headers as on `/health`, and the seven other origins get no header starting with `access-control-`. Both check the body against `Error` and that the exception text is absent.
+  - Tests in `tests/unit/test_errors.py`: the error still reaches the server, and an error after a streamed response started sends no second response.
+  - No new dependencies. No changes to settings, `.env.example` or `openapi.yaml`.
+- **How I verified it:**
+  - The two allowed-origin tests failed before the fix and pass after it. I also broke the middleware on purpose three ways: not adding it, not re-raising, and sending a second response. A test failed each time.
+  - `uv run pytest tests/unit`: 97 passed. `uv run pytest tests/integration` (PostgreSQL via `docker compose up -d db`): 44 passed. `uv run ruff check .` and `uv run ruff format --check .` are clean.
+  - Live, QA's request: `uv run uvicorn app.main:app --port 8011` with `DATABASE_URL` at `127.0.0.1:1`, then `POST /auth/register` from `http://localhost:5173`. It returns 500 `internal_error` with `access-control-allow-origin: http://localhost:5173`, `access-control-expose-headers: Content-Disposition` and `vary: Origin`, the same as the 503 from `/health`. From `https://evil.example`, `http://localhost:5174` and `null` it returns the same 500 with no `access-control-*` header. uvicorn logs each error once, without the email or password.
+  - Live with the database up and `--reload`: 200, 404, 405 and 422 responses and the preflight behave as before for the allowed origin and for `https://evil.example`.
+- **Left open:** nothing for this criterion. An error raised inside the CORS middleware itself would still get the 500 body without CORS headers, from the fallback handler; the app code does not run there.
