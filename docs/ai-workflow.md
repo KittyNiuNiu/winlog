@@ -451,3 +451,8 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Live, QA's request: `uv run uvicorn app.main:app --port 8011` with `DATABASE_URL` at `127.0.0.1:1`, then `POST /auth/register` from `http://localhost:5173`. It returns 500 `internal_error` with `access-control-allow-origin: http://localhost:5173`, `access-control-expose-headers: Content-Disposition` and `vary: Origin`, the same as the 503 from `/health`. From `https://evil.example`, `http://localhost:5174` and `null` it returns the same 500 with no `access-control-*` header. uvicorn logs each error once, without the email or password.
   - Live with the database up and `--reload`: 200, 404, 405 and 422 responses and the preflight behave as before for the allowed origin and for `https://evil.example`.
 - **Left open:** nothing for this criterion. An error raised inside the CORS middleware itself would still get the 500 body without CORS headers, from the fallback handler; the app code does not run there.
+
+## 2026-11-04: Orchestrator: third round on #3, QA PASS, closed
+
+- The product owner chose to let the engineer fix the second QA FAIL. The engineer added `UnexpectedErrorMiddleware` inside the CORS middleware, so the shared 500 response gets the same CORS headers as any other response: present for allowed origins, none for others. Tests now cover 500s with an `Origin` header (420125b; https://github.com/KittyNiuNiu/winlog/issues/3#issuecomment-6640497704).
+- QA PASS on all 19 criteria (https://github.com/KittyNiuNiu/winlog/issues/3#issuecomment-6640629693): 97 unit and 44 integration tests pass. Both earlier FAIL cases were re-checked live. QA also confirmed the new tests fail when the fix is reverted. Closed #3 as completed.
