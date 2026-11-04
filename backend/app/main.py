@@ -4,9 +4,9 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
 from app import accounts, health
+from app.cors import AllowedOriginsCORSMiddleware
 from app.db import create_db_engine
 from app.errors import register_error_handlers
 from app.settings import Settings, load_settings
@@ -27,7 +27,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.engine = engine
 
     app.add_middleware(
-        CORSMiddleware,
+        AllowedOriginsCORSMiddleware,
         allow_origins=settings.cors_allowed_origins,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
         # Authorization carries the bearer token (openapi.yaml, bearerAuth).

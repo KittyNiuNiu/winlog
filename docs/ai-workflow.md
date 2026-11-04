@@ -409,3 +409,28 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - The `/orchestrate` skill now decides each step from the label and sets the next label from each role's report. The three agent files say not to change labels.
 - **How I verified it:** listed all open issues with their labels: #2–#6 have `implemented`, the other 36 have `groomed`, and no issue has none or two.
 - **Left open:** the labels are grey with no description, because the GitHub tools available here can't edit labels. The product owner can change their colours in the repository's label settings.
+
+## 2026-11-03: Orchestrator: QA PASS and closed #2 (task 1, OpenAPI contract)
+
+- QA PASS (https://github.com/KittyNiuNiu/winlog/issues/2#issuecomment-6615753550): all criteria met; Redocly 0 errors, spec validator OK, unit tests 52 passed. Closed #2 as completed.
+- QA notes, none failing: a few cases share an HTTP status (each still has its own code); the Markdown export's header example names a `.json` file; schemas allow extra fields; the "no field size limits yet" sentence sits next to #6's password rule.
+
+## 2026-11-03: Fix QA FAIL on #3 (no CORS headers for other origins)
+
+- **Task:** QA failed #3 (https://github.com/KittyNiuNiu/winlog/issues/3#issuecomment-6615875013) on "A request from an origin that is not in the list gets no CORS headers". Starlette's `CORSMiddleware` left out only `Access-Control-Allow-Origin` for such origins. It still sent `Access-Control-Expose-Headers` on every response with an `Origin` header, and its fixed `Access-Control-Allow-Methods`, `-Allow-Headers` and `-Max-Age` on every preflight.
+- **What I did:**
+  - Added `backend/app/cors.py` with `AllowedOriginsCORSMiddleware`, a subclass of FastAPI's CORS middleware. For an origin that is not in `CORS_ALLOWED_ORIGINS`, it removes every `Access-Control-*` header from the response. Status, body and `Vary` stay as before, so a disallowed preflight is still 400 "Disallowed CORS origin".
+  - `app/main.py` uses it with the same settings as before. Allowed origins are unchanged.
+  - Strengthened `tests/unit/test_cors.py`: for other origins, the simple and preflight tests now check that no header starting with `access-control-` is present, on `/health` (200) and an unknown path (404), for an unrelated origin and six near misses (port, scheme, trailing slash, subdomain, `127.0.0.1`, `null`). The allowed-origin test also covers the 404 path.
+  - No new dependencies.
+- **How I verified it:**
+  - The strengthened tests failed before the fix (28 failures) and pass after it.
+  - `uv run pytest tests/unit`: 79 passed. `uv run pytest tests/integration`: 44 passed. `uv run ruff check .` and `uv run ruff format --check .` are clean.
+  - Live with `uv run uvicorn app.main:app`: QA's curl requests for all seven other origins, simple and preflight, on `/health` and `/nope`, return no `Access-Control-*` header. The allowed origin still gets `Access-Control-Allow-Origin` and `Access-Control-Expose-Headers: Content-Disposition`, and its preflight still allows `Authorization`.
+- **Left open:** nothing for this criterion. Responses keep `Vary: Origin` (and, on preflights, `Vary` naming the `Access-Control-Request-*` request headers), because caches need it; it is a caching header, not a CORS header.
+
+## 2026-11-03: Orchestrator: #3 failed QA twice, stopped for the product owner
+
+- **First FAIL** (https://github.com/KittyNiuNiu/winlog/issues/3#issuecomment-6615875013): origins outside the allowed list still got some CORS headers. The engineer fixed it in 4b9fcd5 with stronger tests (https://github.com/KittyNiuNiu/winlog/issues/3#issuecomment-6615999045).
+- **Second FAIL** (https://github.com/KittyNiuNiu/winlog/issues/3#issuecomment-6616147710): the earlier problem is fixed, but a 500 response to the allowed origin has no CORS headers, so a browser can't read the error. Starlette's server-error handler runs outside the CORS middleware. No test covers it. It has been there since 4f982da.
+- Set #3 to `qa-failed` and stopped, as `docs/process.md` requires after a second FAIL. #4–#6 are still `implemented` and waiting for QA.
