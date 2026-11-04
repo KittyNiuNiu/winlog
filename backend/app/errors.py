@@ -11,6 +11,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 _REQUEST_PARTS = {"body", "query", "path", "header", "cookie"}
 
@@ -67,12 +68,55 @@ async def _handle_api_error(request: Request, exc: ApiError) -> JSONResponse:
     return error_response(exc.status_code, exc.code, exc.message, **exc.extra)
 
 
-async def _handle_unexpected_error(request: Request, exc: Exception) -> JSONResponse:
+def _internal_error_response() -> JSONResponse:
+    # Never says what went wrong: exception details stay on the server.
     return error_response(500, "internal_error", "Something went wrong.")
+
+
+async def _handle_unexpected_error(request: Request, exc: Exception) -> JSONResponse:
+    return _internal_error_response()
+
+
+class UnexpectedErrorMiddleware:
+    """Answers an unexpected error with the shared 500 response, inside the CORS middleware.
+
+    Starlette runs the handler registered for `Exception` in its outermost middleware,
+    outside every middleware the app adds. A 500 response sent from there skips the CORS
+    middleware, so a browser blocks it and the frontend cannot read the error. Add this
+    middleware before the CORS middleware, so that it runs inside it: the 500 response then
+    gets the same CORS headers as every other response.
+
+    After answering, it raises the error again, so the server still logs it. The outer
+    handler sees that a response has started and sends no second one.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        response_started = False
+
+        async def send_and_track_start(message: Message) -> None:
+            nonlocal response_started
+            if message["type"] == "http.response.start":
+                response_started = True
+            await send(message)
+
+        try:
+            await self.app(scope, receive, send_and_track_start)
+        except Exception:
+            if not response_started:
+                await _internal_error_response()(scope, receive, send)
+            raise
 
 
 def register_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(ApiError, _handle_api_error)
     app.add_exception_handler(RequestValidationError, _handle_validation_error)
     app.add_exception_handler(StarletteHTTPException, _handle_http_error)
+    # Fallback for errors outside UnexpectedErrorMiddleware, for example in the CORS middleware.
     app.add_exception_handler(Exception, _handle_unexpected_error)

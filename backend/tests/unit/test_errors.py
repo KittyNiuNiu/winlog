@@ -1,8 +1,11 @@
+import pytest
 from fastapi import Query
+from fastapi.responses import StreamingResponse
 from fastapi.testclient import TestClient
 from pydantic import BaseModel
 
 from app.main import create_app
+from tests.unit.conftest import ALLOWED_ORIGIN
 
 
 class _Payload(BaseModel):
@@ -21,6 +24,14 @@ def _client_with_test_routes(settings) -> TestClient:
     @app.get("/test-only/crash")
     def crash_route() -> dict:
         raise RuntimeError("boom")
+
+    @app.get("/test-only/crash-mid-stream")
+    def crash_mid_stream_route() -> StreamingResponse:
+        def chunks():
+            yield b"partial"
+            raise RuntimeError("boom")
+
+        return StreamingResponse(chunks())
 
     return TestClient(app, raise_server_exceptions=False)
 
@@ -90,3 +101,24 @@ def test_unexpected_error_returns_500_in_shared_format(settings, contract):
     assert response.json()["code"] == "internal_error"
     assert "boom" not in response.text
     contract("Error").validate(response.json())
+
+
+def test_unexpected_error_still_reaches_the_server(settings):
+    # After the 500 response the error is raised again, so the server logs it.
+    # A test client raises it instead (unless raise_server_exceptions is off).
+    app = _client_with_test_routes(settings).app
+
+    with pytest.raises(RuntimeError, match="boom"):
+        TestClient(app).get("/test-only/crash", headers={"Origin": ALLOWED_ORIGIN})
+
+
+def test_error_after_the_response_started_sends_no_second_response(settings):
+    client = _client_with_test_routes(settings)
+
+    response = client.get("/test-only/crash-mid-stream", headers={"Origin": ALLOWED_ORIGIN})
+
+    assert response.status_code == 200
+    assert response.content == b"partial"
+    # A second response start would make the test client raise an AssertionError instead.
+    with pytest.raises(RuntimeError, match="boom"):
+        TestClient(client.app).get("/test-only/crash-mid-stream")

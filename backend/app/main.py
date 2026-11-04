@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from app import accounts, health
 from app.cors import AllowedOriginsCORSMiddleware
 from app.db import create_db_engine
-from app.errors import register_error_handlers
+from app.errors import UnexpectedErrorMiddleware, register_error_handlers
 from app.settings import Settings, load_settings
 
 
@@ -26,6 +26,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.state.engine = engine
 
+    # The middleware added last runs first. UnexpectedErrorMiddleware runs inside the CORS
+    # middleware, so the shared 500 response gets CORS headers like every other response.
+    app.add_middleware(UnexpectedErrorMiddleware)
     app.add_middleware(
         AllowedOriginsCORSMiddleware,
         allow_origins=settings.cors_allowed_origins,
