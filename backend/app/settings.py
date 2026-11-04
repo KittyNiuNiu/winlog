@@ -26,7 +26,8 @@ class Settings(BaseSettings):
 
     database_url: SecretStr
     cors_allowed_origins: Annotated[list[str], NoDecode]
-    # Seconds to wait for the database to answer a new connection. libpq treats values
+    # Seconds the health check waits for the database to answer, on a new or a pooled
+    # connection. Also libpq's connect_timeout for every new connection, which treats values
     # below 2 as 2, so 2 is the minimum.
     database_connect_timeout_seconds: int = Field(default=3, ge=2, le=60)
 
