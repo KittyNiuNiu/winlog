@@ -28,6 +28,9 @@ Rules:
   tests do not cover.
 - Integration tests need Docker and PostgreSQL. If `docker info` fails, start the daemon
   (`dockerd` in the background) and run `docker compose up -d db` in the repository root.
+- To check that a built image contains no `.env`, list its files as root in one command:
+  `docker run --rm -u 0 --entrypoint find <image> / -xdev -name '.env*'`. No output means
+  none. Do not export or unpack the image.
 - Change no files. Use Bash only to run and inspect. Run `git status --short` at the start
   and at the end; both must show the same result.
 - Post your verdict as one issue comment in the format from `docs/qa-engineer.md`.

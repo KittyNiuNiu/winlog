@@ -456,3 +456,39 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 
 - The product owner chose to let the engineer fix the second QA FAIL. The engineer added `UnexpectedErrorMiddleware` inside the CORS middleware, so the shared 500 response gets the same CORS headers as any other response: present for allowed origins, none for others. Tests now cover 500s with an `Origin` header (420125b; https://github.com/KittyNiuNiu/winlog/issues/3#issuecomment-6640497704).
 - QA PASS on all 19 criteria (https://github.com/KittyNiuNiu/winlog/issues/3#issuecomment-6640629693): 97 unit and 44 integration tests pass. Both earlier FAIL cases were re-checked live. QA also confirmed the new tests fail when the fix is reverted. Closed #3 as completed.
+
+## 2026-11-04: Orchestrator: QA FAIL on #4, simpler `.env` check for QA
+
+- **First FAIL** (https://github.com/KittyNiuNiu/winlog/issues/4#issuecomment-6641014416): 19 of 20 criteria pass. The health timeout criterion fails: with an idle connection in the pool and the database paused (TCP open, no answer), `GET /health` hung for 150 s. `DATABASE_CONNECT_TIMEOUT_SECONDS` is passed only as libpq `connect_timeout`, so the pre-ping and `SELECT 1` on a pooled connection have no time limit. The unit test covers only a new connection. Set #4 to `qa-failed`.
+- **Process change (product owner):** QA's layer-by-layer `docker save` scan for `.env` kept failing to run, so the product owner asked for a simpler check. I tested `docker run --rm -u 0 --entrypoint find <image> / -xdev -name '.env*'`: no output on the real backend image, and it found both `.env` files planted in a test image. `-u 0` is needed because the image's non-root user cannot read `/root` and a few other folders. Added to `.claude/agents/qa-engineer.md`.
+
+## 2026-11-04: Fix QA FAIL on #4 (health timeout on a pooled connection)
+
+- **Task:** QA failed #4 (https://github.com/KittyNiuNiu/winlog/issues/4#issuecomment-6641014416) on "The database check gives up after a timeout set by an environment variable". After one successful `/health`, `docker compose pause db` made the next `/health` hang for 150 s. `DATABASE_CONNECT_TIMEOUT_SECONDS` was only libpq's `connect_timeout`, so the pool's pre-ping and `SELECT 1` on an idle pooled connection had no time limit. The product owner decided the engineer fixes it now.
+- **What I did:**
+  - Checked the libraries in the installed source and docstrings, because postgresql.org and docs.sqlalchemy.org are blocked here:
+    - psycopg 3.3.6 enforces the timeout only while connecting, and has no public query timeout.
+    - SQLAlchemy 2.1.6's pre-ping has no time limit.
+    - The server enforces `statement_timeout` itself, so it can't fire while the server is frozen. `tcp_user_timeout` and keepalives rely on TCP acknowledgements, which a paused container still sends.
+  - `database_is_reachable` in `backend/app/db.py` now runs the check in its own thread. The request waits for it at most `DATABASE_CONNECT_TIMEOUT_SECONDS` and then returns 503 `database_unreachable`.
+  - A check that gave up finishes in the background. Its connection goes back to the pool when the database answers, or SQLAlchemy discards it if it broke. Either way the pool is not left broken.
+  - Only `/health` has the limit; other database access is unchanged. I updated the comment in `settings.py`. `.env.example` already described the new behaviour, so it is unchanged. No new dependencies.
+  - Tests:
+    - **Integration:** a pausable TCP proxy in front of the real test database. Paused, it keeps connections open and forwards nothing. Pooled and new connections must give 503 within the timeout, and `/health` must return 200 again after the proxy resumes or drops its connections.
+    - **Unit:** a connection that never answers, without PostgreSQL.
+- **How I verified it:**
+  - All three new tests fail with `backend/app` stashed: 200 after 15 s, or 15 s elapsed.
+  - `uv run pytest tests/unit`: 98 passed, without PostgreSQL. `uv run pytest tests/integration`: 46 passed. `uv run ruff check .` and `uv run ruff format --check .` are clean.
+  - Live with `docker compose up --build` and QA's steps:
+    - Timeout 3: 200, then pause, then 503 in 3.0 s (three times), then unpause, then 200.
+    - Timeout 7: 503 in 7.0 s while paused. After unpause, `/health` returned 200 and registration returned 201.
+    - Pause, then `docker compose restart db`: 503, then 200.
+  - Afterwards I ran `docker compose down -v` and removed the built image.
+  - This environment's workarounds are not committed: a local `python:3.13-slim` that trusts the proxy CA, and `postgres:18` from `mirror.gcr.io` because Docker Hub returned 429.
+- **Left open:** while the database stays silent, a check that gave up keeps one background thread waiting on its connection until the database answers or the OS drops the connection. That is at most one thread per connection that went silent. Other endpoints still wait on a silent pooled connection as before; that is outside this criterion.
+
+## 2026-11-04: Orchestrator: second round on #4, QA PASS, closed
+
+- The product owner chose to let the engineer fix the first QA FAIL. The engineer now runs the health database check in its own thread with a deadline of `DATABASE_CONNECT_TIMEOUT_SECONDS`, so a pooled connection that stops answering gives 503 `database_unreachable` instead of hanging. New unit and integration tests cover a silent pooled connection (3795429; https://github.com/KittyNiuNiu/winlog/issues/4#issuecomment-6641408338).
+- QA PASS on all 20 criteria (https://github.com/KittyNiuNiu/winlog/issues/4#issuecomment-6641742646): 98 unit and 46 integration tests pass. The round 1 reproduction now gives 503 in 3.0 s, and the backend recovers after unpause and after a restart. QA confirmed the new tests fail without the fix and used the new one-command `.env` image check. Closed #4 as completed.
+- Noted, not failures: while the database stays paused, each `/health` call starts a thread; under heavy load QA saw a bounded peak of 316 threads, back to 2 after unpause. Other endpoints can still wait on a silent database, as before; that is outside #4. QA also asked about the `httpx2` dev dependency from #3: it is Pydantic's maintained fork of `httpx`, and Starlette 1.10's test client requires it. Neon's support for PostgreSQL 18 (generally available since May 2026) was checked in Neon's docs, because neon.com is blocked for QA here.

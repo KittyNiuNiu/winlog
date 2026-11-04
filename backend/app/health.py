@@ -18,7 +18,9 @@ class Health(BaseModel):
 
 
 def check_database(request: Request) -> bool:
-    return database_is_reachable(request.app.state.engine)
+    return database_is_reachable(
+        request.app.state.engine, request.app.state.settings.database_connect_timeout_seconds
+    )
 
 
 @router.get(
