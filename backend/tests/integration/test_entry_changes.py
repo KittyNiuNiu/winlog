@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from app import entries
 from app.models import Entry, EntryTag, Summary
 from tests.integration.test_entries import (
+    NOT_JSON,
     VALID,
     _assert_validation_error,
     _create,
@@ -753,6 +754,58 @@ def test_fr_a3_without_a_valid_token_all_three_are_not_authenticated(
     assert "Gave a talk" not in response.text
     assert _snapshot(migrated_db, entry["id"]) == before
     assert _tags(migrated_db) == tags
+
+
+def _put_bytes(client: TestClient, token: str | None, entry_id: str, body: bytes):
+    return client.put(
+        f"/entries/{entry_id}",
+        content=body,
+        headers={**_headers(token), "content-type": "application/json"},
+    )
+
+
+@pytest.mark.parametrize("body", NOT_JSON)
+@pytest.mark.parametrize("token", [None, "not-a-real-token", "expired"])
+@pytest.mark.parametrize("which", ["own", "missing"])
+def test_fr_a3_update_with_a_body_that_is_not_json_and_no_valid_token_is_not_authenticated(
+    client: TestClient,
+    migrated_db: Engine,
+    alice: uuid.UUID,
+    entry,
+    contract,
+    token,
+    which,
+    body: bytes,
+):
+    """The token is checked first, although FastAPI reads the body before any dependency."""
+    if token == "expired":
+        token = _token(migrated_db, alice, valid_for=dt.timedelta(seconds=-1))
+    entry_id = {"own": entry["id"], "missing": MISSING_ID}[which]
+    before = _snapshot(migrated_db, entry["id"])
+    tags = _tags(migrated_db)
+
+    response = _put_bytes(client, token, entry_id, body)
+
+    assert response.status_code == 401
+    contract("Error").validate(response.json())
+    assert response.json()["code"] == "not_authenticated"
+    assert response.headers["WWW-Authenticate"] == "Bearer"
+    assert _snapshot(migrated_db, entry["id"]) == before
+    assert _tags(migrated_db) == tags
+
+
+@pytest.mark.parametrize("body", NOT_JSON[:3])
+def test_fr_a3_update_with_a_valid_token_and_a_body_that_is_not_json_is_a_validation_error(
+    client: TestClient, migrated_db: Engine, alice_token: str, entry, contract, body: bytes
+):
+    before = _snapshot(migrated_db, entry["id"])
+
+    response = _put_bytes(client, alice_token, entry["id"], body)
+
+    assert response.status_code == 422
+    contract("Error").validate(response.json())
+    assert response.json()["code"] == "validation_failed"
+    assert _snapshot(migrated_db, entry["id"]) == before
 
 
 # --- Privacy ------------------------------------------------------------------------------
