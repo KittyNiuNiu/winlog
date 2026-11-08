@@ -27,12 +27,12 @@ from sqlalchemy import Text, column, func, select, values
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from app.auth import CurrentUser
+from app.auth import AuthenticateFirstRoute, CurrentUser
 from app.db import get_session
 from app.models import Entry, EntryTag, Tag, User
 from app.text_rules import reject_unstorable_characters
 
-router = APIRouter(tags=["Tags"])
+router = APIRouter(tags=["Tags"], route_class=AuthenticateFirstRoute)
 
 
 def normalise_tag_name(name: str) -> str:

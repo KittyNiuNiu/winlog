@@ -14,7 +14,13 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.auth import CurrentLogin, create_token, get_current_login, get_current_user
+from app.auth import (
+    AuthenticateFirstRoute,
+    CurrentLogin,
+    create_token,
+    get_current_login,
+    get_current_user,
+)
 from app.db import get_session, violates
 from app.errors import ApiError
 from app.models import Token, User
@@ -26,7 +32,7 @@ from app.passwords import (
     verify_password,
 )
 
-router = APIRouter(tags=["Accounts"])
+router = APIRouter(tags=["Accounts"], route_class=AuthenticateFirstRoute)
 
 
 def _normalise_email(email: str) -> str:

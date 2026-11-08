@@ -46,13 +46,13 @@ from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
 from app import models
-from app.auth import CurrentUser
+from app.auth import AuthenticateFirstRoute, CurrentUser
 from app.db import get_session
 from app.errors import ApiError
 from app.tags import TagName, resolve_tags
 from app.text_rules import is_blank, reject_unstorable_characters
 
-router = APIRouter(tags=["Entries"])
+router = APIRouter(tags=["Entries"], route_class=AuthenticateFirstRoute)
 
 # The four categories of openapi.yaml (components.schemas.Category), as in models.CATEGORIES.
 Category = Literal["Achievement", "Learning", "Feedback", "Side project"]
