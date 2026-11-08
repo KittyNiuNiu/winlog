@@ -30,11 +30,19 @@ def error_response(
 class ApiError(Exception):
     """Raise from an endpoint to answer with the shared error format."""
 
-    def __init__(self, status_code: int, code: str, message: str, **extra: Any) -> None:
+    def __init__(
+        self,
+        status_code: int,
+        code: str,
+        message: str,
+        headers: dict[str, str] | None = None,
+        **extra: Any,
+    ) -> None:
         super().__init__(message)
         self.status_code = status_code
         self.code = code
         self.message = message
+        self.headers = headers
         self.extra = extra
 
 
@@ -65,7 +73,7 @@ async def _handle_http_error(request: Request, exc: StarletteHTTPException) -> J
 
 
 async def _handle_api_error(request: Request, exc: ApiError) -> JSONResponse:
-    return error_response(exc.status_code, exc.code, exc.message, **exc.extra)
+    return error_response(exc.status_code, exc.code, exc.message, headers=exc.headers, **exc.extra)
 
 
 def _internal_error_response() -> JSONResponse:

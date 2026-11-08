@@ -16,6 +16,7 @@ def test_categories_match_the_contract():
 def test_models_cover_the_tables_from_the_data_model():
     assert set(Base.metadata.tables) == {
         "users",
+        "tokens",
         "entries",
         "tags",
         "entry_tags",

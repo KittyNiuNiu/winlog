@@ -25,7 +25,7 @@ from app.settings import ENV_FILE, Settings  # noqa: E402
 
 ALLOWED_ORIGIN = "http://localhost:5173"
 BACKEND_DIR = Path(__file__).resolve().parents[2]
-APP_TABLES = {"users", "entries", "tags", "entry_tags", "summaries", "ai_usage"}
+APP_TABLES = {"users", "tokens", "entries", "tags", "entry_tags", "summaries", "ai_usage"}
 
 
 class _IntegrationSettings(BaseSettings):

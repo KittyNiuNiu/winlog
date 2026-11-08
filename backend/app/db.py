@@ -26,6 +26,9 @@ def create_db_engine(settings: Settings) -> Engine:
     return create_engine(
         sqlalchemy_url(settings.database_url.get_secret_value()),
         pool_pre_ping=True,
+        # Database errors name the statement but never its values, so entry text, summaries
+        # and password hashes cannot reach the server log through a traceback (AGENTS.md).
+        hide_parameters=True,
         connect_args={"connect_timeout": settings.database_connect_timeout_seconds},
     )
 

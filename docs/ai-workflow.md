@@ -520,3 +520,91 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - The engineer sorted characters by Unicode category (uppercase `Lu`, letter `L*`, digit `0`–`9`, everything else special), rejected unpaired surrogates with a 422 naming `password`, and reworded only the register password description in `openapi.yaml` (fbae8e4, 857c4f1; https://github.com/KittyNiuNiu/winlog/issues/6#issuecomment-6723513515).
 - QA PASS on all criteria in round 2 (https://github.com/KittyNiuNiu/winlog/issues/6#issuecomment-6723558041): 119 unit and 53 integration tests pass. The round 1 cases were re-checked live, and QA confirmed the new tests fail without the fix. Closed #6 as completed.
 - Not checked in round 2: the image build and `.env` check, because Docker Hub returned 429. The live checks ran on `uv run uvicorn`. The fix changes no Dockerfile or `.dockerignore`, and round 1 found no `.env` in the image.
+
+## 2026-11-08: Implement #7 (login, logout and request authentication)
+
+- **Task:** #7, login and logout (FR-A2) with server-stored bearer tokens, and one reusable dependency that identifies the current user and rejects every request without a valid token (FR-A3, §7.1).
+- **What I did:**
+  - New migration `ec3f02a4af39` (the first one is unchanged) adds `tokens`: `id`, `user_id` (indexed, `ON DELETE CASCADE`), `token_hash` (unique), `created_at` and `expires_at`. `Token` model in `backend/app/models.py`.
+  - New setting `TOKEN_LIFETIME_DAYS` (default 7, whole number from 1 to 365) in `backend/app/settings.py` and `.env.example`.
+  - `backend/app/auth.py`: tokens are `secrets.token_urlsafe(32)` (32 random bytes), and only their SHA-256 hex digest is stored. `create_token` deletes the user's expired tokens and adds a new one, so other devices stay logged in. `get_current_user` (with `get_current_login` under it) reads `Authorization: Bearer <token>` through FastAPI's `HTTPBearer(auto_error=False, scheme_name="bearerAuth")`. A missing or malformed header, or an unknown, expired or logged-out token, all get 401 `not_authenticated` with `WWW-Authenticate: Bearer`. `ApiError` in `backend/app/errors.py` now takes response headers.
+  - `backend/app/accounts.py`: `POST /auth/login` returns 200 `{token, expires_at}`. The email is trimmed and lower-cased as in registration. A wrong password and an unknown email both get 401 `invalid_credentials`. For an unknown email the password is still checked against a dummy argon2 hash with the same parameters, made once at import (`backend/app/passwords.py`). The password must be 1 to 128 characters and no other rule applies. Because of the length limit, pydantic rejects an unpaired surrogate, so such a password gets 422 rather than a 500 from argon2. `POST /auth/logout` returns 204 and deletes only the request's token.
+  - Tests: `tests/unit/test_auth.py` and `tests/integration/test_login.py`, named after FR-A2 or FR-A3. They cover each criterion, including a test-only route that returns the user a token identifies. I extended the existing table, timestamp and settings tests for the new table and variable.
+  - No new dependencies (`secrets` and `hashlib` are standard library).
+- **How I verified it:**
+  - `uv run pytest tests/unit`: 147 passed. `uv run pytest tests/integration` (PostgreSQL 18 via `docker compose up -d db`): 79 passed. `uv run ruff check .`, `uv run ruff format --check .` and `uv run alembic check` are clean.
+  - Mutation checks: I broke the code six ways, one at a time: no dummy hash, raw token stored, logout deleting all of the user's tokens, no expiry check, no expired-token cleanup, no `WWW-Authenticate` header. Each made the matching tests fail. Logging the password or the token made the log test fail.
+  - Live with `docker compose up --build`. Docker Hub answered this time, and I built on the local CA-trusting `python:3.13-slim` shim, which is not committed. Results:
+    - Register gave 201. Login with `"  LIVE@example.com "` gave 200 with a 43-character token and `expires_at` 7 days ahead.
+    - A wrong password and an unknown email gave the same 401 body, in about the same time (about 45 ms each).
+    - A password with an unpaired surrogate, or 129 characters, gave 422.
+    - Logout with no header or with `Basic` gave 401 and `WWW-Authenticate: Bearer`. Logout gave 204, the same token again gave 401, and the second device's token still worked.
+    - `psql` showed the table, index, unique constraint and cascade. The backend log had no token, no password and no traceback. `find` found no `.env` in the image.
+  - Afterwards I ran `docker compose down -v` and removed the built and pulled images.
+- **Left open:**
+  - The `Credentials.password` schema in `openapi.yaml` has no `minLength: 1` or `maxLength: 128`, but the issue requires the 128 limit, and I treat an empty password as missing. A later contract change could document both; this issue does not allow editing `openapi.yaml`.
+  - `docker-compose.yml` does not pass `TOKEN_LIFETIME_DAYS` to the backend container, so Compose always uses the default of 7. The issue does not list that file.
+  - Expired tokens are deleted only when their user logs in again, as the issue specifies.
+
+## 2026-11-08: Orchestrator: #7 implemented, QA PASS, closed
+
+- The product owner asked me to start with #7 and continue through #10. #7 was `groomed`, so it went straight to the engineer: tokens table migration, `TOKEN_LIFETIME_DAYS` (default 7), login, logout and the `get_current_user` dependency (e731acc, 2bc3eff, 639f509; https://github.com/KittyNiuNiu/winlog/issues/7#issuecomment-6725850784).
+- QA PASS on all criteria in the first round (https://github.com/KittyNiuNiu/winlog/issues/7#issuecomment-6725971106): 147 unit and 79 integration tests pass. QA checked the full system with `docker compose up --build`, compared the timing of a wrong password with an unknown email, and confirmed that the test-only `/test/whoami` route does not exist in the running app. Closed #7 as completed.
+- Noted, not failures: `docker-compose.yml` does not pass `TOKEN_LIFETIME_DAYS` to the backend, so Compose always uses 7 days. `openapi.yaml` `Credentials.password` does not state the 128-character maximum or the minimum of 1 that the code enforces; a later contract change could add them.
+
+## 2026-11-08: Implement #8 (tag listing and tag name resolution)
+
+- **Task:** #8, the tag name rules (FR-E3, §10.5), the shared resolve and lookup functions for #9, #10, #11 and #16, and `GET /tags` (`listTags`), which lists only the tags the user's entries use (§7.2).
+- **What I did:**
+  - New migration `685f000b996b` (earlier migrations unchanged) adds the unique index `uq_tags_user_id_lower_name` on `tags (user_id, lower(name))` and drops the old `(user_id, name)` constraint, which the index covers. The `Tag` model matches it.
+  - `backend/app/tags.py`:
+    - `normalise_tag_name` trims the name and turns every run of whitespace inside it into one space.
+    - `TagName` is a pydantic type for request models. A blank name gets the shared 422 naming the field, for example `tags.1`.
+    - `resolve_tags` returns the user's tags in the order given and creates the missing ones with `INSERT … ON CONFLICT (user_id, lower(name)) DO NOTHING`. Inserts go in a fixed key order, so simultaneous requests cannot deadlock. It never commits.
+    - `lookup_tags` returns only existing tags.
+    - Matching uses the database's `lower()`, so it follows the index exactly. Python's `str.lower()` differs, for example for a final Greek sigma.
+    - `GET /tags` uses `get_current_user`. It needs both the entry and the tag to belong to the user, because the database allows cross-user `entry_tags` rows (found by QA in #5).
+  - Tests in `tests/unit/test_tags.py` and `tests/integration/test_tags.py` cover each criterion:
+    - Name rules, resolve, lookup, rollback, and other users' tags.
+    - Simultaneous creation: a blocking commit case, a rollback case, a barrier stress test, and a deterministic deadlock-order case.
+    - The list: hiding a tag after its last entry is edited or deleted and showing it again, an empty list, other users, and no token.
+  - Entries cannot be created through the API yet (#9), so the tests add entries and links directly. No new dependencies.
+- **How I verified it:**
+  - `uv run pytest tests/unit`: 161 passed. `uv run pytest tests/integration` (PostgreSQL 18 via `docker compose up -d db`): 114 passed. `uv run ruff check .`, `uv run ruff format --check .` and `uv run alembic check` are clean. Downgrading and upgrading the migration again works.
+  - Mutation checks: each change made the matching tests fail. The changes were: Python `lower()` for matching, no `ON CONFLICT`, insert in the given order (deadlock), no user filter in resolve and lookup, no owner checks in the list, and listing unused tags.
+  - Live with `uv run uvicorn` against the compose database: an empty list after register and login, then `["Alpha","beta"]` with an unused `zeta` hidden. `ALPHA` was rejected by the new index, and a request without a token got 401.
+  - Issue comment: https://github.com/KittyNiuNiu/winlog/issues/8#issuecomment-6726084470
+- **Left open:**
+  - A tag name with a NUL character would fail in PostgreSQL. Input limits are #43, and #9 and #10 validate entry input.
+  - The list sorts by `lower(name)` under the database collation, so on a `C` collation accented names sort after `z`.
+  - The migration assumes no user already has two tags that differ only in case. The API could not create tags before this issue.
+
+## 2026-11-08: Orchestrator: #8 implemented, QA PASS, closed
+
+- #8 was `groomed`, so it went straight to the engineer, who added a migration making tag names unique per user with `lower(name)`, the shared `resolve_tags` and `lookup_tags` functions, and `GET /tags` (ed87767, 16b81cd, c6dc38b; https://github.com/KittyNiuNiu/winlog/issues/8#issuecomment-6726084470).
+- QA PASS on all criteria in the first round (https://github.com/KittyNiuNiu/winlog/issues/8#issuecomment-6726154812): 161 unit and 114 integration tests pass. QA also checked that 150 simultaneous resolves produced no errors and no duplicates, that a rollback left no tags, and that `entry_tags` links between users show in neither user's list. Closed #8 as completed.
+- Left open by the engineer, outside the criteria: a tag name with a NUL character would cause a database error, so input limits (#43) and entry validation (#9, #10) must reject it. Sorting accented names depends on the database collation. The sort test can't tell `name` from `lower(name)` on a collation that already ignores case.
+
+## 2026-11-08: Implement #9 (entry creation)
+
+- **Task:** #9, `POST /entries` (`createEntry`): one request creates one entry with text, date, category, optional tags and an optional Result/Impact (FR-E1 to FR-E3, §7.2, §7.3). Saving needs no AI.
+- **What I did:**
+  - `backend/app/entries.py`: the endpoint returns 201 with the `Entry` schema. It uses `get_current_user`, and fields the contract does not define, such as `user_id`, are ignored.
+    - Text is stored exactly as typed. Empty or whitespace-only text gets 422 naming `text`. Whitespace follows the contract's `pattern: '\S'` (ECMAScript `\s`).
+    - A missing, empty or whitespace-only Result/Impact is stored as null.
+    - The date must be `YYYY-MM-DD` and a real calendar date. Pydantic alone would also accept date-times and timestamps. Any real date is accepted, including future dates.
+    - The category must be one of the four exact values.
+  - Tags go through #8's `TagName` and `resolve_tags` in the entry's transaction. A failed save stores neither the entry nor new tags.
+  - `backend/app/text_rules.py`: NUL and unpaired surrogates in `text`, `result_impact` or a tag name get 422 naming the field instead of a 500. `TagName` uses the same check.
+  - `backend/app/db.py`: `hide_parameters=True`, so database errors never repeat the statement's values, such as entry text, in a logged traceback.
+  - No new dependencies. No changes to `openapi.yaml`, `product-spec.md` or migrations.
+- **How I verified it:**
+  - `uv run pytest tests/unit`: 225 passed. `uv run pytest tests/integration` (PostgreSQL 18 via `docker compose up -d db`): 238 passed. `uv run ruff check .` and `uv run ruff format --check .` are clean.
+  - New tests in `tests/unit/test_entries.py` and `tests/integration/test_entries.py`, plus additions to `test_tags.py` and `test_db.py`, cover every criterion. They include a forced foreign-key failure after the tags were resolved (no entry or tag remains), A's and B's `Python` tags (FR-A3), and entry text never appearing in logs.
+  - Mutation checks: removing the character checks, `hide_parameters` or the date format check, trimming the text, or committing before linking the tags each made tests fail.
+  - Live with `uv run uvicorn` against the compose database: 201 with the stored tag spelling, a `user_id` in the body ignored, a combined 422 naming four fields, and 401 without a token. No entry text in the log.
+  - Issue comment: https://github.com/KittyNiuNiu/winlog/issues/9#issuecomment-6726276857
+- **Left open:**
+  - PostgreSQL puts the failing row into the message of a CHECK or NOT NULL violation, and `hide_parameters` cannot hide it. Entry creation cannot trigger one now, but a database-level limit on entry text (#43) would log the text in a 500 traceback.
+  - A body that is not valid UTF-8 gets 400 `internal_error` on every endpoint, from FastAPI's body parsing and the shared handler.
+  - #43 adds the size limits, including 10 tags per entry.

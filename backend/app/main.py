@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app import accounts, health
+from app import accounts, entries, health, tags
 from app.cors import AllowedOriginsCORSMiddleware
 from app.db import create_db_engine
 from app.errors import UnexpectedErrorMiddleware, register_error_handlers
@@ -41,6 +41,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     register_error_handlers(app)
     app.include_router(health.router)
     app.include_router(accounts.router)
+    app.include_router(entries.router)
+    app.include_router(tags.router)
     return app
 
 
