@@ -1,4 +1,4 @@
-"""The password rule (issue #6) and argon2 hashing.
+"""The password rule (issue #6), argon2 hashing and password checks at login (issue #7).
 
 The rule is also written in openapi.yaml (components.schemas.Registration).
 
@@ -11,9 +11,11 @@ Character classes, from the Unicode general category of each character:
   `٣` and `Ⓐ` are special characters.
 """
 
+import secrets
 import unicodedata
 
 from argon2 import PasswordHasher
+from argon2.exceptions import VerifyMismatchError
 
 MIN_LENGTH = 10
 MAX_LENGTH = 128
@@ -34,7 +36,7 @@ def _is_special(char: str) -> bool:
     return not _is_letter(char) and char not in DIGITS
 
 
-def _is_valid_text(password: str) -> bool:
+def is_valid_text(password: str) -> bool:
     """False for an unpaired surrogate, which JSON allows but no UTF-8 text can hold."""
     try:
         password.encode("utf-8")
@@ -49,7 +51,7 @@ def password_problems(password: str) -> list[str]:
     Length is counted in characters, not bytes. The password is checked exactly as typed.
     """
     problems = []
-    if not _is_valid_text(password):
+    if not is_valid_text(password):
         problems.append("contains an invalid character (an unpaired surrogate)")
     if len(password) < MIN_LENGTH:
         problems.append(f"is too short: use at least {MIN_LENGTH} characters")
@@ -67,3 +69,25 @@ def password_problems(password: str) -> list[str]:
 def hash_password(password: str) -> str:
     """An argon2id hash. The plain password is never stored."""
     return _hasher.hash(password)
+
+
+def verify_password(password_hash: str, password: str) -> bool:
+    """True if the password matches the argon2 hash. The password must be valid text."""
+    try:
+        return _hasher.verify(password_hash, password)
+    except VerifyMismatchError:
+        return False
+
+
+def verify_against_dummy_hash(password: str) -> None:
+    """Check the password against a hash that matches no password, and ignore the result.
+
+    Login calls this when the email is unknown, so an unknown email takes as long as a
+    wrong password and the response time does not reveal whether the account exists.
+    """
+    verify_password(_DUMMY_HASH, password)
+
+
+# A hash of a random password nobody knows, made with the same parameters as real hashes.
+# It is made once, when the module is imported, so the first login is not slower.
+_DUMMY_HASH = _hasher.hash(secrets.token_urlsafe(32))

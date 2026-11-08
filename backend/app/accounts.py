@@ -1,21 +1,38 @@
-"""Registration (`register` in openapi.yaml). Covers FR-A1."""
+"""Registration, login and logout (`register`, `login` and `logout` in openapi.yaml).
+
+Covers FR-A1 and FR-A2.
+"""
 
 import datetime as dt
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel, EmailStr, field_validator
+from fastapi import APIRouter, Depends, Request, Response
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from pydantic_core import PydanticCustomError
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.auth import CurrentLogin, create_token, get_current_login, get_current_user
 from app.db import get_session, violates
 from app.errors import ApiError
-from app.models import User
-from app.passwords import hash_password, password_problems
+from app.models import Token, User
+from app.passwords import (
+    MAX_LENGTH,
+    hash_password,
+    is_valid_text,
+    password_problems,
+    verify_against_dummy_hash,
+    verify_password,
+)
 
 router = APIRouter(tags=["Accounts"])
+
+
+def _normalise_email(email: str) -> str:
+    # EmailStr already trims surrounding spaces and lower-cases the domain.
+    return email.lower()
 
 
 class Registration(BaseModel):
@@ -25,8 +42,7 @@ class Registration(BaseModel):
     @field_validator("email")
     @classmethod
     def _store_in_lower_case(cls, email: str) -> str:
-        # EmailStr already trims surrounding spaces and lower-cases the domain.
-        return email.lower()
+        return _normalise_email(email)
 
     @field_validator("password")
     @classmethod
@@ -66,3 +82,76 @@ def register(
             ) from None
         raise
     return UserResponse(id=user.id, email=user.email, created_at=user.created_at)
+
+
+class Credentials(BaseModel):
+    email: EmailStr
+    # No strength rule, so passwords keep working if the rule changes. An empty password
+    # counts as missing. No account can have a longer password than registration allows.
+    password: str = Field(min_length=1, max_length=MAX_LENGTH)
+
+    @field_validator("email")
+    @classmethod
+    def _compare_in_lower_case(cls, email: str) -> str:
+        return _normalise_email(email)
+
+    @field_validator("password")
+    @classmethod
+    def _be_valid_text(cls, password: str) -> str:
+        # An unpaired surrogate cannot be hashed, and no registered password contains one.
+        if not is_valid_text(password):
+            raise PydanticCustomError(
+                "password_text", "Password contains an invalid character (an unpaired surrogate)."
+            )
+        return password
+
+
+class LoginResult(BaseModel):
+    token: str
+    expires_at: dt.datetime
+
+
+def _invalid_credentials() -> ApiError:
+    return ApiError(401, "invalid_credentials", "Wrong email or password.")
+
+
+@router.post(
+    "/auth/login",
+    operation_id="login",
+    summary="Log in with an email address and a password.",
+    response_model=LoginResult,
+)
+def login(
+    credentials: Credentials,
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+) -> LoginResult:
+    user = session.scalars(select(User).where(User.email == credentials.email)).one_or_none()
+    if user is None:
+        # Same work as a wrong password, so the response time does not reveal the account.
+        verify_against_dummy_hash(credentials.password)
+        raise _invalid_credentials()
+    if not verify_password(user.password_hash, credentials.password):
+        raise _invalid_credentials()
+
+    lifetime = dt.timedelta(days=request.app.state.settings.token_lifetime_days)
+    token, row = create_token(session, user.id, lifetime)
+    session.commit()
+    return LoginResult(token=token, expires_at=row.expires_at)
+
+
+@router.post(
+    "/auth/logout",
+    operation_id="logout",
+    summary="Log out by revoking the current token.",
+    status_code=204,
+    dependencies=[Depends(get_current_user)],
+)
+def logout(
+    current: Annotated[CurrentLogin, Depends(get_current_login)],
+    session: Annotated[Session, Depends(get_session)],
+) -> Response:
+    # Only the token of this request; the user's other tokens keep working.
+    session.execute(delete(Token).where(Token.id == current.token_id))
+    session.commit()
+    return Response(status_code=204)
