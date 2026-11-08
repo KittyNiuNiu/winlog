@@ -36,7 +36,7 @@ def _is_special(char: str) -> bool:
     return not _is_letter(char) and char not in DIGITS
 
 
-def is_valid_text(password: str) -> bool:
+def _is_valid_text(password: str) -> bool:
     """False for an unpaired surrogate, which JSON allows but no UTF-8 text can hold."""
     try:
         password.encode("utf-8")
@@ -51,7 +51,7 @@ def password_problems(password: str) -> list[str]:
     Length is counted in characters, not bytes. The password is checked exactly as typed.
     """
     problems = []
-    if not is_valid_text(password):
+    if not _is_valid_text(password):
         problems.append("contains an invalid character (an unpaired surrogate)")
     if len(password) < MIN_LENGTH:
         problems.append(f"is too short: use at least {MIN_LENGTH} characters")

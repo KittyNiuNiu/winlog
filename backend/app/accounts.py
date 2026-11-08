@@ -21,7 +21,6 @@ from app.models import Token, User
 from app.passwords import (
     MAX_LENGTH,
     hash_password,
-    is_valid_text,
     password_problems,
     verify_against_dummy_hash,
     verify_password,
@@ -88,22 +87,14 @@ class Credentials(BaseModel):
     email: EmailStr
     # No strength rule, so passwords keep working if the rule changes. An empty password
     # counts as missing. No account can have a longer password than registration allows.
+    # With a length limit, pydantic also rejects an unpaired surrogate, which argon2 cannot
+    # hash, so such a password gets the validation error instead of a 500.
     password: str = Field(min_length=1, max_length=MAX_LENGTH)
 
     @field_validator("email")
     @classmethod
     def _compare_in_lower_case(cls, email: str) -> str:
         return _normalise_email(email)
-
-    @field_validator("password")
-    @classmethod
-    def _be_valid_text(cls, password: str) -> str:
-        # An unpaired surrogate cannot be hashed, and no registered password contains one.
-        if not is_valid_text(password):
-            raise PydanticCustomError(
-                "password_text", "Password contains an invalid character (an unpaired surrogate)."
-            )
-        return password
 
 
 class LoginResult(BaseModel):
