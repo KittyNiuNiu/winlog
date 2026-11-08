@@ -1,7 +1,9 @@
-"""Entries: creating (issue #9), reading, replacing and deleting an entry (issue #10).
+"""Entries: creating (issue #9), reading, replacing and deleting an entry (issue #10), and
+listing them with a filter (issue #11).
 
-Operations `createEntry`, `getEntry`, `updateEntry` and `deleteEntry` in openapi.yaml. Covers
-FR-E1 to FR-E4 and FR-A3, and the acceptance criteria in product-spec.md §7.1, §7.2 and §7.3.
+Operations `createEntry`, `getEntry`, `updateEntry`, `deleteEntry` and `listEntries` in
+openapi.yaml. Covers FR-E1 to FR-E4, FR-R1 and FR-A3, and the acceptance criteria in
+product-spec.md §7.1, §7.2, §7.3 and §7.4.
 
 Create:
 
@@ -29,6 +31,22 @@ Read, update and delete (FR-E4, FR-A3):
   no entry uses any more.
 - Saved summaries have no link to entries, so editing or deleting an entry never changes one.
 
+List and filter (FR-R1, FR-A3):
+
+- `filter_entries` is the one shared filter. The list endpoint uses it, and summary generation
+  (#17) must use it too, so a summary is based on exactly the entries the list shows.
+- Every filter is optional, and different filter types combine with AND. Both dates include
+  their own day. Several categories, or several tags, match entries with any of them.
+- Tag names are matched with #8's rules (`lookup_tags`): trimmed, inner spaces collapsed, and
+  case ignored with PostgreSQL's `lower()`. A name the user has no tag for matches nothing.
+  Both the entry and the tag must belong to the user, because the schema itself does not stop
+  a link to another user's tag.
+- Entries are sorted by date, newest first, then by creation time, newest first. Each entry
+  appears once, and its tags are sorted as in `getEntry`. The list is flat and not paginated:
+  the frontend groups it by category (FR-R2, #31).
+- A start date after the end date is a validation error naming `end_date`, as `period_end`
+  in openapi.yaml must not be before `period_start`.
+
 The entry text and Result/Impact are never logged.
 """
 
@@ -36,12 +54,15 @@ import datetime as dt
 import re
 import uuid
 from collections.abc import Sequence
+from dataclasses import dataclass
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Depends, Path, Response
+from fastapi import APIRouter, Depends, Path, Query, Response
+from fastapi.exceptions import RequestValidationError
 from pydantic import AfterValidator, BaseModel, BeforeValidator, ConfigDict
 from pydantic_core import PydanticCustomError
 from sqlalchemy import delete, func, select
+from sqlalchemy.dialects.postgresql import aggregate_order_by
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
@@ -49,7 +70,7 @@ from app import models
 from app.auth import AuthenticateFirstRoute, CurrentUser
 from app.db import get_session
 from app.errors import ApiError
-from app.tags import TagName, resolve_tags
+from app.tags import FilterTagName, TagName, lookup_tags, resolve_tags
 from app.text_rules import is_blank, reject_unstorable_characters
 
 router = APIRouter(tags=["Entries"], route_class=AuthenticateFirstRoute)
@@ -194,6 +215,124 @@ def _tag_names(session: Session, entry: models.Entry) -> list[str]:
             .order_by(func.lower(models.Tag.name), models.Tag.name)
         )
     )
+
+
+class EntryList(BaseModel):
+    """The list response (components.schemas.EntryList)."""
+
+    entries: list[Entry]
+
+
+@dataclass(frozen=True)
+class EntryFilter:
+    """A filter for the user's entries (FR-R1). Every part is optional.
+
+    `None` for a date, or an empty list of categories or tags, means no restriction. Callers
+    validate the parts first: dates are real dates with the start not after the end, the
+    categories are among the four, and tag names have no character the database cannot store.
+    """
+
+    start_date: dt.date | None = None
+    end_date: dt.date | None = None
+    categories: Sequence[str] = ()
+    tags: Sequence[str] = ()
+
+
+def _sorted_tag_names():
+    """For each entry in the outer query: its tag names, sorted as in `_tag_names`.
+
+    Only the entry owner's tags count. An entry without tags gets NULL.
+    """
+    return (
+        select(
+            func.array_agg(
+                aggregate_order_by(models.Tag.name, func.lower(models.Tag.name), models.Tag.name)
+            )
+        )
+        .select_from(models.EntryTag)
+        .join(models.Tag, models.Tag.id == models.EntryTag.tag_id)
+        .where(
+            models.EntryTag.entry_id == models.Entry.id,
+            models.Tag.user_id == models.Entry.user_id,
+        )
+        .scalar_subquery()
+    )
+
+
+def filter_entries(session: Session, user: models.User, entry_filter: EntryFilter) -> list[Entry]:
+    """The user's entries that match the filter, newest first (FR-R1, FR-A3).
+
+    The one shared filter: the list endpoint and summary generation (#17) both use it. Only
+    the user's own entries are returned, and a tag filter only uses the user's own tags, so
+    another user's tag name matches nothing. An entry that has several of the tags appears
+    once. Sorted by date, newest first, then by creation time, newest first (the id only
+    makes the order stable if both are equal).
+    """
+    query = select(models.Entry, _sorted_tag_names()).where(models.Entry.user_id == user.id)
+    if entry_filter.start_date is not None:
+        query = query.where(models.Entry.date >= entry_filter.start_date)
+    if entry_filter.end_date is not None:
+        query = query.where(models.Entry.date <= entry_filter.end_date)
+    if entry_filter.categories:
+        query = query.where(models.Entry.category.in_(list(entry_filter.categories)))
+    if entry_filter.tags:
+        # #8's rules: normalised, matched ignoring case with PostgreSQL's lower(), and only
+        # among the user's own tags. Names the user has no tag for are left out.
+        tag_ids = [tag.id for tag in lookup_tags(session, user, entry_filter.tags)]
+        if not tag_ids:
+            return []
+        has_a_tag = (
+            select(models.EntryTag.entry_id)
+            .where(
+                models.EntryTag.entry_id == models.Entry.id,
+                models.EntryTag.tag_id.in_(tag_ids),
+            )
+            .exists()
+        )
+        query = query.where(has_a_tag)
+    query = query.order_by(
+        models.Entry.date.desc(), models.Entry.created_at.desc(), models.Entry.id.desc()
+    )
+    return [_to_api(entry, tag_names or []) for entry, tag_names in session.execute(query)]
+
+
+def _period_out_of_order() -> RequestValidationError:
+    return RequestValidationError(
+        [
+            {
+                "type": "date_order",
+                "loc": ("query", "end_date"),
+                "msg": "End date must not be before the start date.",
+                "input": None,
+            }
+        ]
+    )
+
+
+@router.get(
+    "/entries",
+    operation_id="listEntries",
+    summary="List the user's entries, optionally filtered.",
+    response_model=EntryList,
+)
+def list_entries(
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+    start_date: Annotated[EntryDate | None, Query()] = None,
+    end_date: Annotated[EntryDate | None, Query()] = None,
+    # Repeated parameters (`?tag=a&tag=b`), because tag names can contain commas.
+    category: Annotated[list[Category] | None, Query()] = None,
+    tag: Annotated[list[FilterTagName] | None, Query()] = None,
+) -> EntryList:
+    if start_date is not None and end_date is not None and start_date > end_date:
+        raise _period_out_of_order()
+    entry_filter = EntryFilter(
+        start_date=start_date,
+        end_date=end_date,
+        categories=category or (),
+        tags=tag or (),
+    )
+    return EntryList(entries=filter_entries(session, user, entry_filter))
 
 
 @router.post(
