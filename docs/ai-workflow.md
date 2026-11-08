@@ -700,3 +700,23 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - some `.env.example` comments run over several lines (#3)
   - `updated_at` stays equal to `created_at` when a row is inserted and updated in the same transaction (#5)
   - the password rule's character classes follow the Unicode version of the running Python (#6)
+
+## 2026-11-08: Implement #11 (entry filtering)
+
+- **Task:** #11, `GET /entries` (`listEntries`) with the optional period, category and tag filters of FR-R1, in one shared filter function that summary generation (#17) reuses, plus an index on entries (user_id, date).
+- **What I did:**
+  - `backend/app/entries.py`: `EntryFilter` (start date, end date, categories, tags; each optional) and `filter_entries(session, user, entry_filter)`, which returns the user's matching entries as API `Entry` objects. Dates include their own day; several categories or tags match any of them; filter types combine with AND. Tags go through #8's `lookup_tags` (trimmed, inner spaces collapsed, PostgreSQL `lower()`), which only finds the user's own tags, and the entry is scoped to the user too, so a link from one user's entry to another user's tag never matches. The tag condition is an `EXISTS`, so an entry with several selected tags appears once. Sort: date, then `created_at`, both newest first (the id only breaks a full tie). Each entry's tags come from one correlated `array_agg` sorted by `lower(name)`, as in `GET /entries/{entryId}`, so there is no query per entry.
+  - The list endpoint takes `start_date`, `end_date`, `category` and `tag` as query parameters (repeated for lists), validates them and calls `filter_entries`. A start date after the end date is the shared validation error naming `end_date` (as `period_end` in `openapi.yaml` "must not be before `period_start`"). Dates use #9's `EntryDate`, categories #9's `Category`.
+  - `backend/app/tags.py`: `FilterTagName`, which rejects NUL and unpaired surrogates (422 naming `tag.N`) and otherwise accepts any name. Unknown names, and names that are empty after trimming, match nothing and are not an error.
+  - `backend/app/models.py` and a new migration `e6c4db2b6d3c`: index `ix_entries_user_id_date`. No existing migration changed.
+  - No new dependencies. No changes to `openapi.yaml` or `product-spec.md`.
+- **How I verified it:**
+  - `uv run pytest tests/unit`: 341 passed. `uv run pytest tests/integration` (PostgreSQL 18 via `docker compose up -d db`): 476 passed. `uv run ruff check .` and `uv run ruff format --check .` are clean.
+  - New tests in `tests/integration/test_entry_filter.py` and `tests/unit/test_entries.py`, named after FR-R1 and FR-A3: each filter alone, combinations, any-tag, no duplicates, case and spaces, matching exactly as the tag index does (final sigma, ß), commas in tag names, unknown, unused, empty and other users' tag names, the cross-user link set up directly in the database, inclusive and open-ended dates, sort order, 250 entries without pagination, each validation error, no, wrong or expired token (also with invalid parameters), the shared function returning exactly the listed entries, the endpoint calling it, and the index.
+  - Mutation checks: exclusive start or end dates, dropping the owner check on tag names, sorting `created_at` ascending, removing the date-order check, a join instead of `EXISTS`, and dropping the user scope each make tests fail.
+  - Live with `uv run uvicorn` against the compose database: the filters, 422s and 401 behaved as in the tests, and `EXPLAIN` shows the planner can use `ix_entries_user_id_date`.
+- **Left open:**
+  - An empty or whitespace-only `tag` value matches nothing (like an unknown name), so `?tag=` alone gives an empty list. The frontend (#31) should not send empty tag values.
+  - The generated FastAPI schema describes the optional parameters as `anyOf [..., null]`; `openapi.yaml` stays the contract.
+  - uvicorn's access log records the request line, so filter tag names appear in it. Entry text is never logged.
+  - Size limits on query parameters (very long or very many tag names) are left to #43.
