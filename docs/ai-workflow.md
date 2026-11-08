@@ -677,3 +677,9 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **What I did:** `.claude/skills/orchestrate/SKILL.md`, step 6 (PASS): after closing an issue, the orchestrator collects the engineer's "left open" points and QA's notes. It posts each one as a comment on the open issue it fits, with a link to the source and a note that it is an input for grooming, not a new requirement. If no issue fits, it asks the product owner whether to create one or leave the point in the log. The log entry names where each point went. Step 7 now also reports where the open points were recorded.
 - **How I verified it:** read the edited steps 6 and 7 against `docs/process.md`. They add no new role or label, and the rule that only the orchestrator closes issues is unchanged.
 - **Left open:** `docs/process.md` does not mention this step, and the skill only spells out its steps. Add a line there if the rule should hold beyond the skill.
+
+## 2026-11-08: Orchestrator: record open points on their issues (process.md)
+
+- **Task:** the product owner asked to add the open-points rule to `docs/process.md` as well, and to check the closed issues for open points that no open issue mentions.
+- **What I did:** added a rule to "Rules" in `docs/process.md`: when the orchestrator closes an issue, it posts each open point from the engineer and QA on the open issue it belongs to, and asks the product owner if no issue fits. The skill (step 6) already spells out the steps.
+- **How I verified it:** the wording matches step 6 of `.claude/skills/orchestrate/SKILL.md`, and no role or label changes.
