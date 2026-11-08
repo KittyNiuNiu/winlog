@@ -9,7 +9,8 @@ Name rules:
   the unique index `uq_tags_user_id_lower_name` uses. A tag keeps the spelling it was first
   created with.
 - A name that is empty after trimming is invalid. Request models use `TagName`, which turns
-  it into the shared validation error naming the field (for example `tags.1`).
+  it into the shared validation error naming the field (for example `tags.1`). `TagName` also
+  rejects NUL and unpaired surrogates, which the database cannot store (app/text_rules.py).
 
 `resolve_tags` (entry create and update) and `lookup_tags` (suggestions) are the only places
 that turn names into tag records. Both only ever read or create the given user's tags.
@@ -29,6 +30,7 @@ from sqlalchemy.orm import Session
 from app.auth import CurrentUser
 from app.db import get_session
 from app.models import Entry, EntryTag, Tag, User
+from app.text_rules import reject_unstorable_characters
 
 router = APIRouter(tags=["Tags"])
 
@@ -39,6 +41,7 @@ def normalise_tag_name(name: str) -> str:
 
 
 def _validate_tag_name(name: str) -> str:
+    reject_unstorable_characters(name)
     normalised = normalise_tag_name(name)
     if not normalised:
         raise PydanticCustomError("tag_name_empty", "Tag name must not be empty.")
@@ -46,7 +49,8 @@ def _validate_tag_name(name: str) -> str:
 
 
 TagName = Annotated[str, AfterValidator(_validate_tag_name)]
-"""A tag name in a request model: normalised, and a validation error if it is empty."""
+"""A tag name in a request model: normalised, and a validation error if it is empty or has a
+character the database cannot store."""
 
 
 def _match_keys(session: Session, names: Sequence[str]) -> dict[str, str]:

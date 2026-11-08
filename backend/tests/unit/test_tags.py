@@ -89,3 +89,26 @@ def test_tag_list_matches_the_contract(settings):
     assert operation["security"] == [{"bearerAuth": []}]
     schema = operation["responses"]["200"]["content"]["application/json"]["schema"]
     assert schema == {"$ref": "#/components/schemas/TagList"}
+
+
+@pytest.mark.parametrize("character", ["\\u0000", "\\ud800", "\\udfff"])
+def test_fr_e3_tag_name_with_a_character_the_database_cannot_store_is_a_validation_error(
+    settings, contract, character: str
+):
+    """NUL cannot be stored in PostgreSQL text and a lone surrogate has no UTF-8 form."""
+    client = _client_with_tag_route(settings)
+    raw = f'{{"tags": ["Python", "Go{character}"]}}'
+
+    response = client.post(
+        "/test-only/tags", content=raw.encode("ascii"), headers={"content-type": "application/json"}
+    )
+
+    assert response.status_code == 422
+    body = response.json()
+    contract("Error").validate(body)
+    assert body["fields"] == [
+        {
+            "field": "tags.1",
+            "reason": "Contains a character that cannot be stored (NUL or an unpaired surrogate).",
+        }
+    ]
