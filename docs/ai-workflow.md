@@ -720,3 +720,15 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - The generated FastAPI schema describes the optional parameters as `anyOf [..., null]`; `openapi.yaml` stays the contract.
   - uvicorn's access log records the request line, so filter tag names appear in it. Entry text is never logged.
   - Size limits on query parameters (very long or very many tag names) are left to #43.
+
+## 2026-11-08: Orchestrator: #11 implemented, QA PASS, closed
+
+- The product owner asked for #11–#13, then to stop after #11. #11 was `groomed`, so it went straight to the engineer. The engineer added the shared `filter_entries` function, `GET /entries` and a migration with an index on `entries (user_id, date)` (35cbfbd, b1db268, f024d29; https://github.com/KittyNiuNiu/winlog/issues/11#issuecomment-6727326487).
+- QA PASS on all 20 criteria in the first round (https://github.com/KittyNiuNiu/winlog/issues/11#issuecomment-6727404112): 341 unit and 476 integration tests pass. QA ran live checks with `docker compose up --build`, including entry–tag links between users set up in the database, and `EXPLAIN` using the new index. Closed #11 as completed.
+- **Open points**, recorded where they belong:
+  - #31: an empty `tag` value returns an empty list, so the filter controls must not send one (https://github.com/KittyNiuNiu/winlog/issues/31#issuecomment-6727411093).
+  - #17: `filter_entries` leaves the period order check and the NUL check in tag names to its caller (https://github.com/KittyNiuNiu/winlog/issues/17#issuecomment-6727411916).
+  - #43: no size limits on the filter's query parameters (https://github.com/KittyNiuNiu/winlog/issues/43#issuecomment-6727412379).
+  - #38: the access log records filter tag names. This was the product owner's choice (https://github.com/KittyNiuNiu/winlog/issues/38#issuecomment-6727416124).
+  - #58: date errors use two wordings, and the generated schema shows optional parameters as nullable. This was the product owner's choice.
+- **Product owner decision on commit identity:** commits keep the environment's identity (`GIT_AUTHOR_EMAIL` and `GIT_COMMITTER_EMAIL` set to the product owner's account), not `noreply@anthropic.com`. The stop hook's "Unverified" warnings about this are expected and ignored. Pushed commits are never rewritten.
