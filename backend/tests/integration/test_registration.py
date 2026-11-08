@@ -119,3 +119,85 @@ def test_fr_a1_password_never_appears_in_logs(client: TestClient, caplog):
 
     assert PASSWORD not in caplog.text
     assert "no-uppercase-secret-1" not in caplog.text
+
+
+@pytest.mark.parametrize(
+    "password",
+    [
+        "Abcdefgh1²",  # superscript two
+        "Abcdefgh1１",  # fullwidth digit one
+        "Abcdefgh1٣",  # Arabic-Indic digit three
+    ],
+)
+def test_fr_a1_digit_outside_0_to_9_counts_as_the_special_character(
+    client: TestClient, migrated_db: Engine, password: str
+):
+    response = _register(client, password=password)
+
+    assert response.status_code == 201
+    [row] = _users(migrated_db)
+    assert PasswordHasher().verify(row.password_hash, password)
+
+
+def test_fr_a1_circled_capital_a_is_not_the_uppercase_letter(
+    client: TestClient, migrated_db: Engine, contract
+):
+    response = _register(client, password="Ⓐbcdefgh12")
+
+    assert response.status_code == 422
+    body = response.json()
+    contract("Error").validate(body)
+    assert body["fields"] == [
+        {"field": "password", "reason": "Password needs at least one uppercase letter."}
+    ]
+    assert _users(migrated_db) == []
+
+
+def _register_raw(client: TestClient, raw: str):
+    # httpx cannot encode a lone surrogate, so the JSON escape is sent exactly as written.
+    return client.post(
+        "/auth/register", content=raw.encode("ascii"), headers={"content-type": "application/json"}
+    )
+
+
+def test_fr_a1_unpaired_surrogate_in_password_returns_the_validation_error(
+    client: TestClient, migrated_db: Engine, contract, caplog
+):
+    caplog.set_level(logging.DEBUG)
+
+    response = _register_raw(
+        client, '{"email": "e5@example.com", "password": "Surrogate-Secret-7\\ud800"}'
+    )
+
+    assert response.status_code == 422
+    body = response.json()
+    contract("Error").validate(body)
+    assert body["code"] == "validation_failed"
+    assert [item["field"] for item in body["fields"]] == ["password"]
+    assert "Surrogate-Secret-7" not in response.text
+    assert "Surrogate-Secret-7" not in caplog.text
+    assert _users(migrated_db) == []
+
+
+def test_fr_a1_unpaired_surrogate_in_email_returns_the_validation_error(
+    client: TestClient, migrated_db: Engine, contract
+):
+    response = _register_raw(client, '{"email": "e5\\ud800@example.com", "password": "Abcdefg1!x"}')
+
+    assert response.status_code == 422
+    body = response.json()
+    contract("Error").validate(body)
+    assert [item["field"] for item in body["fields"]] == ["email"]
+    assert _users(migrated_db) == []
+
+
+def test_fr_a1_escaped_surrogate_pair_is_one_valid_special_character(
+    client: TestClient, migrated_db: Engine
+):
+    response = _register_raw(
+        client, '{"email": "e6@example.com", "password": "Abcdefgh1\\ud83d\\ude00"}'
+    )
+
+    assert response.status_code == 201
+    [row] = _users(migrated_db)
+    assert PasswordHasher().verify(row.password_hash, "Abcdefgh1\U0001f600")
