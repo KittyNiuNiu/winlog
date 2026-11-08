@@ -608,3 +608,10 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - PostgreSQL puts the failing row into the message of a CHECK or NOT NULL violation, and `hide_parameters` cannot hide it. Entry creation cannot trigger one now, but a database-level limit on entry text (#43) would log the text in a 500 traceback.
   - A body that is not valid UTF-8 gets 400 `internal_error` on every endpoint, from FastAPI's body parsing and the shared handler.
   - #43 adds the size limits, including 10 tags per entry.
+
+## 2026-11-08: Orchestrator: #9 implemented, QA PASS, closed
+
+- #9 was `groomed`, so it went straight to the engineer. The engineer added `POST /entries` and rejects NUL characters and unpaired surrogates in text, result_impact and tag names with a 422. The engine now uses `hide_parameters=True`, so entry text never appears in a logged database error (1d1bfc5, ef069e0, f555e2d, afa0750; https://github.com/KittyNiuNiu/winlog/issues/9#issuecomment-6726276857).
+- QA PASS on all criteria in the first round (https://github.com/KittyNiuNiu/winlog/issues/9#issuecomment-6726344948): 225 unit and 238 integration tests pass. QA ran the live checks with `uv run uvicorn`, because Docker Hub returned 429 for the image build. It tested a failure forced by a temporary trigger: the save rolled back with no entry or tag left. Closed #9 as completed.
+- For #43: a 9000-character tag gives a 500 from the index size limit, so tag length must be limited at the API. If size limits were enforced only in the database, PostgreSQL would put the row, including entry text, into the error message. So check them at the API boundary.
+- Noted, not failures: a body that is not valid UTF-8 gets 400 with `code: internal_error` on every endpoint, from the shared error handling. Tag case matching follows PostgreSQL `lower()` (#8), so `Straße` and `STRASSE` are separate tags.
