@@ -79,6 +79,20 @@ class User(Base):
     created_at: Mapped[dt.datetime] = _created_at()
 
 
+class Token(Base):
+    """A login (issue #7). Only the SHA-256 hash of the token is stored, never the token."""
+
+    __tablename__ = "tokens"
+
+    id: Mapped[uuid.UUID] = _uuid_pk()
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    token_hash: Mapped[str] = mapped_column(Text, nullable=False, unique=True)
+    created_at: Mapped[dt.datetime] = _created_at()
+    expires_at: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
 class Entry(Base):
     __tablename__ = "entries"
     __table_args__ = (CheckConstraint(f"category IN ({_sql_list(CATEGORIES)})", name="category"),)

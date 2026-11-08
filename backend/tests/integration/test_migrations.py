@@ -43,7 +43,7 @@ def _column_types(engine: Engine, data_type: str) -> set[tuple[str, str]]:
 def test_ids_are_uuids_as_in_openapi(migrated_db: Engine):
     uuid_columns = _column_types(migrated_db, "uuid")
 
-    for table in ("users", "entries", "tags", "summaries"):
+    for table in ("users", "tokens", "entries", "tags", "summaries"):
         assert (table, "id") in uuid_columns
 
 
@@ -51,6 +51,8 @@ def test_every_timestamp_is_time_zone_aware(migrated_db: Engine):
     assert _column_types(migrated_db, "timestamp without time zone") == set()
     assert _column_types(migrated_db, "timestamp with time zone") == {
         ("users", "created_at"),
+        ("tokens", "created_at"),
+        ("tokens", "expires_at"),
         ("entries", "created_at"),
         ("entries", "updated_at"),
         ("summaries", "created_at"),

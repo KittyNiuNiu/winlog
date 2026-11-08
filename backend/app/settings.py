@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     # connection. Also libpq's connect_timeout for every new connection, which treats values
     # below 2 as 2, so 2 is the minimum.
     database_connect_timeout_seconds: int = Field(default=3, ge=2, le=60)
+    # Days a login token works before it expires (FR-A2).
+    token_lifetime_days: int = Field(default=7, ge=1, le=365)
 
     @field_validator("database_url")
     @classmethod

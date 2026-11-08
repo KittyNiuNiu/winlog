@@ -12,6 +12,7 @@ def test_settings_variables():
         "database_url",
         "cors_allowed_origins",
         "database_connect_timeout_seconds",
+        "token_lifetime_days",
     }
 
 

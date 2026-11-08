@@ -36,8 +36,9 @@ def client(settings: Settings) -> TestClient:
 
 @pytest.fixture
 def no_env_file(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Ignore any local .env file and remove both variables from the environment."""
+    """Ignore any local .env file and remove the app's variables from the environment."""
     monkeypatch.setitem(Settings.model_config, "env_file", None)
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.delenv("CORS_ALLOWED_ORIGINS", raising=False)
     monkeypatch.delenv("DATABASE_CONNECT_TIMEOUT_SECONDS", raising=False)
+    monkeypatch.delenv("TOKEN_LIFETIME_DAYS", raising=False)
