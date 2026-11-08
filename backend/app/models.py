@@ -14,10 +14,10 @@ from sqlalchemy import (
     DateTime,
     FetchedValue,
     ForeignKey,
+    Index,
     Integer,
     MetaData,
     Text,
-    UniqueConstraint,
     Uuid,
     func,
 )
@@ -26,6 +26,9 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 # The four categories, exactly as in openapi.yaml (components.schemas.Category).
 CATEGORIES = ("Achievement", "Learning", "Feedback", "Side project")
+
+# Unique index on (user_id, lower(name)): tag names are unique per user, ignoring case.
+TAG_NAME_UNIQUE_INDEX = "uq_tags_user_id_lower_name"
 
 # Kinds of AI request counted per user and day.
 AI_REQUEST_TYPES = ("suggestion", "summary")
@@ -108,12 +111,18 @@ class Entry(Base):
 
 
 class Tag(Base):
+    """A user's tag. Names are unique per user, ignoring case (issue #8, see app/tags.py)."""
+
     __tablename__ = "tags"
-    __table_args__ = (UniqueConstraint("user_id", "name"),)
 
     id: Mapped[uuid.UUID] = _uuid_pk()
     user_id: Mapped[uuid.UUID] = _owner()
     name: Mapped[str] = mapped_column(Text, nullable=False)
+
+    __table_args__ = (
+        # Lookups compare lower(name) in the same way, so they can use this index.
+        Index(TAG_NAME_UNIQUE_INDEX, "user_id", func.lower(name), unique=True),
+    )
 
 
 class EntryTag(Base):
