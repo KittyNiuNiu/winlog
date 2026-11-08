@@ -578,3 +578,9 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - A tag name with a NUL character would fail in PostgreSQL. Input limits are #43, and #9 and #10 validate entry input.
   - The list sorts by `lower(name)` under the database collation, so on a `C` collation accented names sort after `z`.
   - The migration assumes no user already has two tags that differ only in case. The API could not create tags before this issue.
+
+## 2026-11-08: Orchestrator: #8 implemented, QA PASS, closed
+
+- #8 was `groomed`, so it went straight to the engineer, who added a migration making tag names unique per user with `lower(name)`, the shared `resolve_tags` and `lookup_tags` functions, and `GET /tags` (ed87767, 16b81cd, c6dc38b; https://github.com/KittyNiuNiu/winlog/issues/8#issuecomment-6726084470).
+- QA PASS on all criteria in the first round (https://github.com/KittyNiuNiu/winlog/issues/8#issuecomment-6726154812): 161 unit and 114 integration tests pass. QA also checked that 150 simultaneous resolves produced no errors and no duplicates, that a rollback left no tags, and that `entry_tags` links between users show in neither user's list. Closed #8 as completed.
+- Left open by the engineer, outside the criteria: a tag name with a NUL character would cause a database error, so input limits (#43) and entry validation (#9, #10) must reject it. Sorting accented names depends on the database collation. The sort test can't tell `name` from `lower(name)` on a collation that already ignores case.
