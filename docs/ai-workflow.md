@@ -653,3 +653,12 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Left open:**
   - With a valid token, a body that is not valid UTF-8 still gets FastAPI's 400 with `code: internal_error`, as noted for #9. Without a token it now gets 401.
   - `AuthenticateFirstRoute` looks at the route's own dependencies. If authentication were ever added as a router-level `dependencies=[...]`, it would not be seen. The docstring says so, and every operation now uses its own dependency.
+
+## 2026-11-08: Orchestrator: #10 implemented, QA FAIL, fixed, QA PASS, closed
+
+- #10 was `groomed`, so it went straight to the engineer: get, full-replacement update and delete for entries, scoped to the user, with another user's entry giving the same 404 as a missing one (362d239, 57ec2a3; https://github.com/KittyNiuNiu/winlog/issues/10#issuecomment-6726486265).
+- **First FAIL** (https://github.com/KittyNiuNiu/winlog/issues/10#issuecomment-6726557493), on 1 of 17 criteria: with no valid token and a body that is not valid JSON, `PUT /entries/{id}` (and `POST /entries` from #9) gave 422 instead of 401, because FastAPI parses the body before it runs the token dependency. Nothing changed in the database. Set #10 to `qa-failed`. No product decision was needed, so per the process it went back to the engineer with the QA comment.
+- The engineer added `AuthenticateFirstRoute` in `backend/app/auth.py`, used by every router. When the body can't be read, a protected route checks the token first. With a valid token the 422 stays, and register and login keep their 422 (2b4cb78, 69f854c; https://github.com/KittyNiuNiu/winlog/issues/10#issuecomment-6726652998).
+- QA PASS on all 17 criteria in round 2 (https://github.com/KittyNiuNiu/winlog/issues/10#issuecomment-6726737518): 301 unit and 404 integration tests pass. All 48 reproduction requests gave 401. Each request runs one token lookup, and no database sessions leaked. The new tests fail without the fix. Closed #10 as completed.
+- Noted, not failures: GET lists an entry's tags alphabetically ignoring case, while PUT and POST return them in the order sent. With a valid token, a body that is not UTF-8 still gets FastAPI's 400 `internal_error`. `AuthenticateFirstRoute` sees only route-level dependencies, not router-level ones.
+- This ends the run the product owner asked for (#7 to #10).
