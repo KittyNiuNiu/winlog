@@ -584,3 +584,27 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - #8 was `groomed`, so it went straight to the engineer, who added a migration making tag names unique per user with `lower(name)`, the shared `resolve_tags` and `lookup_tags` functions, and `GET /tags` (ed87767, 16b81cd, c6dc38b; https://github.com/KittyNiuNiu/winlog/issues/8#issuecomment-6726084470).
 - QA PASS on all criteria in the first round (https://github.com/KittyNiuNiu/winlog/issues/8#issuecomment-6726154812): 161 unit and 114 integration tests pass. QA also checked that 150 simultaneous resolves produced no errors and no duplicates, that a rollback left no tags, and that `entry_tags` links between users show in neither user's list. Closed #8 as completed.
 - Left open by the engineer, outside the criteria: a tag name with a NUL character would cause a database error, so input limits (#43) and entry validation (#9, #10) must reject it. Sorting accented names depends on the database collation. The sort test can't tell `name` from `lower(name)` on a collation that already ignores case.
+
+## 2026-11-08: Implement #9 (entry creation)
+
+- **Task:** #9, `POST /entries` (`createEntry`): one request creates one entry with text, date, category, optional tags and an optional Result/Impact (FR-E1 to FR-E3, §7.2, §7.3). Saving needs no AI.
+- **What I did:**
+  - `backend/app/entries.py`: the endpoint returns 201 with the `Entry` schema. It uses `get_current_user`, and fields the contract does not define, such as `user_id`, are ignored.
+    - Text is stored exactly as typed. Empty or whitespace-only text gets 422 naming `text`. Whitespace follows the contract's `pattern: '\S'` (ECMAScript `\s`).
+    - A missing, empty or whitespace-only Result/Impact is stored as null.
+    - The date must be `YYYY-MM-DD` and a real calendar date. Pydantic alone would also accept date-times and timestamps. Any real date is accepted, including future dates.
+    - The category must be one of the four exact values.
+  - Tags go through #8's `TagName` and `resolve_tags` in the entry's transaction. A failed save stores neither the entry nor new tags.
+  - `backend/app/text_rules.py`: NUL and unpaired surrogates in `text`, `result_impact` or a tag name get 422 naming the field instead of a 500. `TagName` uses the same check.
+  - `backend/app/db.py`: `hide_parameters=True`, so database errors never repeat the statement's values, such as entry text, in a logged traceback.
+  - No new dependencies. No changes to `openapi.yaml`, `product-spec.md` or migrations.
+- **How I verified it:**
+  - `uv run pytest tests/unit`: 225 passed. `uv run pytest tests/integration` (PostgreSQL 18 via `docker compose up -d db`): 238 passed. `uv run ruff check .` and `uv run ruff format --check .` are clean.
+  - New tests in `tests/unit/test_entries.py` and `tests/integration/test_entries.py`, plus additions to `test_tags.py` and `test_db.py`, cover every criterion. They include a forced foreign-key failure after the tags were resolved (no entry or tag remains), A's and B's `Python` tags (FR-A3), and entry text never appearing in logs.
+  - Mutation checks: removing the character checks, `hide_parameters` or the date format check, trimming the text, or committing before linking the tags each made tests fail.
+  - Live with `uv run uvicorn` against the compose database: 201 with the stored tag spelling, a `user_id` in the body ignored, a combined 422 naming four fields, and 401 without a token. No entry text in the log.
+  - Issue comment: https://github.com/KittyNiuNiu/winlog/issues/9#issuecomment-6726276857
+- **Left open:**
+  - PostgreSQL puts the failing row into the message of a CHECK or NOT NULL violation, and `hide_parameters` cannot hide it. Entry creation cannot trigger one now, but a database-level limit on entry text (#43) would log the text in a 500 traceback.
+  - A body that is not valid UTF-8 gets 400 `internal_error` on every endpoint, from FastAPI's body parsing and the shared handler.
+  - #43 adds the size limits, including 10 tags per entry.
