@@ -52,6 +52,11 @@ TagName = Annotated[str, AfterValidator(_validate_tag_name)]
 """A tag name in a request model: normalised, and a validation error if it is empty or has a
 character the database cannot store."""
 
+FilterTagName = Annotated[str, AfterValidator(reject_unstorable_characters)]
+"""A tag name to filter by (issue #11): a validation error only if it has a character the
+database cannot store. `lookup_tags` normalises it; a name that no tag has, including one that
+is empty after trimming, matches nothing and is not an error."""
+
 
 def _match_keys(session: Session, names: Sequence[str]) -> dict[str, str]:
     """PostgreSQL's lower() of each name, so matching follows exactly the index's rule.

@@ -12,13 +12,14 @@ from urllib.parse import quote
 import pytest
 import yaml
 from fastapi.testclient import TestClient
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 from app import entries
 from app.auth import get_current_user
 from app.entries import EntryInput
 from app.main import create_app
 from app.models import CATEGORIES, User
+from app.tags import FilterTagName
 from app.text_rules import has_unstorable_characters, is_blank
 
 OPENAPI = yaml.safe_load(
@@ -328,3 +329,138 @@ def test_fr_a3_get_update_and_delete_without_token_are_not_authenticated(
     contract("Error").validate(response.json())
     assert response.json()["code"] == "not_authenticated"
     assert response.headers["WWW-Authenticate"] == "Bearer"
+
+
+# --- List and filter (issue #11) ----------------------------------------------------------
+
+
+def test_list_entries_matches_the_contract(settings):
+    generated = create_app(settings).openapi()["paths"]["/entries"]["get"]
+    contract_operation = OPENAPI["paths"]["/entries"]["get"]
+
+    assert generated["operationId"] == contract_operation["operationId"] == "listEntries"
+    assert generated["security"] == [{"bearerAuth": []}]
+    assert set(generated["responses"]) >= {"200", "422"}
+    response = generated["responses"]["200"]["content"]["application/json"]["schema"]
+    assert response == {"$ref": "#/components/schemas/EntryList"}
+    parameters = {p["name"]: p for p in generated["parameters"]}
+    assert [p["name"] for p in generated["parameters"]] == [
+        p["name"] for p in contract_operation["parameters"]
+    ]
+    for parameter in contract_operation["parameters"]:
+        assert parameters[parameter["name"]]["in"] == "query"
+        assert parameters[parameter["name"]]["required"] is False
+    [start_date, _] = parameters["start_date"]["schema"]["anyOf"]
+    assert start_date == {"type": "string", "format": "date"}
+    [category, _] = parameters["category"]["schema"]["anyOf"]
+    assert category["type"] == "array"
+    assert category["items"]["enum"] == list(CATEGORIES)
+    [tag, _] = parameters["tag"]["schema"]["anyOf"]
+    assert tag == {"type": "array", "items": {"type": "string"}}
+
+
+def test_fr_a3_list_uses_the_current_user_dependency():
+    [route] = [r for r in entries.router.routes if r.name == "list_entries"]
+
+    assert get_current_user in [dependency.call for dependency in route.dependant.dependencies]
+
+
+@pytest.mark.parametrize(
+    "query",
+    ["", "?start_date=2026-02-30&end_date=2026-01-01&category=Other&tag=%00", "?tag=a&tag=b"],
+)
+def test_fr_a3_list_without_token_is_not_authenticated(client: TestClient, contract, query: str):
+    response = client.get(f"/entries{query}")
+
+    assert response.status_code == 401
+    contract("Error").validate(response.json())
+    assert response.json()["code"] == "not_authenticated"
+    assert response.headers["WWW-Authenticate"] == "Bearer"
+
+
+def _list_error_fields(client: TestClient, contract, query: str) -> list[str]:
+    response = client.get(f"/entries{query}")
+    assert response.status_code == 422
+    body = response.json()
+    contract("Error").validate(body)
+    assert body["code"] == "validation_failed"
+    return [item["field"] for item in body["fields"]]
+
+
+@pytest.mark.parametrize(
+    ("start", "end"), [("2026-01-02", "2026-01-01"), ("2027-01-01", "2026-12-31")]
+)
+def test_fr_r1_start_date_after_end_date_names_the_end_date(
+    logged_in_client: TestClient, contract, start: str, end: str
+):
+    fields = _list_error_fields(logged_in_client, contract, f"?start_date={start}&end_date={end}")
+
+    assert fields == ["end_date"]
+
+
+@pytest.mark.parametrize("field", ["start_date", "end_date"])
+@pytest.mark.parametrize(
+    "value",
+    [
+        "2026-02-30",
+        "2026-11-8",
+        "2026-11-08T00:00:00",
+        quote("２０２６-11-08"),
+        "2026-11-08%0A",
+        "1762560000",
+        "",
+        "yesterday",
+    ],
+)
+def test_fr_r1_date_must_be_a_real_date_in_the_contract_format(
+    logged_in_client: TestClient, contract, field: str, value: str
+):
+    assert _list_error_fields(logged_in_client, contract, f"?{field}={value}") == [field]
+
+
+@pytest.mark.parametrize(
+    "value", ["Other", "learning", "", "Side%2Bproject", "Achievement,Learning"]
+)
+def test_fr_r1_category_must_be_one_of_the_four(logged_in_client: TestClient, contract, value):
+    fields = _list_error_fields(logged_in_client, contract, f"?category=Learning&category={value}")
+
+    assert fields == ["category.1"]
+
+
+def test_fr_r1_tag_name_with_nul_is_a_validation_error_that_does_not_echo_it(
+    logged_in_client: TestClient, contract
+):
+    response = logged_in_client.get("/entries?tag=Go&tag=Secret%00name")
+
+    assert response.status_code == 422
+    contract("Error").validate(response.json())
+    assert [item["field"] for item in response.json()["fields"]] == ["tag.1"]
+    assert "Secret" not in response.text
+
+
+def test_fr_r1_every_invalid_parameter_is_named(logged_in_client: TestClient, contract):
+    fields = _list_error_fields(
+        logged_in_client, contract, "?start_date=2026-02-30&end_date=x&category=Other&tag=%00"
+    )
+
+    assert fields == ["start_date", "end_date", "category.0", "tag.0"]
+
+
+@pytest.mark.parametrize("value", ["\x00", "a\x00b", "\ud800", "a\udfffb"])
+def test_fr_r1_filter_tag_name_rejects_characters_the_database_cannot_take(value: str):
+    with pytest.raises(ValidationError) as error:
+        TypeAdapter(FilterTagName).validate_python(value)
+
+    assert [item["type"] for item in error.value.errors()] == ["invalid_character"]
+
+
+@pytest.mark.parametrize("value", ["", "   ", "Python", " machine  learning ", "Sales, EMEA"])
+def test_fr_r1_filter_tag_name_accepts_any_other_name_unchanged(value: str):
+    """Unknown or empty names are not an error: they match nothing (#11)."""
+    assert TypeAdapter(FilterTagName).validate_python(value) == value
+
+
+def test_fr_r1_entry_filter_defaults_to_no_restriction():
+    assert entries.EntryFilter() == entries.EntryFilter(
+        start_date=None, end_date=None, categories=(), tags=()
+    )

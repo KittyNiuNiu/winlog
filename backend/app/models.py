@@ -98,7 +98,11 @@ class Token(Base):
 
 class Entry(Base):
     __tablename__ = "entries"
-    __table_args__ = (CheckConstraint(f"category IN ({_sql_list(CATEGORIES)})", name="category"),)
+    __table_args__ = (
+        CheckConstraint(f"category IN ({_sql_list(CATEGORIES)})", name="category"),
+        # Listing and filtering always select one user's entries by date (issue #11).
+        Index(None, "user_id", "date"),
+    )
 
     id: Mapped[uuid.UUID] = _uuid_pk()
     user_id: Mapped[uuid.UUID] = _owner()
