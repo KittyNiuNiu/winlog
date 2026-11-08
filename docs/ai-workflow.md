@@ -637,3 +637,19 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - `updated_at` is the transaction start time, so of two overlapping updates the last to commit wins but can carry the earlier timestamp.
   - `/entries/` with an empty id gets FastAPI's 307 trailing-slash redirect.
   - Size limits are #43.
+
+## 2026-11-08: Fix the QA FAIL on #10 (token checked before a body that is not valid JSON)
+
+- **Task:** #10, the QA FAIL on "Without a valid token, all three operations return 'not authenticated' and change nothing" (https://github.com/KittyNiuNiu/winlog/issues/10#issuecomment-6726557493). `PUT /entries/{entryId}` and `POST /entries` with no token or a wrong token and a body that is not valid JSON got 422 `validation_failed` instead of 401 `not_authenticated`, because FastAPI parses the JSON body before it runs any dependency.
+- **What I did:**
+  - `backend/app/auth.py`: new `AuthenticateFirstRoute`, a FastAPI `APIRoute` subclass (FastAPI's documented way to customise route handling). When FastAPI cannot read the body (a `json_invalid` validation error, or its 400 "There was an error parsing the body" for bytes that are not UTF-8), a route that needs authentication first solves its dependencies that lead to `get_current_login`. Without a valid token that raises `not_authenticated` with `WWW-Authenticate: Bearer`. With a valid token, the original body error is raised again, so the 422 stays. Only the error path runs the check, so a valid request still checks its token once. The body fails before anything runs, so nothing changes in the database.
+  - All four routers (`accounts`, `entries`, `health`, `tags`) use it, so it covers every authenticated operation that takes a body, now and later. Public operations (`/auth/register`, `/auth/login`) have no login dependency and keep their 422.
+  - No new dependencies. No changes to `openapi.yaml`, `product-spec.md` or migrations. The tag order in the PUT response is unchanged, as QA asked.
+- **How I verified it:**
+  - `uv run pytest tests/unit`: 301 passed. `uv run pytest tests/integration` (PostgreSQL 18 via `docker compose up -d db`): 404 passed. `uv run ruff check .` and `uv run ruff format --check .` are clean.
+  - New tests: in `tests/unit/test_auth.py`, every authenticated operation with a request body, with no token or a malformed header and the bodies `junk`, `{"text":`, `\xff\xfe` and `\x80`, gets 401; a logged-in request with malformed JSON still gets 422; register and login still get 422; and every router uses `AuthenticateFirstRoute` and together they hold every operation of the app. In `tests/integration/test_entries.py` and `test_entry_changes.py`, POST and PUT with no token, a wrong token or an expired token and those four bodies get 401 and change no entry, link or tag; with a valid token, malformed JSON gets 422.
+  - Without the fix in `app/`, all 36 new integration no-token cases fail (24 PUT, 12 POST), and the 12 new unit no-token cases fail. The 422 cases pass both before and after.
+  - Live with `uv run uvicorn` against the compose database: the QA requests (PUT and POST, no header or `Bearer garbage`, the bodies `junk`, `{"text":` and `\xff\xfe`) each gave 401 `not_authenticated` with `WWW-Authenticate: Bearer`. With a valid token: 422. Register and login with malformed JSON: 422. The entry and its tags were unchanged. No traceback or entry text in the server log.
+- **Left open:**
+  - With a valid token, a body that is not valid UTF-8 still gets FastAPI's 400 with `code: internal_error`, as noted for #9. Without a token it now gets 401.
+  - `AuthenticateFirstRoute` looks at the route's own dependencies. If authentication were ever added as a router-level `dependencies=[...]`, it would not be seen. The docstring says so, and every operation now uses its own dependency.
