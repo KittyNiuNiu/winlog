@@ -615,3 +615,25 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - QA PASS on all criteria in the first round (https://github.com/KittyNiuNiu/winlog/issues/9#issuecomment-6726344948): 225 unit and 238 integration tests pass. QA ran the live checks with `uv run uvicorn`, because Docker Hub returned 429 for the image build. It tested a failure forced by a temporary trigger: the save rolled back with no entry or tag left. Closed #9 as completed.
 - For #43: a 9000-character tag gives a 500 from the index size limit, so tag length must be limited at the API. If size limits were enforced only in the database, PostgreSQL would put the row, including entry text, into the error message. So check them at the API boundary.
 - Noted, not failures: a body that is not valid UTF-8 gets 400 with `code: internal_error` on every endpoint, from the shared error handling. Tag case matching follows PostgreSQL `lower()` (#8), so `Straße` and `STRASSE` are separate tags.
+
+## 2026-11-08: Implement #10 (reading, editing and deleting entries)
+
+- **Task:** #10, `GET`, `PUT` and `DELETE /entries/{entryId}` (`getEntry`, `updateEntry`, `deleteEntry`): users can view, edit and delete their own entries (FR-E4), and another user's entry behaves as if it did not exist (FR-A3).
+- **What I did:**
+  - `backend/app/entries.py`: three endpoints, all using `get_current_user` and scoped to the user. A missing entry and another user's entry get the same 404 `not_found`.
+  - Get returns the `Entry` schema. Tag names are sorted ignoring case, like `GET /tags`, because no tag order is stored. Only the owner's tags are shown.
+  - Update is a full replacement through #9's `EntryInput`, so validation is the same as create. It locks the row (`FOR UPDATE`), deletes the old tag links and resolves the new tags with #8's `resolve_tags`, all in one transaction. The response lists tags in the order sent, as create does. `flag_modified` makes sure the row is always written, so the #5 trigger changes `updated_at` even when nothing else changed.
+  - Delete returns 204. The links go through `ON DELETE CASCADE`, and the tags stay.
+  - `entryId` must be the hyphenated `format: uuid` form. The other spellings pydantic accepts get 422 naming `entryId`. Without a valid token, all three return 401 before the id or the body is checked.
+  - No new dependencies. No changes to `openapi.yaml`, `product-spec.md` or the migrations.
+- **How I verified it:**
+  - `uv run pytest tests/unit`: 282 passed. `uv run pytest tests/integration` (PostgreSQL 18 via `docker compose up -d db`): 362 passed. `uv run ruff check .` and `uv run ruff format --check .` are clean.
+  - New tests in `tests/integration/test_entry_changes.py` and `tests/unit/test_entries.py` cover each criterion. They include summaries stored directly in the database, which stay unchanged after an edit and a delete, a forced database failure during an update that rolls back everything, and all three operations on another user's entry.
+  - Mutation checks: removing either user filter, `flag_modified`, the link deletion or the id format check, committing early, resolving tags before the 404 check, or returning 200 from delete each made tests fail.
+  - Live with `uv run uvicorn` against the compose database: 200, 200, 404 for another user, 422, 401, then 204 and 404. No entry text in the server log.
+  - Issue comment: https://github.com/KittyNiuNiu/winlog/issues/10#issuecomment-6726486265
+- **Left open:**
+  - The test database's collation already ignores case, so the tests cannot tell sorting tag names by `lower(name)` from sorting by `name` (as in #8).
+  - `updated_at` is the transaction start time, so of two overlapping updates the last to commit wins but can carry the earlier timestamp.
+  - `/entries/` with an empty id gets FastAPI's 307 trailing-slash redirect.
+  - Size limits are #43.
