@@ -712,11 +712,14 @@ components:
           maxLength: 128
           description: |
             10 to 128 characters, counted as characters (not bytes). It must contain
-            at least one uppercase letter (for example `A` or `Ä`), at least one digit
-            (`0`–`9`) and at least one special character: any character that is not
-            a letter or a digit, for example `!`, `#`, `-` or a space. The password
-            is used exactly as typed; spaces at the start or end are kept. A
-            validation error says which requirement is missing.
+            at least one uppercase letter (a Unicode uppercase letter, general
+            category `Lu`, for example `A` or `Ä`), at least one digit (`0`–`9`) and
+            at least one special character: any character that is not a letter
+            (Unicode general category `L`) or a `0`–`9` digit, for example `!`, `#`,
+            `-`, a space, `²` or `Ⓐ`. The password must be valid Unicode text, so an
+            unpaired surrogate (such as `\ud800`) is rejected. The password is used
+            exactly as typed; spaces at the start or end are kept. A validation error
+            says which requirement is missing.
           example: Correct-Horse-7
 
     Credentials:
