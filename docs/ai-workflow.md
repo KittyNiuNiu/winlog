@@ -683,3 +683,20 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Task:** the product owner asked to add the open-points rule to `docs/process.md` as well, and to check the closed issues for open points that no open issue mentions.
 - **What I did:** added a rule to "Rules" in `docs/process.md`: when the orchestrator closes an issue, it posts each open point from the engineer and QA on the open issue it belongs to, and asks the product owner if no issue fits. The skill (step 6) already spells out the steps.
 - **How I verified it:** the wording matches step 6 of `.claude/skills/orchestrate/SKILL.md`, and no role or label changes.
+
+## 2026-11-08: Orchestrator: check the closed issues for open points no open issue mentions
+
+- **Task:** the product owner asked whether any open points from closed issues (#2–#10) were missing from the open issues.
+- **What I did:** read the engineer and QA comments on #2–#10 and searched the open issues' bodies and comments for each point.
+  - #7–#10 were already covered by today's comments on #43 and #38 and by #58.
+  - Points from #2–#6 already handled: contract lint in CI (#24), an extra field in a summary update is ignored (#18), the "no size limits yet" line in the contract is rewritten (#43), blank entry text is rejected (#9), tag links between users (#8, #11), Neon's support for PostgreSQL 18 (checked), and health-check threads (bounded).
+- **Product owner decisions:** post the three remaining points where they fit:
+  - #19: the shared `ContentDisposition` example in `openapi.yaml` names a `.json` file, so the Markdown export shows the wrong extension (https://github.com/KittyNiuNiu/winlog/issues/19#issuecomment-6726856969).
+  - #58: malformed-JSON errors name the field by character position, for example `"1"` (https://github.com/KittyNiuNiu/winlog/issues/58#issuecomment-6726857490).
+  - #38: only `/health` has a database time limit, so other endpoints can wait on a silent database (https://github.com/KittyNiuNiu/winlog/issues/38#issuecomment-6726861531).
+- **Reviewed and not tracked** (product owner decision; none affects users or a criterion):
+  - a disallowed CORS preflight gets Starlette's plain-text 400 (#3)
+  - an error inside the CORS middleware itself would get no CORS headers (#3)
+  - some `.env.example` comments run over several lines (#3)
+  - `updated_at` stays equal to `created_at` when a row is inserted and updated in the same transaction (#5)
+  - the password rule's character classes follow the Unicode version of the running Python (#6)
