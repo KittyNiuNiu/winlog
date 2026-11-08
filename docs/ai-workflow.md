@@ -662,3 +662,11 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - QA PASS on all 17 criteria in round 2 (https://github.com/KittyNiuNiu/winlog/issues/10#issuecomment-6726737518): 301 unit and 404 integration tests pass. All 48 reproduction requests gave 401. Each request runs one token lookup, and no database sessions leaked. The new tests fail without the fix. Closed #10 as completed.
 - Noted, not failures: GET lists an entry's tags alphabetically ignoring case, while PUT and POST return them in the order sent. With a valid token, a body that is not UTF-8 still gets FastAPI's 400 `internal_error`. `AuthenticateFirstRoute` sees only route-level dependencies, not router-level ones.
 - This ends the run the product owner asked for (#7 to #10).
+
+## 2026-11-08: Orchestrator: open points from #7–#10 moved to the issues they belong to
+
+- The product owner noticed that the open points from #7–#10 were only in this log and in the closed issues' comments, where later roles might miss them. The product owner decided to post each point where it fits.
+  - **#43:** a 9000-character tag gives a 500, and size limits must be checked at the API because PostgreSQL puts the failing row (including entry text) into constraint errors (https://github.com/KittyNiuNiu/winlog/issues/43#issuecomment-6726774877). Also: `Credentials.password` in `openapi.yaml` lacks `maxLength: 128` and `minLength: 1` (https://github.com/KittyNiuNiu/winlog/issues/43#issuecomment-6726805286).
+  - **#38:** `docker-compose.yml` does not pass `TOKEN_LIFETIME_DAYS` to the backend (https://github.com/KittyNiuNiu/winlog/issues/38#issuecomment-6726805981).
+  - **New issue #58** (https://github.com/KittyNiuNiu/winlog/issues/58): a body that is not valid UTF-8 gets 400 `internal_error`, and an entry's tag order differs between GET and POST/PUT (needs a product decision). It needs grooming and is not yet in `docs/tasks.md`.
+- From now on, the orchestrator posts each open point on the issue it belongs to when it closes an issue, not only in this log.
