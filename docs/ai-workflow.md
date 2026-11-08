@@ -520,3 +520,28 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - The engineer sorted characters by Unicode category (uppercase `Lu`, letter `L*`, digit `0`–`9`, everything else special), rejected unpaired surrogates with a 422 naming `password`, and reworded only the register password description in `openapi.yaml` (fbae8e4, 857c4f1; https://github.com/KittyNiuNiu/winlog/issues/6#issuecomment-6723513515).
 - QA PASS on all criteria in round 2 (https://github.com/KittyNiuNiu/winlog/issues/6#issuecomment-6723558041): 119 unit and 53 integration tests pass. The round 1 cases were re-checked live, and QA confirmed the new tests fail without the fix. Closed #6 as completed.
 - Not checked in round 2: the image build and `.env` check, because Docker Hub returned 429. The live checks ran on `uv run uvicorn`. The fix changes no Dockerfile or `.dockerignore`, and round 1 found no `.env` in the image.
+
+## 2026-11-08: Implement #7 (login, logout and request authentication)
+
+- **Task:** #7, login and logout (FR-A2) with server-stored bearer tokens, and one reusable dependency that identifies the current user and rejects every request without a valid token (FR-A3, §7.1).
+- **What I did:**
+  - New migration `ec3f02a4af39` (the first one is unchanged) adds `tokens`: `id`, `user_id` (indexed, `ON DELETE CASCADE`), `token_hash` (unique), `created_at` and `expires_at`. `Token` model in `backend/app/models.py`.
+  - New setting `TOKEN_LIFETIME_DAYS` (default 7, whole number from 1 to 365) in `backend/app/settings.py` and `.env.example`.
+  - `backend/app/auth.py`: tokens are `secrets.token_urlsafe(32)` (32 random bytes), and only their SHA-256 hex digest is stored. `create_token` deletes the user's expired tokens and adds a new one, so other devices stay logged in. `get_current_user` (with `get_current_login` under it) reads `Authorization: Bearer <token>` through FastAPI's `HTTPBearer(auto_error=False, scheme_name="bearerAuth")`. A missing or malformed header, or an unknown, expired or logged-out token, all get 401 `not_authenticated` with `WWW-Authenticate: Bearer`. `ApiError` in `backend/app/errors.py` now takes response headers.
+  - `backend/app/accounts.py`: `POST /auth/login` returns 200 `{token, expires_at}`. The email is trimmed and lower-cased as in registration. A wrong password and an unknown email both get 401 `invalid_credentials`. For an unknown email the password is still checked against a dummy argon2 hash with the same parameters, made once at import (`backend/app/passwords.py`). The password must be 1 to 128 characters and no other rule applies. Because of the length limit, pydantic rejects an unpaired surrogate, so such a password gets 422 rather than a 500 from argon2. `POST /auth/logout` returns 204 and deletes only the request's token.
+  - Tests: `tests/unit/test_auth.py` and `tests/integration/test_login.py`, named after FR-A2 or FR-A3. They cover each criterion, including a test-only route that returns the user a token identifies. I extended the existing table, timestamp and settings tests for the new table and variable.
+  - No new dependencies (`secrets` and `hashlib` are standard library).
+- **How I verified it:**
+  - `uv run pytest tests/unit`: 147 passed. `uv run pytest tests/integration` (PostgreSQL 18 via `docker compose up -d db`): 79 passed. `uv run ruff check .`, `uv run ruff format --check .` and `uv run alembic check` are clean.
+  - Mutation checks: I broke the code six ways, one at a time: no dummy hash, raw token stored, logout deleting all of the user's tokens, no expiry check, no expired-token cleanup, no `WWW-Authenticate` header. Each made the matching tests fail. Logging the password or the token made the log test fail.
+  - Live with `docker compose up --build`. Docker Hub answered this time, and I built on the local CA-trusting `python:3.13-slim` shim, which is not committed. Results:
+    - Register gave 201. Login with `"  LIVE@example.com "` gave 200 with a 43-character token and `expires_at` 7 days ahead.
+    - A wrong password and an unknown email gave the same 401 body, in about the same time (about 45 ms each).
+    - A password with an unpaired surrogate, or 129 characters, gave 422.
+    - Logout with no header or with `Basic` gave 401 and `WWW-Authenticate: Bearer`. Logout gave 204, the same token again gave 401, and the second device's token still worked.
+    - `psql` showed the table, index, unique constraint and cascade. The backend log had no token, no password and no traceback. `find` found no `.env` in the image.
+  - Afterwards I ran `docker compose down -v` and removed the built and pulled images.
+- **Left open:**
+  - The `Credentials.password` schema in `openapi.yaml` has no `minLength: 1` or `maxLength: 128`, but the issue requires the 128 limit, and I treat an empty password as missing. A later contract change could document both; this issue does not allow editing `openapi.yaml`.
+  - `docker-compose.yml` does not pass `TOKEN_LIFETIME_DAYS` to the backend container, so Compose always uses the default of 7. The issue does not list that file.
+  - Expired tokens are deleted only when their user logs in again, as the issue specifies.
