@@ -699,6 +699,48 @@ def test_fr_a3_create_without_a_valid_token_is_not_authenticated(
     assert _entries(migrated_db) == []
 
 
+NOT_JSON = [b"junk", b'{"text":', b"\xff\xfe", b"\x80"]
+"""Bodies FastAPI cannot read: not JSON, cut off, a UTF-16 mark only, and not UTF-8."""
+
+
+def _create_bytes(client: TestClient, token: str | None, body: bytes):
+    headers = {"Authorization": f"Bearer {token}"} if token else {}
+    return client.post(
+        "/entries", content=body, headers={**headers, "content-type": "application/json"}
+    )
+
+
+@pytest.mark.parametrize("body", NOT_JSON)
+@pytest.mark.parametrize("token", [None, "not-a-real-token", "expired"])
+def test_fr_a3_create_with_a_body_that_is_not_json_and_no_valid_token_is_not_authenticated(
+    client: TestClient, migrated_db: Engine, alice: uuid.UUID, contract, token, body: bytes
+):
+    """The token is checked first, although FastAPI reads the body before any dependency."""
+    if token == "expired":
+        token = _token(migrated_db, alice, valid_for=dt.timedelta(seconds=-1))
+
+    response = _create_bytes(client, token, body)
+
+    assert response.status_code == 401
+    contract("Error").validate(response.json())
+    assert response.json()["code"] == "not_authenticated"
+    assert response.headers["WWW-Authenticate"] == "Bearer"
+    assert _entries(migrated_db) == []
+    assert _tags(migrated_db) == []
+
+
+@pytest.mark.parametrize("body", NOT_JSON[:3])
+def test_fr_a3_create_with_a_valid_token_and_a_body_that_is_not_json_is_a_validation_error(
+    client: TestClient, migrated_db: Engine, alice_token: str, contract, body: bytes
+):
+    response = _create_bytes(client, alice_token, body)
+
+    assert response.status_code == 422
+    contract("Error").validate(response.json())
+    assert response.json()["code"] == "validation_failed"
+    assert _entries(migrated_db) == []
+
+
 def test_fr_a3_create_with_an_expired_token_is_not_authenticated(
     client: TestClient, migrated_db: Engine, alice: uuid.UUID, contract
 ):

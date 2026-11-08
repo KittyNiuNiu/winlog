@@ -43,10 +43,20 @@ other labels.
 5. **FAIL.** Set the label `qa-failed`. If this is the second FAIL for this issue, stop and
    ask the product owner. Otherwise go back to step 3 with the QA comment.
 6. **PASS.** Re-read the acceptance criteria and the QA comment. Close the issue with the
-   reason "completed"; never delete an issue. Add a short entry to `docs/ai-workflow.md`,
+   reason "completed"; never delete an issue. Then record the open points:
+   - Collect what the engineer listed as "left open" and what QA listed as notes or
+     findings outside the criteria.
+   - Post each point that fits an open issue as a comment on that issue. Say what was
+     found, link the source comment, and say it is an input for grooming, not a new
+     requirement.
+   - If no open issue fits a point, ask the product owner whether to create a new issue
+     for it or to leave it in the log.
+
+   Add a short entry to `docs/ai-workflow.md` that names where each open point went,
    commit it and push.
 7. **Report** to the product owner: the issue, the outcome, links to the engineer and QA
-   comments, and the decisions taken. Stop here unless the argument was `all`.
+   comments, the decisions taken, and where each open point was recorded. Stop here
+   unless the argument was `all`.
 
 ## Launching subagents
 

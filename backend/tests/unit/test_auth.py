@@ -10,9 +10,10 @@ import yaml
 from fastapi.dependencies.models import Dependant
 from fastapi.testclient import TestClient
 
-from app import accounts
-from app.auth import get_current_user, hash_token, new_token
+from app import accounts, entries, health, tags
+from app.auth import AuthenticateFirstRoute, get_current_user, hash_token, new_token
 from app.main import create_app
+from app.models import User
 from app.settings import SettingsError, load_settings
 
 OPENAPI_PATH = Path(__file__).resolve().parents[3] / "openapi.yaml"
@@ -196,6 +197,95 @@ def test_fr_a3_every_operation_that_needs_authentication_rejects_a_request_witho
         response = client.request(method, url)
         assert response.status_code == 401, f"{method} {path}"
         assert response.json()["code"] == "not_authenticated"
+
+
+# --- The token is checked before a body that is not valid JSON ------------------------------
+# FastAPI reads a JSON body before it runs the dependencies. Without AuthenticateFirstRoute, a
+# body it cannot read got 422 (or 400) even without a valid token.
+
+NOT_JSON = [b"junk", b'{"text":', b"\xff\xfe", b"\x80"]
+"""Bodies FastAPI cannot read: not JSON, cut off, a UTF-16 mark only, and not UTF-8."""
+NOT_JSON_WITH_VALID_UTF8 = NOT_JSON[:3]
+
+
+def _url(path: str) -> str:
+    return path.replace("{entryId}", str(uuid.uuid4())).replace("{summaryId}", str(uuid.uuid4()))
+
+
+def _operations_with_a_body(schema: dict, *, needs_auth: bool) -> list[tuple[str, str]]:
+    """(method, path) of each operation that takes a request body."""
+    found = []
+    for method, path, auth in _operations(schema).values():
+        if auth == needs_auth and "requestBody" in schema["paths"][path][method]:
+            found.append((method, path))
+    return found
+
+
+def _send_raw(client: TestClient, method: str, path: str, body: bytes, headers: dict):
+    return client.request(
+        method, _url(path), content=body, headers={**headers, "Content-Type": "application/json"}
+    )
+
+
+@pytest.mark.parametrize("body", NOT_JSON)
+@pytest.mark.parametrize("headers", [{}, {"Authorization": "Bearer"}, {"Authorization": "Basic x"}])
+def test_fr_a3_body_that_is_not_json_without_token_is_not_authenticated(
+    client: TestClient, contract, body: bytes, headers: dict
+):
+    operations = _operations_with_a_body(client.app.openapi(), needs_auth=True)
+    assert ("post", "/entries") in operations
+    assert ("put", "/entries/{entryId}") in operations
+
+    for method, path in operations:
+        response = _send_raw(client, method, path, body, headers)
+
+        assert response.status_code == 401, f"{method} {path}"
+        contract("Error").validate(response.json())
+        assert response.json()["code"] == "not_authenticated"
+        assert response.headers["WWW-Authenticate"] == "Bearer"
+
+
+@pytest.mark.parametrize("body", NOT_JSON_WITH_VALID_UTF8)
+def test_fr_a3_logged_in_body_that_is_not_json_is_still_a_validation_error(
+    settings, contract, body: bytes
+):
+    app = create_app(settings)
+    app.dependency_overrides[get_current_user] = lambda: User(id=uuid.uuid4(), email="a@b.c")
+    client = TestClient(app)
+
+    for method, path in [("post", "/entries"), ("put", "/entries/{entryId}")]:
+        response = _send_raw(client, method, path, body, {"Authorization": "Bearer stand-in"})
+
+        assert response.status_code == 422, f"{method} {path}"
+        contract("Error").validate(response.json())
+        assert response.json()["code"] == "validation_failed"
+
+
+@pytest.mark.parametrize("body", NOT_JSON_WITH_VALID_UTF8)
+def test_fr_a3_public_operations_keep_the_validation_error_for_a_body_that_is_not_json(
+    client: TestClient, contract, body: bytes
+):
+    operations = _operations_with_a_body(client.app.openapi(), needs_auth=False)
+    assert ("post", "/auth/register") in operations
+    assert ("post", "/auth/login") in operations
+
+    for method, path in operations:
+        response = _send_raw(client, method, path, body, {})
+
+        assert response.status_code == 422, f"{method} {path}"
+        contract("Error").validate(response.json())
+        assert response.json()["code"] == "validation_failed"
+
+
+def test_fr_a3_every_route_checks_the_token_before_the_body(settings):
+    routers = [accounts.router, entries.router, health.router, tags.router]
+    routes = [route for router in routers for route in router.routes]
+
+    for route in routes:
+        assert isinstance(route, AuthenticateFirstRoute), route.path
+    # These routers hold every operation of the app.
+    app_operations = set(_operations(create_app(settings).openapi()))
+    assert app_operations == {route.operation_id for route in routes}
 
 
 def test_fr_a3_logout_uses_the_current_user_dependency():

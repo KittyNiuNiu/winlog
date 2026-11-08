@@ -608,3 +608,95 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - PostgreSQL puts the failing row into the message of a CHECK or NOT NULL violation, and `hide_parameters` cannot hide it. Entry creation cannot trigger one now, but a database-level limit on entry text (#43) would log the text in a 500 traceback.
   - A body that is not valid UTF-8 gets 400 `internal_error` on every endpoint, from FastAPI's body parsing and the shared handler.
   - #43 adds the size limits, including 10 tags per entry.
+
+## 2026-11-08: Orchestrator: #9 implemented, QA PASS, closed
+
+- #9 was `groomed`, so it went straight to the engineer. The engineer added `POST /entries` and rejects NUL characters and unpaired surrogates in text, result_impact and tag names with a 422. The engine now uses `hide_parameters=True`, so entry text never appears in a logged database error (1d1bfc5, ef069e0, f555e2d, afa0750; https://github.com/KittyNiuNiu/winlog/issues/9#issuecomment-6726276857).
+- QA PASS on all criteria in the first round (https://github.com/KittyNiuNiu/winlog/issues/9#issuecomment-6726344948): 225 unit and 238 integration tests pass. QA ran the live checks with `uv run uvicorn`, because Docker Hub returned 429 for the image build. It tested a failure forced by a temporary trigger: the save rolled back with no entry or tag left. Closed #9 as completed.
+- For #43: a 9000-character tag gives a 500 from the index size limit, so tag length must be limited at the API. If size limits were enforced only in the database, PostgreSQL would put the row, including entry text, into the error message. So check them at the API boundary.
+- Noted, not failures: a body that is not valid UTF-8 gets 400 with `code: internal_error` on every endpoint, from the shared error handling. Tag case matching follows PostgreSQL `lower()` (#8), so `Straße` and `STRASSE` are separate tags.
+
+## 2026-11-08: Implement #10 (reading, editing and deleting entries)
+
+- **Task:** #10, `GET`, `PUT` and `DELETE /entries/{entryId}` (`getEntry`, `updateEntry`, `deleteEntry`): users can view, edit and delete their own entries (FR-E4), and another user's entry behaves as if it did not exist (FR-A3).
+- **What I did:**
+  - `backend/app/entries.py`: three endpoints, all using `get_current_user` and scoped to the user. A missing entry and another user's entry get the same 404 `not_found`.
+  - Get returns the `Entry` schema. Tag names are sorted ignoring case, like `GET /tags`, because no tag order is stored. Only the owner's tags are shown.
+  - Update is a full replacement through #9's `EntryInput`, so validation is the same as create. It locks the row (`FOR UPDATE`), deletes the old tag links and resolves the new tags with #8's `resolve_tags`, all in one transaction. The response lists tags in the order sent, as create does. `flag_modified` makes sure the row is always written, so the #5 trigger changes `updated_at` even when nothing else changed.
+  - Delete returns 204. The links go through `ON DELETE CASCADE`, and the tags stay.
+  - `entryId` must be the hyphenated `format: uuid` form. The other spellings pydantic accepts get 422 naming `entryId`. Without a valid token, all three return 401 before the id or the body is checked.
+  - No new dependencies. No changes to `openapi.yaml`, `product-spec.md` or the migrations.
+- **How I verified it:**
+  - `uv run pytest tests/unit`: 282 passed. `uv run pytest tests/integration` (PostgreSQL 18 via `docker compose up -d db`): 362 passed. `uv run ruff check .` and `uv run ruff format --check .` are clean.
+  - New tests in `tests/integration/test_entry_changes.py` and `tests/unit/test_entries.py` cover each criterion. They include summaries stored directly in the database, which stay unchanged after an edit and a delete, a forced database failure during an update that rolls back everything, and all three operations on another user's entry.
+  - Mutation checks: removing either user filter, `flag_modified`, the link deletion or the id format check, committing early, resolving tags before the 404 check, or returning 200 from delete each made tests fail.
+  - Live with `uv run uvicorn` against the compose database: 200, 200, 404 for another user, 422, 401, then 204 and 404. No entry text in the server log.
+  - Issue comment: https://github.com/KittyNiuNiu/winlog/issues/10#issuecomment-6726486265
+- **Left open:**
+  - The test database's collation already ignores case, so the tests cannot tell sorting tag names by `lower(name)` from sorting by `name` (as in #8).
+  - `updated_at` is the transaction start time, so of two overlapping updates the last to commit wins but can carry the earlier timestamp.
+  - `/entries/` with an empty id gets FastAPI's 307 trailing-slash redirect.
+  - Size limits are #43.
+
+## 2026-11-08: Fix the QA FAIL on #10 (token checked before a body that is not valid JSON)
+
+- **Task:** #10, the QA FAIL on "Without a valid token, all three operations return 'not authenticated' and change nothing" (https://github.com/KittyNiuNiu/winlog/issues/10#issuecomment-6726557493). `PUT /entries/{entryId}` and `POST /entries` with no token or a wrong token and a body that is not valid JSON got 422 `validation_failed` instead of 401 `not_authenticated`, because FastAPI parses the JSON body before it runs any dependency.
+- **What I did:**
+  - `backend/app/auth.py`: new `AuthenticateFirstRoute`, a FastAPI `APIRoute` subclass (FastAPI's documented way to customise route handling). When FastAPI cannot read the body (a `json_invalid` validation error, or its 400 "There was an error parsing the body" for bytes that are not UTF-8), a route that needs authentication first solves its dependencies that lead to `get_current_login`. Without a valid token that raises `not_authenticated` with `WWW-Authenticate: Bearer`. With a valid token, the original body error is raised again, so the 422 stays. Only the error path runs the check, so a valid request still checks its token once. The body fails before anything runs, so nothing changes in the database.
+  - All four routers (`accounts`, `entries`, `health`, `tags`) use it, so it covers every authenticated operation that takes a body, now and later. Public operations (`/auth/register`, `/auth/login`) have no login dependency and keep their 422.
+  - No new dependencies. No changes to `openapi.yaml`, `product-spec.md` or migrations. The tag order in the PUT response is unchanged, as QA asked.
+- **How I verified it:**
+  - `uv run pytest tests/unit`: 301 passed. `uv run pytest tests/integration` (PostgreSQL 18 via `docker compose up -d db`): 404 passed. `uv run ruff check .` and `uv run ruff format --check .` are clean.
+  - New tests: in `tests/unit/test_auth.py`, every authenticated operation with a request body, with no token or a malformed header and the bodies `junk`, `{"text":`, `\xff\xfe` and `\x80`, gets 401; a logged-in request with malformed JSON still gets 422; register and login still get 422; and every router uses `AuthenticateFirstRoute` and together they hold every operation of the app. In `tests/integration/test_entries.py` and `test_entry_changes.py`, POST and PUT with no token, a wrong token or an expired token and those four bodies get 401 and change no entry, link or tag; with a valid token, malformed JSON gets 422.
+  - Without the fix in `app/`, all 36 new integration no-token cases fail (24 PUT, 12 POST), and the 12 new unit no-token cases fail. The 422 cases pass both before and after.
+  - Live with `uv run uvicorn` against the compose database: the QA requests (PUT and POST, no header or `Bearer garbage`, the bodies `junk`, `{"text":` and `\xff\xfe`) each gave 401 `not_authenticated` with `WWW-Authenticate: Bearer`. With a valid token: 422. Register and login with malformed JSON: 422. The entry and its tags were unchanged. No traceback or entry text in the server log.
+- **Left open:**
+  - With a valid token, a body that is not valid UTF-8 still gets FastAPI's 400 with `code: internal_error`, as noted for #9. Without a token it now gets 401.
+  - `AuthenticateFirstRoute` looks at the route's own dependencies. If authentication were ever added as a router-level `dependencies=[...]`, it would not be seen. The docstring says so, and every operation now uses its own dependency.
+
+## 2026-11-08: Orchestrator: #10 implemented, QA FAIL, fixed, QA PASS, closed
+
+- #10 was `groomed`, so it went straight to the engineer: get, full-replacement update and delete for entries, scoped to the user, with another user's entry giving the same 404 as a missing one (362d239, 57ec2a3; https://github.com/KittyNiuNiu/winlog/issues/10#issuecomment-6726486265).
+- **First FAIL** (https://github.com/KittyNiuNiu/winlog/issues/10#issuecomment-6726557493), on 1 of 17 criteria: with no valid token and a body that is not valid JSON, `PUT /entries/{id}` (and `POST /entries` from #9) gave 422 instead of 401, because FastAPI parses the body before it runs the token dependency. Nothing changed in the database. Set #10 to `qa-failed`. No product decision was needed, so per the process it went back to the engineer with the QA comment.
+- The engineer added `AuthenticateFirstRoute` in `backend/app/auth.py`, used by every router. When the body can't be read, a protected route checks the token first. With a valid token the 422 stays, and register and login keep their 422 (2b4cb78, 69f854c; https://github.com/KittyNiuNiu/winlog/issues/10#issuecomment-6726652998).
+- QA PASS on all 17 criteria in round 2 (https://github.com/KittyNiuNiu/winlog/issues/10#issuecomment-6726737518): 301 unit and 404 integration tests pass. All 48 reproduction requests gave 401. Each request runs one token lookup, and no database sessions leaked. The new tests fail without the fix. Closed #10 as completed.
+- Noted, not failures: GET lists an entry's tags alphabetically ignoring case, while PUT and POST return them in the order sent. With a valid token, a body that is not UTF-8 still gets FastAPI's 400 `internal_error`. `AuthenticateFirstRoute` sees only route-level dependencies, not router-level ones.
+- This ends the run the product owner asked for (#7 to #10).
+
+## 2026-11-08: Orchestrator: open points from #7–#10 moved to the issues they belong to
+
+- The product owner noticed that the open points from #7–#10 were only in this log and in the closed issues' comments, where later roles might miss them. The product owner decided to post each point where it fits.
+  - **#43:** a 9000-character tag gives a 500, and size limits must be checked at the API because PostgreSQL puts the failing row (including entry text) into constraint errors (https://github.com/KittyNiuNiu/winlog/issues/43#issuecomment-6726774877). Also: `Credentials.password` in `openapi.yaml` lacks `maxLength: 128` and `minLength: 1` (https://github.com/KittyNiuNiu/winlog/issues/43#issuecomment-6726805286).
+  - **#38:** `docker-compose.yml` does not pass `TOKEN_LIFETIME_DAYS` to the backend (https://github.com/KittyNiuNiu/winlog/issues/38#issuecomment-6726805981).
+  - **New issue #58** (https://github.com/KittyNiuNiu/winlog/issues/58): a body that is not valid UTF-8 gets 400 `internal_error`, and an entry's tag order differs between GET and POST/PUT (needs a product decision). It needs grooming and is not yet in `docs/tasks.md`.
+- From now on, the orchestrator posts each open point on the issue it belongs to when it closes an issue, not only in this log.
+
+## 2026-11-08: Orchestrator: record open points on their issues (skill step 6)
+
+- **Task:** the product owner asked to add the rule from the previous entry to step 6 of the orchestrate skill, so that later sessions follow it.
+- **What I did:** `.claude/skills/orchestrate/SKILL.md`, step 6 (PASS): after closing an issue, the orchestrator collects the engineer's "left open" points and QA's notes. It posts each one as a comment on the open issue it fits, with a link to the source and a note that it is an input for grooming, not a new requirement. If no issue fits, it asks the product owner whether to create one or leave the point in the log. The log entry names where each point went. Step 7 now also reports where the open points were recorded.
+- **How I verified it:** read the edited steps 6 and 7 against `docs/process.md`. They add no new role or label, and the rule that only the orchestrator closes issues is unchanged.
+- **Left open:** `docs/process.md` does not mention this step, and the skill only spells out its steps. Add a line there if the rule should hold beyond the skill.
+
+## 2026-11-08: Orchestrator: record open points on their issues (process.md)
+
+- **Task:** the product owner asked to add the open-points rule to `docs/process.md` as well, and to check the closed issues for open points that no open issue mentions.
+- **What I did:** added a rule to "Rules" in `docs/process.md`: when the orchestrator closes an issue, it posts each open point from the engineer and QA on the open issue it belongs to, and asks the product owner if no issue fits. The skill (step 6) already spells out the steps.
+- **How I verified it:** the wording matches step 6 of `.claude/skills/orchestrate/SKILL.md`, and no role or label changes.
+
+## 2026-11-08: Orchestrator: check the closed issues for open points no open issue mentions
+
+- **Task:** the product owner asked whether any open points from closed issues (#2–#10) were missing from the open issues.
+- **What I did:** read the engineer and QA comments on #2–#10 and searched the open issues' bodies and comments for each point.
+  - #7–#10 were already covered by today's comments on #43 and #38 and by #58.
+  - Points from #2–#6 already handled: contract lint in CI (#24), an extra field in a summary update is ignored (#18), the "no size limits yet" line in the contract is rewritten (#43), blank entry text is rejected (#9), tag links between users (#8, #11), Neon's support for PostgreSQL 18 (checked), and health-check threads (bounded).
+- **Product owner decisions:** post the three remaining points where they fit:
+  - #19: the shared `ContentDisposition` example in `openapi.yaml` names a `.json` file, so the Markdown export shows the wrong extension (https://github.com/KittyNiuNiu/winlog/issues/19#issuecomment-6726856969).
+  - #58: malformed-JSON errors name the field by character position, for example `"1"` (https://github.com/KittyNiuNiu/winlog/issues/58#issuecomment-6726857490).
+  - #38: only `/health` has a database time limit, so other endpoints can wait on a silent database (https://github.com/KittyNiuNiu/winlog/issues/38#issuecomment-6726861531).
+- **Reviewed and not tracked** (product owner decision; none affects users or a criterion):
+  - a disallowed CORS preflight gets Starlette's plain-text 400 (#3)
+  - an error inside the CORS middleware itself would get no CORS headers (#3)
+  - some `.env.example` comments run over several lines (#3)
+  - `updated_at` stays equal to `created_at` when a row is inserted and updated in the same transaction (#5)
+  - the password rule's character classes follow the Unicode version of the running Python (#6)

@@ -6,10 +6,11 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from app.auth import AuthenticateFirstRoute
 from app.db import database_is_reachable
 from app.errors import error_response
 
-router = APIRouter(tags=["Health"])
+router = APIRouter(tags=["Health"], route_class=AuthenticateFirstRoute)
 
 
 class Health(BaseModel):

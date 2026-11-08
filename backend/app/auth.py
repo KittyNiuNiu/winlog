@@ -4,20 +4,28 @@ A token is a random value from `secrets`. Only its SHA-256 hash is stored, so a 
 database cannot be used to log in. Clients send the token as `Authorization: Bearer <token>`
 (openapi.yaml, `bearerAuth`).
 
-Every operation that needs authentication depends on `get_current_user`.
+Every operation that needs authentication depends on `get_current_user`, and every router
+uses `AuthenticateFirstRoute`, so a request without a valid token is rejected with 401 even
+when its body is not valid JSON.
 """
 
 import datetime as dt
 import hashlib
 import secrets
 import uuid
+from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
-from typing import Annotated
+from typing import Annotated, Any
 
-from fastapi import Depends
+from fastapi import Depends, Request, Response
+from fastapi.dependencies.models import Dependant
+from fastapi.dependencies.utils import solve_dependencies
+from fastapi.exceptions import RequestValidationError
+from fastapi.routing import APIRoute
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
+from starlette.exceptions import HTTPException
 
 from app.db import get_session
 from app.errors import ApiError
@@ -103,3 +111,71 @@ def get_current_user(login: Annotated[CurrentLogin, Depends(get_current_login)])
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+# FastAPI reads the request body before it runs any dependency. A body it cannot read ends
+# the request with one of these two errors, before `get_current_login` has checked the token:
+# a RequestValidationError for JSON it cannot decode, or Starlette's HTTPException (not
+# FastAPI's subclass) for anything else, such as bytes that are not UTF-8.
+_BODY_PARSE_ERROR_DETAIL = "There was an error parsing the body"
+
+
+def _is_body_parse_error(error: Exception) -> bool:
+    if isinstance(error, RequestValidationError):
+        return all(err.get("type") == "json_invalid" for err in error.errors())
+    return (
+        isinstance(error, HTTPException)
+        and error.status_code == 400
+        and error.detail == _BODY_PARSE_ERROR_DETAIL
+    )
+
+
+def _calls(dependant: Dependant) -> set[Callable[..., Any]]:
+    found = {dependant.call} if dependant.call else set()
+    for sub in dependant.dependencies:
+        found |= _calls(sub)
+    return found
+
+
+class AuthenticateFirstRoute(APIRoute):
+    """A route that checks the token before it reports a body it cannot read (FR-A3).
+
+    FastAPI parses a JSON body before it runs the route's dependencies, so a body that is not
+    valid JSON would get 422 `validation_failed` (or 400) even without a valid token. On such
+    an error, an operation that needs authentication first solves the dependencies that lead
+    to `get_current_login`: without a valid token they raise `not_authenticated`. With a
+    valid token, the original body error is raised again, so it keeps its response.
+
+    Only the error path runs the check, so a valid request still checks its token once.
+    Nothing has run yet when the body fails to parse, so the request changes nothing.
+    Operations without authentication, such as login, keep the body error. Only the route's
+    own dependencies count, so authentication must not be added as a router-level dependency.
+    """
+
+    def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
+        handler = super().get_route_handler()
+        login_dependencies = [
+            sub for sub in self.dependant.dependencies if get_current_login in _calls(sub)
+        ]
+        if not login_dependencies:
+            return handler
+        login_check = Dependant(dependencies=login_dependencies, path=self.path_format)
+
+        async def handler_checking_the_token_first(request: Request) -> Response:
+            try:
+                return await handler(request)
+            except (RequestValidationError, HTTPException) as error:
+                if not _is_body_parse_error(error):
+                    raise
+                # Raises `not_authenticated` if the token is missing or not valid. Test
+                # overrides of these dependencies apply, as for the route itself.
+                await solve_dependencies(
+                    request=request,
+                    dependant=login_check,
+                    dependency_overrides_provider=request.app,
+                    async_exit_stack=request.scope["fastapi_inner_astack"],
+                    embed_body_fields=False,
+                )
+                raise
+
+        return handler_checking_the_token_first

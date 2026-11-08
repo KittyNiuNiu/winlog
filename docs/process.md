@@ -26,6 +26,8 @@ Rules
 - The engineer does not close the issue
 - QA does not fix the code, only outputs PASS or FAIL
 - The orchestrator closes the issue only after QA outputs PASS, but not deleting issues.
+- When it closes an issue, the orchestrator posts each open point from the engineer and QA
+  as a comment on the open issue it belongs to. If no issue fits, it asks the product owner.
 
 How the orchestrator works
 
