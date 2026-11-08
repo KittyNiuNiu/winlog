@@ -7,6 +7,7 @@ against PostgreSQL in tests/integration/test_entries.py.
 import typing
 import uuid
 from pathlib import Path
+from urllib.parse import quote
 
 import pytest
 import yaml
@@ -203,3 +204,127 @@ def test_fr_e2_validation_error_never_echoes_the_text(logged_in_client: TestClie
 
     assert response.status_code == 422
     assert "Secret words" not in response.text
+
+
+# --- Get, update and delete (issue #10) ---------------------------------------------------
+
+ENTRY_ID = "123e4567-e89b-12d3-a456-426614174000"
+BY_ID = {"get": "get_entry", "put": "update_entry", "delete": "delete_entry"}
+WRONG_IDS = [
+    "not-a-uuid",
+    "123e4567e89b12d3a456426614174000",
+    "{123e4567-e89b-12d3-a456-426614174000}",
+    "urn:uuid:123e4567-e89b-12d3-a456-426614174000",
+    "123e4567-e89b-12d3-a456-42661417400",
+    "123e4567-e89b-12d3-a456-4266141740000",
+    "123e4567-e89b12d3-a456-426614174000",
+    "123g4567-e89b-12d3-a456-426614174000",
+    " 123e4567-e89b-12d3-a456-426614174000",
+    "123e4567-e89b-12d3-a456-426614174000\n",
+]
+
+
+def _send(client: TestClient, method: str, entry_id: str):
+    path = f"/entries/{quote(entry_id, safe='')}"
+    if method == "put":
+        return client.put(path, json=VALID)
+    return client.request(method.upper(), path)
+
+
+@pytest.mark.parametrize("value", [ENTRY_ID, ENTRY_ID.upper()])
+def test_fr_a3_entry_id_in_the_contract_format_is_accepted(value: str):
+    assert entries._require_uuid(value) == value
+
+
+@pytest.mark.parametrize("value", [*WRONG_IDS, 5, None, uuid.UUID(ENTRY_ID)])
+def test_fr_a3_entry_id_in_any_other_format_is_rejected(value):
+    with pytest.raises(Exception, match="Must be a UUID"):
+        entries._require_uuid(value)
+
+
+@pytest.mark.parametrize("method", list(BY_ID))
+@pytest.mark.parametrize("entry_id", WRONG_IDS)
+def test_fr_a3_wrong_id_format_is_a_validation_error_naming_entry_id(
+    logged_in_client: TestClient, contract, method: str, entry_id: str
+):
+    response = _send(logged_in_client, method, entry_id)
+
+    assert response.status_code == 422
+    body = response.json()
+    contract("Error").validate(body)
+    assert body["code"] == "validation_failed"
+    assert [item["field"] for item in body["fields"]] == ["entryId"]
+
+
+def test_fr_e4_update_validates_like_create(logged_in_client: TestClient, contract):
+    response = logged_in_client.put(
+        f"/entries/{ENTRY_ID}",
+        json={"text": " ", "date": "2026-02-30", "category": "Other", "tags": [""]},
+    )
+
+    assert response.status_code == 422
+    contract("Error").validate(response.json())
+    assert [item["field"] for item in response.json()["fields"]] == [
+        "text",
+        "date",
+        "category",
+        "tags.0",
+    ]
+
+
+def test_fr_e4_update_validation_error_never_echoes_the_text(logged_in_client: TestClient):
+    response = logged_in_client.put(
+        f"/entries/{ENTRY_ID}",
+        json={"text": "Secret words\x00", "date": "2026-11-08", "category": "Learning"},
+    )
+
+    assert response.status_code == 422
+    assert "Secret words" not in response.text
+
+
+@pytest.mark.parametrize("name", list(BY_ID.values()))
+def test_fr_a3_get_update_and_delete_use_the_current_user_dependency(name: str):
+    [route] = [r for r in entries.router.routes if r.name == name]
+
+    assert get_current_user in [dependency.call for dependency in route.dependant.dependencies]
+
+
+def test_entry_operations_match_the_contract(settings):
+    generated = create_app(settings).openapi()["paths"]["/entries/{entryId}"]
+    contract_path = OPENAPI["paths"]["/entries/{entryId}"]
+
+    assert set(generated) == {"get", "put", "delete"}
+    for method, operation in generated.items():
+        assert operation["operationId"] == contract_path[method]["operationId"]
+        assert operation["security"] == [{"bearerAuth": []}]
+        [parameter] = operation["parameters"]
+        assert (parameter["name"], parameter["in"], parameter["required"]) == (
+            "entryId",
+            "path",
+            True,
+        )
+        assert parameter["schema"]["format"] == "uuid"
+        assert "422" in operation["responses"]
+    entry_schema = {"$ref": "#/components/schemas/Entry"}
+    for method in ("get", "put"):
+        assert generated[method]["responses"]["200"]["content"]["application/json"]["schema"] == (
+            entry_schema
+        )
+    assert generated["put"]["requestBody"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/EntryInput"
+    }
+    assert "204" in generated["delete"]["responses"]
+    assert "content" not in generated["delete"]["responses"]["204"]
+
+
+@pytest.mark.parametrize("method", list(BY_ID))
+@pytest.mark.parametrize("entry_id", [ENTRY_ID, "not-a-uuid"])
+def test_fr_a3_get_update_and_delete_without_token_are_not_authenticated(
+    client: TestClient, contract, method: str, entry_id: str
+):
+    response = _send(client, method, entry_id)
+
+    assert response.status_code == 401
+    contract("Error").validate(response.json())
+    assert response.json()["code"] == "not_authenticated"
+    assert response.headers["WWW-Authenticate"] == "Bearer"
