@@ -71,6 +71,117 @@ def test_fr_a1_length_is_counted_in_characters_not_bytes():
     assert password_problems("Äöüäöüä1!x") == []
 
 
+# --- Which characters count (product owner decision on #6, 2026-11-08) -------------------
+# Uppercase letter: Unicode general category Lu. Letter: any category L*. Digit: 0-9 only.
+# Special character: anything that is neither a letter nor 0-9.
+
+
+@pytest.mark.parametrize(
+    "special",
+    [
+        "²",  # superscript two: a digit to Python, but not 0-9
+        "１",  # fullwidth digit one
+        "٣",  # Arabic-Indic digit three
+        "Ⓐ",  # circled Latin capital A: a symbol (So), not a letter
+        "́",  # combining acute accent: a mark (Mn), not a letter
+    ],
+)
+def test_fr_a1_character_that_is_neither_a_letter_nor_0_to_9_is_a_special_character(
+    special: str,
+):
+    assert password_problems("Abcdefgh1" + special) == []
+
+
+@pytest.mark.parametrize("digit", ["²", "１", "٣"])
+def test_fr_a1_digit_outside_0_to_9_does_not_count_as_the_digit(digit: str):
+    assert password_problems("Abcdefgh!" + digit) == ["needs at least one digit (0-9)"]
+
+
+@pytest.mark.parametrize(
+    "symbol",
+    [
+        "Ⓐ",  # circled Latin capital A (So)
+        "Ⅰ",  # Roman numeral one (Nl)
+        "\U0001f130",  # squared Latin capital A (So)
+    ],
+)
+def test_fr_a1_symbol_that_looks_uppercase_is_not_the_uppercase_letter(symbol: str):
+    assert symbol.isupper()  # Python's isupper() accepts it; the rule does not
+    assert password_problems(symbol + "bcdefgh12") == ["needs at least one uppercase letter"]
+
+
+def test_fr_a1_circled_capital_a_password_is_rejected_for_the_missing_uppercase_letter(
+    client: TestClient, contract
+):
+    body = _register(client, email=VALID_EMAIL, password="Ⓐbcdefgh12")
+
+    contract("Error").validate(body)
+    reason = _reasons(body, "password")
+    assert "needs at least one uppercase letter" in reason
+    assert "special character" not in reason
+
+
+@pytest.mark.parametrize("letter", ["Α", "ẞ", "Д"])
+def test_fr_a1_uppercase_letter_is_any_unicode_lu_letter(letter: str):
+    # Greek capital alpha, Latin capital sharp s, Cyrillic capital de.
+    assert password_problems(letter + "bcdefg1!x") == []
+
+
+def test_fr_a1_titlecase_letter_is_a_letter_but_not_the_uppercase_letter():
+    # U+01C5 (D with small z with caron) is titlecase (Lt), not uppercase (Lu). Being a
+    # letter, it is not a special character either.
+    assert password_problems("ǅbcdefg1xy") == [
+        "needs at least one uppercase letter",
+        "needs at least one special character, such as ! # - or a space",
+    ]
+
+
+# --- Input that is not valid text ---------------------------------------------------------
+
+
+@pytest.mark.parametrize("surrogate", ["\ud800", "\udfff"])
+def test_fr_a1_unpaired_surrogate_in_password_is_rejected(surrogate: str):
+    assert password_problems("Abcdefgh1" + surrogate) == [
+        "contains an invalid character (an unpaired surrogate)"
+    ]
+
+
+def _post_raw_json(client: TestClient, raw: str):
+    # httpx cannot encode a lone surrogate, so the JSON escape is sent as written.
+    return client.post(
+        "/auth/register", content=raw.encode("ascii"), headers={"content-type": "application/json"}
+    )
+
+
+@pytest.mark.parametrize("surrogate", ["\\ud800", "\\udfff"])
+def test_fr_a1_unpaired_surrogate_in_password_returns_the_validation_error(
+    client: TestClient, contract, surrogate: str
+):
+    response = _post_raw_json(
+        client, '{"email": "alice@example.com", "password": "Abcdefgh1' + surrogate + '"}'
+    )
+
+    assert response.status_code == 422
+    body = response.json()
+    contract("Error").validate(body)
+    assert [item["field"] for item in body["fields"]] == ["password"]
+    assert "invalid character" in _reasons(body, "password")
+    assert "Abcdefgh1" not in response.text
+
+
+def test_fr_a1_unpaired_surrogate_in_email_returns_the_validation_error(
+    client: TestClient, contract
+):
+    response = _post_raw_json(
+        client, '{"email": "alice\\ud800@example.com", "password": "Abcdefg1!x"}'
+    )
+
+    assert response.status_code == 422
+    body = response.json()
+    contract("Error").validate(body)
+    assert [item["field"] for item in body["fields"]] == ["email"]
+
+
 def test_rejected_password_is_never_echoed(client: TestClient):
     response = client.post(
         "/auth/register", json={"email": VALID_EMAIL, "password": "nouppercase-secret-1"}
