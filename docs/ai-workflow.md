@@ -551,3 +551,30 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - The product owner asked me to start with #7 and continue through #10. #7 was `groomed`, so it went straight to the engineer: tokens table migration, `TOKEN_LIFETIME_DAYS` (default 7), login, logout and the `get_current_user` dependency (e731acc, 2bc3eff, 639f509; https://github.com/KittyNiuNiu/winlog/issues/7#issuecomment-6725850784).
 - QA PASS on all criteria in the first round (https://github.com/KittyNiuNiu/winlog/issues/7#issuecomment-6725971106): 147 unit and 79 integration tests pass. QA checked the full system with `docker compose up --build`, compared the timing of a wrong password with an unknown email, and confirmed that the test-only `/test/whoami` route does not exist in the running app. Closed #7 as completed.
 - Noted, not failures: `docker-compose.yml` does not pass `TOKEN_LIFETIME_DAYS` to the backend, so Compose always uses 7 days. `openapi.yaml` `Credentials.password` does not state the 128-character maximum or the minimum of 1 that the code enforces; a later contract change could add them.
+
+## 2026-11-08: Implement #8 (tag listing and tag name resolution)
+
+- **Task:** #8, the tag name rules (FR-E3, §10.5), the shared resolve and lookup functions for #9, #10, #11 and #16, and `GET /tags` (`listTags`), which lists only the tags the user's entries use (§7.2).
+- **What I did:**
+  - New migration `685f000b996b` (earlier migrations unchanged) adds the unique index `uq_tags_user_id_lower_name` on `tags (user_id, lower(name))` and drops the old `(user_id, name)` constraint, which the index covers. The `Tag` model matches it.
+  - `backend/app/tags.py`:
+    - `normalise_tag_name` trims the name and turns every run of whitespace inside it into one space.
+    - `TagName` is a pydantic type for request models. A blank name gets the shared 422 naming the field, for example `tags.1`.
+    - `resolve_tags` returns the user's tags in the order given and creates the missing ones with `INSERT … ON CONFLICT (user_id, lower(name)) DO NOTHING`. Inserts go in a fixed key order, so simultaneous requests cannot deadlock. It never commits.
+    - `lookup_tags` returns only existing tags.
+    - Matching uses the database's `lower()`, so it follows the index exactly. Python's `str.lower()` differs, for example for a final Greek sigma.
+    - `GET /tags` uses `get_current_user`. It needs both the entry and the tag to belong to the user, because the database allows cross-user `entry_tags` rows (found by QA in #5).
+  - Tests in `tests/unit/test_tags.py` and `tests/integration/test_tags.py` cover each criterion:
+    - Name rules, resolve, lookup, rollback, and other users' tags.
+    - Simultaneous creation: a blocking commit case, a rollback case, a barrier stress test, and a deterministic deadlock-order case.
+    - The list: hiding a tag after its last entry is edited or deleted and showing it again, an empty list, other users, and no token.
+  - Entries cannot be created through the API yet (#9), so the tests add entries and links directly. No new dependencies.
+- **How I verified it:**
+  - `uv run pytest tests/unit`: 161 passed. `uv run pytest tests/integration` (PostgreSQL 18 via `docker compose up -d db`): 114 passed. `uv run ruff check .`, `uv run ruff format --check .` and `uv run alembic check` are clean. Downgrading and upgrading the migration again works.
+  - Mutation checks: each change made the matching tests fail. The changes were: Python `lower()` for matching, no `ON CONFLICT`, insert in the given order (deadlock), no user filter in resolve and lookup, no owner checks in the list, and listing unused tags.
+  - Live with `uv run uvicorn` against the compose database: an empty list after register and login, then `["Alpha","beta"]` with an unused `zeta` hidden. `ALPHA` was rejected by the new index, and a request without a token got 401.
+  - Issue comment: https://github.com/KittyNiuNiu/winlog/issues/8#issuecomment-6726084470
+- **Left open:**
+  - A tag name with a NUL character would fail in PostgreSQL. Input limits are #43, and #9 and #10 validate entry input.
+  - The list sorts by `lower(name)` under the database collation, so on a `C` collation accented names sort after `z`.
+  - The migration assumes no user already has two tags that differ only in case. The API could not create tags before this issue.
