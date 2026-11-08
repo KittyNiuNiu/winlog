@@ -545,3 +545,9 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - The `Credentials.password` schema in `openapi.yaml` has no `minLength: 1` or `maxLength: 128`, but the issue requires the 128 limit, and I treat an empty password as missing. A later contract change could document both; this issue does not allow editing `openapi.yaml`.
   - `docker-compose.yml` does not pass `TOKEN_LIFETIME_DAYS` to the backend container, so Compose always uses the default of 7. The issue does not list that file.
   - Expired tokens are deleted only when their user logs in again, as the issue specifies.
+
+## 2026-11-08: Orchestrator: #7 implemented, QA PASS, closed
+
+- The product owner asked me to start with #7 and continue through #10. #7 was `groomed`, so it went straight to the engineer: tokens table migration, `TOKEN_LIFETIME_DAYS` (default 7), login, logout and the `get_current_user` dependency (e731acc, 2bc3eff, 639f509; https://github.com/KittyNiuNiu/winlog/issues/7#issuecomment-6725850784).
+- QA PASS on all criteria in the first round (https://github.com/KittyNiuNiu/winlog/issues/7#issuecomment-6725971106): 147 unit and 79 integration tests pass. QA checked the full system with `docker compose up --build`, compared the timing of a wrong password with an unknown email, and confirmed that the test-only `/test/whoami` route does not exist in the running app. Closed #7 as completed.
+- Noted, not failures: `docker-compose.yml` does not pass `TOKEN_LIFETIME_DAYS` to the backend, so Compose always uses 7 days. `openapi.yaml` `Credentials.password` does not state the 128-character maximum or the minimum of 1 that the code enforces; a later contract change could add them.
