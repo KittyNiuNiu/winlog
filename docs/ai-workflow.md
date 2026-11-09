@@ -967,3 +967,17 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Mutations (limit off by one, no `finish_reason` check, no `max_tokens`) each make unit tests fail.
   - `uv run pytest tests/unit`: 659 passed. `uv run pytest tests/integration`: 614 passed. `uv run ruff check .` and `uv run ruff format --check .` are clean. No real AI call: only `AI_PROVIDER=mock` and stubbed HTTP. No new dependency.
 - **Left open:** `docker-compose.yml` passes only `AI_PROVIDER` of the AI settings to the backend container (as before for the timeouts and limits), so `AI_SUMMARY_MAX_TOKENS` uses its default there. Other `finish_reason` values (such as "content_filter" or "error") are still judged by their text only; the decision covered "length". A maximum size of the input entries is #43.
+
+## 2026-11-09: Orchestrator: #17 implemented, blocked on a decision, finished, QA PASS, closed
+
+- #17 was `groomed`, so it went to the engineer with the four open points from #11, #12, #13 and #15. The engineer added `POST /summaries` (fbbb69d, 3cea2a9, 28c4140) and returned BLOCKED on one product decision: what to do with an AI summary over 10,000 characters or cut off by the model (https://github.com/KittyNiuNiu/winlog/issues/17#issuecomment-6750121570).
+- **Product owner decisions** (recorded at https://github.com/KittyNiuNiu/winlog/issues/17#issuecomment-6750566660):
+  - Such a summary is an unusable AI answer: 503 `ai_unavailable`, nothing saved, and the attempt still counts. The 10,000-character check goes in the adapter's shared summary check.
+  - The provider change is done within #17: `finish_reason == "length"` is a failure, and summary requests send `max_tokens`.
+- The container restarted, so a new engineer session finished the work (2fefc16, 7aa9b90, 45c1e99; https://github.com/KittyNiuNiu/winlog/issues/17#issuecomment-6750719739). It added the setting `AI_SUMMARY_MAX_TOKENS` (default 16000: up to about 10,000 tokens for CJK text plus reasoning tokens).
+- QA PASS on every criterion and both decisions in the first round, with only the mock provider and stubbed HTTP (https://github.com/KittyNiuNiu/winlog/issues/17#issuecomment-6750827933): 659 unit and 614 integration tests pass, lint is clean. Closed #17 as completed.
+- **Open points**, recorded where they belong:
+  - #61: Compose does not forward `AI_SUMMARY_MAX_TOKENS` (https://github.com/KittyNiuNiu/winlog/issues/61#issuecomment-6750845988). Finish reasons other than `length` (for example `content_filter`) are not treated as failures; the product owner chose to add this to #61.
+  - #38: check that the production model's output cap accepts `AI_SUMMARY_MAX_TOKENS`, and add the setting to the production variables (https://github.com/KittyNiuNiu/winlog/issues/38#issuecomment-6750847264).
+  - #43 already holds the maximum size of the entries sent in one summary.
+- Side effect of QA and the engineer's live checks: test users `se17-*`, `qa17a-*` and `qa17b-*`, with entries, summaries and usage rows, are in the local dev database.
