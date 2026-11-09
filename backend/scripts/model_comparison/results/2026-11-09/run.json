@@ -1,0 +1,17 @@
+{
+  "date": "2026-11-09",
+  "base_url": "https://openrouter.ai/api/v1",
+  "candidates": [
+    "openai/gpt-5.4-mini",
+    "anthropic/claude-haiku-5.5",
+    "mistralai/mistral-small-2603",
+    "deepseek/deepseek-v4.1-flash"
+  ],
+  "excluded": [],
+  "test_set": "scripts/model_comparison/test_set.json",
+  "test_set_sha256": "b384c36d1393af8550eb46abd2acd6fcd56509dbb279447ce6b188a287ecc014",
+  "suggest_prompt_sha256": "784794390d282a06732ed92718c24493706a46ff6e54b3bdf4be5a7ceffdc46e",
+  "summarise_prompt_sha256": "dc57b3ca5cac75093344cfc5d5480a7e9d88c2171ea8c4b248cbe866cee38556",
+  "suggestion_timeout_seconds": 15,
+  "summary_timeout_seconds": 60
+}

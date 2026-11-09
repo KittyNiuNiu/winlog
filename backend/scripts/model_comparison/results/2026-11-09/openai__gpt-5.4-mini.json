@@ -1,0 +1,1196 @@
+{
+  "date": "2026-11-09",
+  "model": "openai/gpt-5.4-mini",
+  "zdr_endpoints": [
+    {
+      "provider_name": "Azure",
+      "prompt_price_per_million_usd": 0.8250000000000001,
+      "completion_price_per_million_usd": 4.95,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "Azure",
+      "prompt_price_per_million_usd": 0.75,
+      "completion_price_per_million_usd": 4.5,
+      "supports_response_format": true
+    }
+  ],
+  "max_zdr_prompt_price_per_token_usd": 8.25e-07,
+  "max_zdr_completion_price_per_token_usd": 4.95e-06,
+  "suggestions": [
+    {
+      "entry_id": "en-01",
+      "language": "en",
+      "expected_category": "Achievement",
+      "category": "Achievement",
+      "category_matches": true,
+      "tags": [
+        "invoice export",
+        "billing team",
+        "deadline",
+        "release",
+        "testing"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.196,
+      "cost_usd": 0.000261,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\":\"Achievement\",\"tags\":[\"invoice export\",\"billing team\",\"deadline\",\"release\",\"testing\"]}",
+      "usage": {
+        "prompt_tokens": 186,
+        "completion_tokens": 27,
+        "total_tokens": 213,
+        "cost": 0.000261,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.000261,
+          "upstream_inference_prompt_cost": 0.0001395,
+          "upstream_inference_completions_cost": 0.0001215
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "openai/gpt-5.4-mini",
+      "served_provider": "Azure",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-02",
+      "language": "en",
+      "expected_category": "Achievement",
+      "category": "Achievement",
+      "category_matches": true,
+      "tags": [
+        "CI",
+        "test pipeline",
+        "runbook",
+        "knowledge transfer",
+        "migration"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 3.163,
+      "cost_usd": 0.000267,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\":\"Achievement\",\"tags\":[\"CI\",\"test pipeline\",\"runbook\",\"knowledge transfer\",\"migration\"]}",
+      "usage": {
+        "prompt_tokens": 188,
+        "completion_tokens": 28,
+        "total_tokens": 216,
+        "cost": 0.000267,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.000267,
+          "upstream_inference_prompt_cost": 0.000141,
+          "upstream_inference_completions_cost": 0.000126
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "openai/gpt-5.4-mini",
+      "served_provider": "Azure",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-03",
+      "language": "en",
+      "expected_category": "Achievement",
+      "category": "Achievement",
+      "category_matches": true,
+      "tags": [
+        "support backlog",
+        "mobile app",
+        "tickets",
+        "crashes",
+        "help articles"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.424,
+      "cost_usd": 0.00026775,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\":\"Achievement\",\"tags\":[\"support backlog\",\"mobile app\",\"tickets\",\"crashes\",\"help articles\"]}",
+      "usage": {
+        "prompt_tokens": 183,
+        "completion_tokens": 29,
+        "total_tokens": 212,
+        "cost": 0.00026775,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.00026775,
+          "upstream_inference_prompt_cost": 0.00013725,
+          "upstream_inference_completions_cost": 0.0001305
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "openai/gpt-5.4-mini",
+      "served_provider": "Azure",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-04",
+      "language": "en",
+      "expected_category": "Learning",
+      "category": "Learning",
+      "category_matches": true,
+      "tags": [
+        "SQL",
+        "query plans",
+        "EXPLAIN",
+        "indexes"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.977,
+      "cost_usd": 0.000252,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\":\"Learning\",\"tags\":[\"SQL\",\"query plans\",\"EXPLAIN\",\"indexes\"]}",
+      "usage": {
+        "prompt_tokens": 180,
+        "completion_tokens": 26,
+        "total_tokens": 206,
+        "cost": 0.000252,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.000252,
+          "upstream_inference_prompt_cost": 0.000135,
+          "upstream_inference_completions_cost": 0.000117
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "openai/gpt-5.4-mini",
+      "served_provider": "Azure",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-05",
+      "language": "en",
+      "expected_category": "Learning",
+      "category": "Learning",
+      "category_matches": true,
+      "tags": [
+        "customer interviews",
+        "open questions",
+        "research",
+        "interviewing"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.828,
+      "cost_usd": 0.00025575,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\":\"Learning\",\"tags\":[\"customer interviews\",\"open questions\",\"research\",\"interviewing\"]}",
+      "usage": {
+        "prompt_tokens": 179,
+        "completion_tokens": 27,
+        "total_tokens": 206,
+        "cost": 0.00025575,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.00025575,
+          "upstream_inference_prompt_cost": 0.00013425,
+          "upstream_inference_completions_cost": 0.0001215
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "openai/gpt-5.4-mini",
+      "served_provider": "Azure",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-06",
+      "language": "en",
+      "expected_category": "Learning",
+      "category": "Learning",
+      "category_matches": true,
+      "tags": [
+        "feature flag service",
+        "code reading",
+        "design notes",
+        "team walkthrough",
+        "feature rollout"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 16.735,
+      "cost_usd": 0.0002775,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\":\"Learning\",\"tags\":[\"feature flag service\",\"code reading\",\"design notes\",\"team walkthrough\",\"feature rollout\"]}",
+      "usage": {
+        "prompt_tokens": 184,
+        "completion_tokens": 31,
+        "total_tokens": 215,
+        "cost": 0.0002775,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.0002775,
+          "upstream_inference_prompt_cost": 0.000138,
+          "upstream_inference_completions_cost": 0.0001395
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "openai/gpt-5.4-mini",
+      "served_provider": "Azure",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-07",
+      "language": "en",
+      "expected_category": "Feedback",
+      "category": "Feedback",
+      "category_matches": true,
+      "tags": [
+        "design reviews",
+        "drafts",
+        "manager feedback",
+        "one-to-one",
+        "collaboration"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.471,
+      "cost_usd": 0.0002775,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\":\"Feedback\",\"tags\":[\"design reviews\",\"drafts\",\"manager feedback\",\"one-to-one\",\"collaboration\"]}",
+      "usage": {
+        "prompt_tokens": 184,
+        "completion_tokens": 31,
+        "total_tokens": 215,
+        "cost": 0.0002775,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.0002775,
+          "upstream_inference_prompt_cost": 0.000138,
+          "upstream_inference_completions_cost": 0.0001395
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "openai/gpt-5.4-mini",
+      "served_provider": "Azure",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-08",
+      "language": "en",
+      "expected_category": "Feedback",
+      "category": "Feedback",
+      "category_matches": true,
+      "tags": [
+        "release notes",
+        "sales",
+        "customer questions",
+        "update"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.881,
+      "cost_usd": 0.000246,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\":\"Feedback\",\"tags\":[\"release notes\",\"sales\",\"customer questions\",\"update\"]}",
+      "usage": {
+        "prompt_tokens": 178,
+        "completion_tokens": 25,
+        "total_tokens": 203,
+        "cost": 0.000246,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.000246,
+          "upstream_inference_prompt_cost": 0.0001335,
+          "upstream_inference_completions_cost": 0.0001125
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "openai/gpt-5.4-mini",
+      "served_provider": "Azure",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-09",
+      "language": "en",
+      "expected_category": "Feedback",
+      "category": "Feedback",
+      "category_matches": true,
+      "tags": [
+        "demo",
+        "leadership team",
+        "presentation",
+        "communication",
+        "key numbers"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.974,
+      "cost_usd": 0.00026175,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\":\"Feedback\",\"tags\":[\"demo\",\"leadership team\",\"presentation\",\"communication\",\"key numbers\"]}",
+      "usage": {
+        "prompt_tokens": 181,
+        "completion_tokens": 28,
+        "total_tokens": 209,
+        "cost": 0.00026175,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.00026175,
+          "upstream_inference_prompt_cost": 0.00013575,
+          "upstream_inference_completions_cost": 0.000126
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "openai/gpt-5.4-mini",
+      "served_provider": "Azure",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-10",
+      "language": "en",
+      "expected_category": "Side project",
+      "category": "Side project",
+      "category_matches": true,
+      "tags": [
+        "running club",
+        "races",
+        "shared calendar",
+        "summary email",
+        "app"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.855,
+      "cost_usd": 0.0002715,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\":\"Side project\",\"tags\":[\"running club\",\"races\",\"shared calendar\",\"summary email\",\"app\"]}",
+      "usage": {
+        "prompt_tokens": 182,
+        "completion_tokens": 30,
+        "total_tokens": 212,
+        "cost": 0.0002715,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.0002715,
+          "upstream_inference_prompt_cost": 0.0001365,
+          "upstream_inference_completions_cost": 0.000135
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "openai/gpt-5.4-mini",
+      "served_provider": "Azure",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-11",
+      "language": "en",
+      "expected_category": "Side project",
+      "category": "Side project",
+      "category_matches": true,
+      "tags": [
+        "open source",
+        "CSV",
+        "bug fix",
+        "tests",
+        "line breaks"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.146,
+      "cost_usd": 0.000267,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\":\"Side project\",\"tags\":[\"open source\",\"CSV\",\"bug fix\",\"tests\",\"line breaks\"]}",
+      "usage": {
+        "prompt_tokens": 182,
+        "completion_tokens": 29,
+        "total_tokens": 211,
+        "cost": 0.000267,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.000267,
+          "upstream_inference_prompt_cost": 0.0001365,
+          "upstream_inference_completions_cost": 0.0001305
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "openai/gpt-5.4-mini",
+      "served_provider": "Azure",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-12",
+      "language": "en",
+      "expected_category": "Side project",
+      "category": "Side project",
+      "category_matches": true,
+      "tags": [
+        "board game",
+        "small town",
+        "prototipo",
+        "game night",
+        "weekends"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.212,
+      "cost_usd": 0.00027975,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\":\"Side project\",\"tags\":[\"board game\",\"small town\",\"prototipo\",\"game night\",\"weekends\"]}",
+      "usage": {
+        "prompt_tokens": 181,
+        "completion_tokens": 32,
+        "total_tokens": 213,
+        "cost": 0.00027975,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.00027975,
+          "upstream_inference_prompt_cost": 0.00013575,
+          "upstream_inference_completions_cost": 0.000144
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "openai/gpt-5.4-mini",
+      "served_provider": "Azure",
+      "review": {
+        "tags_in_input_language": false,
+        "notes": "Tag 'prototipo' is Spanish/Italian in an English entry."
+      }
+    },
+    {
+      "entry_id": "de-01",
+      "language": "de",
+      "expected_category": "Achievement",
+      "category": "Achievement",
+      "category_matches": true,
+      "tags": [
+        "Suchfunktion",
+        "Kundenportal",
+        "Anforderungen",
+        "Lasttests",
+        "Fachbereich"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.601,
+      "cost_usd": 0.00028275,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\":\"Achievement\",\"tags\":[\"Suchfunktion\",\"Kundenportal\",\"Anforderungen\",\"Lasttests\",\"Fachbereich\"]}",
+      "usage": {
+        "prompt_tokens": 185,
+        "completion_tokens": 32,
+        "total_tokens": 217,
+        "cost": 0.00028275,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.00028275,
+          "upstream_inference_prompt_cost": 0.00013875,
+          "upstream_inference_completions_cost": 0.000144
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "openai/gpt-5.4-mini",
+      "served_provider": "Azure",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-02",
+      "language": "de",
+      "expected_category": "Achievement",
+      "category": "Achievement",
+      "category_matches": true,
+      "tags": [
+        "Datenabgleich",
+        "Fehleranalyse",
+        "Fehlerbehebung",
+        "Nachtabgleich",
+        "Stabilität"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.993,
+      "cost_usd": 0.0003075,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\":\"Achievement\",\"tags\":[\"Datenabgleich\",\"Fehleranalyse\",\"Fehlerbehebung\",\"Nachtabgleich\",\"Stabilität\"]}",
+      "usage": {
+        "prompt_tokens": 188,
+        "completion_tokens": 37,
+        "total_tokens": 225,
+        "cost": 0.0003075,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.0003075,
+          "upstream_inference_prompt_cost": 0.000141,
+          "upstream_inference_completions_cost": 0.0001665
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "openai/gpt-5.4-mini",
+      "served_provider": "Azure",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-03",
+      "language": "de",
+      "expected_category": "Achievement",
+      "category": "Achievement",
+      "category_matches": true,
+      "tags": [
+        "Einarbeitung",
+        "neue Kolleginnen",
+        "Einarbeitungsplan",
+        "Patenschaften",
+        "Checkliste"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.015,
+      "cost_usd": 0.0003,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\":\"Achievement\",\"tags\":[\"Einarbeitung\",\"neue Kolleginnen\",\"Einarbeitungsplan\",\"Patenschaften\",\"Checkliste\"]}",
+      "usage": {
+        "prompt_tokens": 184,
+        "completion_tokens": 36,
+        "total_tokens": 220,
+        "cost": 0.0003,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.0003,
+          "upstream_inference_prompt_cost": 0.000138,
+          "upstream_inference_completions_cost": 0.000162
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "openai/gpt-5.4-mini",
+      "served_provider": "Azure",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-04",
+      "language": "de",
+      "expected_category": "Learning",
+      "category": "Learning",
+      "category_matches": true,
+      "tags": [
+        "barrierefreie Webformulare",
+        "Fehlermeldungen",
+        "Eingabefelder",
+        "Screenreader"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.092,
+      "cost_usd": 0.00031125,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\":\"Learning\",\"tags\":[\"barrierefreie Webformulare\",\"Fehlermeldungen\",\"Eingabefelder\",\"Screenreader\"]}",
+      "usage": {
+        "prompt_tokens": 193,
+        "completion_tokens": 37,
+        "total_tokens": 230,
+        "cost": 0.00031125,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.00031125,
+          "upstream_inference_prompt_cost": 0.00014475,
+          "upstream_inference_completions_cost": 0.0001665
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "openai/gpt-5.4-mini",
+      "served_provider": "Azure",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-05",
+      "language": "de",
+      "expected_category": "Learning",
+      "category": "Learning",
+      "category_matches": true,
+      "tags": [
+        "Kubernetes",
+        "Einführung",
+        "Testcluster",
+        "Deployments"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.425,
+      "cost_usd": 0.0002595,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\":\"Learning\",\"tags\":[\"Kubernetes\",\"Einführung\",\"Testcluster\",\"Deployments\"]}",
+      "usage": {
+        "prompt_tokens": 184,
+        "completion_tokens": 27,
+        "total_tokens": 211,
+        "cost": 0.0002595,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.0002595,
+          "upstream_inference_prompt_cost": 0.000138,
+          "upstream_inference_completions_cost": 0.0001215
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "openai/gpt-5.4-mini",
+      "served_provider": "Azure",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-06",
+      "language": "de",
+      "expected_category": "Learning",
+      "category": "Learning",
+      "category_matches": true,
+      "tags": [
+        "Schätzung",
+        "Abstimmungen",
+        "andere Teams",
+        "Annahmen",
+        "Terminplanung"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.091,
+      "cost_usd": 0.00028425,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\":\"Learning\",\"tags\":[\"Schätzung\",\"Abstimmungen\",\"andere Teams\",\"Annahmen\",\"Terminplanung\"]}",
+      "usage": {
+        "prompt_tokens": 187,
+        "completion_tokens": 32,
+        "total_tokens": 219,
+        "cost": 0.00028425,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.00028425,
+          "upstream_inference_prompt_cost": 0.00014025,
+          "upstream_inference_completions_cost": 0.000144
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "openai/gpt-5.4-mini",
+      "served_provider": "Azure",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-07",
+      "language": "de",
+      "expected_category": "Feedback",
+      "category": "Feedback",
+      "category_matches": true,
+      "tags": [
+        "Code-Reviews",
+        "Teamleiterin",
+        "Halbjahresgespräch",
+        "Diskussionen",
+        "Kommunikation"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.932,
+      "cost_usd": 0.0003075,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\":\"Feedback\",\"tags\":[\"Code-Reviews\",\"Teamleiterin\",\"Halbjahresgespräch\",\"Diskussionen\",\"Kommunikation\"]}",
+      "usage": {
+        "prompt_tokens": 188,
+        "completion_tokens": 37,
+        "total_tokens": 225,
+        "cost": 0.0003075,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.0003075,
+          "upstream_inference_prompt_cost": 0.000141,
+          "upstream_inference_completions_cost": 0.0001665
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "openai/gpt-5.4-mini",
+      "served_provider": "Azure",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-08",
+      "language": "de",
+      "expected_category": "Feedback",
+      "category": "Feedback",
+      "category_matches": true,
+      "tags": [
+        "Kunde",
+        "Schulung",
+        "E-Mail",
+        "Dank",
+        "Herbst"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.87,
+      "cost_usd": 0.00026925,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\":\"Feedback\",\"tags\":[\"Kunde\",\"Schulung\",\"E-Mail\",\"Dank\",\"Herbst\"]}",
+      "usage": {
+        "prompt_tokens": 185,
+        "completion_tokens": 29,
+        "total_tokens": 214,
+        "cost": 0.00026925,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.00026925,
+          "upstream_inference_prompt_cost": 0.00013875,
+          "upstream_inference_completions_cost": 0.0001305
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "openai/gpt-5.4-mini",
+      "served_provider": "Azure",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-09",
+      "language": "de",
+      "expected_category": "Feedback",
+      "category": "Feedback",
+      "category_matches": true,
+      "tags": [
+        "Retrospektive",
+        "Tickets",
+        "Entscheidungen",
+        "Chat",
+        "Dokumentation"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.136,
+      "cost_usd": 0.00028575,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\":\"Feedback\",\"tags\":[\"Retrospektive\",\"Tickets\",\"Entscheidungen\",\"Chat\",\"Dokumentation\"]}",
+      "usage": {
+        "prompt_tokens": 183,
+        "completion_tokens": 33,
+        "total_tokens": 216,
+        "cost": 0.00028575,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.00028575,
+          "upstream_inference_prompt_cost": 0.00013725,
+          "upstream_inference_completions_cost": 0.0001485
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "openai/gpt-5.4-mini",
+      "served_provider": "Azure",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-10",
+      "language": "de",
+      "expected_category": "Side project",
+      "category": null,
+      "category_matches": false,
+      "tags": null,
+      "valid_json_first_try": false,
+      "error": "AIProviderError: The AI provider answered with status 429.",
+      "seconds": 0.193,
+      "cost_usd": null,
+      "cost_source": "unknown",
+      "status": 429,
+      "content": null,
+      "usage": null,
+      "served_model": null,
+      "served_provider": null,
+      "review": {
+        "tags_in_input_language": false,
+        "notes": "No suggestion: the call failed."
+      }
+    },
+    {
+      "entry_id": "de-11",
+      "language": "de",
+      "expected_category": "Side project",
+      "category": null,
+      "category_matches": false,
+      "tags": null,
+      "valid_json_first_try": false,
+      "error": "AIProviderError: The AI provider answered with status 429.",
+      "seconds": 0.153,
+      "cost_usd": null,
+      "cost_source": "unknown",
+      "status": 429,
+      "content": null,
+      "usage": null,
+      "served_model": null,
+      "served_provider": null,
+      "review": {
+        "tags_in_input_language": false,
+        "notes": "No suggestion: the call failed."
+      }
+    },
+    {
+      "entry_id": "de-12",
+      "language": "de",
+      "expected_category": "Side project",
+      "category": null,
+      "category_matches": false,
+      "tags": null,
+      "valid_json_first_try": false,
+      "error": "AIProviderError: The AI provider answered with status 429.",
+      "seconds": 0.151,
+      "cost_usd": null,
+      "cost_source": "unknown",
+      "status": 429,
+      "content": null,
+      "usage": null,
+      "served_model": null,
+      "served_provider": null,
+      "review": {
+        "tags_in_input_language": false,
+        "notes": "No suggestion: the call failed."
+      }
+    }
+  ],
+  "summaries": [
+    {
+      "case_id": "sum-en-all",
+      "expected_language": "en",
+      "entry_count": 12,
+      "summary": null,
+      "summary_characters": 0,
+      "error": "AIProviderError: The AI provider answered with status 429.",
+      "seconds": 0.177,
+      "cost_usd": null,
+      "cost_source": "unknown",
+      "status": 429,
+      "usage": null,
+      "served_model": null,
+      "served_provider": null,
+      "review": {
+        "in_input_language": false,
+        "quality": 1,
+        "notes": "No summary: the call failed (HTTP 429)."
+      }
+    },
+    {
+      "case_id": "sum-de-all",
+      "expected_language": "de",
+      "entry_count": 12,
+      "summary": null,
+      "summary_characters": 0,
+      "error": "AIProviderError: The AI provider answered with status 429.",
+      "seconds": 0.15,
+      "cost_usd": null,
+      "cost_source": "unknown",
+      "status": 429,
+      "usage": null,
+      "served_model": null,
+      "served_provider": null,
+      "review": {
+        "in_input_language": false,
+        "quality": 1,
+        "notes": "No summary: the call failed (HTTP 429)."
+      }
+    },
+    {
+      "case_id": "sum-mostly-en",
+      "expected_language": "en",
+      "entry_count": 8,
+      "summary": null,
+      "summary_characters": 0,
+      "error": "AIProviderError: The AI provider answered with status 429.",
+      "seconds": 0.185,
+      "cost_usd": null,
+      "cost_source": "unknown",
+      "status": 429,
+      "usage": null,
+      "served_model": null,
+      "served_provider": null,
+      "review": {
+        "in_input_language": false,
+        "quality": 1,
+        "notes": "No summary: the call failed (HTTP 429)."
+      }
+    },
+    {
+      "case_id": "sum-mostly-de",
+      "expected_language": "de",
+      "entry_count": 8,
+      "summary": null,
+      "summary_characters": 0,
+      "error": "AIProviderError: The AI provider answered with status 429.",
+      "seconds": 0.563,
+      "cost_usd": null,
+      "cost_source": "unknown",
+      "status": 429,
+      "usage": null,
+      "served_model": null,
+      "served_provider": null,
+      "review": {
+        "in_input_language": false,
+        "quality": 1,
+        "notes": "No summary: the call failed (HTTP 429)."
+      }
+    }
+  ],
+  "review_by": "Engineer agent (Claude, AI), not the product owner, on 2026-11-09, against the rules and rubric in docs/decisions/default-model.md."
+}

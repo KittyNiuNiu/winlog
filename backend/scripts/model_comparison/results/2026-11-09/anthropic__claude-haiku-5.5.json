@@ -1,0 +1,1389 @@
+{
+  "date": "2026-11-09",
+  "model": "anthropic/claude-haiku-5.5",
+  "zdr_endpoints": [
+    {
+      "provider_name": "Google",
+      "prompt_price_per_million_usd": 0.11,
+      "completion_price_per_million_usd": 0.55,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "Google",
+      "prompt_price_per_million_usd": 0.11,
+      "completion_price_per_million_usd": 0.55,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "Google",
+      "prompt_price_per_million_usd": 0.09999999999999999,
+      "completion_price_per_million_usd": 0.5,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "Amazon Bedrock",
+      "prompt_price_per_million_usd": 0.11,
+      "completion_price_per_million_usd": 0.55,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "Amazon Bedrock",
+      "prompt_price_per_million_usd": 0.09999999999999999,
+      "completion_price_per_million_usd": 0.5,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "Amazon Bedrock",
+      "prompt_price_per_million_usd": 0.11,
+      "completion_price_per_million_usd": 0.55,
+      "supports_response_format": true
+    }
+  ],
+  "max_zdr_prompt_price_per_token_usd": 1.1e-07,
+  "max_zdr_completion_price_per_token_usd": 5.5e-07,
+  "suggestions": [
+    {
+      "entry_id": "en-01",
+      "language": "en",
+      "expected_category": "Achievement",
+      "category": "Achievement",
+      "category_matches": true,
+      "tags": [
+        "invoice export",
+        "billing team",
+        "releases",
+        "testing",
+        "delivery"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.85,
+      "cost_usd": 4.71e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Achievement\", \"tags\": [\"invoice export\", \"billing team\", \"releases\", \"testing\", \"delivery\"]}",
+      "usage": {
+        "prompt_tokens": 256,
+        "completion_tokens": 43,
+        "total_tokens": 299,
+        "cost": 4.71e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 4.71e-05,
+          "upstream_inference_prompt_cost": 2.56e-05,
+          "upstream_inference_completions_cost": 2.15e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "anthropic/claude-haiku-5.5",
+      "served_provider": "Amazon Bedrock",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-02",
+      "language": "en",
+      "expected_category": "Achievement",
+      "category": "Achievement",
+      "category_matches": true,
+      "tags": [
+        "CI migration",
+        "test pipeline",
+        "runbook",
+        "knowledge sharing",
+        "pairing"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.2,
+      "cost_usd": 8.57e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Achievement\", \"tags\": [\"CI migration\", \"test pipeline\", \"runbook\", \"knowledge sharing\", \"pairing\"]}",
+      "usage": {
+        "prompt_tokens": 262,
+        "completion_tokens": 119,
+        "total_tokens": 381,
+        "cost": 8.57e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 8.57e-05,
+          "upstream_inference_prompt_cost": 2.62e-05,
+          "upstream_inference_completions_cost": 5.95e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 68,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "anthropic/claude-haiku-5.5",
+      "served_provider": "Amazon Bedrock",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-03",
+      "language": "en",
+      "expected_category": "Achievement",
+      "category": "Achievement",
+      "category_matches": true,
+      "tags": [
+        "support backlog",
+        "mobile app",
+        "crash fixes",
+        "help articles",
+        "ticket triage"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.137,
+      "cost_usd": 5.14e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Achievement\", \"tags\": [\"support backlog\", \"mobile app\", \"crash fixes\", \"help articles\", \"ticket triage\"]}",
+      "usage": {
+        "prompt_tokens": 264,
+        "completion_tokens": 50,
+        "total_tokens": 314,
+        "cost": 5.14e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 5.14e-05,
+          "upstream_inference_prompt_cost": 2.64e-05,
+          "upstream_inference_completions_cost": 2.5e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "anthropic/claude-haiku-5.5",
+      "served_provider": "Amazon Bedrock",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-04",
+      "language": "en",
+      "expected_category": "Learning",
+      "category": "Learning",
+      "category_matches": true,
+      "tags": [
+        "SQL",
+        "query plans",
+        "EXPLAIN",
+        "indexing",
+        "online course"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.86,
+      "cost_usd": 4.84e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Learning\", \"tags\": [\"SQL\", \"query plans\", \"EXPLAIN\", \"indexing\", \"online course\"]}",
+      "usage": {
+        "prompt_tokens": 254,
+        "completion_tokens": 46,
+        "total_tokens": 300,
+        "cost": 4.84e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 4.84e-05,
+          "upstream_inference_prompt_cost": 2.54e-05,
+          "upstream_inference_completions_cost": 2.3e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "anthropic/claude-haiku-5.5",
+      "served_provider": "Amazon Bedrock",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-05",
+      "language": "en",
+      "expected_category": "Learning",
+      "category": "Learning",
+      "category_matches": true,
+      "tags": [
+        "customer interviews",
+        "user research",
+        "open questions",
+        "interviewing skills"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.11,
+      "cost_usd": 7.22e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Learning\", \"tags\": [\"customer interviews\", \"user research\", \"open questions\", \"interviewing skills\"]}",
+      "usage": {
+        "prompt_tokens": 252,
+        "completion_tokens": 94,
+        "total_tokens": 346,
+        "cost": 7.22e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 7.22e-05,
+          "upstream_inference_prompt_cost": 2.52e-05,
+          "upstream_inference_completions_cost": 4.7e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 52,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "anthropic/claude-haiku-5.5",
+      "served_provider": "Amazon Bedrock",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-06",
+      "language": "en",
+      "expected_category": "Learning",
+      "category": "Learning",
+      "category_matches": true,
+      "tags": [
+        "feature flags",
+        "code reading",
+        "knowledge sharing",
+        "architecture",
+        "team walkthrough"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.423,
+      "cost_usd": 9.31e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Learning\", \"tags\": [\"feature flags\", \"code reading\", \"knowledge sharing\", \"architecture\", \"team walkthrough\"]}",
+      "usage": {
+        "prompt_tokens": 261,
+        "completion_tokens": 134,
+        "total_tokens": 395,
+        "cost": 9.31e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 9.31e-05,
+          "upstream_inference_prompt_cost": 2.61e-05,
+          "upstream_inference_completions_cost": 6.7e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 83,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "anthropic/claude-haiku-5.5",
+      "served_provider": "Amazon Bedrock",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-07",
+      "language": "en",
+      "expected_category": "Feedback",
+      "category": "Feedback",
+      "category_matches": true,
+      "tags": [
+        "design reviews",
+        "one-to-one",
+        "manager feedback",
+        "drafts",
+        "collaboration"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.83,
+      "cost_usd": 9.29e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Feedback\", \"tags\": [\"design reviews\", \"one-to-one\", \"manager feedback\", \"drafts\", \"collaboration\"]}",
+      "usage": {
+        "prompt_tokens": 259,
+        "completion_tokens": 134,
+        "total_tokens": 393,
+        "cost": 9.29e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 9.29e-05,
+          "upstream_inference_prompt_cost": 2.59e-05,
+          "upstream_inference_completions_cost": 6.7e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 84,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "anthropic/claude-haiku-5.5",
+      "served_provider": "Amazon Bedrock",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-08",
+      "language": "en",
+      "expected_category": "Feedback",
+      "category": "Feedback",
+      "category_matches": true,
+      "tags": [
+        "release notes",
+        "documentation",
+        "customer communication",
+        "sales collaboration",
+        "positive feedback"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.502,
+      "cost_usd": 8.41e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Feedback\", \"tags\": [\"release notes\", \"documentation\", \"customer communication\", \"sales collaboration\", \"positive feedback\"]}",
+      "usage": {
+        "prompt_tokens": 251,
+        "completion_tokens": 118,
+        "total_tokens": 369,
+        "cost": 8.41e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 8.41e-05,
+          "upstream_inference_prompt_cost": 2.51e-05,
+          "upstream_inference_completions_cost": 5.9e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 68,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "anthropic/claude-haiku-5.5",
+      "served_provider": "Amazon Bedrock",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-09",
+      "language": "en",
+      "expected_category": "Feedback",
+      "category": "Feedback",
+      "category_matches": true,
+      "tags": [
+        "demo",
+        "leadership team",
+        "presentation skills",
+        "pacing",
+        "public speaking"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.915,
+      "cost_usd": 4.92e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Feedback\", \"tags\": [\"demo\", \"leadership team\", \"presentation skills\", \"pacing\", \"public speaking\"]}",
+      "usage": {
+        "prompt_tokens": 257,
+        "completion_tokens": 47,
+        "total_tokens": 304,
+        "cost": 4.92e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 4.92e-05,
+          "upstream_inference_prompt_cost": 2.57e-05,
+          "upstream_inference_completions_cost": 2.35e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "anthropic/claude-haiku-5.5",
+      "served_provider": "Amazon Bedrock",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-10",
+      "language": "en",
+      "expected_category": "Side project",
+      "category": "Side project",
+      "category_matches": true,
+      "tags": [
+        "running club",
+        "app",
+        "calendar",
+        "email notifications",
+        "automation"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.851,
+      "cost_usd": 4.54e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Side project\", \"tags\": [\"running club\", \"app\", \"calendar\", \"email notifications\", \"automation\"]}",
+      "usage": {
+        "prompt_tokens": 254,
+        "completion_tokens": 40,
+        "total_tokens": 294,
+        "cost": 4.54e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 4.54e-05,
+          "upstream_inference_prompt_cost": 2.54e-05,
+          "upstream_inference_completions_cost": 2e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "anthropic/claude-haiku-5.5",
+      "served_provider": "Amazon Bedrock",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-11",
+      "language": "en",
+      "expected_category": "Side project",
+      "category": "Side project",
+      "category_matches": true,
+      "tags": [
+        "open source",
+        "CSV",
+        "bug fix",
+        "testing",
+        "line breaks"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.091,
+      "cost_usd": 6.05e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Side project\", \"tags\": [\"open source\", \"CSV\", \"bug fix\", \"testing\", \"line breaks\"]}",
+      "usage": {
+        "prompt_tokens": 260,
+        "completion_tokens": 69,
+        "total_tokens": 329,
+        "cost": 6.05e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 6.05e-05,
+          "upstream_inference_prompt_cost": 2.6e-05,
+          "upstream_inference_completions_cost": 3.45e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 26,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "anthropic/claude-haiku-5.5",
+      "served_provider": "Amazon Bedrock",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-12",
+      "language": "en",
+      "expected_category": "Side project",
+      "category": "Side project",
+      "category_matches": true,
+      "tags": [
+        "board game design",
+        "prototype",
+        "game night",
+        "town planning",
+        "weekend project"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.11,
+      "cost_usd": 7.05e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Side project\", \"tags\": [\"board game design\", \"prototype\", \"game night\", \"town planning\", \"weekend project\"]}",
+      "usage": {
+        "prompt_tokens": 250,
+        "completion_tokens": 91,
+        "total_tokens": 341,
+        "cost": 7.05e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 7.05e-05,
+          "upstream_inference_prompt_cost": 2.5e-05,
+          "upstream_inference_completions_cost": 4.55e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 48,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "anthropic/claude-haiku-5.5",
+      "served_provider": "Amazon Bedrock",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-01",
+      "language": "de",
+      "expected_category": "Achievement",
+      "category": "Achievement",
+      "category_matches": true,
+      "tags": [
+        "Kundenportal",
+        "Suchfunktion",
+        "Lasttests",
+        "Anforderungen",
+        "Fachbereich"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.449,
+      "cost_usd": 9.67e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Achievement\", \"tags\": [\"Kundenportal\", \"Suchfunktion\", \"Lasttests\", \"Anforderungen\", \"Fachbereich\"]}",
+      "usage": {
+        "prompt_tokens": 287,
+        "completion_tokens": 136,
+        "total_tokens": 423,
+        "cost": 9.67e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 9.67e-05,
+          "upstream_inference_prompt_cost": 2.87e-05,
+          "upstream_inference_completions_cost": 6.8e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 77,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "anthropic/claude-haiku-5.5",
+      "served_provider": "Amazon Bedrock",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-02",
+      "language": "de",
+      "expected_category": "Achievement",
+      "category": "Achievement",
+      "category_matches": true,
+      "tags": [
+        "Datenabgleich",
+        "Fehleranalyse",
+        "Fehlerbehebung",
+        "Zuverlässigkeit",
+        "Nachtjob"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 3.049,
+      "cost_usd": 6.34e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Achievement\", \"tags\": [\"Datenabgleich\", \"Fehleranalyse\", \"Fehlerbehebung\", \"Zuverlässigkeit\", \"Nachtjob\"]}",
+      "usage": {
+        "prompt_tokens": 289,
+        "completion_tokens": 69,
+        "total_tokens": 358,
+        "cost": 6.34e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 6.34e-05,
+          "upstream_inference_prompt_cost": 2.89e-05,
+          "upstream_inference_completions_cost": 3.45e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "anthropic/claude-haiku-5.5",
+      "served_provider": "Amazon Bedrock",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-03",
+      "language": "de",
+      "expected_category": "Achievement",
+      "category": "Achievement",
+      "category_matches": true,
+      "tags": [
+        "Einarbeitung",
+        "Onboarding",
+        "Teamführung",
+        "Einarbeitungsplan",
+        "Patenschaften"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.174,
+      "cost_usd": 6.02e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Achievement\", \"tags\": [\"Einarbeitung\", \"Onboarding\", \"Teamführung\", \"Einarbeitungsplan\", \"Patenschaften\"]}",
+      "usage": {
+        "prompt_tokens": 292,
+        "completion_tokens": 62,
+        "total_tokens": 354,
+        "cost": 6.02e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 6.02e-05,
+          "upstream_inference_prompt_cost": 2.92e-05,
+          "upstream_inference_completions_cost": 3.1e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "anthropic/claude-haiku-5.5",
+      "served_provider": "Amazon Bedrock",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-04",
+      "language": "de",
+      "expected_category": "Learning",
+      "category": "Learning",
+      "category_matches": true,
+      "tags": [
+        "Barrierefreiheit",
+        "Webformulare",
+        "Screenreader",
+        "Fehlermeldungen",
+        "Workshop"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.177,
+      "cost_usd": 9.37e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Learning\", \"tags\": [\"Barrierefreiheit\", \"Webformulare\", \"Screenreader\", \"Fehlermeldungen\", \"Workshop\"]}",
+      "usage": {
+        "prompt_tokens": 292,
+        "completion_tokens": 129,
+        "total_tokens": 421,
+        "cost": 9.37e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 9.37e-05,
+          "upstream_inference_prompt_cost": 2.92e-05,
+          "upstream_inference_completions_cost": 6.45e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 69,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "anthropic/claude-haiku-5.5",
+      "served_provider": "Amazon Bedrock",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-05",
+      "language": "de",
+      "expected_category": "Learning",
+      "category": "Learning",
+      "category_matches": true,
+      "tags": [
+        "Kubernetes",
+        "Einarbeitung",
+        "Testcluster",
+        "Deployments",
+        "Weiterbildung"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.915,
+      "cost_usd": 5.74e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Learning\", \"tags\": [\"Kubernetes\", \"Einarbeitung\", \"Testcluster\", \"Deployments\", \"Weiterbildung\"]}",
+      "usage": {
+        "prompt_tokens": 289,
+        "completion_tokens": 57,
+        "total_tokens": 346,
+        "cost": 5.74e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 5.74e-05,
+          "upstream_inference_prompt_cost": 2.89e-05,
+          "upstream_inference_completions_cost": 2.85e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "anthropic/claude-haiku-5.5",
+      "served_provider": "Amazon Bedrock",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-06",
+      "language": "de",
+      "expected_category": "Learning",
+      "category": "Learning",
+      "category_matches": true,
+      "tags": [
+        "Schätzung",
+        "Planung",
+        "Abstimmung",
+        "Zeitplanung",
+        "Annahmen"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.187,
+      "cost_usd": 8.77e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Learning\", \"tags\": [\"Schätzung\", \"Planung\", \"Abstimmung\", \"Zeitplanung\", \"Annahmen\"]}",
+      "usage": {
+        "prompt_tokens": 292,
+        "completion_tokens": 117,
+        "total_tokens": 409,
+        "cost": 8.77e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 8.77e-05,
+          "upstream_inference_prompt_cost": 2.92e-05,
+          "upstream_inference_completions_cost": 5.85e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 63,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "anthropic/claude-haiku-5.5",
+      "served_provider": "Amazon Bedrock",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-07",
+      "language": "de",
+      "expected_category": "Feedback",
+      "category": "Feedback",
+      "category_matches": true,
+      "tags": [
+        "Code-Reviews",
+        "Halbjahresgespräch",
+        "Kommunikation",
+        "Diskussionen",
+        "Zusammenarbeit"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.209,
+      "cost_usd": 0.0001069,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Feedback\", \"tags\": [\"Code-Reviews\", \"Halbjahresgespräch\", \"Kommunikation\", \"Diskussionen\", \"Zusammenarbeit\"]}",
+      "usage": {
+        "prompt_tokens": 299,
+        "completion_tokens": 154,
+        "total_tokens": 453,
+        "cost": 0.0001069,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.0001069,
+          "upstream_inference_prompt_cost": 2.99e-05,
+          "upstream_inference_completions_cost": 7.7e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 87,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "anthropic/claude-haiku-5.5",
+      "served_provider": "Amazon Bedrock",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-08",
+      "language": "de",
+      "expected_category": "Feedback",
+      "category": "Feedback",
+      "category_matches": true,
+      "tags": [
+        "Kundenfeedback",
+        "Schulung",
+        "Kundenbindung",
+        "Folgeauftrag"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.348,
+      "cost_usd": 9.11e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Feedback\", \"tags\": [\"Kundenfeedback\", \"Schulung\", \"Kundenbindung\", \"Folgeauftrag\"]}",
+      "usage": {
+        "prompt_tokens": 291,
+        "completion_tokens": 124,
+        "total_tokens": 415,
+        "cost": 9.11e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 9.11e-05,
+          "upstream_inference_prompt_cost": 2.91e-05,
+          "upstream_inference_completions_cost": 6.2e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 70,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "anthropic/claude-haiku-5.5",
+      "served_provider": "Amazon Bedrock",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-09",
+      "language": "de",
+      "expected_category": "Feedback",
+      "category": "Feedback",
+      "category_matches": true,
+      "tags": [
+        "Retrospektive",
+        "Entscheidungen",
+        "Dokumentation",
+        "Tickets",
+        "Kommunikation"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.164,
+      "cost_usd": 8.79e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Feedback\", \"tags\": [\"Retrospektive\", \"Entscheidungen\", \"Dokumentation\", \"Tickets\", \"Kommunikation\"]}",
+      "usage": {
+        "prompt_tokens": 279,
+        "completion_tokens": 120,
+        "total_tokens": 399,
+        "cost": 8.79e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 8.79e-05,
+          "upstream_inference_prompt_cost": 2.79e-05,
+          "upstream_inference_completions_cost": 6e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 62,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "anthropic/claude-haiku-5.5",
+      "served_provider": "Amazon Bedrock",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-10",
+      "language": "de",
+      "expected_category": "Side project",
+      "category": "Side project",
+      "category_matches": true,
+      "tags": [
+        "Web-App",
+        "Gemeinschaftsgarten",
+        "Planung",
+        "Freizeitprojekt"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.757,
+      "cost_usd": 9.66e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Side project\", \"tags\": [\"Web-App\", \"Gemeinschaftsgarten\", \"Planung\", \"Freizeitprojekt\"]}",
+      "usage": {
+        "prompt_tokens": 276,
+        "completion_tokens": 138,
+        "total_tokens": 414,
+        "cost": 9.66e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 9.66e-05,
+          "upstream_inference_prompt_cost": 2.76e-05,
+          "upstream_inference_completions_cost": 6.9e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 84,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "anthropic/claude-haiku-5.5",
+      "served_provider": "Amazon Bedrock",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-11",
+      "language": "de",
+      "expected_category": "Side project",
+      "category": "Side project",
+      "category_matches": true,
+      "tags": [
+        "Einplatinenrechner",
+        "Wetterstation",
+        "Messwerte",
+        "Browser-Übersicht"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.496,
+      "cost_usd": 0.0001241,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Side project\", \"tags\": [\"Einplatinenrechner\", \"Wetterstation\", \"Messwerte\", \"Browser-Übersicht\"]}",
+      "usage": {
+        "prompt_tokens": 281,
+        "completion_tokens": 192,
+        "total_tokens": 473,
+        "cost": 0.0001241,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.0001241,
+          "upstream_inference_prompt_cost": 2.81e-05,
+          "upstream_inference_completions_cost": 9.6e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 137,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "anthropic/claude-haiku-5.5",
+      "served_provider": "Amazon Bedrock",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-12",
+      "language": "de",
+      "expected_category": "Side project",
+      "category": "Side project",
+      "category_matches": true,
+      "tags": [
+        "Webseite",
+        "Sportverein",
+        "Ehrenamt",
+        "Redesign",
+        "Schulung"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.413,
+      "cost_usd": 0.0001204,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Side project\", \"tags\": [\"Webseite\", \"Sportverein\", \"Ehrenamt\", \"Redesign\", \"Schulung\"]}",
+      "usage": {
+        "prompt_tokens": 289,
+        "completion_tokens": 183,
+        "total_tokens": 472,
+        "cost": 0.0001204,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.0001204,
+          "upstream_inference_prompt_cost": 2.89e-05,
+          "upstream_inference_completions_cost": 9.15e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 131,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "anthropic/claude-haiku-5.5",
+      "served_provider": "Amazon Bedrock",
+      "review": {
+        "tags_in_input_language": true
+      }
+    }
+  ],
+  "summaries": [
+    {
+      "case_id": "sum-en-all",
+      "expected_language": "en",
+      "entry_count": 12,
+      "summary": "# Performance Review Summary (July to September 2026)\n\n## Key achievements\n\n- **Invoice export for the billing team:** Shipped two days before the deadline. I split the work into three small releases so each could be tested on its own. Finance now closes the month about a day faster because invoices are no longer copied by hand.\n- **Test pipeline migration:** Led the move from the old build server to a new CI service. I wrote the runbook and paired with two teammates so they can maintain it without me. A full pipeline run dropped from 40 minutes to 12.\n- **Mobile app support backlog:** Triaged 85 open tickets, fixed the five most common crashes, and wrote help articles for the remaining common questions. Open tickets fell from 85 to 9 in three weeks.\n\n## Learning and development\n\n- **SQL query plans:** Completed an online course. I now read EXPLAIN output before adding an index instead of guessing.\n- **User research:** Observed three customer interviews run by the research team and learned to ask open questions without steering the participant.\n- **Feature flag service:** Worked out how the service decides who sees a feature, then ran a 20-minute walkthrough for the team. Two teammates have since set up their own flags without help.\n\n## Feedback received\n\n- **Design reviews (manager, one-to-one):** Reviews are thorough. Next step: share drafts earlier so others can comment before details are fixed.\n- **Release notes (sales colleague):** Praised the clarity of my release notes. Customers asked noticeably fewer questions after the last update.\n- **First leadership demo:** Content was strong. Areas to improve: speaking pace, and I skipped the slide with the key numbers.\n\n## Development focus for next period\n\n- Share design drafts earlier to gather input before decisions are locked in.\n- Slow down and cover key data points when presenting to senior audiences.\n\n## Outside work (optional)\n\n- Built a small app that sends my running club a weekly summary of upcoming races, using a shared calendar.\n- Contributed a fix to an open-source CSV library, covering line breaks inside quoted values, with tests. The maintainers merged it into the next release.\n- Designed a board game about town planning and ran a playtest at a local game night.",
+      "summary_characters": 2265,
+      "error": null,
+      "seconds": 5.046,
+      "cost_usd": 0.0006323,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "usage": {
+        "prompt_tokens": 1393,
+        "completion_tokens": 986,
+        "total_tokens": 2379,
+        "cost": 0.0006323,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.0006323,
+          "upstream_inference_prompt_cost": 0.0001393,
+          "upstream_inference_completions_cost": 0.000493
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 267,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "anthropic/claude-haiku-5.5",
+      "served_provider": "Amazon Bedrock",
+      "review": {
+        "in_input_language": true,
+        "quality": 5,
+        "notes": "All 12 entries, facts match, grouped by category with outcomes and numbers."
+      }
+    },
+    {
+      "case_id": "sum-de-all",
+      "expected_language": "de",
+      "entry_count": 12,
+      "summary": "# Zusammenfassung für das Leistungsgespräch (Juli bis September 2026)\n\n## Wichtigste Erfolge\n\n- **Neue Suchfunktion für das Kundenportal:** Pünktlich ausgeliefert. Anforderungen habe ich gemeinsam mit dem Fachbereich geklärt und die Lasttests selbst vorbereitet. Eine Suche dauert nun im Durchschnitt unter einer Sekunde statt vorher vier Sekunden.\n- **Fehlerhaften nächtlichen Datenabgleich behoben:** Ich habe die Ursache analysiert und korrigiert. Seitdem lief der Abgleich drei Wochen lang ohne Abbruch. Das Controlling erhält die Zahlen wieder jeden Morgen um 7 Uhr.\n- **Einarbeitung von drei neuen Kolleginnen organisiert:** Ich habe einen Einarbeitungsplan geschrieben, Patenschaften verteilt und eine Checkliste für den ersten Arbeitstag erstellt. Alle drei haben nach zwei Wochen eigene Aufgaben übernommen.\n\n## Weiterentwicklung und Lernen\n\n- **Barrierefreie Webformulare:** Workshop besucht. Ich kann Fehlermeldungen nun so mit den Eingabefeldern verknüpfen, dass Screenreader sie vorlesen.\n- **Kubernetes:** Die offizielle Einführung durchgearbeitet und einen kleinen Testcluster aufgesetzt, um Deployments auszuprobieren.\n- **Schätzungen und Planung:** Aus einer zu knappen Schätzung gelernt. Ich plane nun Zeit für Abstimmungen mit anderen Teams ein und halte meine Annahmen fest, bevor ich einen Termin zusage.\n\n## Rückmeldungen aus dem Umfeld\n\n**Stärken:**\n- Die Teamleiterin hat im Halbjahresgespräch meine Code-Reviews als sehr hilfreich bezeichnet.\n- Ein Kunde hat sich nach der gemeinsamen Schulung für die geduldigen Erklärungen bedankt und fragt nach einer zweiten Schulung im Herbst.\n\n**Entwicklungsfelder:**\n- In Diskussionen sollte ich anderen häufiger den Vortritt lassen (Rückmeldung der Teamleiterin).\n- Wichtige Entscheidungen sollte ich im Ticket dokumentieren statt nur im Chat zu besprechen (Rückmeldung aus der Retrospektive).\n\n## Ehrenamtliches und Nebenprojekte\n\n- **Gemeinschaftsgarten:** In meiner Freizeit eine Web-App gebaut, mit der wir die Gießtermine planen. Im August ist kein einziger Gießtermin ausgefallen.\n- **Wetterstation:** Einen Einplatinenrechner am Wochenende als Wetterstation eingerichtet. Die Messwerte erscheinen in einer selbst gebauten Übersicht im Browser.\n- **Sportverein:** Die Webseite eines kleinen Sportvereins ehrenamtlich neu gestaltet und den Mitgliedern in einem Abendtermin gezeigt, wie sie Trainingszeiten selbst eintragen.\n\n---\n\n**Hinweis zur Bearbeitung:** Bei den Lern- und Nebenprojekteinträgen fehlen Ergebnisse. Falls es dazu messbare Effekte gibt, etwa im Team oder beim Kunden, lohnt es sich, diese vor dem Gespräch zu ergänzen.",
+      "summary_characters": 2607,
+      "error": null,
+      "seconds": 8.187,
+      "cost_usd": 0.0011632,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "usage": {
+        "prompt_tokens": 1832,
+        "completion_tokens": 1960,
+        "total_tokens": 3792,
+        "cost": 0.0011632,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.0011632,
+          "upstream_inference_prompt_cost": 0.0001832,
+          "upstream_inference_completions_cost": 0.00098
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 679,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "anthropic/claude-haiku-5.5",
+      "served_provider": "Amazon Bedrock",
+      "review": {
+        "in_input_language": true,
+        "quality": 5,
+        "notes": "All 12 entries, facts match, clear German structure; closing hint to add missing results is advice, not a claim."
+      }
+    },
+    {
+      "case_id": "sum-mostly-en",
+      "expected_language": "en",
+      "entry_count": 8,
+      "summary": "# Performance Review Summary (Draft)\n\n## Key Achievements\n\n**Billing invoice export (July 2026)**\n- Shipped the new invoice export for the billing team two days before the deadline.\n- Split the work into three small releases so that each could be tested on its own.\n- Impact: Finance closes the month about a day faster because invoices are no longer copied by hand.\n\n**Test pipeline migration (July 2026)**\n- Led the move of the test pipeline from the old build server to the new CI service.\n- Wrote the runbook and paired with two teammates so they can maintain the pipeline independently.\n- Impact: A full pipeline run now takes 12 minutes instead of 40.\n\n**Mobile app support backlog (July 2026)**\n- Triaged 85 open support tickets, fixed the five most common crashes, and wrote help articles for the remaining questions.\n- Impact: Open tickets dropped from 85 to 9 in three weeks.\n\n**Onboarding of three new colleagues (August 2026)**\n- Organized onboarding for three new team members: wrote an onboarding plan, assigned buddies, and created a checklist for the first day.\n- Impact: All three took on their own tasks within two weeks.\n\n## Learning and Development\n\n- Completed an online course on SQL query plans (July 2026).\n- Now reads EXPLAIN output before adding an index, rather than guessing which index will help.\n\n## Feedback Received\n\n- **Design reviews (July 2026):** My manager noted that my design reviews are thorough. The suggested development area is to share drafts earlier so others can comment before details are fixed.\n- **Code reviews and team discussions (July 2026, half-year review):** My team lead said my code reviews are very helpful. The suggested development area is to let others speak first more often in discussions.\n\n## Development Focus (Suggested)\n\n- Share design drafts earlier to get input before details are fixed.\n- Give others more room to speak first in team discussions, while keeping the helpfulness of code reviews.\n\n---\n\n*Notes for you:*\n- *The \"Side project\" entry (running club reminder app) is not included because it is outside your work. Add it if you want it in the review.*\n- *The onboarding entry was written in German and has been translated into English. Adjust the wording if your review is in German.*\n- *The summary uses only the facts in your diary. Add context such as team impact, scope, or your own reflections where useful.*",
+      "summary_characters": 2391,
+      "error": null,
+      "seconds": 5.742,
+      "cost_usd": 0.0006575,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "usage": {
+        "prompt_tokens": 1125,
+        "completion_tokens": 1090,
+        "total_tokens": 2215,
+        "cost": 0.0006575,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.0006575,
+          "upstream_inference_prompt_cost": 0.0001125,
+          "upstream_inference_completions_cost": 0.000545
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 312,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "anthropic/claude-haiku-5.5",
+      "served_provider": "Amazon Bedrock",
+      "review": {
+        "in_input_language": true,
+        "quality": 4,
+        "notes": "Facts match, but leaves out the running-club side project on purpose (says so in a note); the note mentions only one German entry although two were translated."
+      }
+    },
+    {
+      "case_id": "sum-mostly-de",
+      "expected_language": "de",
+      "entry_count": 8,
+      "summary": "# Zusammenfassung für das Performance-Review (Juli bis August 2026)\n\nBitte prüfe die Formulierungen vor der Verwendung und passe sie an deine Rolle und deinen Stil an.\n\n## Wesentliche Erfolge\n\n- **Neue Suchfunktion für das Kundenportal (Juli 2026):** Termingerecht ausgeliefert. Anforderungen mit dem Fachbereich geklärt und die Lasttests selbst vorbereitet. Ergebnis: Die Suche dauert im Durchschnitt unter einer Sekunde statt vorher vier Sekunden.\n- **Behebung des nächtlichen Datenabgleichs (Juli 2026):** Fehlerhaften Abgleich analysiert und behoben. Seitdem lief er drei Wochen lang ohne einen einzigen Abbruch. Das Controlling erhält die Zahlen wieder jeden Morgen um 7 Uhr.\n- **Migration der Test-Pipeline auf einen neuen CI-Dienst (Juli 2026):** Migration geleitet, Runbook geschrieben und zwei Teammitglieder eingearbeitet, sodass sie die Pipeline ohne mich pflegen können. Ergebnis: Ein vollständiger Pipeline-Lauf dauert nun 12 statt 40 Minuten.\n\n## Lernen und Weiterentwicklung\n\n- **Barrierefreie Webformulare (Juli 2026):** Workshop besucht. Ich kann Fehlermeldungen nun so mit den Eingabefeldern verknüpfen, dass Screenreader sie vorlesen.\n- **Realistischere Planung (August 2026):** Aus einer zu knapp kalkulierten Schätzung gelernt. Ich plane jetzt Zeit für Abstimmungen mit anderen Teams ein und halte meine Annahmen schriftlich fest, bevor ich einen Termin zusage.\n\n## Feedback\n\n- **Kundenschulung (August 2026):** Ein Kunde hat sich per E-Mail für die geduldigen Erklärungen bedankt und nach einer zweiten Schulung im Herbst gefragt.\n- **Präsentation vor der Führungsebene (August 2026):** Der Inhalt wurde als stark bewertet. Als Entwicklungsfeld wurde genannt, dass ich zu schnell gesprochen und die Folie mit den wichtigsten Kennzahlen übersprungen habe.\n\n## Außerhalb der Arbeit (optional)\n\n- **Web-App für den Gemeinschaftsgarten (Juli 2026):** In meiner Freizeit gebaut, um die Gießtermine zu planen. Im August fiel kein einziger Gießtermin aus.",
+      "summary_characters": 1970,
+      "error": null,
+      "seconds": 6.777,
+      "cost_usd": 0.0008925,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "usage": {
+        "prompt_tokens": 1235,
+        "completion_tokens": 1538,
+        "total_tokens": 2773,
+        "cost": 0.0008925,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.0008925,
+          "upstream_inference_prompt_cost": 0.0001235,
+          "upstream_inference_completions_cost": 0.000769
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 583,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "anthropic/claude-haiku-5.5",
+      "served_provider": "Amazon Bedrock",
+      "review": {
+        "in_input_language": true,
+        "quality": 5,
+        "notes": "All 8 entries, the two English ones translated correctly, facts match."
+      }
+    }
+  ],
+  "review_by": "Engineer agent (Claude, AI), not the product owner, on 2026-11-09, against the rules and rubric in docs/decisions/default-model.md."
+}

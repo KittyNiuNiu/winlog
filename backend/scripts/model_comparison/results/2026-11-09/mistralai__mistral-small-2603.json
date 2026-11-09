@@ -1,0 +1,1372 @@
+{
+  "date": "2026-11-09",
+  "model": "mistralai/mistral-small-2603",
+  "zdr_endpoints": [
+    {
+      "provider_name": "Mistral",
+      "prompt_price_per_million_usd": 0.165,
+      "completion_price_per_million_usd": 0.66,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "Mistral",
+      "prompt_price_per_million_usd": 0.165,
+      "completion_price_per_million_usd": 0.66,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "Mistral",
+      "prompt_price_per_million_usd": 0.15,
+      "completion_price_per_million_usd": 0.6,
+      "supports_response_format": true
+    }
+  ],
+  "max_zdr_prompt_price_per_token_usd": 1.65e-07,
+  "max_zdr_completion_price_per_token_usd": 6.6e-07,
+  "suggestions": [
+    {
+      "entry_id": "en-01",
+      "language": "en",
+      "expected_category": "Achievement",
+      "category": "Achievement",
+      "category_matches": true,
+      "tags": [
+        "invoice",
+        "export",
+        "billing",
+        "deadline",
+        "release"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.864,
+      "cost_usd": 5.1315e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Achievement\", \"tags\": [\"invoice\", \"export\", \"billing\", \"deadline\", \"release\"]}",
+      "usage": {
+        "prompt_tokens": 195,
+        "completion_tokens": 29,
+        "total_tokens": 224,
+        "cost": 5.1315e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 5.1315e-05,
+          "upstream_inference_prompt_cost": 3.2175e-05,
+          "upstream_inference_completions_cost": 1.914e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "mistralai/mistral-small-2603",
+      "served_provider": "Mistral",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-02",
+      "language": "en",
+      "expected_category": "Achievement",
+      "category": "Achievement",
+      "category_matches": true,
+      "tags": [
+        "CI/CD",
+        "test pipeline",
+        "runbook",
+        "teamwork",
+        "automation"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.616,
+      "cost_usd": 5.3625e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Achievement\", \"tags\": [\"CI/CD\", \"test pipeline\", \"runbook\", \"teamwork\", \"automation\"]}",
+      "usage": {
+        "prompt_tokens": 197,
+        "completion_tokens": 32,
+        "total_tokens": 229,
+        "cost": 5.3625e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 5.3625e-05,
+          "upstream_inference_prompt_cost": 3.2505e-05,
+          "upstream_inference_completions_cost": 2.112e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "mistralai/mistral-small-2603",
+      "served_provider": "Mistral",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-03",
+      "language": "en",
+      "expected_category": "Achievement",
+      "category": "Achievement",
+      "category_matches": true,
+      "tags": [
+        "support",
+        "mobile app",
+        "bug fixing",
+        "documentation"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.318,
+      "cost_usd": 2.748e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Achievement\", \"tags\": [\"support\", \"mobile app\", \"bug fixing\", \"documentation\"]}",
+      "usage": {
+        "prompt_tokens": 194,
+        "completion_tokens": 27,
+        "total_tokens": 221,
+        "cost": 2.748e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 132,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 2.748e-05,
+          "upstream_inference_prompt_cost": 1.128e-05,
+          "upstream_inference_completions_cost": 1.62e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "mistralai/mistral-small-2603",
+      "served_provider": "Mistral",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-04",
+      "language": "en",
+      "expected_category": "Learning",
+      "category": "Learning",
+      "category_matches": true,
+      "tags": [
+        "SQL",
+        "query optimization",
+        "EXPLAIN",
+        "indexing",
+        "database"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.661,
+      "cost_usd": 5.181e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Learning\", \"tags\": [\"SQL\", \"query optimization\", \"EXPLAIN\", \"indexing\", \"database\"]}",
+      "usage": {
+        "prompt_tokens": 190,
+        "completion_tokens": 31,
+        "total_tokens": 221,
+        "cost": 5.181e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 5.181e-05,
+          "upstream_inference_prompt_cost": 3.135e-05,
+          "upstream_inference_completions_cost": 2.046e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "mistralai/mistral-small-2603",
+      "served_provider": "Mistral",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-05",
+      "language": "en",
+      "expected_category": "Learning",
+      "category": "Learning",
+      "category_matches": true,
+      "tags": [
+        "customer interviews",
+        "research",
+        "open questions",
+        "qualitative research",
+        "user experience"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.859,
+      "cost_usd": 3.2538e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Learning\", \"tags\": [\"customer interviews\", \"research\", \"open questions\", \"qualitative research\", \"user experience\"]}",
+      "usage": {
+        "prompt_tokens": 188,
+        "completion_tokens": 32,
+        "total_tokens": 220,
+        "cost": 3.2538e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 132,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 3.2538e-05,
+          "upstream_inference_prompt_cost": 1.1418e-05,
+          "upstream_inference_completions_cost": 2.112e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "mistralai/mistral-small-2603",
+      "served_provider": "Mistral",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-06",
+      "language": "en",
+      "expected_category": "Learning",
+      "category": "Learning",
+      "category_matches": true,
+      "tags": [
+        "feature flags",
+        "code review",
+        "team knowledge sharing",
+        "walkthrough",
+        "documentation"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.803,
+      "cost_usd": 4.86e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Learning\", \"tags\": [\"feature flags\", \"code review\", \"team knowledge sharing\", \"walkthrough\", \"documentation\"]}",
+      "usage": {
+        "prompt_tokens": 196,
+        "completion_tokens": 32,
+        "total_tokens": 228,
+        "cost": 4.86e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 4.86e-05,
+          "upstream_inference_prompt_cost": 2.94e-05,
+          "upstream_inference_completions_cost": 1.92e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "mistralai/mistral-small-2603",
+      "served_provider": "Mistral",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-07",
+      "language": "en",
+      "expected_category": "Feedback",
+      "category": "Feedback",
+      "category_matches": true,
+      "tags": [
+        "design review",
+        "feedback",
+        "collaboration",
+        "communication"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.769,
+      "cost_usd": 2.8908e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Feedback\", \"tags\": [\"design review\", \"feedback\", \"collaboration\", \"communication\"]}",
+      "usage": {
+        "prompt_tokens": 194,
+        "completion_tokens": 25,
+        "total_tokens": 219,
+        "cost": 2.8908e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 132,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 2.8908e-05,
+          "upstream_inference_prompt_cost": 1.2408e-05,
+          "upstream_inference_completions_cost": 1.65e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "mistralai/mistral-small-2603",
+      "served_provider": "Mistral",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-08",
+      "language": "en",
+      "expected_category": "Feedback",
+      "category": "Feedback",
+      "category_matches": true,
+      "tags": [
+        "release notes",
+        "customer feedback",
+        "communication",
+        "sales team",
+        "documentation"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.088,
+      "cost_usd": 2.823e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Feedback\", \"tags\": [\"release notes\", \"customer feedback\", \"communication\", \"sales team\", \"documentation\"]}",
+      "usage": {
+        "prompt_tokens": 187,
+        "completion_tokens": 30,
+        "total_tokens": 217,
+        "cost": 2.823e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 132,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 2.823e-05,
+          "upstream_inference_prompt_cost": 1.023e-05,
+          "upstream_inference_completions_cost": 1.8e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "mistralai/mistral-small-2603",
+      "served_provider": "Mistral",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-09",
+      "language": "en",
+      "expected_category": "Feedback",
+      "category": "Feedback",
+      "category_matches": true,
+      "tags": [
+        "leadership presentation",
+        "public speaking",
+        "feedback",
+        "communication",
+        "demo"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.955,
+      "cost_usd": 3.0888e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Feedback\", \"tags\": [\"leadership presentation\", \"public speaking\", \"feedback\", \"communication\", \"demo\"]}",
+      "usage": {
+        "prompt_tokens": 190,
+        "completion_tokens": 29,
+        "total_tokens": 219,
+        "cost": 3.0888e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 132,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 3.0888e-05,
+          "upstream_inference_prompt_cost": 1.1748e-05,
+          "upstream_inference_completions_cost": 1.914e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "mistralai/mistral-small-2603",
+      "served_provider": "Mistral",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-10",
+      "language": "en",
+      "expected_category": "Side project",
+      "category": "Side project",
+      "category_matches": true,
+      "tags": [
+        "running club",
+        "app",
+        "automation",
+        "calendar",
+        "email"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.958,
+      "cost_usd": 3.1053e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Side project\", \"tags\": [\"running club\", \"app\", \"automation\", \"calendar\", \"email\"]}",
+      "usage": {
+        "prompt_tokens": 191,
+        "completion_tokens": 29,
+        "total_tokens": 220,
+        "cost": 3.1053e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 132,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 3.1053e-05,
+          "upstream_inference_prompt_cost": 1.1913e-05,
+          "upstream_inference_completions_cost": 1.914e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "mistralai/mistral-small-2603",
+      "served_provider": "Mistral",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-11",
+      "language": "en",
+      "expected_category": "Side project",
+      "category": "Side project",
+      "category_matches": true,
+      "tags": [
+        "open-source",
+        "CSV",
+        "testing",
+        "bugfix",
+        "contribution"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.887,
+      "cost_usd": 2.883e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Side project\", \"tags\": [\"open-source\", \"CSV\", \"testing\", \"bugfix\", \"contribution\"]}",
+      "usage": {
+        "prompt_tokens": 191,
+        "completion_tokens": 30,
+        "total_tokens": 221,
+        "cost": 2.883e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 132,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 2.883e-05,
+          "upstream_inference_prompt_cost": 1.083e-05,
+          "upstream_inference_completions_cost": 1.8e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "mistralai/mistral-small-2603",
+      "served_provider": "Mistral",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-12",
+      "language": "en",
+      "expected_category": "Side project",
+      "category": "Side project",
+      "category_matches": true,
+      "tags": [
+        "board game",
+        "game design",
+        "collaboration",
+        "prototyping",
+        "community"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.852,
+      "cost_usd": 4.725e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Side project\", \"tags\": [\"board game\", \"game design\", \"collaboration\", \"prototyping\", \"community\"]}",
+      "usage": {
+        "prompt_tokens": 191,
+        "completion_tokens": 31,
+        "total_tokens": 222,
+        "cost": 4.725e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 4.725e-05,
+          "upstream_inference_prompt_cost": 2.865e-05,
+          "upstream_inference_completions_cost": 1.86e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "mistralai/mistral-small-2603",
+      "served_provider": "Mistral",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-01",
+      "language": "de",
+      "expected_category": "Achievement",
+      "category": "Achievement",
+      "category_matches": true,
+      "tags": [
+        "Kundenportal",
+        "Suchfunktion",
+        "Lasttest",
+        "Fachbereich",
+        "Auslieferung"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.809,
+      "cost_usd": 3.6333e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Achievement\", \"tags\": [\"Kundenportal\", \"Suchfunktion\", \"Lasttest\", \"Fachbereich\", \"Auslieferung\"]}",
+      "usage": {
+        "prompt_tokens": 195,
+        "completion_tokens": 36,
+        "total_tokens": 231,
+        "cost": 3.6333e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 132,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 3.6333e-05,
+          "upstream_inference_prompt_cost": 1.2573e-05,
+          "upstream_inference_completions_cost": 2.376e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "mistralai/mistral-small-2603",
+      "served_provider": "Mistral",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-02",
+      "language": "de",
+      "expected_category": "Achievement",
+      "category": "Achievement",
+      "category_matches": true,
+      "tags": [
+        "Datenabgleich",
+        "Fehlerbehebung",
+        "Stabilität",
+        "Betrieb"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.626,
+      "cost_usd": 3.9435e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Achievement\", \"tags\": [\"Datenabgleich\", \"Fehlerbehebung\", \"Stabilität\", \"Betrieb\"]}",
+      "usage": {
+        "prompt_tokens": 197,
+        "completion_tokens": 33,
+        "total_tokens": 230,
+        "cost": 3.9435e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 100,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 3.9435e-05,
+          "upstream_inference_prompt_cost": 1.7655e-05,
+          "upstream_inference_completions_cost": 2.178e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "mistralai/mistral-small-2603",
+      "served_provider": "Mistral",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-03",
+      "language": "de",
+      "expected_category": "Achievement",
+      "category": "Achievement",
+      "category_matches": true,
+      "tags": [
+        "Einarbeitung",
+        "Team",
+        "Organisation",
+        "Onboarding",
+        "Checkliste"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.771,
+      "cost_usd": 3.4023e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Achievement\", \"tags\": [\"Einarbeitung\", \"Team\", \"Organisation\", \"Onboarding\", \"Checkliste\"]}",
+      "usage": {
+        "prompt_tokens": 193,
+        "completion_tokens": 33,
+        "total_tokens": 226,
+        "cost": 3.4023e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 132,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 3.4023e-05,
+          "upstream_inference_prompt_cost": 1.2243e-05,
+          "upstream_inference_completions_cost": 2.178e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "mistralai/mistral-small-2603",
+      "served_provider": "Mistral",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-04",
+      "language": "de",
+      "expected_category": "Learning",
+      "category": "Learning",
+      "category_matches": true,
+      "tags": [
+        "Barrierefreiheit",
+        "Webformulare",
+        "Workshop",
+        "Screenreader",
+        "Fehlermeldungen"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.373,
+      "cost_usd": 5.385e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Learning\", \"tags\": [\"Barrierefreiheit\", \"Webformulare\", \"Workshop\", \"Screenreader\", \"Fehlermeldungen\"]}",
+      "usage": {
+        "prompt_tokens": 207,
+        "completion_tokens": 38,
+        "total_tokens": 245,
+        "cost": 5.385e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 5.385e-05,
+          "upstream_inference_prompt_cost": 3.105e-05,
+          "upstream_inference_completions_cost": 2.28e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "mistralai/mistral-small-2603",
+      "served_provider": "Mistral",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-05",
+      "language": "de",
+      "expected_category": "Learning",
+      "category": "Learning",
+      "category_matches": true,
+      "tags": [
+        "Kubernetes",
+        "Einführung",
+        "Deployment",
+        "Cluster",
+        "Testumgebung"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.8,
+      "cost_usd": 2.913e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Learning\", \"tags\": [\"Kubernetes\", \"Einführung\", \"Deployment\", \"Cluster\", \"Testumgebung\"]}",
+      "usage": {
+        "prompt_tokens": 193,
+        "completion_tokens": 30,
+        "total_tokens": 223,
+        "cost": 2.913e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 132,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 2.913e-05,
+          "upstream_inference_prompt_cost": 1.113e-05,
+          "upstream_inference_completions_cost": 1.8e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "mistralai/mistral-small-2603",
+      "served_provider": "Mistral",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-06",
+      "language": "de",
+      "expected_category": "Learning",
+      "category": "Learning",
+      "category_matches": true,
+      "tags": [
+        "Schätzung",
+        "Zeitplanung",
+        "Abstimmung",
+        "Kommunikation",
+        "Teamarbeit"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.124,
+      "cost_usd": 5.16e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Learning\", \"tags\": [\"Schätzung\", \"Zeitplanung\", \"Abstimmung\", \"Kommunikation\", \"Teamarbeit\"]}",
+      "usage": {
+        "prompt_tokens": 200,
+        "completion_tokens": 36,
+        "total_tokens": 236,
+        "cost": 5.16e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 5.16e-05,
+          "upstream_inference_prompt_cost": 3e-05,
+          "upstream_inference_completions_cost": 2.16e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "mistralai/mistral-small-2603",
+      "served_provider": "Mistral",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-07",
+      "language": "de",
+      "expected_category": "Feedback",
+      "category": "Feedback",
+      "category_matches": true,
+      "tags": [
+        "Code-Review",
+        "Teamkommunikation",
+        "Feedback",
+        "Führung",
+        "Soft Skills"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.199,
+      "cost_usd": 5.01e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Feedback\", \"tags\": [\"Code-Review\", \"Teamkommunikation\", \"Feedback\", \"Führung\", \"Soft Skills\"]}",
+      "usage": {
+        "prompt_tokens": 202,
+        "completion_tokens": 33,
+        "total_tokens": 235,
+        "cost": 5.01e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 5.01e-05,
+          "upstream_inference_prompt_cost": 3.03e-05,
+          "upstream_inference_completions_cost": 1.98e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "mistralai/mistral-small-2603",
+      "served_provider": "Mistral",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-08",
+      "language": "de",
+      "expected_category": "Feedback",
+      "category": "Feedback",
+      "category_matches": true,
+      "tags": [
+        "Schulung",
+        "Kundenzufriedenheit",
+        "Dankbarkeit",
+        "Weiterbildung",
+        "Herbstplanung"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.66,
+      "cost_usd": 4.5375e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Feedback\", \"tags\": [\"Schulung\", \"Kundenzufriedenheit\", \"Dankbarkeit\", \"Weiterbildung\", \"Herbstplanung\"]}",
+      "usage": {
+        "prompt_tokens": 201,
+        "completion_tokens": 41,
+        "total_tokens": 242,
+        "cost": 4.5375e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 100,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 4.5375e-05,
+          "upstream_inference_prompt_cost": 1.8315e-05,
+          "upstream_inference_completions_cost": 2.706e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "mistralai/mistral-small-2603",
+      "served_provider": "Mistral",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-09",
+      "language": "de",
+      "expected_category": "Feedback",
+      "category": "Feedback",
+      "category_matches": true,
+      "tags": [
+        "Retrospektive",
+        "Kommunikation",
+        "Entscheidungen",
+        "Teamfeedback",
+        "Dokumentation"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.903,
+      "cost_usd": 3.318e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Feedback\", \"tags\": [\"Retrospektive\", \"Kommunikation\", \"Entscheidungen\", \"Teamfeedback\", \"Dokumentation\"]}",
+      "usage": {
+        "prompt_tokens": 196,
+        "completion_tokens": 36,
+        "total_tokens": 232,
+        "cost": 3.318e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 132,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 3.318e-05,
+          "upstream_inference_prompt_cost": 1.158e-05,
+          "upstream_inference_completions_cost": 2.16e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "mistralai/mistral-small-2603",
+      "served_provider": "Mistral",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-10",
+      "language": "de",
+      "expected_category": "Side project",
+      "category": "Side project",
+      "category_matches": true,
+      "tags": [
+        "Web-App",
+        "Gemeinschaftsgarten",
+        "Pflanzenpflege",
+        "Planungstool",
+        "Python"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.943,
+      "cost_usd": 3.8808e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Side project\", \"tags\": [\"Web-App\", \"Gemeinschaftsgarten\", \"Pflanzenpflege\", \"Planungstool\", \"Python\"]}",
+      "usage": {
+        "prompt_tokens": 194,
+        "completion_tokens": 40,
+        "total_tokens": 234,
+        "cost": 3.8808e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 132,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 3.8808e-05,
+          "upstream_inference_prompt_cost": 1.2408e-05,
+          "upstream_inference_completions_cost": 2.64e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "mistralai/mistral-small-2603",
+      "served_provider": "Mistral",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-11",
+      "language": "de",
+      "expected_category": "Side project",
+      "category": "Side project",
+      "category_matches": true,
+      "tags": [
+        "Raspberry Pi",
+        "Wetterstation",
+        "Python",
+        "DIY",
+        "Datenvisualisierung"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.812,
+      "cost_usd": 3.5838e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Side project\", \"tags\": [\"Raspberry Pi\", \"Wetterstation\", \"Python\", \"DIY\", \"Datenvisualisierung\"]}",
+      "usage": {
+        "prompt_tokens": 192,
+        "completion_tokens": 36,
+        "total_tokens": 228,
+        "cost": 3.5838e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 132,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 3.5838e-05,
+          "upstream_inference_prompt_cost": 1.2078e-05,
+          "upstream_inference_completions_cost": 2.376e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "mistralai/mistral-small-2603",
+      "served_provider": "Mistral",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-12",
+      "language": "de",
+      "expected_category": "Side project",
+      "category": "Side project",
+      "category_matches": true,
+      "tags": [
+        "Webdesign",
+        "Verein",
+        "ehrenamtlich",
+        "Schulung",
+        "Content-Management"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.796,
+      "cost_usd": 3.273e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Side project\", \"tags\": [\"Webdesign\", \"Verein\", \"ehrenamtlich\", \"Schulung\", \"Content-Management\"]}",
+      "usage": {
+        "prompt_tokens": 193,
+        "completion_tokens": 36,
+        "total_tokens": 229,
+        "cost": 3.273e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 132,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 3.273e-05,
+          "upstream_inference_prompt_cost": 1.113e-05,
+          "upstream_inference_completions_cost": 2.16e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "mistralai/mistral-small-2603",
+      "served_provider": "Mistral",
+      "review": {
+        "tags_in_input_language": true
+      }
+    }
+  ],
+  "summaries": [
+    {
+      "case_id": "sum-en-all",
+      "expected_language": "en",
+      "entry_count": 12,
+      "summary": "### **Performance Review Summary**\n\n#### **Key Achievements**\n- **July 3, 2026**: Shipped the new invoice export for the billing team two days ahead of schedule by breaking the work into three incremental releases. This change allows Finance to close the month about a day faster by eliminating manual invoice copying.\n- **July 10, 2026**: Led the migration of the test pipeline from the old build server to a new CI service. Wrote the runbook and paired with two teammates to ensure they could maintain it independently. The new pipeline reduced full run time from 40 minutes to 12 minutes.\n- **July 24, 2026**: Cleared the mobile app support backlog by triaging 85 open tickets, fixing the five most common crashes, and writing help articles for recurring questions. Open tickets decreased from 85 to 9 in three weeks.\n\n#### **Learning & Growth**\n- **July 14, 2026**: Completed an online course on SQL query plans, improving my ability to analyze `EXPLAIN` output before adding indexes instead of relying on guesswork.\n- **August 4, 2026**: Observed three customer interviews led by the research team to refine my skills in asking open-ended questions without leading respondents toward expected answers.\n- **August 19, 2026**: Investigated how our feature flag service determines user access by reviewing its code and documentation, then delivered a 20-minute team walkthrough. This enabled two teammates to set up their own flags without additional support.\n\n#### **Feedback Received**\n- **July 17, 2026**: Received feedback from my manager that my design reviews are thorough but should share drafts earlier to allow more time for team input before finalizing details.\n- **August 7, 2026**: A sales colleague thanked me for providing clear release notes, noting that customers asked far fewer questions after the last update.\n- **August 28, 2026**: Received feedback after my first leadership demo: the content was strong, but I spoke too quickly and skipped a slide with key numbers.\n\n#### **Side Projects & Contributions**\n- **July 26, 2026**: Built a small app in my free time to remind my running club about upcoming races by reading a shared calendar and sending weekly summary emails.\n- **August 15, 2026**: Contributed to an open-source CSV library by fixing a bug related to line breaks in quoted values and adding tests. The maintainers merged the fix into the next release.\n- **September 6, 2026**: Collaborated with two friends to design a board game about planning a small town. We printed a first version and tested it at a local game night.\n\n---\nThis summary highlights measurable contributions, skill development, and feedback to support a constructive performance review discussion.",
+      "summary_characters": 2703,
+      "error": null,
+      "seconds": 3.534,
+      "cost_usd": 0.00058707,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "usage": {
+        "prompt_tokens": 1098,
+        "completion_tokens": 615,
+        "total_tokens": 1713,
+        "cost": 0.00058707,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.00058707,
+          "upstream_inference_prompt_cost": 0.00018117,
+          "upstream_inference_completions_cost": 0.0004059
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "mistralai/mistral-small-2603",
+      "served_provider": "Mistral",
+      "review": {
+        "in_input_language": true,
+        "quality": 4,
+        "notes": "All 12 entries, facts match; one garbled sentence ('my design reviews are thorough but should share drafts earlier')."
+      }
+    },
+    {
+      "case_id": "sum-de-all",
+      "expected_language": "de",
+      "entry_count": 12,
+      "summary": "**Zusammenfassung der Leistungen und Entwicklungen für das Performance Review (Juli – September 2026)**\n\n---\n\n### **1. Wesentliche Erfolge und Beiträge**\n\n**Technische Projekte und Optimierungen**\n- **Neue Suchfunktion für das Kundenportal** (02.07.2026):\n  - Pünktliche Auslieferung nach Klärung der Anforderungen mit dem Fachbereich.\n  - Vorbereitung und Durchführung der Lasttests.\n  - **Ergebnis**: Durchschnittliche Suchzeit reduziert von 4 auf unter 1 Sekunde.\n\n- **Behebung eines fehlerhaften nächtlichen Datenabgleichs** (21.07.2026):\n  - Analyse und Korrektur eines kritischen Fehlers im Datenabgleichsprozess.\n  - **Ergebnis**: Seit der Korrektur läuft der Abgleich drei Wochen lang ohne Abbrüche. Das Controlling erhält die Zahlen nun zuverlässig jeden Morgen um 7 Uhr.\n\n**Teamzusammenarbeit und Wissenstransfer**\n- **Organisation der Einarbeitung von drei neuen Teammitgliedern** (11.08.2026):\n  - Erstellung eines strukturierten Einarbeitungsplans, Verteilung von Patenschaften und Entwicklung einer Checkliste für den ersten Arbeitstag.\n  - **Ergebnis**: Alle drei neuen Kolleginnen haben nach zwei Wochen eigenständige Aufgaben übernommen.\n\n---\n\n### **2. Kontinuierliche Weiterbildung und Kompetenzentwicklung**\n\n- **Barrierefreiheit im Web** (08.07.2026):\n  - Teilnahme an einem Workshop zu barrierefreien Webformularen.\n  - Erlernt die Verknüpfung von Fehlermeldungen mit Eingabefeldern für Screenreader.\n\n- **Einführung in Kubernetes** (29.07.2026):\n  - Durcharbeitung der offiziellen Kubernetes-Einführung und Einrichtung eines Testclusters auf dem eigenen Rechner zur praktischen Erprobung von Deployments.\n\n- **Verbesserung der Planungskompetenz** (25.08.2026):\n  - Reflektion über eine zu knappe Schätzung in der Vergangenheit.\n  - Neue Praxis: Einplanung von Zeit für Abstimmungen mit anderen Teams und Dokumentation von Annahmen vor der Zusage zu Terminen.\n\n---\n### **3. Feedback und Reflexion**\n\n**Positives Feedback**\n- **Code-Reviews** (15.07.2026):\n  - Die Teamleiterin lobte die Qualität der Code-Reviews als sehr hilfreich. Gleichzeitig wurde angeregt, in Diskussionen anderen mehr Raum zur Meinungsäußerung zu geben.\n\n- **Kundenschulung** (05.08.2026):\n  - Ein Kunde bedankte sich per E-Mail für geduldige Erklärungen während einer gemeinsamen Schulung und fragte nach einer zweiten Schulung im Herbst.\n\n- **Team-Retrospektive** (01.09.2026):\n  - Das Team wünscht sich, dass wichtige Entscheidungen nicht nur im Chat, sondern auch im Ticket dokumentiert werden.\n\n---\n### **4. Engagement über den Arbeitsbereich hinaus**\n\n- **Gemeinschaftsgarten-Web-App** (19.07.2026):\n  - Entwicklung einer kleinen Web-App in der Freizeit zur Planung von Gießdiensten im Gemeinschaftsgarten.\n  - **Ergebnis**: Im August sind keine Gießtermine ausgefallen.\n\n- **Wetterstation als Bastelprojekt** (16.08.2026):\n  - Einrichtung eines Einplatinenrechners als Wetterstation auf dem Balkon mit selbstgebauter Browser-Übersicht für Messwerte.\n\n- **Ehrenamtliche Unterstützung für einen Sportverein** (05.09.2026):\n  - Neugestaltung der Webseite eines kleinen Sportvereins und Schulung der Mitglieder zur eigenständigen Pflege von Trainingszeiten.\n\n---\n### **Zusammenfassung der Stärken und Entwicklungsfelder**\n\n**Stärken:**\n- **Technische Expertise**: Schnelle und zuverlässige Lösung von Problemen (z. B. Datenabgleich), Entwicklung performanter Features (Suchfunktion).\n- **Teamorientierung**: Aktive Unterstützung bei der Einarbeitung neuer Kollegen und konstruktive Zusammenarbeit im Team.\n- **Lernbereitschaft**: Proaktive Auseinandersetzung mit neuen Technologien (Kubernetes, Barrierefreiheit) und Reflexion über eigene Arbeitsweisen.\n- **Engagement**: Übernahme von Verantwortung über den eigenen Aufgabenbereich hinaus (z. B. Ehrenamt, Gemeinschaftsprojekte).\n\n**Entwicklungsfelder:**\n- **Kommunikation in Diskussionen**: Mehr Raum für andere Teammitglieder geben, um deren Perspektiven einzubinden.\n- **Dokumentation von Entscheidungen**: Wichtige Beschlüsse nicht nur im Chat, sondern auch im Ticket festhalten.\n\n---\nDiese Zusammenfassung basiert ausschließlich auf den dokumentierten Erfolgen, Lernfortschritten und Feedback-Einträgen aus dem genannten Zeitraum. Sie dient als Grundlage für das Performance Review und kann bei Bedarf angepasst oder ergänzt werden.",
+      "summary_characters": 4285,
+      "error": null,
+      "seconds": 7.38,
+      "cost_usd": 0.00092994,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "usage": {
+        "prompt_tokens": 1156,
+        "completion_tokens": 1120,
+        "total_tokens": 2276,
+        "cost": 0.00092994,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.00092994,
+          "upstream_inference_prompt_cost": 0.00019074,
+          "upstream_inference_completions_cost": 0.0007392
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "mistralai/mistral-small-2603",
+      "served_provider": "Mistral",
+      "review": {
+        "in_input_language": true,
+        "quality": 2,
+        "notes": "Invents 'Durchführung der Lasttests' (input: only prepared) and calls the bug 'kritisch'; lists the retrospective request under 'Positives Feedback'; generic strengths section."
+      }
+    },
+    {
+      "case_id": "sum-mostly-en",
+      "expected_language": "en",
+      "entry_count": 8,
+      "summary": "### **Leistungszusammenfassung für das Halbjahr (Juli – August 2026)**\n\n#### **1. Wichtige Erfolge und Beiträge**\n- **Effizienzsteigerung in der Rechnungsstellung**:\n  - Entwicklung und Einführung eines neuen Rechnungs-Exports für das Finanzteam, zwei Tage vor dem Deadline.\n  - Aufteilung der Arbeit in drei kleine Releases zur besseren Testbarkeit.\n  - **Auswirkung**: Die monatliche Abschlussarbeit des Finanzteams verkürzt sich um etwa einen Tag, da manuelle Kopien von Rechnungen entfallen.\n\n- **Modernisierung der Test-Pipeline**:\n  - Leitung des Umzugs der Test-Pipeline von einem alten Build-Server zu einem neuen CI-Service.\n  - Erstellung eines Runbooks und Einarbeitung von zwei Teammitgliedern für die eigenständige Wartung.\n  - **Auswirkung**: Die Laufzeit der gesamten Pipeline verkürzt sich von 40 auf 12 Minuten.\n\n- **Entlastung des Support-Teams für die Mobile App**:\n  - Bereinigung des Support-Backlogs durch:\n    - Triagierung von 85 offenen Tickets.\n    - Behebung der fünf häufigsten Abstürze.\n    - Erstellung von Hilfedokumenten für verbleibende Fragen.\n  - **Auswirkung**: Reduzierung der offenen Tickets von 85 auf 9 innerhalb von drei Wochen.\n\n- **Unterstützung der Teamentwicklung**:\n  - Organisation der Einarbeitung von drei neuen Kolleginnen:\n    - Erstellung eines Einarbeitungsplans.\n    - Verteilung von Patenschaften.\n    - Entwicklung einer Checkliste für den ersten Arbeitstag.\n  - **Auswirkung**: Alle drei neuen Teammitglieder übernahmen nach zwei Wochen eigenständige Aufgaben.\n\n---\n\n#### **2. Lernfortschritte und Weiterbildung**\n- **Vertiefung von SQL-Kenntnissen**:\n  - Abschluss eines Online-Kurses zu SQL-Abfrageplänen.\n  - Anwendung des Gelernten: Analyse von `EXPLAIN`-Ausgaben vor dem Hinzufügen von Indizes (statt auf Vermutungen zu setzen).\n\n---\n#### **3. Feedback und Verbesserungsbereiche**\n- **Design-Reviews**:\n  - Feedback der Führungskraft: Die Design-Reviews sind gründlich und hilfreich.\n  - **Verbesserungspotenzial**: Frühere Freigabe von Entwürfen, um Kollegen mehr Zeit für Feedback zu geben, bevor Details finalisiert werden.\n\n- **Code-Reviews**:\n  - Feedback der Teamleiterin: Die Code-Reviews sind sehr wertvoll für das Team.\n  - **Verbesserungspotenzial**: Aktives Einbeziehen anderer Teammitglieder in Diskussionen, um deren Perspektiven stärker zu berücksichtigen.\n\n---\n#### **4. Persönliche Initiativen**\n- **Nebenprojekt für den Laufclub**:\n  - Entwicklung einer kleinen Python-Anwendung, die anstehende Rennen des Laufclubs aus einem geteilten Kalender ausliest und wöchentlich eine Zusammenfassung per E-Mail versendet.\n\n---\n### **Zusammenfassung der Stärken**\n✅ **Proaktive Problemlösung**: Schnelle Umsetzung von Verbesserungen (z. B. Rechnungs-Export, Pipeline-Optimierung).\n✅ **Teamorientierung**: Unterstützung bei der Einarbeitung neuer Kollegen und Wissensvermittlung (Runbook, Patenschaften).\n✅ **Technische Expertise**: Fundierte Kenntnisse in SQL und CI/CD-Prozessen.\n✅ **Qualitätsbewusstsein**: Gründliche Code- und Design-Reviews tragen zur Stabilität und Wartbarkeit der Systeme bei.\n\n---\n### **Entwicklungsziele für das nächste Halbjahr**\n🔹 **Kommunikation**:\n   - Frühere Einbindung des Teams in Entwurfsphasen (Design-Reviews).\n   - Aktives Fördern von Diskussionen, um verschiedene Perspektiven zu berücksichtigen (Code-Reviews).\n🔹 **Wissensweitergabe**:\n   - Ausbau der Dokumentation (z. B. Runbooks) für nachhaltige Team-Unabhängigkeit.\n\n---\nDiese Zusammenfassung basiert auf den dokumentierten Erfolgen, Lernfortschritten und Feedback aus dem Zeitraum **Juli–August 2026**. Sie kann als Grundlage für das nächste Mitarbeitergespräch dienen.",
+      "summary_characters": 3632,
+      "error": null,
+      "seconds": 7.251,
+      "cost_usd": 0.000723723,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "usage": {
+        "prompt_tokens": 819,
+        "completion_tokens": 917,
+        "total_tokens": 1736,
+        "cost": 0.000723723,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 112,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.000723723,
+          "upstream_inference_prompt_cost": 0.000118503,
+          "upstream_inference_completions_cost": 0.00060522
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "mistralai/mistral-small-2603",
+      "served_provider": "Mistral",
+      "review": {
+        "in_input_language": false,
+        "quality": 1,
+        "notes": "Written in German although 6 of 8 entries are English; also invents a 'Python-Anwendung' for the running-club app."
+      }
+    },
+    {
+      "case_id": "sum-mostly-de",
+      "expected_language": "de",
+      "entry_count": 8,
+      "summary": "### **Zusammenfassung der Leistungen und Entwicklungen**\n\nIm Berichtszeitraum habe ich folgende Erfolge, Lernfortschritte und Rückmeldungen dokumentiert:\n\n#### **Erfolge (Achievements)**\n- **Neue Suchfunktion für das Kundenportal** (02.07.2026):\n  - Pünktliche Auslieferung nach Klärung der Anforderungen mit dem Fachbereich und Vorbereitung der Lasttests.\n  - **Ergebnis:** Die durchschnittliche Suchzeit verkürzte sich von vier auf unter eine Sekunde.\n\n- **Behebung eines fehlerhaften Datenabgleichs** (21.07.2026):\n  - Analyse und Korrektur eines nächtlichen Datenabgleichs, der zuvor häufig abgebrochen wurde.\n  - **Ergebnis:** Seit der Korrektur läuft der Abgleich drei Wochen lang ohne Unterbrechung, sodass das Controlling die Zahlen wieder täglich um 7 Uhr erhält.\n\n- **Migration der Test-Pipeline** (10.07.2026):\n  - Leitung des Umzugs der Test-Pipeline von einem alten Build-Server zu einem neuen CI-Service, inkl. Erstellung eines Runbooks und Pairing mit zwei Kollegen zur Wissensweitergabe.\n  - **Ergebnis:** Die Laufzeit einer vollständigen Pipeline verkürzte sich von 40 auf 12 Minuten.\n\n#### **Lernfortschritte (Learning)**\n- **Barrierefreie Webformulare** (08.07.2026):\n  - Besuch eines Workshops, in dem ich lernte, wie Fehlermeldungen so mit Eingabefeldern verknüpft werden, dass Screenreader sie korrekt vorlesen.\n\n- **Verbesserung der Planung** (25.08.2026):\n  - Reflexion über eine zu knappe Schätzung führte dazu, dass ich nun Zeit für Abstimmungen mit anderen Teams einplane und meine Annahmen vor Zusage dokumentiere.\n\n#### **Feedback**\n- **Positive Rückmeldung eines Kunden** (05.08.2026):\n  - Ein Kunde bedankte sich per E-Mail für eine geduldige Schulung und fragte nach einer zweiten im Herbst.\n\n- **Feedback zur Präsentation** (28.08.2026):\n  - Mein erstes Demo für das Führungsteam wurde inhaltlich gelobt, jedoch wurde mein zu schnelles Sprechen und das Auslassen einer Folie mit den wichtigsten Zahlen kritisiert.\n\n#### **Nebenprojekt (Side Project)**\n- **Web-App für den Gemeinschaftsgarten** (19.07.2026):\n  - Entwicklung einer kleinen Web-App in meiner Freizeit, um die Gießpläne des Gemeinschaftsgartens zu organisieren.\n  - **Ergebnis:** Im August fiel kein einziger Gießtermin aus.\n\n---\nDiese Zusammenfassung fasst die wichtigsten Aktivitäten und Ergebnisse zusammen. Sie kann als Grundlage für ein Performance-Gespräch dienen.",
+      "summary_characters": 2366,
+      "error": null,
+      "seconds": 4.388,
+      "cost_usd": 0.000546447,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "usage": {
+        "prompt_tokens": 831,
+        "completion_tokens": 649,
+        "total_tokens": 1480,
+        "cost": 0.000546447,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 128,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.000546447,
+          "upstream_inference_prompt_cost": 0.000118107,
+          "upstream_inference_completions_cost": 0.00042834
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "mistralai/mistral-small-2603",
+      "served_provider": "Mistral",
+      "review": {
+        "in_input_language": true,
+        "quality": 2,
+        "notes": "Invents that the data sync 'zuvor häufig abgebrochen wurde' (not in the input)."
+      }
+    }
+  ],
+  "review_by": "Engineer agent (Claude, AI), not the product owner, on 2026-11-09, against the rules and rubric in docs/decisions/default-model.md."
+}
