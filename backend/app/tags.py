@@ -58,7 +58,7 @@ database cannot store. `lookup_tags` normalises it; a name that no tag has, incl
 is empty after trimming, matches nothing and is not an error."""
 
 
-def _match_keys(session: Session, names: Sequence[str]) -> dict[str, str]:
+def match_keys(session: Session, names: Sequence[str]) -> dict[str, str]:
     """PostgreSQL's lower() of each name, so matching follows exactly the index's rule.
 
     Python's str.lower() differs from PostgreSQL's lower() for some characters (for example
@@ -75,7 +75,7 @@ def _unique_by_key(session: Session, names: Sequence[str]) -> dict[str, str]:
     normalised = [name for name in normalised if name]
     if not normalised:
         return {}
-    keys = _match_keys(session, normalised)
+    keys = match_keys(session, normalised)
     unique: dict[str, str] = {}
     for name in normalised:
         unique.setdefault(keys[name], name)

@@ -13,7 +13,9 @@ methods check the provider's output, so every provider shares the same rules:
 
 - A suggestion has one of the four categories and a list of valid tag names. Tag names are
   normalised as `app.tags.normalise_tag_name` does.
-- A summary is a text that is not blank.
+- A summary is a text that is not blank and has at most `MAX_SUMMARY_CHARACTERS` characters
+  (product-spec.md §7.4). A longer summary is an unusable answer, not one to shorten
+  (product owner decision on issue #17).
 - Output that breaks these rules raises `AIProviderError`.
 - A provider failure that is not an `AIError` also becomes an `AIProviderError`.
 
@@ -41,6 +43,10 @@ from app.text_rules import has_unstorable_characters, is_blank
 logger = logging.getLogger(__name__)
 
 CATEGORIES: tuple[str, ...] = get_args(Category)
+
+# product-spec.md §7.4: "A summary's text is at most 10,000 characters." Counted as characters
+# (Unicode code points), not bytes. A fixed rule of the spec, not a setting.
+MAX_SUMMARY_CHARACTERS = 10_000
 
 
 class AIError(Exception):
@@ -196,4 +202,8 @@ def _checked_summary(output: object) -> str:
         raise AIProviderError("The AI provider returned a summary that cannot be stored.")
     if is_blank(output):
         raise AIProviderError("The AI provider returned an empty summary.")
+    if len(output) > MAX_SUMMARY_CHARACTERS:
+        raise AIProviderError(
+            f"The AI provider returned a summary longer than {MAX_SUMMARY_CHARACTERS:,} characters."
+        )
     return output

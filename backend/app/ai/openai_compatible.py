@@ -2,13 +2,18 @@
 
 It calls a real LLM through an OpenAI-compatible Chat Completions API (OpenRouter is planned),
 with the official `openai` SDK. AI_PROVIDER=openai-compatible selects it, and AI_BASE_URL,
-AI_API_KEY and AI_MODEL configure it (`.env.example`).
+AI_API_KEY, AI_MODEL and AI_SUMMARY_MAX_TOKENS configure it (`.env.example`).
 
 - One user action makes at most one AI call: the SDK's automatic retries are off.
 - Every request asks OpenRouter to route it only to zero-data-retention endpoints
   (`provider: {"zdr": true}`, sent through `extra_body`).
 - Suggest sends only the entry text. Summarise sends only each entry's date, category, text,
   Result/Impact and tag names, which is all a `SummaryEntry` holds (data minimisation, §8).
+- Summary requests send `max_tokens` (AI_SUMMARY_MAX_TOKENS), which bounds the cost of one
+  summary and leaves room for a 10,000-character summary in any language (issue #17).
+  Suggestion requests send none: their answer is a short JSON object.
+- An answer the model cut off (`finish_reason` "length", for example at `max_tokens`) raises
+  `AIProviderError`: a cut-off summary or suggestion is not a usable answer (issue #17).
 - Suggestions are asked for as JSON, then parsed and checked here. The adapter
   (`app/ai/adapter.py`) checks the output again, as it does for every provider.
 - A timeout raises `AITimeoutError`. Network errors, 4xx and 5xx answers and unreadable
@@ -30,6 +35,7 @@ import openai
 
 from app.ai.adapter import (
     CATEGORIES,
+    MAX_SUMMARY_CHARACTERS,
     AIProvider,
     AIProviderError,
     AITimeoutError,
@@ -57,14 +63,14 @@ about. Write the tag names in the language of the entry text.
 Answer only with a JSON object of this form, and nothing else:
 {{"category": "<one of the categories>", "tags": ["<tag name>", "<tag name>"]}}"""
 
-SUMMARISE_PROMPT = """\
+SUMMARISE_PROMPT = f"""\
 You help a professional prepare for a performance review. The user message is a JSON list \
 of entries from their work success diary. Each entry has a date, a category, a text, an \
 optional result or impact, and tags.
 
 Write a review-ready summary of these entries that the user can edit and use in a \
 performance review or appraisal conversation. Use only facts from the entries and do not \
-invent anything. Keep the summary shorter than 10,000 characters.
+invent anything. Keep the summary shorter than {MAX_SUMMARY_CHARACTERS:,} characters.
 
 Write the summary in the language that most of the entries use."""
 
@@ -80,6 +86,7 @@ class OpenAICompatibleProvider(AIProvider):
         model: str,
         suggestion_timeout_seconds: float,
         summary_timeout_seconds: float,
+        summary_max_tokens: int,
         http_client: httpx2.Client | None = None,
     ) -> None:
         """`http_client` lets tests stub the HTTP layer; by default the SDK makes its own."""
@@ -93,6 +100,7 @@ class OpenAICompatibleProvider(AIProvider):
         self._model = model
         self._suggestion_timeout = suggestion_timeout_seconds
         self._summary_timeout = summary_timeout_seconds
+        self._summary_max_tokens = summary_max_tokens
 
     @classmethod
     def from_settings(
@@ -124,6 +132,7 @@ class OpenAICompatibleProvider(AIProvider):
             model=settings.ai_model,
             suggestion_timeout_seconds=settings.ai_suggestion_timeout_seconds,
             summary_timeout_seconds=settings.ai_summary_timeout_seconds,
+            summary_max_tokens=settings.ai_summary_max_tokens,
             http_client=http_client,
         )
 
@@ -145,6 +154,7 @@ class OpenAICompatibleProvider(AIProvider):
                 {"role": "user", "content": _entries_json(entries)},
             ],
             timeout=self._summary_timeout,
+            max_tokens=self._summary_max_tokens,
         )
 
     def _complete(self, messages: list[dict[str, str]], *, timeout: float, **options: Any) -> str:
@@ -161,7 +171,9 @@ class OpenAICompatibleProvider(AIProvider):
             )
             status = response.http_response.status_code
             completion = response.parse()
-            content = completion.choices[0].message.content
+            choice = completion.choices[0]
+            finish_reason = choice.finish_reason
+            content = choice.message.content
         except openai.APITimeoutError:
             raise AITimeoutError("The AI provider did not answer in time.") from None
         except openai.APIStatusError as error:
@@ -179,6 +191,8 @@ class OpenAICompatibleProvider(AIProvider):
                 status if status is not None else "none",
                 round((time.monotonic() - started) * 1000),
             )
+        if finish_reason == "length":
+            raise AIProviderError("The AI provider cut off its answer at the output limit.")
         if not isinstance(content, str):
             raise AIProviderError("The AI provider returned an answer without text.")
         return content

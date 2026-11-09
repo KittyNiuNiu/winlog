@@ -55,6 +55,14 @@ class Settings(BaseSettings):
     # Seconds the OpenAI-compatible provider waits for an answer before it gives up.
     ai_suggestion_timeout_seconds: int = Field(default=15, ge=1, le=600)
     ai_summary_timeout_seconds: int = Field(default=60, ge=1, le=600)
+    # The most tokens the OpenAI-compatible provider lets the model write for one summary
+    # (`max_tokens`, issue #17). A summary has at most 10,000 characters (§7.4). English needs
+    # about 1 token per 4 characters, German about 1 per 3, Chinese, Japanese and Korean up to
+    # about 1 per character: up to 10,000 tokens. Reasoning tokens count too (up to 3,400 per
+    # summary in #14's comparison). 16,000 leaves room for all of that, so it never cuts a valid
+    # summary. A larger value only raises the cost bound: the adapter rejects any summary over
+    # 10,000 characters, and a model that hits this bound gives "AI unavailable".
+    ai_summary_max_tokens: int = Field(default=16_000, ge=1, le=100_000)
     # Daily AI limits (product-spec.md §8, issue #15). A day runs from 00:00 to 24:00 UTC.
     # Whole numbers of 0 or more; 0 blocks that kind of request.
     ai_daily_suggestions_per_user: int = 10

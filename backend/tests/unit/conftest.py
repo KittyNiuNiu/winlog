@@ -50,6 +50,7 @@ def no_env_file(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("AI_MODEL", raising=False)
     monkeypatch.delenv("AI_SUGGESTION_TIMEOUT_SECONDS", raising=False)
     monkeypatch.delenv("AI_SUMMARY_TIMEOUT_SECONDS", raising=False)
+    monkeypatch.delenv("AI_SUMMARY_MAX_TOKENS", raising=False)
     monkeypatch.delenv("AI_DAILY_SUGGESTIONS_PER_USER", raising=False)
     monkeypatch.delenv("AI_DAILY_SUMMARIES_PER_USER", raising=False)
     monkeypatch.delenv("AI_DAILY_REQUESTS_GLOBAL", raising=False)

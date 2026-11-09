@@ -56,6 +56,8 @@ CATEGORIES: tuple[str, ...] = get_args(Category)
 # AI_SUMMARY_TIMEOUT_SECONDS, `.env.example`).
 SUGGESTION_TIMEOUT_SECONDS: int = Settings.model_fields["ai_suggestion_timeout_seconds"].default
 SUMMARY_TIMEOUT_SECONDS: int = Settings.model_fields["ai_summary_timeout_seconds"].default
+# Production's summary output bound: the default of AI_SUMMARY_MAX_TOKENS (issue #17).
+SUMMARY_MAX_TOKENS: int = Settings.model_fields["ai_summary_max_tokens"].default
 
 # Limits from product-spec.md §7.2, §7.4 and §8, used to check the test set and to estimate
 # the maximum daily cost.
@@ -426,6 +428,7 @@ def make_provider(
         model=model,
         suggestion_timeout_seconds=SUGGESTION_TIMEOUT_SECONDS,
         summary_timeout_seconds=SUMMARY_TIMEOUT_SECONDS,
+        summary_max_tokens=SUMMARY_MAX_TOKENS,
         http_client=openai.DefaultHttpxClient(**options),
     )
 
