@@ -19,6 +19,7 @@ def test_settings_variables():
         "ai_model",
         "ai_suggestion_timeout_seconds",
         "ai_summary_timeout_seconds",
+        "ai_summary_max_tokens",
         "ai_daily_suggestions_per_user",
         "ai_daily_summaries_per_user",
         "ai_daily_requests_global",

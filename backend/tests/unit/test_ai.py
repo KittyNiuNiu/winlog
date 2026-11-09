@@ -23,7 +23,7 @@ from app.ai import (
     create_ai_provider,
     get_ai_provider,
 )
-from app.ai.adapter import CATEGORIES
+from app.ai.adapter import CATEGORIES, MAX_SUMMARY_CHARACTERS
 from app.ai.factory import PROVIDERS
 from app.entries import Entry
 from app.health import check_database
@@ -380,6 +380,45 @@ def test_ai_invalid_summary_raises_the_provider_failure_error(mock, summary):
         mock.summarise([summary_entry()])
 
 
+def test_ai_summary_limit_is_the_specs_10000_characters():
+    # product-spec.md §7.4: "A summary's text is at most 10,000 characters."
+    assert MAX_SUMMARY_CHARACTERS == 10_000
+
+
+# Characters, not bytes: "ä" is 2 bytes in UTF-8, "語" 3 and "😀" 4, but each is 1 character.
+@pytest.mark.parametrize("char", ["a", "ä", "語", "😀"])
+def test_ai_summary_of_exactly_10000_characters_is_accepted(mock, char):
+    summary = char * MAX_SUMMARY_CHARACTERS
+    mock.return_summary(summary)
+
+    assert mock.summarise([summary_entry()]) == summary
+
+
+@pytest.mark.parametrize("char", ["a", "ä", "語", "😀"])
+def test_ai_summary_over_10000_characters_raises_the_provider_failure_error(mock, char):
+    """Product owner decision on #17: an unusable answer, not one to shorten."""
+    mock.return_summary(char * (MAX_SUMMARY_CHARACTERS + 1))
+
+    with pytest.raises(AIProviderError, match="longer than 10,000 characters"):
+        mock.summarise([summary_entry()])
+
+
+def test_ai_summary_length_check_applies_to_every_provider():
+    """The check is in the adapter, so a provider cannot skip it."""
+
+    class _LongProvider(AIProvider):
+        name = "long"
+
+        def _suggest(self, text: str) -> Suggestion:
+            raise NotImplementedError
+
+        def _summarise(self, entries: tuple[SummaryEntry, ...]) -> str:
+            return "x" * (MAX_SUMMARY_CHARACTERS + 1)
+
+    with pytest.raises(AIProviderError):
+        _LongProvider().summarise([summary_entry()])
+
+
 class _BrokenProvider(AIProvider):
     """A provider that returns the wrong type or fails with an unexpected exception."""
 
@@ -468,9 +507,14 @@ def test_ai_adapter_and_mock_never_log_entry_text_tag_names_or_summary_text(mock
         with pytest.raises(AIProviderError) as error:
             call()
         errors.append(error.value)
+    # A summary over the length limit (issue #17).
+    mock.return_summary(SUMMARY_TEXT * (MAX_SUMMARY_CHARACTERS // len(SUMMARY_TEXT) + 1))
+    with pytest.raises(AIProviderError) as error:
+        mock.summarise(_private_entries())
+    errors.append(error.value)
 
     ai_records = [record for record in caplog.records if record.name.startswith("app.ai")]
-    assert len(ai_records) == 10  # the adapter does log each call, but only metadata
+    assert len(ai_records) == 11  # the adapter does log each call, but only metadata
     for text in PRIVATE:
         assert text not in caplog.text
         for error in errors:

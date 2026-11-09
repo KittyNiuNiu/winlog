@@ -15,6 +15,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import Engine, func, insert, select
 
 from app.ai import AIProvider, MockProvider, Suggestion, SummaryEntry, get_ai_provider
+from app.ai.adapter import MAX_SUMMARY_CHARACTERS
 from app.ai.limits import LIMIT_MESSAGES
 from app.auth import hash_token
 from app.main import create_app
@@ -645,6 +646,45 @@ def test_fr_r3_unusable_ai_output_returns_ai_unavailable(client, migrated_db, to
     assert response.status_code == 503
     assert response.json() == AI_UNAVAILABLE
     assert _summaries(migrated_db) == []
+
+
+@pytest.mark.parametrize("char", ["a", "語"])
+def test_fr_r3_summary_over_10000_characters_returns_ai_unavailable_and_still_counts(
+    client, migrated_db, user, token, contract, char
+):
+    """§7.4: a summary has at most 10,000 characters. A longer one is an unusable AI answer:
+    nothing is saved, and the attempted call counts (product owner decision on #17, §8)."""
+    _entry(client, token, "2026-01-10")
+    before = _counts(migrated_db)
+    _mock(client).return_summary(char * (MAX_SUMMARY_CHARACTERS + 1))
+
+    response = _generate(client, token)
+
+    assert response.status_code == 503
+    contract("Error").validate(response.json())
+    assert response.json() == AI_UNAVAILABLE
+    assert len(_mock(client).summarise_calls) == 1
+    after = _counts(migrated_db)
+    assert after == {**before, "ai_usage": before["ai_usage"] + 1, "ai_usage_global": 1}
+    assert _usage(migrated_db, user) == (1, 1)
+    assert _summaries(migrated_db) == []
+
+
+@pytest.mark.parametrize("char", ["a", "語"])
+def test_fr_r3_summary_of_exactly_10000_characters_is_saved_whole(
+    client, migrated_db, token, contract, char
+):
+    _entry(client, token, "2026-01-10")
+    text = char * MAX_SUMMARY_CHARACTERS
+    _mock(client).return_summary(text)
+
+    response = _generate(client, token)
+
+    assert response.status_code == 201, response.json()
+    contract("Summary").validate(response.json())
+    assert response.json()["text"] == text
+    [row] = _summaries(migrated_db)
+    assert row.text == text
 
 
 # --- Authentication and other users -------------------------------------------------------

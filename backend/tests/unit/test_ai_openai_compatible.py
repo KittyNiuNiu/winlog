@@ -23,6 +23,7 @@ from app.ai import (
     SummaryEntry,
     create_ai_provider,
 )
+from app.ai.adapter import MAX_SUMMARY_CHARACTERS
 from app.ai.openai_compatible import SUGGEST_PROMPT, SUMMARISE_PROMPT
 from app.entries import Entry
 from app.main import create_app
@@ -32,6 +33,8 @@ BASE_URL = "https://ai.example.test/api/v1"
 API_KEY = "sk-or-v1-Kq9TestOnlyKeyThatMustNeverBeLogged"
 MODEL = "vendor/test-model"
 DATABASE_URL = "postgresql://winlog:unit@localhost:5432/winlog"
+# Not the default, so a test can tell the provider's own value from the settings' default.
+SUMMARY_MAX_TOKENS = 12_345
 
 Handler = Callable[[httpx2.Request], httpx2.Response]
 
@@ -52,7 +55,7 @@ class StubAI:
         return [json.loads(request.content) for request in self.requests]
 
 
-def completion(content: object, status: int = 200) -> Handler:
+def completion(content: object, status: int = 200, finish_reason: str = "stop") -> Handler:
     """A Chat Completions answer whose message has this content."""
     body = {
         "id": "gen-1",
@@ -62,7 +65,7 @@ def completion(content: object, status: int = 200) -> Handler:
         "choices": [
             {
                 "index": 0,
-                "finish_reason": "stop",
+                "finish_reason": finish_reason,
                 "message": {"role": "assistant", "content": content},
             }
         ],
@@ -95,6 +98,7 @@ def provider(stub: StubAI, **changes) -> OpenAICompatibleProvider:
         "model": MODEL,
         "suggestion_timeout_seconds": 15,
         "summary_timeout_seconds": 60,
+        "summary_max_tokens": SUMMARY_MAX_TOKENS,
     }
     return OpenAICompatibleProvider(
         **(values | changes), http_client=httpx2.Client(transport=httpx2.MockTransport(stub))
@@ -252,6 +256,7 @@ def test_ai_openai_variables_are_documented_in_env_example():
         "AI_MODEL=anthropic/claude-haiku-5.5\n",
         "AI_SUGGESTION_TIMEOUT_SECONDS=15\n",
         "AI_SUMMARY_TIMEOUT_SECONDS=60\n",
+        "AI_SUMMARY_MAX_TOKENS=16000\n",
     ):
         assert f"\n{line}" in env_example
 
@@ -277,6 +282,7 @@ def test_ai_openai_provider_from_settings_uses_the_settings():
         ai_base_url="https://other.example.test/v1/",
         ai_model="other/model",
         ai_summary_timeout_seconds=42,
+        ai_summary_max_tokens=4_321,
     )
 
     OpenAICompatibleProvider.from_settings(
@@ -288,6 +294,7 @@ def test_ai_openai_provider_from_settings_uses_the_settings():
     assert request.headers["authorization"] == f"Bearer {API_KEY}"
     assert stub.bodies[0]["model"] == "other/model"
     assert request.extensions["timeout"]["read"] == 42
+    assert stub.bodies[0]["max_tokens"] == 4_321
 
 
 def test_ai_openai_retries_are_off():
@@ -370,7 +377,8 @@ def test_ai_openai_summarise_sends_only_the_allowed_fields():
     provider(stub).summarise(entries)
 
     [body] = stub.bodies
-    assert set(body) == {"model", "messages", "provider"}
+    # max_tokens is a number, not user data (issue #17).
+    assert set(body) == {"model", "messages", "max_tokens", "provider"}
     system, user = body["messages"]
     assert system == {"role": "system", "content": SUMMARISE_PROMPT}
     assert user["role"] == "user"
@@ -527,6 +535,95 @@ def test_ai_openai_empty_summary_raises_the_provider_failure_error(summary):
         provider(StubAI(completion(summary))).summarise([summary_entry()])
 
 
+# --- Output bound and cut-off answers (issue #17) ---
+
+
+def test_ai_openai_max_tokens_setting_defaults_to_16000(ai_env):
+    assert load_settings().ai_summary_max_tokens == 16_000
+
+
+def test_ai_openai_max_tokens_setting_comes_from_the_environment(ai_env, monkeypatch):
+    monkeypatch.setenv("AI_SUMMARY_MAX_TOKENS", "20000")
+
+    assert load_settings().ai_summary_max_tokens == 20_000
+
+
+@pytest.mark.parametrize("value", ["0", "-1", "100001", "1.5", "many"])
+def test_ai_openai_invalid_max_tokens_setting_is_rejected(ai_env, monkeypatch, value):
+    monkeypatch.setenv("AI_SUMMARY_MAX_TOKENS", value)
+
+    with pytest.raises(SettingsError, match="AI_SUMMARY_MAX_TOKENS is invalid"):
+        load_settings()
+
+
+def test_ai_openai_default_max_tokens_fits_a_summary_of_one_token_per_character():
+    # The worst case the default is meant for: Chinese, Japanese or Korean text at about one
+    # token per character, at the longest a summary may be (§7.4), plus reasoning tokens.
+    default = Settings.model_fields["ai_summary_max_tokens"].default
+
+    assert default >= MAX_SUMMARY_CHARACTERS + 3_400
+
+
+def test_ai_openai_summarise_sends_max_tokens():
+    stub = StubAI(completion("A summary."))
+
+    provider(stub).summarise([summary_entry()])
+
+    assert stub.bodies[0]["max_tokens"] == SUMMARY_MAX_TOKENS
+
+
+def test_ai_openai_suggest_sends_no_max_tokens():
+    stub = StubAI(suggestion_answer())
+
+    provider(stub).suggest("Learned Rust")
+
+    assert "max_tokens" not in stub.bodies[0]
+    assert "max_completion_tokens" not in stub.bodies[0]
+
+
+def test_ai_openai_cut_off_summary_raises_the_provider_failure_error():
+    stub = StubAI(completion("In March you shipped the billing", finish_reason="length"))
+
+    with pytest.raises(AIProviderError) as error:
+        provider(stub).summarise([summary_entry()])
+
+    assert "shipped the billing" not in str(error.value)
+    assert len(stub.requests) == 1
+
+
+def test_ai_openai_cut_off_suggestion_raises_the_provider_failure_error():
+    # Valid JSON, but the model says it stopped at the output limit.
+    stub = StubAI(completion('{"category": "Learning", "tags": []}', finish_reason="length"))
+
+    with pytest.raises(AIProviderError):
+        provider(stub).suggest("Learned Rust")
+
+
+@pytest.mark.parametrize("finish_reason", ["stop", None])
+def test_ai_openai_summary_that_was_not_cut_off_is_returned(finish_reason):
+    stub = StubAI(completion("A strong quarter.", finish_reason=finish_reason))
+
+    assert provider(stub).summarise([summary_entry()]) == "A strong quarter."
+
+
+def test_ai_openai_summary_of_exactly_10000_characters_is_returned():
+    summary = "a" * MAX_SUMMARY_CHARACTERS
+
+    assert provider(StubAI(completion(summary))).summarise([summary_entry()]) == summary
+
+
+def test_ai_openai_summary_over_10000_characters_raises_the_provider_failure_error():
+    # finish_reason "stop": the adapter's length check applies to this provider too.
+    stub = StubAI(completion("a" * (MAX_SUMMARY_CHARACTERS + 1)))
+
+    with pytest.raises(AIProviderError):
+        provider(stub).summarise([summary_entry()])
+
+
+def test_ai_openai_summarise_prompt_names_the_summary_length_limit():
+    assert "shorter than 10,000 characters" in SUMMARISE_PROMPT
+
+
 # --- Errors ---
 
 
@@ -641,6 +738,7 @@ def test_ai_openai_logs_model_status_and_duration_but_no_key_or_content(caplog):
     answers = [
         suggestion_answer(ENTRY_TEXT, SUGGESTED_TAGS),
         completion(SUMMARY_TEXT + " not json"),
+        completion(SUMMARY_TEXT, finish_reason="length"),
         raises(httpx2.ReadTimeout),
         raises(httpx2.ConnectError),
         status(401),
@@ -658,6 +756,7 @@ def test_ai_openai_logs_model_status_and_duration_but_no_key_or_content(caplog):
                 errors.append(error)
 
     # Every call fails except summarise with the first two answers, which are valid summaries.
+    # The third is a summary text too, but cut off at the output limit.
     assert len(errors) == 2 * len(answers) - 2
     provider_logs = [r for r in caplog.records if r.name == "app.ai.openai_compatible"]
     assert len(provider_logs) == 2 + 2 * len(answers)
