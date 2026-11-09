@@ -789,3 +789,12 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - The SDK's timeout applies to each phase (connect, read, write, pool), not to the whole request, so a provider that keeps sending bytes slowly could take longer than the timeout. #14 can check this with the chosen model.
   - #14: the chosen model must answer plain JSON (a Markdown-fenced answer is rejected) and support `response_format`.
   - No `max_tokens` is sent and `finish_reason` is not checked, so a cut-off summary is returned as is; the 10,000-character limit is #17's.
+
+## 2026-11-09: Orchestrator: #13 implemented, QA PASS, closed
+
+- #13 was `groomed`, so it went straight to the engineer. The engineer added the OpenAI-compatible provider using the official `openai` SDK (3.46.0, no retries, `zdr` on every request), five new settings and the required-variable checks (3d3384b, a7fe667, 0df17ca; https://github.com/KittyNiuNiu/winlog/issues/13#issuecomment-6734671723).
+- QA PASS on all 15 criteria in the first round (https://github.com/KittyNiuNiu/winlog/issues/13#issuecomment-6734777069): 501 unit and 476 integration tests pass, lint is clean. QA also ran the SDK's real HTTP client against a local fake server on 127.0.0.1 (no real AI API), and confirmed the locked `openai` and `httpx2` packages are the official ones and that the SDK's HTTP layer is `httpx2`, so the tests' `httpx2.MockTransport` really stubs it. Closed #13 as completed.
+- **Open points**, recorded where they belong:
+  - #14: the chosen model must answer suggestions with plain JSON (a Markdown-fenced answer is rejected), and the SDK timeouts apply per connection phase, not to the whole request (https://github.com/KittyNiuNiu/winlog/issues/14#issuecomment-6734788531).
+  - #17: no `max_tokens` or `finish_reason` check, so a cut-off summary is returned as it is; the 10,000-character summary limit from `product-spec.md` is not enforced by the provider (https://github.com/KittyNiuNiu/winlog/issues/17#issuecomment-6734789135).
+  - New issue #61, created on the product owner's instruction: `docker-compose.yml` does not pass the real provider's variables to the backend, and `httpx2` is imported at runtime but declared only as a dev dependency. It needs grooming.
