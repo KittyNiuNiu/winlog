@@ -981,3 +981,18 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - #38: check that the production model's output cap accepts `AI_SUMMARY_MAX_TOKENS`, and add the setting to the production variables (https://github.com/KittyNiuNiu/winlog/issues/38#issuecomment-6750847264).
   - #43 already holds the maximum size of the entries sent in one summary.
 - Side effect of QA and the engineer's live checks: test users `se17-*`, `qa17a-*` and `qa17b-*`, with entries, summaries and usage rows, are in the local dev database.
+
+## 2026-11-09: Implement #18 (saved summary management)
+
+- **Task:** #18, list, get, edit and delete saved summaries (FR-R5, FR-A3, §7.4): `listSummaries`, `getSummary`, `updateSummary` and `deleteSummary` in `openapi.yaml`.
+- **What I did:**
+  - `backend/app/summaries.py` (the router from #17): `GET /summaries` returns the user's summaries with text and filter, newest first by `created_at` (id as a tie-breaker), not paginated. `GET`, `PATCH` and `DELETE /summaries/{summaryId}` load the summary scoped to the user, so another user's summary is the same 404 `not_found` as a missing id and stays unchanged.
+  - `SummaryUpdate` takes only `text`, with the entry text rules (#9's `EntryText`): required, stored exactly as typed, not empty or only whitespace (`pattern: '\S'`), no NUL or unpaired surrogate. Other fields, such as `filter`, are ignored. The row is locked (`FOR UPDATE`) and always written, so the trigger sets `updated_at` even for the same text and the last of two edits wins; `created_at`, the filter and all entries are untouched.
+  - The id uses #10's UUID rule (`_require_uuid`), so a wrong format is the validation error naming `summaryId`. Delete answers 204; deleting again is 404. All routes use `AuthenticateFirstRoute`, so without a valid token every operation is 401 and changes nothing, even with a bad body. Nothing is logged.
+  - No maximum length for edited text: `SummaryUpdate` in `openapi.yaml` sets none, and the issue moves it to #43.
+- **How I verified it:**
+  - New `tests/unit/test_summary_management.py` (60 tests: the four operations match the contract, current-user dependency, edit body rules, extra fields ignored, wrong id formats, 401 without a token, no text in validation errors).
+  - New `tests/integration/test_summary_management.py` (125 tests against PostgreSQL, summaries generated with the mock provider or stored directly: order and content of the list, empty list, no pagination, get, edit changes only the text and keeps the stored filter, text exactly as typed, invalid text changes nothing, non-object bodies, `updated_at`/`created_at`, last edit wins, edits never change entries, tags or links, ids and owner in the body ignored, delete keeps entries, second delete 404, missing ids, another user's summary for all operations and the list, wrong id formats, no/invalid/expired token for all four operations, summary text never logged).
+  - Mutations (list not scoped to the user, oldest first, no forced write, get/edit or delete not scoped, text trimmed) each make integration tests fail.
+  - `uv run pytest tests/unit`: 719 passed. `uv run pytest tests/integration`: 739 passed. `uv run ruff check .` and `uv run ruff format --check .` are clean. No AI call (the mock provider only for generating test summaries). No new dependency.
+- **Left open:** the 10,000-character limit for edited summary text is #43. `summaries.py` imports `_require_uuid` from `entries.py` to share the id rule; a shared public helper could replace it later.
