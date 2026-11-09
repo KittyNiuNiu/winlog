@@ -755,3 +755,14 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - The adapter does not limit the number of suggested tags; `openapi.yaml` allows at most 5 in a `Suggestion`, so #16 has to apply that limit (and map names to the user's spelling).
   - The usage-limit check before each call is #15; the real provider, its timeouts and prompts are #13.
   - The adapter logs each call's metadata at INFO (success) and WARNING (failure); #38 may want to review log levels.
+
+## 2026-11-09: Orchestrator: #12 implemented, QA PASS, closed
+
+- The product owner asked for #12–#15. #12 was `groomed`, so it went straight to the engineer. The engineer added the sync AI adapter, the deterministic mock provider, the factory and the required `AI_PROVIDER` setting (8b70ead, 2352bd6, 1653954; https://github.com/KittyNiuNiu/winlog/issues/12#issuecomment-6730523979).
+- QA PASS on all 15 criteria in the first round (https://github.com/KittyNiuNiu/winlog/issues/12#issuecomment-6730594890): 397 unit and 476 integration tests pass, lint is clean. QA started the backend container with the mock and no AI key, using a base image that only adds the sandbox proxy's CA, because pip in the plain build could not verify the proxy's certificate. Closed #12 as completed.
+- **Open points**, recorded where they belong:
+  - #16: the adapter does not limit the number of suggested tags (the contract allows 5), and `AIProviderError` keeps the provider exception as its cause, which a traceback-logging handler could leak (https://github.com/KittyNiuNiu/winlog/issues/16#issuecomment-6730606009).
+  - #13: a plain or SDK timeout becomes `AIProviderError`, so the real provider must raise `AITimeoutError` itself (https://github.com/KittyNiuNiu/winlog/issues/13#issuecomment-6730606567).
+  - #17: the same error-cause logging point as #16 (https://github.com/KittyNiuNiu/winlog/issues/17#issuecomment-6730606978).
+  - Left in this log by the product owner's choice: the adapter's log levels (INFO on success, WARNING on failure), and `test_fr_e2_entry_is_saved_without_an_ai_provider` now setting `AI_PROVIDER=mock` because the variable is required. That test still covers "an entry can be saved without using AI suggestions".
+- Side effect of QA: one test account (`qa12-…@example.com`) with one entry is left in the local dev database, because account deletion (#20) is not built yet.
