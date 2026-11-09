@@ -929,3 +929,10 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Mutating the endpoint (no stored spelling, no cap, chained error) makes 9 of these tests fail.
   - `uv run pytest tests/unit`: 609 passed. `uv run pytest tests/integration`: 547 passed. `uv run ruff check .` and `uv run ruff format --check .` are clean. No real AI call; `AI_PROVIDER=mock` only. No new dependency.
 - **Left open:** a maximum text size is #43; the frontend button and pre-fill are #28.
+
+## 2026-11-09: Orchestrator: #16 implemented, QA PASS, closed
+
+- The product owner asked for #16–#17. Before starting, the orchestrator merged `main` (which includes PR #62) into the working branch. #16 was `groomed`, so it went straight to the engineer, who added `POST /suggestions`. It calls `LimitedAI.suggest` through `LimitedAIDependency`, matches suggested tags to the user's stored spelling, removes duplicates, keeps at most 5, saves nothing, and maps every `AIError` to 503 `ai_unavailable`, raised `from None` so no provider message reaches a traceback (2305565, b4d8843, 34238e7; https://github.com/KittyNiuNiu/winlog/issues/16#issuecomment-6749744770). This covers the open points posted from #12 and #15.
+- QA PASS on all 12 criteria in the first round, with only `AI_PROVIDER=mock` (https://github.com/KittyNiuNiu/winlog/issues/16#issuecomment-6749841491): 609 unit and 547 integration tests pass, lint is clean. QA ran live checks with `docker compose up --build`, and judged both side changes legitimate (`_match_keys` renamed to `match_keys`, and the new router added to the token-before-body test). Closed #16 as completed.
+- **Open points:** the engineer listed none. Left in this log by the product owner's choice: the tag-rule tests are named `fr_s3_…`, though the rules come from the §7.3 acceptance criteria (`openapi.yaml` lists FR-S3 for this operation).
+- Side effect of QA: test users `qa16-*@example.com` with usage rows are in the local dev database.
