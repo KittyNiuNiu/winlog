@@ -7,6 +7,7 @@ session, and spending was not yet approved. The sections marked *pending* are fi
 the first run. Until then there is no chosen model and `.env.example` keeps `AI_MODEL` empty.
 
 - Draft written: 2026-11-09
+- Candidates checked with `check` (free, no AI call): 2026-11-09
 - Comparison run: *pending*
 
 ## What is compared
@@ -40,21 +41,31 @@ Requirements for a candidate:
   requests a day.
 - Good at following a JSON-only instruction, and at writing in English and German.
 
-Proposed candidates, one per vendor, each to be confirmed with `check` on the day of the run
-(ids, ZDR endpoints and prices change):
+Proposed candidates, one per vendor. `check` on 2026-11-09 (OpenRouter's public `/models` and
+`/endpoints/zdr` lists; no AI call) confirmed all five ids. Prices are in USD per million
+tokens on 2026-11-09, at the highest-priced ZDR endpoint (the script's pessimistic choice).
 
-| Model id (to confirm) | Why it is a candidate |
-|---|---|
-| `openai/gpt-5.4-mini` | OpenAI's small tier; strong instruction following and JSON output. |
-| `google/gemini-3.8-flash` | Google's fast tier; strong multilingual output. |
-| `anthropic/claude-haiku-5.5` | Anthropic's small tier; careful summaries that stick to the input. |
-| `mistralai/mistral-small-2603` | Mistral Small 4; low price, strong in European languages. |
-| `qwen/qwen3.8-flash` | Qwen's fast tier; low price, served by several hosts. |
+| Model id | Why it is a candidate | ZDR endpoints on 2026-11-09 | Input / output price (2026-11-09) |
+|---|---|---|---|
+| `openai/gpt-5.4-mini` | OpenAI's small tier; strong instruction following and JSON output. | 2 (Azure), none with safety retention, both support `response_format` | $0.825 / $4.950 |
+| `anthropic/claude-haiku-5.5` | Anthropic's small tier; careful summaries that stick to the input. | 6 (Google Vertex, Amazon Bedrock), none with safety retention, all support `response_format` | $0.110 / $0.550 |
+| `mistralai/mistral-small-2603` | Mistral Small 4; low price, strong in European languages. | 3 (Mistral), none with safety retention, all support `response_format` | $0.165 / $0.660 |
+| `google/gemini-3.8-flash` | Google's fast tier; strong multilingual output. | Excluded, see below | - |
+| `qwen/qwen3.8-flash` | Qwen's fast tier; low price, served by several hosts. | Excluded, see below | - |
 
 Not considered: large flagship models (much higher cost per call for short tasks) and
 OpenRouter's `:free` variants (rate-limited and not meant for production).
 
-Excluded: *pending* (`check` and `run` list every candidate without a usable ZDR endpoint).
+Excluded (`check`, 2026-11-09):
+
+- `google/gemini-3.8-flash`: all 4 of its ZDR endpoints (Google Vertex) have safety
+  retention, so the provider may keep prompts that its safety checks flag. That is not zero
+  data retention as §8 asks.
+- `qwen/qwen3.8-flash`: no zero-data-retention endpoint.
+
+The estimated cost of one run for the three remaining candidates was $0.18 on 2026-11-09
+(about $0.15 for `openai/gpt-5.4-mini`, $0.02 each for the other two), using the token
+estimate below and the highest ZDR prices.
 
 ## Test set
 

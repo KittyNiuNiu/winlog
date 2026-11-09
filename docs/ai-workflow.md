@@ -865,3 +865,11 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Why:** the key is saved as a network secret on the "winlog" cloud environment, and the proxy adds it to every request to openrouter.ai from every session on that environment. Tests and the app with the mock never call it, but a live check or a script could.
 - **Also recommended to the product owner (not in the repository):** a separate development key with a small credit limit and no automatic top-up, and removing the network secret from the environment after the #14 run.
 - **How I verified it:** a documentation change only; no code or tests changed.
+
+## 2026-11-09: #14: free candidate check (no AI call)
+
+- **Task:** #14, the free `check` step only. The product owner has not approved the paid run yet (`AGENTS.md`: no real AI call without approval).
+- **What I did:** after the session moved to the "winlog" environment (openrouter.ai allowed, key added by the network proxy), I ran only the free `check` step, as the product owner approved; no AI call was made. All five ids exist. Usable: `openai/gpt-5.4-mini`, `anthropic/claude-haiku-5.5`, `mistralai/mistral-small-2603`. Excluded: `google/gemini-3.8-flash` (its only ZDR endpoints have safety retention) and `qwen/qwen3.8-flash` (no ZDR endpoint).
+- **Result:** the decision note records the check, with dated prices; the estimated run cost for the three is $0.18.
+- **How I verified it:** `uv run ruff check .` is clean and `uv run pytest tests/unit` passes (588). Only `GET /models` and `GET /endpoints/zdr` were requested.
+- **Left open:** the paid `run`, the review, the results, the choice, the maximum daily cost and the `.env.example` default still need the product owner's approval to spend.
