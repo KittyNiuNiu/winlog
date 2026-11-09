@@ -798,3 +798,23 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - #14: the chosen model must answer suggestions with plain JSON (a Markdown-fenced answer is rejected), and the SDK timeouts apply per connection phase, not to the whole request (https://github.com/KittyNiuNiu/winlog/issues/14#issuecomment-6734788531).
   - #17: no `max_tokens` or `finish_reason` check, so a cut-off summary is returned as it is; the 10,000-character summary limit from `product-spec.md` is not enforced by the provider (https://github.com/KittyNiuNiu/winlog/issues/17#issuecomment-6734789135).
   - New issue #61, created on the product owner's instruction: `docker-compose.yml` does not pass the real provider's variables to the backend, and `httpx2` is imported at runtime but declared only as a dev dependency. It needs grooming.
+
+## 2026-11-09: Implement #14 (decide the default LLM model): partial, blocked before the paid run
+
+- **Task:** #14, a documented, repeatable comparison of at least three OpenRouter models with zero-data-retention endpoints, a decision note at `docs/decisions/default-model.md` and the chosen model as the `AI_MODEL` default in `.env.example`.
+- **What I did:**
+  - `backend/scripts/model_comparison/test_set.json`: 24 made-up entries (12 English, 12 German, three per category in each language) with expected categories, plus four summary cases (all English, all German, mostly English, mostly German). German is my choice for the second language; the issue allows any.
+  - `backend/scripts/model_comparison/comparison.py` (`python -m scripts.model_comparison`):
+    - `check` (free) reads OpenRouter's public `/models` and `/endpoints/zdr` lists and shows each candidate's ZDR endpoints, `response_format` support, prices and the estimated cost of one run. ZDR endpoints with `safety_retention` are not counted, because they may keep flagged prompts (§8).
+    - `run` needs `--confirm-paid-calls` and `AI_API_KEY` from the environment. It sends every test entry and summary case once through `OpenAICompatibleProvider` (same prompts, `zdr`, JSON parsing and timeouts as production) with the SDK's default HTTP client plus a response hook. The hook records the raw answer (for "valid JSON on the first try"; a fenced answer counts as invalid), the usage and OpenRouter's cost. It writes one JSON file per candidate plus `run.json` (date, excluded models, hashes of the test set and prompts).
+    - `report` refuses until every review field (tag language, summary language, quality 1–5) is filled in, then prints the results table and the maximum daily cost at the global cap.
+    - The OpenRouter response fields (`model_id` as the permanent slug, `canonical_slug`, `pricing`, `safety_retention`, `usage.cost`) were taken from OpenRouter's official Python SDK 1.3.143 on PyPI, read as data, because openrouter.ai itself was not reachable.
+  - `docs/decisions/default-model.md`: a draft with the method, the proposed candidates (to confirm with `check`), the test set, the review rules and quality rubric, the cost assumptions and how to re-run. The results, the excluded models, the chosen model and the maximum daily cost are marked *pending*.
+  - No new dependencies. No change to `.env.example`, `product-spec.md` or `openapi.yaml`.
+- **How I verified it:**
+  - `uv run pytest tests/unit`: 519 passed (18 new in `tests/unit/test_model_comparison.py`, all offline with `httpx2.MockTransport`). `uv run pytest tests/integration` (PostgreSQL via `docker compose up -d db`): 476 passed. `uv run ruff check .` and `uv run ruff format --check .` are clean.
+  - Mutation checks: counting safety-retention endpoints, accepting fenced JSON, dropping the `--confirm-paid-calls` check and using the lowest instead of the highest ZDR price each make tests fail.
+  - `check` against the real host fails cleanly with "Could not read OpenRouter's list /models: ProxyError"; `run` without the flag refuses before any request. No real AI API was called.
+- **Left open (blocked):**
+  - No OpenRouter key in `.env` or the environment, openrouter.ai is blocked by the session's network policy, and spending is not approved. The comparison run, the results, the chosen model, the maximum daily cost and the `.env.example` default wait for these.
+  - The candidate ids come from openrouter.ai pages found by web search on 2026-11-09 and must be confirmed with `check`.
