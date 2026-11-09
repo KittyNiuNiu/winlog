@@ -857,3 +857,11 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - #61: Compose does not forward the `AI_DAILY_*` variables (https://github.com/KittyNiuNiu/winlog/issues/61#issuecomment-6736467546), and the limit variables have no upper bound, so a value above bigint gives a 500 that fails safe. The product owner chose to add this one to #61 (https://github.com/KittyNiuNiu/winlog/issues/61#issuecomment-6736561615).
   - Left in this log by the product owner's choice: old rows in the usage tables are never cleaned up.
 - Side effects of QA: the local tag `python:3.13-slim` now points to a QA-built image that adds the sandbox proxy CA, and the dev database is migrated to 113dfac7accf.
+
+## 2026-11-09: Orchestrator: rule against unapproved real AI calls
+
+- **Task:** the product owner asked how the OpenRouter key will be used in development and wanted to prevent high costs.
+- **What I did:** added a working rule to `AGENTS.md`: no real AI calls without the product owner's explicit approval in that session. It covers tests, scripts, live checks and running the app with a real provider (anything other than `AI_PROVIDER=mock`). A task that needs one stops and asks first, with the reason and an estimated cost.
+- **Why:** the key is saved as a network secret on the "winlog" cloud environment, and the proxy adds it to every request to openrouter.ai from every session on that environment. Tests and the app with the mock never call it, but a live check or a script could.
+- **Also recommended to the product owner (not in the repository):** a separate development key with a small credit limit and no automatic top-up, and removing the network secret from the environment after the #14 run.
+- **How I verified it:** a documentation change only; no code or tests changed.
