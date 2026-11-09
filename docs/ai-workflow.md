@@ -873,3 +873,26 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Result:** the decision note records the check, with dated prices; the estimated run cost for the three is $0.18.
 - **How I verified it:** `uv run ruff check .` is clean and `uv run pytest tests/unit` passes (588). Only `GET /models` and `GET /endpoints/zdr` were requested.
 - **Left open:** the paid `run`, the review, the results, the choice, the maximum daily cost and the `.env.example` default still need the product owner's approval to spend.
+
+## 2026-11-09: Implement #14 (decide the default LLM model): comparison run and decision
+
+- **Task:** finish #14: the paid comparison run, the review, the decision note and the `.env.example` default.
+- **Product owner decisions (2026-11-09):**
+  1. Strict zero-data-retention reading: endpoints with OpenRouter's `safety_retention` flag do not count. So `google/gemini-3.8-flash` is excluded (all its ZDR endpoints have safety retention), and `qwen/qwen3.8-flash` is excluded (no ZDR endpoint).
+  2. Exactly one paid run, with `openai/gpt-5.4-mini`, `anthropic/claude-haiku-5.5`, `mistralai/mistral-small-2603` and `deepseek/deepseek-v4.1-flash` (the spare). No reruns.
+- **What I did:**
+  - Ran `check` again: the estimate was $0.24, below the $1 stop threshold. Then I ran the comparison once: `run ... --confirm-paid-calls`, with `AI_API_KEY=placeholder` on the command line only, while the network proxy added the real key.
+  - `openai/gpt-5.4-mini` got HTTP 429 on 7 of 28 calls, including all 4 summaries. I recorded these as failures and did not retry them.
+  - Actual cost: $0.0303, the same in the sum of `usage.cost` and in the key's usage after the run.
+  - Reviewed every suggestion's tag language and every summary's language and quality (1–5) against the rubric in the note. I am the engineer agent, not the product owner: each result file says so in `review_by`, and each rating has a one-line reason.
+  - `report` gives Haiku and DeepSeek the same summary quality (4.8). Haiku is cheaper and faster. Mistral wrote one summary in the wrong language and invented facts in two others. GPT-5.4 mini was rate limited and is the most expensive. Chosen: `anthropic/claude-haiku-5.5`, with a maximum daily cost of about $0.41 at the global cap of 100 requests. No product trade-off: the best model is also the cheapest acceptable one.
+  - Completed `docs/decisions/default-model.md`, committed the result files under `backend/scripts/model_comparison/results/2026-11-09/`, and set `AI_MODEL=anthropic/claude-haiku-5.5` in `.env.example`.
+  - `test_ai_openai_variables_are_documented_in_env_example` asserted an empty `AI_MODEL=`. It now asserts the chosen value exactly, as the issue requires. New tests check that `.env.example` names the model from the decision note, and that the committed results are fully reviewed and contain no key, authorization header or placeholder.
+- **How I verified it:**
+  - `uv run pytest tests/unit`: 590 passed. `uv run pytest tests/integration` (PostgreSQL via `docker compose up -d db`): 513 passed. `uv run ruff check .` and `uv run ruff format --check .` are clean.
+  - Changing `AI_MODEL` in `.env.example` makes the new test fail.
+  - The result files were scanned for `bearer`, `authorization`, `sk-or-`, `api_key` and `placeholder`; none are present.
+- **Left open:**
+  - GPT-5.4 mini's suggestion for en-06 took 16.7 s, past the 15 s timeout, because the SDK timeout applies per connection phase (the open point from #13). Haiku's slowest calls were 3.0 s and 8.2 s.
+  - GPT-5.4 mini's summaries are unmeasured because of rate limiting.
+  - The product owner closes the open question in `product-spec.md` §13. Setting the model and key in production is #38.
