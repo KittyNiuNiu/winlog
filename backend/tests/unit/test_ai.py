@@ -230,9 +230,9 @@ def test_ai_factory_rejects_an_unknown_provider_naming_the_variable_and_allowed_
     assert "'mock'" in str(error.value)
 
 
-def test_ai_mock_is_the_only_allowed_provider_for_now():
-    # #13 adds the OpenAI-compatible provider to both lists.
-    assert set(get_args(AIProviderName)) == {"mock"}
+def test_ai_allowed_providers_are_the_mock_and_the_openai_compatible_one():
+    # Issue #13 added the OpenAI-compatible provider to both lists.
+    assert set(get_args(AIProviderName)) == {"mock", "openai-compatible"}
     assert set(PROVIDERS) == set(get_args(AIProviderName))
 
 

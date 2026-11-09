@@ -45,3 +45,8 @@ def no_env_file(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("DATABASE_CONNECT_TIMEOUT_SECONDS", raising=False)
     monkeypatch.delenv("TOKEN_LIFETIME_DAYS", raising=False)
     monkeypatch.delenv("AI_PROVIDER", raising=False)
+    monkeypatch.delenv("AI_BASE_URL", raising=False)
+    monkeypatch.delenv("AI_API_KEY", raising=False)
+    monkeypatch.delenv("AI_MODEL", raising=False)
+    monkeypatch.delenv("AI_SUGGESTION_TIMEOUT_SECONDS", raising=False)
+    monkeypatch.delenv("AI_SUMMARY_TIMEOUT_SECONDS", raising=False)

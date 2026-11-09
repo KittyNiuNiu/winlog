@@ -10,6 +10,7 @@ from app.ai.adapter import (
 )
 from app.ai.factory import AI, create_ai_provider, get_ai_provider
 from app.ai.mock import MockProvider
+from app.ai.openai_compatible import OpenAICompatibleProvider
 
 __all__ = [
     "AI",
@@ -18,6 +19,7 @@ __all__ = [
     "AIProviderError",
     "AITimeoutError",
     "MockProvider",
+    "OpenAICompatibleProvider",
     "Suggestion",
     "SummaryEntry",
     "create_ai_provider",

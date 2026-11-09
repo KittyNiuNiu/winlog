@@ -12,11 +12,13 @@ from fastapi import Depends, Request
 
 from app.ai.adapter import AIProvider
 from app.ai.mock import MockProvider
-from app.settings import Settings, SettingsError
+from app.ai.openai_compatible import OpenAICompatibleProvider
+from app.settings import OPENAI_COMPATIBLE, Settings, SettingsError
 
-# One provider for each name in app.settings.AIProviderName. #13 adds the OpenAI-compatible one.
+# One provider for each name in app.settings.AIProviderName.
 PROVIDERS: dict[str, Callable[[Settings], AIProvider]] = {
     "mock": lambda settings: MockProvider(),
+    OPENAI_COMPATIBLE: OpenAICompatibleProvider.from_settings,
 }
 
 

@@ -14,6 +14,11 @@ def test_settings_variables():
         "database_connect_timeout_seconds",
         "token_lifetime_days",
         "ai_provider",
+        "ai_base_url",
+        "ai_api_key",
+        "ai_model",
+        "ai_suggestion_timeout_seconds",
+        "ai_summary_timeout_seconds",
     }
 
 
