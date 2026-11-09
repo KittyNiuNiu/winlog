@@ -22,6 +22,7 @@ def test_models_cover_the_tables_from_the_data_model():
         "entry_tags",
         "summaries",
         "ai_usage",
+        "ai_usage_global",
     }
 
 

@@ -55,6 +55,12 @@ class Settings(BaseSettings):
     # Seconds the OpenAI-compatible provider waits for an answer before it gives up.
     ai_suggestion_timeout_seconds: int = Field(default=15, ge=1, le=600)
     ai_summary_timeout_seconds: int = Field(default=60, ge=1, le=600)
+    # Daily AI limits (product-spec.md §8, issue #15). A day runs from 00:00 to 24:00 UTC.
+    # Whole numbers of 0 or more; 0 blocks that kind of request.
+    ai_daily_suggestions_per_user: int = 10
+    ai_daily_summaries_per_user: int = 2
+    # Suggestions and summaries of all users together.
+    ai_daily_requests_global: int = 100
 
     @field_validator("database_url")
     @classmethod
@@ -86,6 +92,25 @@ class Settings(BaseSettings):
         if value is not None and not value.startswith(("http://", "https://")):
             raise ValueError("must start with http:// or https://")
         return value
+
+    @field_validator(
+        "ai_daily_suggestions_per_user",
+        "ai_daily_summaries_per_user",
+        "ai_daily_requests_global",
+        mode="before",
+    )
+    @classmethod
+    def _check_daily_limit(cls, value: object) -> int:
+        # Stricter than pydantic's int parsing, which also accepts "1.0", "+5" and "1_000".
+        if isinstance(value, int) and not isinstance(value, bool):
+            number = value
+        elif isinstance(value, str) and value.strip().isascii() and value.strip().isdigit():
+            number = int(value.strip())
+        else:
+            raise ValueError("must be a whole number of 0 or more")
+        if number < 0:
+            raise ValueError("must be a whole number of 0 or more")
+        return number
 
     @field_validator("cors_allowed_origins", mode="before")
     @classmethod

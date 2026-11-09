@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app import accounts, entries, health, tags
-from app.ai import create_ai_provider
+from app.ai import AILimits, create_ai_provider
 from app.cors import AllowedOriginsCORSMiddleware
 from app.db import create_db_engine
 from app.errors import UnexpectedErrorMiddleware, register_error_handlers
@@ -28,6 +28,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.settings = settings
     app.state.engine = engine
     app.state.ai_provider = ai_provider
+    # The daily AI limits, checked by the limited entry point (app/ai/limits.py, issue #15).
+    app.state.ai_limits = AILimits.from_settings(settings)
 
     # The middleware added last runs first. UnexpectedErrorMiddleware runs inside the CORS
     # middleware, so the shared 500 response gets CORS headers like every other response.

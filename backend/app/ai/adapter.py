@@ -30,7 +30,7 @@ import datetime as dt
 import logging
 import time
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from typing import ClassVar, get_args
 
@@ -95,8 +95,7 @@ class AIProvider(ABC):
 
         Raises `AITimeoutError` or `AIProviderError` when the provider gives no usable answer.
         """
-        if not isinstance(text, str):
-            raise TypeError("suggest takes the entry text as a string")
+        text = check_suggest_input(text)
         return self._call("suggest", None, lambda: _checked_suggestion(self._suggest(text)))
 
     def summarise(self, entries: Sequence[SummaryEntry]) -> str:
@@ -104,12 +103,7 @@ class AIProvider(ABC):
 
         Raises `AITimeoutError` or `AIProviderError` when the provider gives no usable answer.
         """
-        entries = tuple(entries)
-        if not entries:
-            # product-spec.md §8 and openapi.yaml: no entries means no AI call (issue #17).
-            raise ValueError("summarise needs at least one entry")
-        if not all(type(entry) is SummaryEntry for entry in entries):
-            raise TypeError("summarise takes only SummaryEntry objects (data minimisation, §8)")
+        entries = check_summarise_input(entries)
         return self._call(
             "summarise", len(entries), lambda: _checked_summary(self._summarise(entries))
         )
@@ -149,6 +143,24 @@ class AIProvider(ABC):
             _entry_count(entry_count),
         )
         return result
+
+
+def check_suggest_input(text: object) -> str:
+    """Raise TypeError unless suggest can send this text. Used before any AI call is counted."""
+    if not isinstance(text, str):
+        raise TypeError("suggest takes the entry text as a string")
+    return text
+
+
+def check_summarise_input(entries: Iterable[SummaryEntry]) -> tuple[SummaryEntry, ...]:
+    """Raise unless summarise can send these entries. Used before any AI call is counted."""
+    entries = tuple(entries)
+    if not entries:
+        # product-spec.md §8 and openapi.yaml: no entries means no AI call (issue #17).
+        raise ValueError("summarise needs at least one entry")
+    if not all(type(entry) is SummaryEntry for entry in entries):
+        raise TypeError("summarise takes only SummaryEntry objects (data minimisation, §8)")
+    return entries
 
 
 def _elapsed_ms(started: float) -> int:

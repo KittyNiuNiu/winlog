@@ -26,7 +26,16 @@ from app.settings import ENV_FILE, Settings  # noqa: E402
 
 ALLOWED_ORIGIN = "http://localhost:5173"
 BACKEND_DIR = Path(__file__).resolve().parents[2]
-APP_TABLES = {"users", "tokens", "entries", "tags", "entry_tags", "summaries", "ai_usage"}
+APP_TABLES = {
+    "users",
+    "tokens",
+    "entries",
+    "tags",
+    "entry_tags",
+    "summaries",
+    "ai_usage",
+    "ai_usage_global",
+}
 
 
 class _IntegrationSettings(BaseSettings):
@@ -96,4 +105,5 @@ def migrated_db(engine: Engine, alembic_config: Config) -> Iterator[Engine]:
     command.upgrade(alembic_config, "head")
     yield engine
     with engine.begin() as connection:
-        connection.execute(text("TRUNCATE users CASCADE"))
+        # ai_usage_global has no user id, so it is not removed with the users.
+        connection.execute(text("TRUNCATE users, ai_usage_global CASCADE"))

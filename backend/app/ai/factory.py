@@ -1,8 +1,9 @@
 """Selecting the AI provider from AI_PROVIDER (issue #12).
 
 `create_app` calls `create_ai_provider` once at startup and keeps the provider on
-`app.state.ai_provider`. Endpoints get it through the `get_ai_provider` dependency, which
-tests can override.
+`app.state.ai_provider`. The `get_ai_provider` dependency returns it, and tests can override
+it. Endpoints never use it directly: they use the limited entry point in `app/ai/limits.py`,
+which wraps this provider and checks the daily limits first (issue #15).
 """
 
 from collections.abc import Callable
