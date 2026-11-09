@@ -896,3 +896,21 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - GPT-5.4 mini's suggestion for en-06 took 16.7 s, past the 15 s timeout, because the SDK timeout applies per connection phase (the open point from #13). Haiku's slowest calls were 3.0 s and 8.2 s.
   - GPT-5.4 mini's summaries are unmeasured because of rate limiting.
   - The product owner closes the open question in `product-spec.md` §13. Setting the model and key in production is #38.
+
+## 2026-11-09: Orchestrator: #14 unblocked, implemented, QA PASS, closed
+
+- **Unblocking:** the product owner saved a separate development OpenRouter key (limit $5) as a network secret on the "winlog" cloud environment and added $10 of credits. The orchestrator confirmed the key and the balance only through the free endpoints `/api/v1/key` and `/api/v1/credits`. The engineer then ran the free `check` step.
+- **Product owner decisions:**
+  - Strict zero-data-retention reading: endpoints with OpenRouter's `safety_retention` flag do not count. Gemini 3.8 Flash was excluded (all of its ZDR endpoints have the flag), and Qwen3.8 Flash because it has no ZDR endpoint.
+  - Exactly one paid run was approved, with four models: GPT-5.4 mini, Claude Haiku 5.5, Mistral Small and DeepSeek V4.1 Flash as a spare, at an estimated $0.23.
+- The engineer ran it once. The actual cost was $0.0303; QA found it exactly equals the key's usage, so no other paid calls were made. GPT-5.4 mini got HTTP 429 on 7 of its 28 calls, recorded and not retried. Chosen default: `anthropic/claude-haiku-5.5` (24/24 categories, 4/4 summary languages, quality 4.8, about $0.41 a day at the global cap of 100). It is set as `AI_MODEL` in `.env.example`. The engineer agent rated the summaries, and the note says so (d2fe2f4, 058c90c, c8d4462, c58cb19; https://github.com/KittyNiuNiu/winlog/issues/14#issuecomment-6735075467).
+- QA PASS on every criterion in the first round, with no real AI calls (https://github.com/KittyNiuNiu/winlog/issues/14#issuecomment-6749416769): 590 unit and 513 integration tests pass, lint is clean. Closed #14 as completed.
+- **Open points**, recorded where they belong:
+  - #61: the per-phase SDK timeout was confirmed in the run (a 16.7 s GPT-5.4 mini suggestion against a 15 s timeout) (https://github.com/KittyNiuNiu/winlog/issues/61#issuecomment-6749429249).
+  - #38: the chosen production model, and that the maximum daily cost is an estimate (no output token limit), so the production key's spending limit is the real cap (https://github.com/KittyNiuNiu/winlog/issues/38#issuecomment-6749430929).
+  - Left in this log by the product owner's choice:
+    - The note says every rating has a reason, but the 91 passed tag ratings have none.
+    - One Mistral review note wrongly says it invented "Python", which was an input tag. The rating and the decision are unchanged.
+    - GPT-5.4 mini's summaries were not measured because of the 429s.
+    - The note does not mention that the script's calls bypass the app's usage limits.
+  - For the product owner: close the open question in `product-spec.md` §13.
