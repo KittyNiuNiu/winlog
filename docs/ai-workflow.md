@@ -914,3 +914,18 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
     - GPT-5.4 mini's summaries were not measured because of the 429s.
     - The note does not mention that the script's calls bypass the app's usage limits.
   - For the product owner: close the open question in `product-spec.md` §13.
+
+## 2026-11-09: Implement #16 (AI suggestions endpoint)
+
+- **Task:** #16, `POST /suggestions` (`suggestCategoryAndTags`): AI suggestions for an entry's category and tags that save nothing (FR-S1, FR-S2, §7.3, §8).
+- **What I did:**
+  - New `backend/app/suggestions.py`, registered in `app/main.py`. The request body uses the entry text rules (`EntryText`), so missing, empty, whitespace-only or unstorable text is the shared validation error before anything is counted.
+  - The endpoint calls `LimitedAI.suggest(user.id, text)` through `LimitedAIDependency` (#15), so limits are checked before the AI call and a reached limit is the 429 `limit_reached` error. `AIError` (timeout, provider failure, unusable output) becomes the 503 `ai_unavailable` error, raised `from None`, so the provider exception (which may repeat entry text, open point from #12) is never its cause or context in a traceback. Nothing in the module logs.
+  - The session is closed before the AI call, so no database connection or transaction is held while the AI answers.
+  - Suggested tag names are cleaned with #8's rules, matched to the user's own tags with `lookup_tags`, and get the stored spelling. Names that match each other (case-insensitive, PostgreSQL `lower()`) are returned once, then the list is cut to 5. To map each name to its stored tag I made #8's private `_match_keys` public as `match_keys` (rename only).
+  - `tests/unit/test_auth.py`: added the new router to the list of routers that must use `AuthenticateFirstRoute` (the test checks that this list holds every operation).
+- **How I verified it:**
+  - New `tests/unit/test_suggestions.py` (contract, validation, error mapping, limit errors, no chained provider error) and `tests/integration/test_suggestions.py` (34 tests against PostgreSQL with the mock provider: success, only the text reaches the AI, counting, case matching, cleaning, another user's tag, duplicates, the 5-tag cap, nothing saved, validation, both limits, timeout, provider failure, unusable output, no token, logs free of text and tags).
+  - Mutating the endpoint (no stored spelling, no cap, chained error) makes 9 of these tests fail.
+  - `uv run pytest tests/unit`: 609 passed. `uv run pytest tests/integration`: 547 passed. `uv run ruff check .` and `uv run ruff format --check .` are clean. No real AI call; `AI_PROVIDER=mock` only. No new dependency.
+- **Left open:** a maximum text size is #43; the frontend button and pre-fill are #28.
