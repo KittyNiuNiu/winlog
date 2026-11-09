@@ -996,3 +996,12 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Mutations (list not scoped to the user, oldest first, no forced write, get/edit or delete not scoped, text trimmed) each make integration tests fail.
   - `uv run pytest tests/unit`: 719 passed. `uv run pytest tests/integration`: 739 passed. `uv run ruff check .` and `uv run ruff format --check .` are clean. No AI call (the mock provider only for generating test summaries). No new dependency.
 - **Left open:** the 10,000-character limit for edited summary text is #43. `summaries.py` imports `_require_uuid` from `entries.py` to share the id rule; a shared public helper could replace it later.
+
+## 2026-11-09: Orchestrator: #18 implemented, QA PASS, closed
+
+- The product owner asked for #18–#19. Before starting, the orchestrator merged `main` (which includes PR #63) into the working branch. #18 was `groomed`, so it went straight to the engineer, who added list, get, edit (`PATCH`, text only) and delete for saved summaries in `backend/app/summaries.py`, all limited to the logged-in user (edf7da1, c0cbbd1, eaef272; https://github.com/KittyNiuNiu/winlog/issues/18#issuecomment-6751102292).
+- QA PASS on every criterion in the first round, with only `AI_PROVIDER=mock` (https://github.com/KittyNiuNiu/winlog/issues/18#issuecomment-6751181128): 719 unit and 739 integration tests pass, lint is clean. QA also checked the system live with two users. Closed #18 as completed.
+- **Open points**, recorded where they belong:
+  - #43: edited summary text has no maximum length yet (a 200,000-character edit was accepted); the shared `MAX_SUMMARY_CHARACTERS` from #17 could be reused (https://github.com/KittyNiuNiu/winlog/issues/43#issuecomment-6751188925).
+  - #58: a non-JSON body gives 422 with `field: "0"` and "JSON decode error", from the shared validation handler (https://github.com/KittyNiuNiu/winlog/issues/58#issuecomment-6751190144).
+  - Left in this log by the product owner's choice: `summaries.py` imports the private `_require_uuid` from `entries.py`; a shared public helper would be cleaner.
