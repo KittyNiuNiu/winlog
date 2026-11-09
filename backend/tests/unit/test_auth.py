@@ -10,7 +10,7 @@ import yaml
 from fastapi.dependencies.models import Dependant
 from fastapi.testclient import TestClient
 
-from app import accounts, entries, health, suggestions, tags
+from app import accounts, entries, health, suggestions, summaries, tags
 from app.auth import AuthenticateFirstRoute, get_current_user, hash_token, new_token
 from app.main import create_app
 from app.models import User
@@ -281,7 +281,14 @@ def test_fr_a3_public_operations_keep_the_validation_error_for_a_body_that_is_no
 
 
 def test_fr_a3_every_route_checks_the_token_before_the_body(settings):
-    routers = [accounts.router, entries.router, health.router, suggestions.router, tags.router]
+    routers = [
+        accounts.router,
+        entries.router,
+        health.router,
+        suggestions.router,
+        summaries.router,
+        tags.router,
+    ]
     routes = [route for router in routers for route in router.routes]
 
     for route in routes:
