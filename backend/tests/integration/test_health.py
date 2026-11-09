@@ -123,6 +123,7 @@ def proxied_client(test_database_url: str, proxy: PausableProxy) -> Iterator[Tes
         _env_file=None,
         database_url=url.render_as_string(hide_password=False),
         cors_allowed_origins=[ALLOWED_ORIGIN],
+        ai_provider="mock",
         database_connect_timeout_seconds=TIMEOUT_SECONDS,
     )
     with TestClient(create_app(settings)) as client:

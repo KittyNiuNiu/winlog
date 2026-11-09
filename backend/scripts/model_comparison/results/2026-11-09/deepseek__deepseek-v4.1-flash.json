@@ -1,0 +1,1527 @@
+{
+  "date": "2026-11-09",
+  "model": "deepseek/deepseek-v4.1-flash",
+  "zdr_endpoints": [
+    {
+      "provider_name": "Parasail",
+      "prompt_price_per_million_usd": 0.44999999999999996,
+      "completion_price_per_million_usd": 1.7999999999999998,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "Wafer",
+      "prompt_price_per_million_usd": 0.051,
+      "completion_price_per_million_usd": 0.5670000000000001,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "Mancer 2",
+      "prompt_price_per_million_usd": 0.125,
+      "completion_price_per_million_usd": 0.5,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "Fireworks",
+      "prompt_price_per_million_usd": 0.21,
+      "completion_price_per_million_usd": 0.84,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "InferenceNet",
+      "prompt_price_per_million_usd": 0.103,
+      "completion_price_per_million_usd": 0.6,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "DeepInfra",
+      "prompt_price_per_million_usd": 0.147,
+      "completion_price_per_million_usd": 0.441,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "DeepInfra",
+      "prompt_price_per_million_usd": 0.07839999999999998,
+      "completion_price_per_million_usd": 0.2352,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "PrimeIntellect",
+      "prompt_price_per_million_usd": 0.039,
+      "completion_price_per_million_usd": 1.2,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "Cohere",
+      "prompt_price_per_million_usd": 0.195,
+      "completion_price_per_million_usd": 0.66,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "Crusoe",
+      "prompt_price_per_million_usd": 0.29,
+      "completion_price_per_million_usd": 1.2,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "Fireworks",
+      "prompt_price_per_million_usd": 0.44999999999999996,
+      "completion_price_per_million_usd": 1.7999999999999998,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "InferenceNet",
+      "prompt_price_per_million_usd": 0.103,
+      "completion_price_per_million_usd": 0.6,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "OpenInference",
+      "prompt_price_per_million_usd": 0.028,
+      "completion_price_per_million_usd": 0.7,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "CoreWeave",
+      "prompt_price_per_million_usd": 0.13,
+      "completion_price_per_million_usd": 0.65,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "BaseTen",
+      "prompt_price_per_million_usd": 0.3,
+      "completion_price_per_million_usd": 1.2,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "Makora",
+      "prompt_price_per_million_usd": 0.26,
+      "completion_price_per_million_usd": 1.17,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "DigitalOcean",
+      "prompt_price_per_million_usd": 0.22499999999999998,
+      "completion_price_per_million_usd": 0.8999999999999999,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "Reka",
+      "prompt_price_per_million_usd": 0.096,
+      "completion_price_per_million_usd": 0.768,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "Phala",
+      "prompt_price_per_million_usd": 0.147,
+      "completion_price_per_million_usd": 0.588,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "Together",
+      "prompt_price_per_million_usd": 0.3,
+      "completion_price_per_million_usd": 1.2,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "Relace",
+      "prompt_price_per_million_usd": 0.006,
+      "completion_price_per_million_usd": 0.5,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "SiliconFlow",
+      "prompt_price_per_million_usd": 0.3,
+      "completion_price_per_million_usd": 1.2,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "Modal",
+      "prompt_price_per_million_usd": 0.3,
+      "completion_price_per_million_usd": 1.2,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "Wafer",
+      "prompt_price_per_million_usd": 0.19,
+      "completion_price_per_million_usd": 0.65,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "BaseTen",
+      "prompt_price_per_million_usd": 0.3,
+      "completion_price_per_million_usd": 1.2,
+      "supports_response_format": false
+    },
+    {
+      "provider_name": "Parasail",
+      "prompt_price_per_million_usd": 0.3,
+      "completion_price_per_million_usd": 1.2,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "Fireworks",
+      "prompt_price_per_million_usd": 0.3,
+      "completion_price_per_million_usd": 1.2,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "Venice",
+      "prompt_price_per_million_usd": 0.3,
+      "completion_price_per_million_usd": 1.2,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "Novita",
+      "prompt_price_per_million_usd": 0.12675000000000003,
+      "completion_price_per_million_usd": 0.5070000000000001,
+      "supports_response_format": true
+    },
+    {
+      "provider_name": "DeepInfra",
+      "prompt_price_per_million_usd": 0.098,
+      "completion_price_per_million_usd": 0.294,
+      "supports_response_format": true
+    }
+  ],
+  "max_zdr_prompt_price_per_token_usd": 4.5e-07,
+  "max_zdr_completion_price_per_token_usd": 1.8e-06,
+  "suggestions": [
+    {
+      "entry_id": "en-01",
+      "language": "en",
+      "expected_category": "Achievement",
+      "category": "Achievement",
+      "category_matches": true,
+      "tags": [
+        "invoice export",
+        "billing",
+        "release planning",
+        "testing",
+        "deadline"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.294,
+      "cost_usd": 5.6019e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Achievement\", \"tags\": [\"invoice export\", \"billing\", \"release planning\", \"testing\", \"deadline\"]}",
+      "usage": {
+        "prompt_tokens": 209,
+        "completion_tokens": 80,
+        "total_tokens": 289,
+        "cost": 5.6019e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 5.6019e-05,
+          "upstream_inference_prompt_cost": 1.0659e-05,
+          "upstream_inference_completions_cost": 4.536e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 52,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "deepseek/deepseek-v4.1-flash",
+      "served_provider": "Wafer",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-02",
+      "language": "en",
+      "expected_category": "Achievement",
+      "category": "Achievement",
+      "category_matches": true,
+      "tags": [
+        "CI migration",
+        "test pipeline",
+        "runbook",
+        "pairing",
+        "knowledge transfer"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.978,
+      "cost_usd": 0.00018707,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Achievement\", \"tags\": [\"CI migration\", \"test pipeline\", \"runbook\", \"pairing\", \"knowledge transfer\"]}",
+      "usage": {
+        "prompt_tokens": 211,
+        "completion_tokens": 113,
+        "total_tokens": 324,
+        "cost": 0.00018707,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.00018707,
+          "upstream_inference_prompt_cost": 5.486e-05,
+          "upstream_inference_completions_cost": 0.00013221
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 80,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "deepseek/deepseek-v4.1-flash",
+      "served_provider": "Makora",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-03",
+      "language": "en",
+      "expected_category": "Achievement",
+      "category": "Achievement",
+      "category_matches": true,
+      "tags": [
+        "mobile app",
+        "support backlog",
+        "crash fixes",
+        "documentation",
+        "triage"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.988,
+      "cost_usd": 0.00015094,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Achievement\", \"tags\": [\"mobile app\", \"support backlog\", \"crash fixes\", \"documentation\", \"triage\"]}",
+      "usage": {
+        "prompt_tokens": 206,
+        "completion_tokens": 76,
+        "total_tokens": 282,
+        "cost": 0.00015094,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.00015094,
+          "upstream_inference_prompt_cost": 5.974e-05,
+          "upstream_inference_completions_cost": 9.12e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 42,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "deepseek/deepseek-v4.1-flash",
+      "served_provider": "Crusoe",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-04",
+      "language": "en",
+      "expected_category": "Learning",
+      "category": "Learning",
+      "category_matches": true,
+      "tags": [
+        "SQL",
+        "query plans",
+        "EXPLAIN",
+        "indexing",
+        "databases"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.18,
+      "cost_usd": 8.559e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Learning\", \"tags\": [\"SQL\", \"query plans\", \"EXPLAIN\", \"indexing\", \"databases\"]}",
+      "usage": {
+        "prompt_tokens": 202,
+        "completion_tokens": 70,
+        "total_tokens": 272,
+        "cost": 8.559e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 8.559e-05,
+          "upstream_inference_prompt_cost": 3.939e-05,
+          "upstream_inference_completions_cost": 4.62e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 38,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "deepseek/deepseek-v4.1-flash",
+      "served_provider": "Cohere",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-05",
+      "language": "en",
+      "expected_category": "Learning",
+      "category": "Learning",
+      "category_matches": true,
+      "tags": [
+        "Customer interviews",
+        "Open questions",
+        "User research",
+        "Interviewing"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.053,
+      "cost_usd": 0.00011727,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Learning\", \"tags\": [\"Customer interviews\", \"Open questions\", \"User research\", \"Interviewing\"]}",
+      "usage": {
+        "prompt_tokens": 202,
+        "completion_tokens": 118,
+        "total_tokens": 320,
+        "cost": 0.00011727,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.00011727,
+          "upstream_inference_prompt_cost": 3.939e-05,
+          "upstream_inference_completions_cost": 7.788e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 90,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "deepseek/deepseek-v4.1-flash",
+      "served_provider": "Cohere",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-06",
+      "language": "en",
+      "expected_category": "Learning",
+      "category": "Learning",
+      "category_matches": true,
+      "tags": [
+        "feature flags",
+        "code reading",
+        "design notes",
+        "walkthrough",
+        "knowledge sharing"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 3.846,
+      "cost_usd": 0.000296205,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Learning\", \"tags\": [\"feature flags\", \"code reading\", \"design notes\", \"walkthrough\", \"knowledge sharing\"]}",
+      "usage": {
+        "prompt_tokens": 231,
+        "completion_tokens": 322,
+        "total_tokens": 553,
+        "cost": 0.000296205,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.000296205,
+          "upstream_inference_prompt_cost": 4.5045e-05,
+          "upstream_inference_completions_cost": 0.00025116
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 292,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "deepseek/deepseek-v4.1-flash",
+      "served_provider": "Novita",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-07",
+      "language": "en",
+      "expected_category": "Feedback",
+      "category": "Feedback",
+      "category_matches": true,
+      "tags": [
+        "design reviews",
+        "draft sharing",
+        "collaboration",
+        "communication"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 2.116,
+      "cost_usd": 8.736e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Feedback\", \"tags\": [\"design reviews\", \"draft sharing\", \"collaboration\", \"communication\"]}",
+      "usage": {
+        "prompt_tokens": 207,
+        "completion_tokens": 139,
+        "total_tokens": 346,
+        "cost": 8.736e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 8.736e-05,
+          "upstream_inference_prompt_cost": 2.898e-05,
+          "upstream_inference_completions_cost": 5.838e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 110,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "deepseek/deepseek-v4.1-flash",
+      "served_provider": "DeepInfra",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-08",
+      "language": "en",
+      "expected_category": "Feedback",
+      "category": "Feedback",
+      "category_matches": true,
+      "tags": [
+        "release notes",
+        "documentation",
+        "sales team",
+        "customer questions",
+        "communication"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 2.233,
+      "cost_usd": 0.000118503,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Feedback\", \"tags\": [\"release notes\", \"documentation\", \"sales team\", \"customer questions\", \"communication\"]}",
+      "usage": {
+        "prompt_tokens": 201,
+        "completion_tokens": 163,
+        "total_tokens": 364,
+        "cost": 0.000118503,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.000118503,
+          "upstream_inference_prompt_cost": 2.0703e-05,
+          "upstream_inference_completions_cost": 9.78e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 132,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "deepseek/deepseek-v4.1-flash",
+      "served_provider": "InferenceNet",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-09",
+      "language": "en",
+      "expected_category": "Feedback",
+      "category": "Feedback",
+      "category_matches": true,
+      "tags": [
+        "demo",
+        "leadership team",
+        "presentation skills",
+        "public speaking"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.037,
+      "cost_usd": 0.00014436,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Feedback\", \"tags\": [\"demo\", \"leadership team\", \"presentation skills\", \"public speaking\"]}",
+      "usage": {
+        "prompt_tokens": 204,
+        "completion_tokens": 71,
+        "total_tokens": 275,
+        "cost": 0.00014436,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.00014436,
+          "upstream_inference_prompt_cost": 5.916e-05,
+          "upstream_inference_completions_cost": 8.52e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 42,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "deepseek/deepseek-v4.1-flash",
+      "served_provider": "Crusoe",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-10",
+      "language": "en",
+      "expected_category": "Side project",
+      "category": "Side project",
+      "category_matches": true,
+      "tags": [
+        "running club",
+        "app",
+        "calendar",
+        "email automation"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.834,
+      "cost_usd": 0.0002127,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Side project\", \"tags\": [\"running club\", \"app\", \"calendar\", \"email automation\"]}",
+      "usage": {
+        "prompt_tokens": 205,
+        "completion_tokens": 126,
+        "total_tokens": 331,
+        "cost": 0.0002127,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.0002127,
+          "upstream_inference_prompt_cost": 6.15e-05,
+          "upstream_inference_completions_cost": 0.0001512
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 99,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "deepseek/deepseek-v4.1-flash",
+      "served_provider": "Together",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-11",
+      "language": "en",
+      "expected_category": "Side project",
+      "category": "Side project",
+      "category_matches": true,
+      "tags": [
+        "open-source",
+        "CSV",
+        "bug fix",
+        "testing"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 2.042,
+      "cost_usd": 0.000128616,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Side project\", \"tags\": [\"open-source\", \"CSV\", \"bug fix\", \"testing\"]}",
+      "usage": {
+        "prompt_tokens": 205,
+        "completion_tokens": 173,
+        "total_tokens": 378,
+        "cost": 0.000128616,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 128,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.000128616,
+          "upstream_inference_prompt_cost": 1.6166e-05,
+          "upstream_inference_completions_cost": 0.00011245
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 152,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "deepseek/deepseek-v4.1-flash",
+      "served_provider": "Wafer",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "en-12",
+      "language": "en",
+      "expected_category": "Side project",
+      "category": "Side project",
+      "category_matches": true,
+      "tags": [
+        "board game",
+        "game design",
+        "prototype",
+        "playtesting",
+        "small town"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.664,
+      "cost_usd": 0.000137066,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Side project\", \"tags\": [\"board game\", \"game design\", \"prototype\", \"playtesting\", \"small town\"]}",
+      "usage": {
+        "prompt_tokens": 205,
+        "completion_tokens": 186,
+        "total_tokens": 391,
+        "cost": 0.000137066,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 128,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.000137066,
+          "upstream_inference_prompt_cost": 1.6166e-05,
+          "upstream_inference_completions_cost": 0.0001209
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 158,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "deepseek/deepseek-v4.1-flash",
+      "served_provider": "Wafer",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-01",
+      "language": "de",
+      "expected_category": "Achievement",
+      "category": "Achievement",
+      "category_matches": true,
+      "tags": [
+        "Kundenportal",
+        "Suchfunktion",
+        "Anforderungen",
+        "Lasttests",
+        "Fachbereich"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.693,
+      "cost_usd": 0.0003129,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Achievement\", \"tags\": [\"Kundenportal\", \"Suchfunktion\", \"Anforderungen\", \"Lasttests\", \"Fachbereich\"]}",
+      "usage": {
+        "prompt_tokens": 235,
+        "completion_tokens": 202,
+        "total_tokens": 437,
+        "cost": 0.0003129,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.0003129,
+          "upstream_inference_prompt_cost": 7.05e-05,
+          "upstream_inference_completions_cost": 0.0002424
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 166,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "deepseek/deepseek-v4.1-flash",
+      "served_provider": "Fireworks",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-02",
+      "language": "de",
+      "expected_category": "Achievement",
+      "category": "Achievement",
+      "category_matches": true,
+      "tags": [
+        "Datenabgleich",
+        "Fehlerbehebung",
+        "Stabilität",
+        "Nachtbatch"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.412,
+      "cost_usd": 7.2462e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Achievement\", \"tags\": [\"Datenabgleich\", \"Fehlerbehebung\", \"Stabilität\", \"Nachtbatch\"]}",
+      "usage": {
+        "prompt_tokens": 214,
+        "completion_tokens": 116,
+        "total_tokens": 330,
+        "cost": 7.2462e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 128,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 7.2462e-05,
+          "upstream_inference_prompt_cost": 6.69e-06,
+          "upstream_inference_completions_cost": 6.5772e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 70,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "deepseek/deepseek-v4.1-flash",
+      "served_provider": "Wafer",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-03",
+      "language": "de",
+      "expected_category": "Achievement",
+      "category": "Achievement",
+      "category_matches": true,
+      "tags": [
+        "Einarbeitung",
+        "Onboarding",
+        "Team",
+        "Organisation",
+        "Checkliste"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.003,
+      "cost_usd": 0.0001941,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Achievement\", \"tags\": [\"Einarbeitung\", \"Onboarding\", \"Team\", \"Organisation\", \"Checkliste\"]}",
+      "usage": {
+        "prompt_tokens": 211,
+        "completion_tokens": 109,
+        "total_tokens": 320,
+        "cost": 0.0001941,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.0001941,
+          "upstream_inference_prompt_cost": 6.33e-05,
+          "upstream_inference_completions_cost": 0.0001308
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 75,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "deepseek/deepseek-v4.1-flash",
+      "served_provider": "Together",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-04",
+      "language": "de",
+      "expected_category": "Learning",
+      "category": "Learning",
+      "category_matches": true,
+      "tags": [
+        "Barrierefreiheit",
+        "Webformulare",
+        "Screenreader",
+        "Fehlermeldungen",
+        "Workshop"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 3.237,
+      "cost_usd": 0.000144386,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Learning\", \"tags\": [\"Barrierefreiheit\", \"Webformulare\", \"Screenreader\", \"Fehlermeldungen\", \"Workshop\"]}",
+      "usage": {
+        "prompt_tokens": 223,
+        "completion_tokens": 192,
+        "total_tokens": 415,
+        "cost": 0.000144386,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 128,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.000144386,
+          "upstream_inference_prompt_cost": 1.9586e-05,
+          "upstream_inference_completions_cost": 0.0001248
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 159,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "deepseek/deepseek-v4.1-flash",
+      "served_provider": "Wafer",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-05",
+      "language": "de",
+      "expected_category": "Learning",
+      "category": "Learning",
+      "category_matches": true,
+      "tags": [
+        "Kubernetes",
+        "Deployments",
+        "Testcluster",
+        "Einführung"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 2.56,
+      "cost_usd": 0.000178815,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Learning\", \"tags\": [\"Kubernetes\", \"Deployments\", \"Testcluster\", \"Einführung\"]}",
+      "usage": {
+        "prompt_tokens": 237,
+        "completion_tokens": 170,
+        "total_tokens": 407,
+        "cost": 0.000178815,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.000178815,
+          "upstream_inference_prompt_cost": 4.6215e-05,
+          "upstream_inference_completions_cost": 0.0001326
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 139,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "deepseek/deepseek-v4.1-flash",
+      "served_provider": "Novita",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-06",
+      "language": "de",
+      "expected_category": "Learning",
+      "category": "Learning",
+      "category_matches": true,
+      "tags": [
+        "Schätzung",
+        "Abstimmung",
+        "Team-Kommunikation",
+        "Annahmen",
+        "Zeitplanung"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.243,
+      "cost_usd": 0.00015366,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Learning\", \"tags\": [\"Schätzung\", \"Abstimmung\", \"Team-Kommunikation\", \"Annahmen\", \"Zeitplanung\"]}",
+      "usage": {
+        "prompt_tokens": 216,
+        "completion_tokens": 169,
+        "total_tokens": 385,
+        "cost": 0.00015366,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.00015366,
+          "upstream_inference_prompt_cost": 4.212e-05,
+          "upstream_inference_completions_cost": 0.00011154
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 130,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "deepseek/deepseek-v4.1-flash",
+      "served_provider": "Cohere",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-07",
+      "language": "de",
+      "expected_category": "Feedback",
+      "category": "Feedback",
+      "category_matches": true,
+      "tags": [
+        "Code-Reviews",
+        "Kommunikation",
+        "Diskussionen",
+        "Halbjahresgespräch"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.105,
+      "cost_usd": 0.000126255,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Feedback\", \"tags\": [\"Code-Reviews\", \"Kommunikation\", \"Diskussionen\", \"Halbjahresgespräch\"]}",
+      "usage": {
+        "prompt_tokens": 221,
+        "completion_tokens": 126,
+        "total_tokens": 347,
+        "cost": 0.000126255,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.000126255,
+          "upstream_inference_prompt_cost": 4.3095e-05,
+          "upstream_inference_completions_cost": 8.316e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 90,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "deepseek/deepseek-v4.1-flash",
+      "served_provider": "Cohere",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-08",
+      "language": "de",
+      "expected_category": "Feedback",
+      "category": "Feedback",
+      "category_matches": true,
+      "tags": [
+        "Kundenschulung",
+        "Kundenfeedback",
+        "Schulung",
+        "Kundenbeziehung"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.994,
+      "cost_usd": 0.00010389,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Feedback\", \"tags\": [\"Kundenschulung\", \"Kundenfeedback\", \"Schulung\", \"Kundenbeziehung\"]}",
+      "usage": {
+        "prompt_tokens": 218,
+        "completion_tokens": 93,
+        "total_tokens": 311,
+        "cost": 0.00010389,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.00010389,
+          "upstream_inference_prompt_cost": 4.251e-05,
+          "upstream_inference_completions_cost": 6.138e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 58,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "deepseek/deepseek-v4.1-flash",
+      "served_provider": "Cohere",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-09",
+      "language": "de",
+      "expected_category": "Feedback",
+      "category": "Feedback",
+      "category_matches": true,
+      "tags": [
+        "Retrospektive",
+        "Dokumentation",
+        "Entscheidungen",
+        "Kommunikation",
+        "Tickets"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 0.878,
+      "cost_usd": 4.8081e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Feedback\", \"tags\": [\"Retrospektive\", \"Dokumentation\", \"Entscheidungen\", \"Kommunikation\", \"Tickets\"]}",
+      "usage": {
+        "prompt_tokens": 214,
+        "completion_tokens": 73,
+        "total_tokens": 287,
+        "cost": 4.8081e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 128,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 4.8081e-05,
+          "upstream_inference_prompt_cost": 6.69e-06,
+          "upstream_inference_completions_cost": 4.1391e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 39,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "deepseek/deepseek-v4.1-flash",
+      "served_provider": "Wafer",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-10",
+      "language": "de",
+      "expected_category": "Side project",
+      "category": "Side project",
+      "category_matches": true,
+      "tags": [
+        "Web-App",
+        "Gemeinschaftsgarten",
+        "Gießplan",
+        "Freizeitprojekt"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 2.34,
+      "cost_usd": 0.00013429,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Side project\", \"tags\": [\"Web-App\", \"Gemeinschaftsgarten\", \"Gießplan\", \"Freizeitprojekt\"]}",
+      "usage": {
+        "prompt_tokens": 233,
+        "completion_tokens": 160,
+        "total_tokens": 393,
+        "cost": 0.00013429,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.00013429,
+          "upstream_inference_prompt_cost": 3.029e-05,
+          "upstream_inference_completions_cost": 0.000104
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 127,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "deepseek/deepseek-v4.1-flash",
+      "served_provider": "CoreWeave",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-11",
+      "language": "de",
+      "expected_category": "Side project",
+      "category": "Side project",
+      "category_matches": true,
+      "tags": [
+        "Einplatinenrechner",
+        "Wetterstation",
+        "Messwerte",
+        "Browser-Übersicht",
+        "Bastelprojekt"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 2.639,
+      "cost_usd": 0.00045,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\":\"Side project\",\"tags\":[\"Einplatinenrechner\",\"Wetterstation\",\"Messwerte\",\"Browser-Übersicht\",\"Bastelprojekt\"]}",
+      "usage": {
+        "prompt_tokens": 212,
+        "completion_tokens": 197,
+        "total_tokens": 409,
+        "cost": 0.00045,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.00045,
+          "upstream_inference_prompt_cost": 9.54e-05,
+          "upstream_inference_completions_cost": 0.0003546
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 159,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "deepseek/deepseek-v4.1-flash",
+      "served_provider": "Parasail",
+      "review": {
+        "tags_in_input_language": true
+      }
+    },
+    {
+      "entry_id": "de-12",
+      "language": "de",
+      "expected_category": "Side project",
+      "category": "Side project",
+      "category_matches": true,
+      "tags": [
+        "Ehrenamt",
+        "Webseite",
+        "Sportverein",
+        "Schulung",
+        "Mitglieder"
+      ],
+      "valid_json_first_try": true,
+      "error": null,
+      "seconds": 1.418,
+      "cost_usd": 7.9782e-05,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "content": "{\"category\": \"Side project\", \"tags\": [\"Ehrenamt\", \"Webseite\", \"Sportverein\", \"Schulung\", \"Mitglieder\"]}",
+      "usage": {
+        "prompt_tokens": 213,
+        "completion_tokens": 129,
+        "total_tokens": 342,
+        "cost": 7.9782e-05,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 128,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 7.9782e-05,
+          "upstream_inference_prompt_cost": 6.639e-06,
+          "upstream_inference_completions_cost": 7.3143e-05
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 93,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "deepseek/deepseek-v4.1-flash",
+      "served_provider": "Wafer",
+      "review": {
+        "tags_in_input_language": true
+      }
+    }
+  ],
+  "summaries": [
+    {
+      "case_id": "sum-en-all",
+      "expected_language": "en",
+      "entry_count": 12,
+      "summary": "**Performance Review Summary — July–September 2026**\n\n**Overview**\nBetween July and September 2026, I delivered improvements in billing, CI, and mobile app support; completed learning activities; received feedback from my manager, a sales colleague, and leadership; and worked on side projects. This summary is based on my work diary entries from that period.\n\n**Achievements and impact**\n- **Invoice export for billing team (Jul 3):** Shipped the new invoice export two days before the deadline. I split the work into three small releases so each one could be tested on its own. Result: Finance closes the month about a day faster because nobody copies invoices by hand any more.\n- **CI pipeline migration (Jul 10):** Led the move of our test pipeline from the old build server to the new CI service. I wrote the runbook and paired with two teammates so they can maintain it without me. Result: a full pipeline run now takes 12 minutes instead of 40.\n- **Mobile app support backlog (Jul 24):** Cleared the support backlog by triaging 85 open tickets, fixing the five most common crashes, and writing help articles for the remaining questions. Result: open tickets went down from 85 to 9 in three weeks.\n\n**Learning and development**\n- **SQL query plans (Jul 14):** Finished an online course on SQL query plans. I now read the EXPLAIN output before adding an index instead of guessing which one will help.\n- **User research (Aug 4):** Sat in on three customer interviews run by the research team. I learned how to ask open questions without leading the person towards the answer I expect.\n- **Feature flags (Aug 19):** Worked out how our feature flag service decides who sees a feature by reading its code and design notes, then explained it to the team in a 20-minute walkthrough. Result: two teammates have since set up their own flags without asking for help.\n\n**Feedback received**\n- **Manager one-to-one (Jul 17):** My manager said my design reviews are thorough, but that I should share drafts earlier so others can comment before the details are fixed.\n- **Sales colleague (Aug 7):** A colleague from the sales team thanked me for the clear release notes and told me that customers asked far fewer questions after the last update.\n- **Leadership demo (Aug 28):** Feedback on my first demo for the leadership team: the content was strong, but I spoke too fast and skipped the slide with the key numbers.\n\n**Side projects**\n- **Running club app (Jul 26):** In my free time I built a small app that reminds my running club about upcoming races. It reads a shared calendar and sends one summary email a week.\n- **Open-source CSV library (Aug 15):** Started contributing to an open-source library for reading CSV files in my spare time. I fixed a bug with line breaks inside quoted values and added tests for it. Result: the maintainers merged the fix into the next release.\n- **Board game (Sep 6):** Designed a board game about planning a small town with two friends on weekends. We printed a first version and tried it out at a local game night.\n\n**Themes to discuss in the review**\n- Delivering ahead of schedule and breaking work into testable releases.\n- Improving processes and reducing manual work or time.\n- Reducing support load through triage, fixes, and documentation.\n- Learning new topics and then sharing knowledge so teammates can work independently.\n- Feedback to address: sharing design drafts earlier and improving presentation pacing.\n- Applying skills in side projects and open source.",
+      "summary_characters": 3507,
+      "error": null,
+      "seconds": 20.711,
+      "cost_usd": 0.00114114,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "usage": {
+        "prompt_tokens": 1038,
+        "completion_tokens": 2371,
+        "total_tokens": 3409,
+        "cost": 0.00114114,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.00114114,
+          "upstream_inference_prompt_cost": 0.00014532,
+          "upstream_inference_completions_cost": 0.00099582
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 1620,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "deepseek/deepseek-v4.1-flash",
+      "served_provider": "DeepInfra",
+      "review": {
+        "in_input_language": true,
+        "quality": 5,
+        "notes": "All 12 entries, close to the input wording, facts match, useful themes section."
+      }
+    },
+    {
+      "case_id": "sum-de-all",
+      "expected_language": "de",
+      "entry_count": 12,
+      "summary": "**Zusammenfassung für Leistungsbeurteilung / Mitarbeitergespräch**  \n*Basis: Tagebucheinträge vom 02.07.2026 bis 05.09.2026*\n\n**Kurzfassung**  \nIm erfassten Zeitraum habe ich die neue Suchfunktion für das Kundenportal pünktlich ausgeliefert, einen fehlerhaften nächtlichen Datenabgleich behoben und die Einarbeitung von drei neuen Kolleginnen organisiert. Ich habe mich in barrierefreien Webformularen und Kubernetes weitergebildet, Feedback zu Code-Reviews, Gesprächsbeteiligung und Dokumentation erhalten und in Nebenprojekten eine Garten-App, eine Wetterstation sowie ehrenamtlich eine Vereinswebseite umgesetzt.\n\n**1. Erreichte Ergebnisse und Beiträge**\n- **02.07.2026 – Kundenportal-Suche:** Die neue Suchfunktion für das Kundenportal pünktlich ausgeliefert. Ich habe die Anforderungen mit dem Fachbereich geklärt und die Lasttests selbst vorbereitet. Wirkung: Eine Suche dauert im Durchschnitt unter einer Sekunde statt vorher vier Sekunden.\n- **21.07.2026 – Datenabgleich:** Einen fehlerhaften nächtlichen Datenabgleich analysiert und behoben. Seit der Korrektur ist der Abgleich drei Wochen lang ohne einen einzigen Abbruch gelaufen. Wirkung: Das Controlling bekommt die Zahlen wieder jeden Morgen um 7 Uhr.\n- **11.08.2026 – Einarbeitung:** Die Einarbeitung von drei neuen Kolleginnen organisiert: einen Einarbeitungsplan geschrieben, Patenschaften verteilt und eine Checkliste für den ersten Arbeitstag erstellt. Wirkung: Alle drei haben nach zwei Wochen eigene Aufgaben übernommen.\n\n**2. Lernen und Entwicklung**\n- **08.07.2026 – Barrierefreiheit:** Einen Workshop zu barrierefreien Webformularen besucht. Jetzt weiß ich, wie man Fehlermeldungen so mit den Eingabefeldern verknüpft, dass Screenreader sie vorlesen.\n- **29.07.2026 – Kubernetes:** Mich in Kubernetes eingearbeitet: die offizielle Einführung durchgearbeitet und auf meinem Rechner einen kleinen Testcluster aufgesetzt, um Deployments auszuprobieren.\n- **25.08.2026 – Planung:** Aus einer zu knappen Schätzung gelernt: Ich plane jetzt Zeit für Abstimmungen mit anderen Teams ein und schreibe meine Annahmen auf, bevor ich einen Termin zusage.\n\n**3. Feedback und Zusammenarbeit**\n- **15.07.2026 – Halbjahresgespräch:** Meine Teamleiterin hat mir gesagt, dass meine Code-Reviews sehr hilfreich sind, ich in Diskussionen aber öfter andere zuerst zu Wort kommen lassen sollte.\n- **05.08.2026 – Kundenschulung:** Ein Kunde hat sich nach unserer gemeinsamen Schulung per E-Mail für die geduldigen Erklärungen bedankt und gefragt, ob wir im Herbst eine zweite Schulung anbieten.\n- **01.09.2026 – Retrospektive:** Rückmeldung aus der Retrospektive: Das Team wünscht sich, dass ich wichtige Entscheidungen im Ticket festhalte und nicht nur im Chat bespreche.\n\n**4. Nebenprojekte und Ehrenamt**\n- **19.07.2026 – Gemeinschaftsgarten:** In meiner Freizeit eine kleine Web-App für unseren Gemeinschaftsgarten gebaut, mit der wir planen, wer an welchem Tag die Beete gießt. Wirkung: Im August ist kein einziger Gießtermin ausgefallen.\n- **16.08.2026 – Wetterstation:** Am Wochenende einen Einplatinenrechner als Wetterstation auf dem Balkon eingerichtet. Die Messwerte landen in einer selbst gebauten Übersicht im Browser.\n- **05.09.2026 – Sportverein:** Ehrenamtlich die Webseite eines kleinen Sportvereins neu gestaltet und den Mitgliedern in einem Abendtermin gezeigt, wie sie Trainingszeiten selbst eintragen.\n\n**Mögliche Formulierungen für das Gespräch**\n- „Ich habe die neue Suchfunktion für das Kundenportal pünktlich ausgeliefert; die durchschnittliche Suchdauer liegt jetzt unter einer Sekunde statt vorher vier Sekunden.“\n- „Ich habe den fehlerhaften nächtlichen Datenabgleich behoben; seit der Korrektur läuft er drei Wochen ohne Abbruch, und das Controlling erhält die Zahlen wieder jeden Morgen um 7 Uhr.“\n- „Ich habe die Einarbeitung von drei neuen Kolleginnen organisiert; alle drei haben nach zwei Wochen eigene Aufgaben übernommen.“\n- „Ich habe meine Kenntnisse zu barrierefreien Webformularen und Kubernetes erweitert.“\n- „Ich habe aus einer zu knappen Schätzung gelernt und plane jetzt Abstimmungszeit ein und dokumentiere meine Annahmen vor Terminzusagen.“\n- „Ich nehme das Feedback meiner Teamleiterin zu Code-Reviews und Gesprächsbeteiligung sowie den Retrowunsch nach Entscheidungen im Ticket als Entwicklungsfelder auf.“\n- „Ein Kunde hat sich für geduldige Erklärungen bedankt und nach einer zweiten Schulung im Herbst gefragt.“\n- „Nebenprojekte/ehrenamtlich: Ich habe eine Garten-App gebaut, eine Wetterstation eingerichtet und die Webseite eines Sportvereins neu gestaltet.“\n\n**Mögliche Entwicklungsfelder für den nächsten Zeitraum**\n- In Diskussionen öfter andere zuerst zu Wort kommen lassen (Feedback vom 15.07.2026).\n- Wichtige Entscheidungen im Ticket festhalten statt nur im Chat (Feedback vom 01.09.2026).\n- Schätzungen mit Abstimmungszeit und schriftlichen Annahmen absichern (Learning vom 25.08.2026).",
+      "summary_characters": 4895,
+      "error": null,
+      "seconds": 20.025,
+      "cost_usd": 0.0055212,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "usage": {
+        "prompt_tokens": 1168,
+        "completion_tokens": 4309,
+        "total_tokens": 5477,
+        "cost": 0.0055212,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.0055212,
+          "upstream_inference_prompt_cost": 0.0003504,
+          "upstream_inference_completions_cost": 0.0051708
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 2966,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "deepseek/deepseek-v4.1-flash",
+      "served_provider": "Parasail",
+      "review": {
+        "in_input_language": true,
+        "quality": 4,
+        "notes": "All 12 entries, facts match, but long and repetitive: the 'Mögliche Formulierungen' section repeats the bullets above."
+      }
+    },
+    {
+      "case_id": "sum-mostly-en",
+      "expected_language": "en",
+      "entry_count": 8,
+      "summary": "## Performance Review Summary — July to August 2026\n\nThis summary is based on my work diary entries. It covers achievements, learning, feedback, and a side project.\n\n### Key achievements and impact\n\n- **Invoice export for billing team — 3 Jul 2026**\n  - Shipped the new invoice export two days before the deadline.\n  - Split the work into three small releases so each one could be tested on its own.\n  - **Impact:** Finance closes the month about a day faster because nobody copies invoices by hand any more.\n\n- **CI migration — 10 Jul 2026**\n  - Led the move of our test pipeline from the old build server to the new CI service.\n  - Wrote the runbook and paired with two teammates so they can maintain it without me.\n  - **Impact:** A full pipeline run now takes 12 minutes instead of 40.\n\n- **Mobile app support backlog — 24 Jul 2026**\n  - Cleared the support backlog for the mobile app: triaged 85 open tickets, fixed the five most common crashes, and wrote help articles for the remaining questions.\n  - **Impact:** Open tickets went down from 85 to 9 in three weeks.\n\n- **Onboarding for new colleagues — 11 Aug 2026**\n  - Organized the onboarding of three new colleagues: wrote an onboarding plan, assigned buddies, and created a checklist for the first workday.\n  - **Impact:** All three took on their own tasks after two weeks.\n\n### Learning and development\n\n- **SQL query plans — 14 Jul 2026**\n  - Finished an online course on SQL query plans.\n  - I now read the EXPLAIN output before adding an index instead of guessing which one will help.\n\n### Feedback received\n\n- **Design reviews — 17 Jul 2026**\n  - My manager said in our one-to-one that my design reviews are thorough, but that I should share drafts earlier so others can comment before the details are fixed.\n\n- **Code reviews — 15 Jul 2026**\n  - My team lead said in the half-year review that my code reviews are very helpful, but that I should let others speak first more often in discussions.\n\n### Side project\n\n- **Running club reminder app — 26 Jul 2026**\n  - In my free time I built a small app that reminds my running club about upcoming races.\n  - It reads a shared calendar and sends one summary email a week.\n\n### Suggested summary themes to highlight in the review\n\n- Delivery: shipped invoice export ahead of deadline.\n- Reliability and efficiency: moved CI pipeline and reduced run time from 40 to 12 minutes.\n- Support and customer impact: reduced mobile app open tickets from 85 to 9.\n- Team development: onboarded three new colleagues and enabled them to take on own tasks.\n- Continuous learning: completed SQL query plans course and applied it to indexing decisions.\n- Communication growth areas: share design drafts earlier; let others speak first more often in discussions.",
+      "summary_characters": 2758,
+      "error": null,
+      "seconds": 17.596,
+      "cost_usd": 0.0021788,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "usage": {
+        "prompt_tokens": 790,
+        "completion_tokens": 3194,
+        "total_tokens": 3984,
+        "cost": 0.0021788,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.0021788,
+          "upstream_inference_prompt_cost": 0.0001027,
+          "upstream_inference_completions_cost": 0.0020761
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 2577,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "deepseek/deepseek-v4.1-flash",
+      "served_provider": "CoreWeave",
+      "review": {
+        "in_input_language": true,
+        "quality": 5,
+        "notes": "All 8 entries, the two German ones translated correctly, facts match."
+      }
+    },
+    {
+      "case_id": "sum-mostly-de",
+      "expected_language": "de",
+      "entry_count": 8,
+      "summary": "Leistungszusammenfassung – Zeitraum 02.07.2026–28.08.2026\n\nErgebnisse und Wirkung\n- 02.07.2026 (Kundenportal, Suche): Ich habe die neue Suchfunktion für das Kundenportal pünktlich ausgeliefert. Ich habe die Anforderungen mit dem Fachbereich geklärt und die Lasttests selbst vorbereitet. Ergebnis: Eine Suche dauert im Durchschnitt unter einer Sekunde statt vorher vier Sekunden.\n- 21.07.2026 (Datenabgleich): Ich habe einen fehlerhaften nächtlichen Datenabgleich analysiert und behoben. Seit der Korrektur ist der Abgleich drei Wochen lang ohne einen einzigen Abbruch gelaufen. Ergebnis: Das Controlling bekommt die Zahlen wieder jeden Morgen um 7 Uhr.\n- 10.07.2026 (CI, Migration): Ich habe die Verlagerung unserer Test-Pipeline vom alten Build-Server zum neuen CI-Dienst geleitet. Ich habe das Runbook geschrieben und mit zwei Teammitgliedern im Pairing gearbeitet, damit sie die Pipeline ohne mich warten können. Ergebnis: Ein vollständiger Pipeline-Lauf dauert jetzt 12 Minuten statt 40.\n\nLernen und Weiterentwicklung\n- 08.07.2026 (Barrierefreiheit): Ich habe einen Workshop zu barrierefreien Webformularen besucht. Ich weiß jetzt, wie man Fehlermeldungen so mit den Eingabefeldern verknüpft, dass Screenreader sie vorlesen.\n- 25.08.2026 (Planung): Ich habe aus einer zu knappen Schätzung gelernt. Ich plane jetzt Zeit für Abstimmungen mit anderen Teams ein und schreibe meine Annahmen auf, bevor ich einen Termin zusage.\n\nFeedback und Zusammenarbeit\n- 05.08.2026 (Kundenschulung): Ein Kunde hat sich nach unserer gemeinsamen Schulung per E-Mail für die geduldigen Erklärungen bedankt und gefragt, ob wir im Herbst eine zweite Schulung anbieten.\n- 28.08.2026 (Präsentation): Feedback zu meiner ersten Demo für das Führungsteam: Der Inhalt war stark, aber ich habe zu schnell gesprochen und die Folie mit den wichtigsten Zahlen übersprungen.\n\nWeiterer Beitrag\n- 19.07.2026 (Gemeinschaftsgarten, Nebenprojekt): In meiner Freizeit habe ich eine kleine Web-App für unseren Gemeinschaftsgarten gebaut, mit der wir planen, wer an welchem Tag die Beete gießt. Ergebnis: Im August ist kein einziger Gießtermin ausgefallen.\n\nMögliche Gesprächspunkte für das Leistungsgespräch\n- Pünktliche Lieferung der Kundenportal-Suche mit Anforderungsklärung und selbst vorbereiteten Lasttests; messbare Verbesserung der Suchdauer.\n- Behebung des Datenabgleichs mit drei Wochen ohne Abbruch und verlässlicher Bereitstellung für das Controlling um 7 Uhr.\n- CI-Migration mit Runbook und Wissenstransfer an zwei Teammitglieder; deutlich kürzere Pipeline-Laufzeit.\n- Kundenfeedback zur Schulung mit Interesse an einer zweiten Schulung im Herbst.\n- Feedback zur ersten Führungsdemo: Inhalt stark, aber Sprechtempo und Präsentation der wichtigsten Zahlen als Hinweise.\n- Lernen zu Barrierefreiheit sowie verbesserter Planung und Annahmenkommunikation.\n- Privates Nebenprojekt mit positiver Wirkung: kein ausgefallener Gießtermin im August.",
+      "summary_characters": 2915,
+      "error": null,
+      "seconds": 33.72,
+      "cost_usd": 0.00299882,
+      "cost_source": "OpenRouter usage.cost",
+      "status": 200,
+      "usage": {
+        "prompt_tokens": 823,
+        "completion_tokens": 4373,
+        "total_tokens": 5196,
+        "cost": 0.00299882,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.00299882,
+          "upstream_inference_prompt_cost": 0.00015637,
+          "upstream_inference_completions_cost": 0.00284245
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 3417,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "served_model": "deepseek/deepseek-v4.1-flash",
+      "served_provider": "Wafer",
+      "review": {
+        "in_input_language": true,
+        "quality": 5,
+        "notes": "All 8 entries, the two English ones translated correctly, facts match."
+      }
+    }
+  ],
+  "review_by": "Engineer agent (Claude, AI), not the product owner, on 2026-11-09, against the rules and rubric in docs/decisions/default-model.md."
+}

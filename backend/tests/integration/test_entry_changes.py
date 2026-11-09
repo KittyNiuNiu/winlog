@@ -553,6 +553,7 @@ def test_fr_e4_failed_update_keeps_the_old_entry_its_tags_and_creates_no_tag(
         _env_file=None,
         database_url=test_database_url,
         cors_allowed_origins=["http://localhost:5173"],
+        ai_provider="mock",
     )
     client = TestClient(create_app(settings), raise_server_exceptions=False)
     caplog.set_level(logging.DEBUG)

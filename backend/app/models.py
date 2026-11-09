@@ -173,3 +173,17 @@ class AiUsage(Base):
     day: Mapped[dt.date] = mapped_column(Date, primary_key=True)
     request_type: Mapped[str] = mapped_column(Text, primary_key=True)
     request_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+
+
+class AiUsageGlobal(Base):
+    """The day's AI requests across all users: the global cap (issue #15, §8).
+
+    One row per UTC day. It has no user id and no other personal data, so deleting an
+    account does not lower the day's count.
+    """
+
+    __tablename__ = "ai_usage_global"
+    __table_args__ = (CheckConstraint("request_count >= 0", name="request_count"),)
+
+    day: Mapped[dt.date] = mapped_column(Date, primary_key=True)
+    request_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")

@@ -5,9 +5,10 @@ Real environment variables take precedence over the file, and a missing file is 
 """
 
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
-from pydantic import Field, SecretStr, ValidationError, field_validator
+from pydantic import Field, SecretStr, ValidationError, ValidationInfo, field_validator
+from pydantic_core import PydanticCustomError
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
@@ -15,6 +16,17 @@ ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 
 class SettingsError(RuntimeError):
     """The configuration is missing or invalid. The message names the variables."""
+
+
+# The AI providers AI_PROVIDER can select (issues #12 and #13). app/ai/factory.py has one
+# provider for each name, and a unit test checks that the two lists match.
+AIProviderName = Literal["mock", "openai-compatible"]
+
+# The provider that calls a real LLM through an OpenAI-compatible chat API (issue #13).
+OPENAI_COMPATIBLE = "openai-compatible"
+
+# The error type for a variable that the selected AI provider needs but that is not set.
+_MISSING_FOR_AI_PROVIDER = "missing_for_ai_provider"
 
 
 class Settings(BaseSettings):
@@ -32,6 +44,23 @@ class Settings(BaseSettings):
     database_connect_timeout_seconds: int = Field(default=3, ge=2, le=60)
     # Days a login token works before it expires (FR-A2).
     token_lifetime_days: int = Field(default=7, ge=1, le=365)
+    # The AI provider (product-spec.md §8). Required with no default, so the app never uses a
+    # real or a fake AI by accident.
+    ai_provider: AIProviderName
+    # The OpenAI-compatible provider (issue #13). Required when AI_PROVIDER selects it, and
+    # ignored otherwise. They come after ai_provider, so their validator can read it.
+    ai_base_url: str | None = Field(default=None, validate_default=True)
+    ai_api_key: SecretStr | None = Field(default=None, validate_default=True)
+    ai_model: str | None = Field(default=None, validate_default=True)
+    # Seconds the OpenAI-compatible provider waits for an answer before it gives up.
+    ai_suggestion_timeout_seconds: int = Field(default=15, ge=1, le=600)
+    ai_summary_timeout_seconds: int = Field(default=60, ge=1, le=600)
+    # Daily AI limits (product-spec.md §8, issue #15). A day runs from 00:00 to 24:00 UTC.
+    # Whole numbers of 0 or more; 0 blocks that kind of request.
+    ai_daily_suggestions_per_user: int = 10
+    ai_daily_summaries_per_user: int = 2
+    # Suggestions and summaries of all users together.
+    ai_daily_requests_global: int = 100
 
     @field_validator("database_url")
     @classmethod
@@ -39,6 +68,49 @@ class Settings(BaseSettings):
         if not value.get_secret_value().strip():
             raise ValueError("must not be empty")
         return value
+
+    @field_validator("ai_base_url", "ai_api_key", "ai_model")
+    @classmethod
+    def _required_by_ai_provider(
+        cls, value: str | SecretStr | None, info: ValidationInfo
+    ) -> str | SecretStr | None:
+        text = value.get_secret_value() if isinstance(value, SecretStr) else value
+        if text is None or not text.strip():
+            # An empty value, as in `AI_API_KEY=` in .env, counts as not set.
+            if info.data.get("ai_provider") == OPENAI_COMPATIBLE:
+                raise PydanticCustomError(
+                    _MISSING_FOR_AI_PROVIDER, "required by the selected AI provider"
+                )
+            return None
+        if isinstance(value, str):
+            value = value.strip()
+        return value
+
+    @field_validator("ai_base_url")
+    @classmethod
+    def _check_ai_base_url(cls, value: str | None) -> str | None:
+        if value is not None and not value.startswith(("http://", "https://")):
+            raise ValueError("must start with http:// or https://")
+        return value
+
+    @field_validator(
+        "ai_daily_suggestions_per_user",
+        "ai_daily_summaries_per_user",
+        "ai_daily_requests_global",
+        mode="before",
+    )
+    @classmethod
+    def _check_daily_limit(cls, value: object) -> int:
+        # Stricter than pydantic's int parsing, which also accepts "1.0", "+5" and "1_000".
+        if isinstance(value, int) and not isinstance(value, bool):
+            number = value
+        elif isinstance(value, str) and value.strip().isascii() and value.strip().isdigit():
+            number = int(value.strip())
+        else:
+            raise ValueError("must be a whole number of 0 or more")
+        if number < 0:
+            raise ValueError("must be a whole number of 0 or more")
+        return number
 
     @field_validator("cors_allowed_origins", mode="before")
     @classmethod
@@ -73,6 +145,10 @@ def load_settings() -> Settings:
             name = str(item["loc"][0]).upper() if item["loc"] else "UNKNOWN"
             if item["type"] == "missing":
                 problems.append(f"{name} is required but not set")
+            elif item["type"] == _MISSING_FOR_AI_PROVIDER:
+                problems.append(
+                    f"{name} is required when AI_PROVIDER is '{OPENAI_COMPATIBLE}' but not set"
+                )
             else:
                 problems.append(f"{name} is invalid: {item['msg']}")
         message = "Invalid configuration: " + "; ".join(problems) + ". See .env.example."

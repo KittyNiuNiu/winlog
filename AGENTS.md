@@ -20,6 +20,7 @@ Sources of truth (read them before starting any task):
 - Keep changes small and focused on the task. Do not refactor unrelated code.
 - A task is done only when lint and all tests pass.
 - If you are unsure how a library works, check its documentation instead of guessing.
+- No real AI calls without the product owner's explicit approval in that session. Real AI calls cost money. This covers tests, scripts, live checks and running the app with a real provider (anything other than `AI_PROVIDER=mock`). If a task needs one, stop and ask first, with the reason and an estimated cost.
 - After each task, add an entry to `docs/ai-workflow.md` with the date, the task, what you did, how you verified it, and anything left open.
 - Follow the process in docs/process.md
 

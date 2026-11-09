@@ -1,0 +1,247 @@
+{
+  "description": "Fixed test set for the default-model comparison (issue #14). Every entry is made up: no real people, companies, customers or personal data. 12 entries in English and 12 in German, three per category in each language.",
+  "languages": {
+    "en": "English",
+    "de": "German"
+  },
+  "entries": [
+    {
+      "id": "en-01",
+      "language": "en",
+      "expected_category": "Achievement",
+      "date": "2026-07-03",
+      "text": "Shipped the new invoice export for the billing team two days before the deadline. I split the work into three small releases so that each one could be tested on its own.",
+      "result_impact": "Finance closes the month about a day faster because nobody copies invoices by hand any more.",
+      "tags": ["Billing", "Release"]
+    },
+    {
+      "id": "en-02",
+      "language": "en",
+      "expected_category": "Achievement",
+      "date": "2026-07-10",
+      "text": "Led the move of our test pipeline from the old build server to the new CI service. I wrote the runbook and paired with two teammates so that they can maintain it without me.",
+      "result_impact": "A full pipeline run now takes 12 minutes instead of 40.",
+      "tags": ["CI", "Migration"]
+    },
+    {
+      "id": "en-03",
+      "language": "en",
+      "expected_category": "Achievement",
+      "date": "2026-07-24",
+      "text": "Cleared the support backlog for the mobile app: triaged 85 open tickets, fixed the five most common crashes and wrote help articles for the remaining questions.",
+      "result_impact": "Open tickets went down from 85 to 9 in three weeks.",
+      "tags": ["Mobile app", "Support"]
+    },
+    {
+      "id": "en-04",
+      "language": "en",
+      "expected_category": "Learning",
+      "date": "2026-07-14",
+      "text": "Finished an online course on SQL query plans. I now read the EXPLAIN output before adding an index instead of guessing which one will help.",
+      "result_impact": null,
+      "tags": ["SQL", "Databases"]
+    },
+    {
+      "id": "en-05",
+      "language": "en",
+      "expected_category": "Learning",
+      "date": "2026-08-04",
+      "text": "Sat in on three customer interviews run by the research team and learned how to ask open questions without leading the person towards the answer I expect.",
+      "result_impact": null,
+      "tags": ["User research"]
+    },
+    {
+      "id": "en-06",
+      "language": "en",
+      "expected_category": "Learning",
+      "date": "2026-08-19",
+      "text": "Worked out how our feature flag service decides who sees a feature by reading its code and design notes, then explained it to the team in a 20-minute walkthrough.",
+      "result_impact": "Two teammates have since set up their own flags without asking for help.",
+      "tags": ["Feature flags"]
+    },
+    {
+      "id": "en-07",
+      "language": "en",
+      "expected_category": "Feedback",
+      "date": "2026-07-17",
+      "text": "My manager said in our one-to-one that my design reviews are thorough, but that I should share drafts earlier so that others can comment before the details are fixed.",
+      "result_impact": null,
+      "tags": ["Design reviews", "Communication"]
+    },
+    {
+      "id": "en-08",
+      "language": "en",
+      "expected_category": "Feedback",
+      "date": "2026-08-07",
+      "text": "A colleague from the sales team thanked me for the clear release notes and told me that customers asked far fewer questions after the last update.",
+      "result_impact": null,
+      "tags": ["Release notes"]
+    },
+    {
+      "id": "en-09",
+      "language": "en",
+      "expected_category": "Feedback",
+      "date": "2026-08-28",
+      "text": "Got feedback on my first demo for the leadership team: the content was strong, but I spoke too fast and skipped the slide with the key numbers.",
+      "result_impact": null,
+      "tags": ["Presenting"]
+    },
+    {
+      "id": "en-10",
+      "language": "en",
+      "expected_category": "Side project",
+      "date": "2026-07-26",
+      "text": "In my free time I built a small app that reminds my running club about upcoming races. It reads a shared calendar and sends one summary email a week.",
+      "result_impact": null,
+      "tags": ["Running club", "Python"]
+    },
+    {
+      "id": "en-11",
+      "language": "en",
+      "expected_category": "Side project",
+      "date": "2026-08-15",
+      "text": "Started contributing to an open-source library for reading CSV files in my spare time: fixed a bug with line breaks inside quoted values and added tests for it.",
+      "result_impact": "The maintainers merged the fix into the next release.",
+      "tags": ["Open source", "CSV"]
+    },
+    {
+      "id": "en-12",
+      "language": "en",
+      "expected_category": "Side project",
+      "date": "2026-09-06",
+      "text": "Designed a board game about planning a small town with two friends on weekends. We printed a first version and tried it out at a local game night.",
+      "result_impact": null,
+      "tags": ["Board game"]
+    },
+    {
+      "id": "de-01",
+      "language": "de",
+      "expected_category": "Achievement",
+      "date": "2026-07-02",
+      "text": "Die neue Suchfunktion für das Kundenportal pünktlich ausgeliefert. Ich habe die Anforderungen mit dem Fachbereich geklärt und die Lasttests selbst vorbereitet.",
+      "result_impact": "Eine Suche dauert im Durchschnitt unter einer Sekunde statt vorher vier Sekunden.",
+      "tags": ["Kundenportal", "Suche"]
+    },
+    {
+      "id": "de-02",
+      "language": "de",
+      "expected_category": "Achievement",
+      "date": "2026-07-21",
+      "text": "Einen fehlerhaften nächtlichen Datenabgleich analysiert und behoben. Seit der Korrektur ist der Abgleich drei Wochen lang ohne einen einzigen Abbruch gelaufen.",
+      "result_impact": "Das Controlling bekommt die Zahlen wieder jeden Morgen um 7 Uhr.",
+      "tags": ["Datenabgleich"]
+    },
+    {
+      "id": "de-03",
+      "language": "de",
+      "expected_category": "Achievement",
+      "date": "2026-08-11",
+      "text": "Die Einarbeitung von drei neuen Kolleginnen organisiert: einen Einarbeitungsplan geschrieben, Patenschaften verteilt und eine Checkliste für den ersten Arbeitstag erstellt.",
+      "result_impact": "Alle drei haben nach zwei Wochen eigene Aufgaben übernommen.",
+      "tags": ["Einarbeitung", "Team"]
+    },
+    {
+      "id": "de-04",
+      "language": "de",
+      "expected_category": "Learning",
+      "date": "2026-07-08",
+      "text": "Einen Workshop zu barrierefreien Webformularen besucht. Jetzt weiß ich, wie man Fehlermeldungen so mit den Eingabefeldern verknüpft, dass Screenreader sie vorlesen.",
+      "result_impact": null,
+      "tags": ["Barrierefreiheit"]
+    },
+    {
+      "id": "de-05",
+      "language": "de",
+      "expected_category": "Learning",
+      "date": "2026-07-29",
+      "text": "Mich in Kubernetes eingearbeitet: die offizielle Einführung durchgearbeitet und auf meinem Rechner einen kleinen Testcluster aufgesetzt, um Deployments auszuprobieren.",
+      "result_impact": null,
+      "tags": ["Kubernetes"]
+    },
+    {
+      "id": "de-06",
+      "language": "de",
+      "expected_category": "Learning",
+      "date": "2026-08-25",
+      "text": "Aus einer zu knappen Schätzung gelernt: Ich plane jetzt Zeit für Abstimmungen mit anderen Teams ein und schreibe meine Annahmen auf, bevor ich einen Termin zusage.",
+      "result_impact": null,
+      "tags": ["Planung"]
+    },
+    {
+      "id": "de-07",
+      "language": "de",
+      "expected_category": "Feedback",
+      "date": "2026-07-15",
+      "text": "Meine Teamleiterin hat mir im Halbjahresgespräch gesagt, dass meine Code-Reviews sehr hilfreich sind, ich in Diskussionen aber öfter andere zuerst zu Wort kommen lassen sollte.",
+      "result_impact": null,
+      "tags": ["Code-Reviews", "Kommunikation"]
+    },
+    {
+      "id": "de-08",
+      "language": "de",
+      "expected_category": "Feedback",
+      "date": "2026-08-05",
+      "text": "Ein Kunde hat sich nach unserer gemeinsamen Schulung per E-Mail für die geduldigen Erklärungen bedankt und gefragt, ob wir im Herbst eine zweite Schulung anbieten.",
+      "result_impact": null,
+      "tags": ["Kundenschulung"]
+    },
+    {
+      "id": "de-09",
+      "language": "de",
+      "expected_category": "Feedback",
+      "date": "2026-09-01",
+      "text": "Rückmeldung aus der Retrospektive: Das Team wünscht sich, dass ich wichtige Entscheidungen im Ticket festhalte und nicht nur im Chat bespreche.",
+      "result_impact": null,
+      "tags": ["Dokumentation"]
+    },
+    {
+      "id": "de-10",
+      "language": "de",
+      "expected_category": "Side project",
+      "date": "2026-07-19",
+      "text": "In meiner Freizeit eine kleine Web-App für unseren Gemeinschaftsgarten gebaut, mit der wir planen, wer an welchem Tag die Beete gießt.",
+      "result_impact": "Im August ist kein einziger Gießtermin ausgefallen.",
+      "tags": ["Gemeinschaftsgarten"]
+    },
+    {
+      "id": "de-11",
+      "language": "de",
+      "expected_category": "Side project",
+      "date": "2026-08-16",
+      "text": "Am Wochenende einen Einplatinenrechner als Wetterstation auf dem Balkon eingerichtet. Die Messwerte landen in einer selbst gebauten Übersicht im Browser.",
+      "result_impact": null,
+      "tags": ["Wetterstation", "Bastelprojekt"]
+    },
+    {
+      "id": "de-12",
+      "language": "de",
+      "expected_category": "Side project",
+      "date": "2026-09-05",
+      "text": "Ehrenamtlich die Webseite eines kleinen Sportvereins neu gestaltet und den Mitgliedern in einem Abendtermin gezeigt, wie sie Trainingszeiten selbst eintragen.",
+      "result_impact": null,
+      "tags": ["Sportverein", "Webseite"]
+    }
+  ],
+  "summary_cases": [
+    {
+      "id": "sum-en-all",
+      "expected_language": "en",
+      "entry_ids": ["en-01", "en-02", "en-03", "en-04", "en-05", "en-06", "en-07", "en-08", "en-09", "en-10", "en-11", "en-12"]
+    },
+    {
+      "id": "sum-de-all",
+      "expected_language": "de",
+      "entry_ids": ["de-01", "de-02", "de-03", "de-04", "de-05", "de-06", "de-07", "de-08", "de-09", "de-10", "de-11", "de-12"]
+    },
+    {
+      "id": "sum-mostly-en",
+      "expected_language": "en",
+      "entry_ids": ["en-01", "en-02", "en-03", "en-04", "en-07", "en-10", "de-03", "de-07"]
+    },
+    {
+      "id": "sum-mostly-de",
+      "expected_language": "de",
+      "entry_ids": ["de-01", "de-02", "de-04", "de-06", "de-08", "de-10", "en-02", "en-09"]
+    }
+  ]
+}

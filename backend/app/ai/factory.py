@@ -1,0 +1,43 @@
+"""Selecting the AI provider from AI_PROVIDER (issue #12).
+
+`create_app` calls `create_ai_provider` once at startup and keeps the provider on
+`app.state.ai_provider`. The `get_ai_provider` dependency returns it, and tests can override
+it. Endpoints never use it directly: they use the limited entry point in `app/ai/limits.py`,
+which wraps this provider and checks the daily limits first (issue #15).
+"""
+
+from collections.abc import Callable
+from typing import Annotated
+
+from fastapi import Depends, Request
+
+from app.ai.adapter import AIProvider
+from app.ai.mock import MockProvider
+from app.ai.openai_compatible import OpenAICompatibleProvider
+from app.settings import OPENAI_COMPATIBLE, Settings, SettingsError
+
+# One provider for each name in app.settings.AIProviderName.
+PROVIDERS: dict[str, Callable[[Settings], AIProvider]] = {
+    "mock": lambda settings: MockProvider(),
+    OPENAI_COMPATIBLE: OpenAICompatibleProvider.from_settings,
+}
+
+
+def create_ai_provider(settings: Settings) -> AIProvider:
+    """Return the provider AI_PROVIDER selects, or raise SettingsError naming the allowed values."""
+    create = PROVIDERS.get(settings.ai_provider)
+    if create is None:
+        allowed = ", ".join(f"'{name}'" for name in PROVIDERS)
+        raise SettingsError(
+            f"Invalid configuration: AI_PROVIDER is invalid: must be one of {allowed}. "
+            "See .env.example."
+        )
+    return create(settings)
+
+
+def get_ai_provider(request: Request) -> AIProvider:
+    """FastAPI dependency: the app's AI provider."""
+    return request.app.state.ai_provider
+
+
+AI = Annotated[AIProvider, Depends(get_ai_provider)]

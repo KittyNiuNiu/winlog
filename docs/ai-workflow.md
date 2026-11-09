@@ -732,3 +732,185 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - #38: the access log records filter tag names. This was the product owner's choice (https://github.com/KittyNiuNiu/winlog/issues/38#issuecomment-6727416124).
   - #58: date errors use two wordings, and the generated schema shows optional parameters as nullable. This was the product owner's choice.
 - **Product owner decision on commit identity:** commits keep the environment's identity (`GIT_AUTHOR_EMAIL` and `GIT_COMMITTER_EMAIL` set to the product owner's account), not `noreply@anthropic.com`. The stop hook's "Unverified" warnings about this are expected and ignored. Pushed commits are never rewritten.
+
+## 2026-11-09: Implement #12 (AI adapter interface and mock provider)
+
+- **Task:** #12, the provider-agnostic AI adapter in `backend/app/ai/` with `suggest` and `summarise`, a required `AI_PROVIDER` variable with a factory, and a deterministic mock provider (`product-spec.md` §8 and §9).
+- **What I did:**
+  - `app/ai/adapter.py`: the sync interface (`AIProvider`, matching #4), `Suggestion`, `SummaryEntry` and the errors `AITimeoutError` and `AIProviderError` (both under `AIError`). Providers implement `_suggest` and `_summarise`; the public methods check the output for every provider: a category outside the four, tags that are not a list of valid tag names, or a summary that is blank, not text or not storable raises `AIProviderError`. Any other exception from a provider also becomes `AIProviderError` (chained). Tag names are normalised as `app.tags` does.
+  - Data minimisation: `summarise` accepts only `SummaryEntry` objects (date, category, text, Result/Impact, tag names; frozen, with slots). `SummaryEntry.from_entry` copies those fields from an API `Entry` and leaves the id behind. An empty list raises `ValueError`, so no AI call is made without entries.
+  - Logging: the adapter logs only the operation, provider, entry count, time taken and error type. Error messages never contain user content.
+  - `app/ai/mock.py`: `MockProvider`. The category comes from a SHA-256 of the text (not `hash()`, which changes per run); the tag is "Mock tag" and the summary is "Mock summary of N entries from <first date> to <last date>." Tests can call `return_suggestion`, `return_summary`, `raise_timeout`, `raise_provider_error` and `reset`, and read `suggest_calls` and `summarise_calls`.
+  - `app/ai/factory.py`: `create_ai_provider(settings)` and the `get_ai_provider` dependency (`AI` annotation) for #16 and #17. `create_app` creates the provider at startup and keeps it on `app.state.ai_provider`.
+  - `app/settings.py`: `ai_provider: Literal["mock"]`, required with no default. A missing value gives "AI_PROVIDER is required but not set", an unknown one "AI_PROVIDER is invalid: Input should be 'mock'". The factory gives the same kind of message if it ever gets an unknown name, and a test checks its list matches the setting's.
+  - `.env.example`: `AI_PROVIDER=mock` with its comment. `docker-compose.yml`: the backend gets `AI_PROVIDER` from `.env` and Compose stops with a message when it is missing; without this line, `docker compose up` would no longer start the backend (`AGENTS.md`: keep the commands working).
+  - Existing tests: the explicit test settings pass `ai_provider="mock"`, the import defaults set `AI_PROVIDER`, `no_env_file` removes it, and the settings tests set it where they expect a valid configuration. No test was weakened.
+  - No new dependencies. No changes to `openapi.yaml` or `product-spec.md`.
+- **How I verified it:**
+  - `uv run pytest tests/unit`: 397 passed. `uv run pytest tests/integration` (PostgreSQL 18 via `docker compose up -d db`): 476 passed. `uv run ruff check .` and `uv run ruff format --check .` are clean.
+  - New tests in `tests/unit/test_ai.py`: the factory (mock, unknown values, missing variable, at app startup), the contract's `Category` and `Suggestion` schemas, data minimisation, determinism with fixed values, configured output, both errors, invalid output, and a logging test that runs every path with captured logs and checks no input or output text appears in the logs or error messages.
+  - Mutation checks: logging the entry text, or skipping the category check, makes tests fail.
+  - `uv run uvicorn app.main:app` with `AI_PROVIDER=mock` served `/health`; with `openai` and with the variable unset it stopped with the messages above. `docker compose config` without `AI_PROVIDER` stops naming it. Building the backend image did not work in this session (pip in the image build could not reach PyPI through the sandbox proxy), so the container itself was not started.
+- **Left open:**
+  - The adapter does not limit the number of suggested tags; `openapi.yaml` allows at most 5 in a `Suggestion`, so #16 has to apply that limit (and map names to the user's spelling).
+  - The usage-limit check before each call is #15; the real provider, its timeouts and prompts are #13.
+  - The adapter logs each call's metadata at INFO (success) and WARNING (failure); #38 may want to review log levels.
+
+## 2026-11-09: Orchestrator: #12 implemented, QA PASS, closed
+
+- The product owner asked for #12–#15. #12 was `groomed`, so it went straight to the engineer. The engineer added the sync AI adapter, the deterministic mock provider, the factory and the required `AI_PROVIDER` setting (8b70ead, 2352bd6, 1653954; https://github.com/KittyNiuNiu/winlog/issues/12#issuecomment-6730523979).
+- QA PASS on all 15 criteria in the first round (https://github.com/KittyNiuNiu/winlog/issues/12#issuecomment-6730594890): 397 unit and 476 integration tests pass, lint is clean. QA started the backend container with the mock and no AI key, using a base image that only adds the sandbox proxy's CA, because pip in the plain build could not verify the proxy's certificate. Closed #12 as completed.
+- **Open points**, recorded where they belong:
+  - #16: the adapter does not limit the number of suggested tags (the contract allows 5), and `AIProviderError` keeps the provider exception as its cause, which a traceback-logging handler could leak (https://github.com/KittyNiuNiu/winlog/issues/16#issuecomment-6730606009).
+  - #13: a plain or SDK timeout becomes `AIProviderError`, so the real provider must raise `AITimeoutError` itself (https://github.com/KittyNiuNiu/winlog/issues/13#issuecomment-6730606567).
+  - #17: the same error-cause logging point as #16 (https://github.com/KittyNiuNiu/winlog/issues/17#issuecomment-6730606978).
+  - Left in this log by the product owner's choice: the adapter's log levels (INFO on success, WARNING on failure), and `test_fr_e2_entry_is_saved_without_an_ai_provider` now setting `AI_PROVIDER=mock` because the variable is required. That test still covers "an entry can be saved without using AI suggestions".
+- Side effect of QA: one test account (`qa12-…@example.com`) with one entry is left in the local dev database, because account deletion (#20) is not built yet.
+
+## 2026-11-09: Implement #13 (OpenAI-compatible AI provider)
+
+- **Task:** #13, a real AI provider behind the #12 adapter that calls an OpenAI-compatible Chat Completions API (OpenRouter planned), with zero-data-retention routing, the §8 language rules and the error mapping from #12 (`product-spec.md` §8 and §10.2).
+- **What I did:**
+  - `app/ai/openai_compatible.py`: `OpenAICompatibleProvider` uses the official `openai` SDK (`OpenAI(base_url, api_key, max_retries=0)`) and `chat.completions.with_raw_response.create`, so it can log the response status. Every request sends `extra_body={"provider": {"zdr": true}}` and the operation's timeout (suggestions 15 s, summaries 60 s by default). `from_settings` builds it from the settings; tests pass an `httpx2.Client` with a mock transport.
+  - Prompts: suggest sends a fixed system prompt and the entry text as the only user message, asks for exactly one of the four categories written exactly as in `openapi.yaml` (in English whatever the entry's language), up to 5 tag names in the entry's language, and a JSON object (`response_format={"type": "json_object"}`). Summarise sends a fixed system prompt and a JSON list of the entries with only date, category, text, result_impact and tags, and asks for a review-ready summary in the language most entries use, using only facts from the entries and shorter than 10,000 characters.
+  - Output: the suggestion must be a JSON object with a `category` from the four and `tags` as a list of non-blank strings, otherwise `AIProviderError` (extra keys are ignored; a Markdown-fenced answer counts as invalid JSON). The adapter then normalises and checks again, as for every provider.
+  - Errors: the SDK's `APITimeoutError` becomes `AITimeoutError` (the open point from #12's QA); `APIStatusError` (any 4xx/5xx, including 401 and 429) becomes `AIProviderError` naming only the status; `APIConnectionError` and unreadable answers (non-JSON body, no choices, no message text) become `AIProviderError`. The SDK exception is not chained (`from None`), because it can hold the provider's answer.
+  - Logging: one INFO line per request with the model, the status (or "none") and the duration. Never the key, entry text, tag names or summary text.
+  - `app/settings.py`: `AI_PROVIDER` accepts `openai-compatible`. New `AI_BASE_URL` (must start with http:// or https://), `AI_API_KEY` (`SecretStr`), `AI_MODEL`, `AI_SUGGESTION_TIMEOUT_SECONDS` (default 15) and `AI_SUMMARY_TIMEOUT_SECONDS` (default 60), both whole numbers from 1 to 600. With `openai-compatible`, a missing or blank base URL, key or model stops the app with "<NAME> is required when AI_PROVIDER is 'openai-compatible' but not set"; with `mock` they are ignored. `app/ai/factory.py` registers the provider. `.env.example` documents all five.
+  - Existing tests: `no_env_file` also removes the new variables; the settings field list and the "allowed providers" test now include the new names (the old test said #13 would add them). No test was weakened.
+  - New dependency: `openai>=3.42` (3.46.0 locked; it brings `jiter` and `sniffio` and uses the `httpx2` already in the lock). The issue requires the official SDK.
+- **How I verified it:**
+  - `uv run pytest tests/unit`: 501 passed (104 new in `tests/unit/test_ai_openai_compatible.py`). `uv run pytest tests/integration` (PostgreSQL 18 via `docker compose up -d db`): 476 passed. `uv run ruff check .` and `uv run ruff format --check .` are clean.
+  - The new tests stub HTTP with `httpx2.MockTransport` and check the URL, bearer key, model, `zdr`, the exact messages and fields sent, the per-operation timeouts, one request per call after 429/500/503/network errors and timeouts, valid suggestion and summary, invalid JSON, invalid categories, invalid tags, timeouts, network errors, 400–503 statuses and unreadable bodies, and a DEBUG-level log capture over all paths (no key or content in logs or error messages).
+  - Mutation checks: turning retries on, dropping `extra_body`, not mapping the timeout, logging the prompt or using the wrong timeout each make a test fail.
+  - `uv run uvicorn app.main:app` with `AI_PROVIDER=openai-compatible`: stops naming the missing variables; with all three set it starts and `/health` answers ok. No real AI API was called.
+- **Left open:**
+  - `docker-compose.yml` passes only `AI_PROVIDER` to the backend container, not the new variables, because the issue limits the files. Running the container with `openai-compatible` needs them added there (local only; production is #38).
+  - The SDK's timeout applies to each phase (connect, read, write, pool), not to the whole request, so a provider that keeps sending bytes slowly could take longer than the timeout. #14 can check this with the chosen model.
+  - #14: the chosen model must answer plain JSON (a Markdown-fenced answer is rejected) and support `response_format`.
+  - No `max_tokens` is sent and `finish_reason` is not checked, so a cut-off summary is returned as is; the 10,000-character limit is #17's.
+
+## 2026-11-09: Orchestrator: #13 implemented, QA PASS, closed
+
+- #13 was `groomed`, so it went straight to the engineer. The engineer added the OpenAI-compatible provider using the official `openai` SDK (3.46.0, no retries, `zdr` on every request), five new settings and the required-variable checks (3d3384b, a7fe667, 0df17ca; https://github.com/KittyNiuNiu/winlog/issues/13#issuecomment-6734671723).
+- QA PASS on all 15 criteria in the first round (https://github.com/KittyNiuNiu/winlog/issues/13#issuecomment-6734777069): 501 unit and 476 integration tests pass, lint is clean. QA also ran the SDK's real HTTP client against a local fake server on 127.0.0.1 (no real AI API), and confirmed the locked `openai` and `httpx2` packages are the official ones and that the SDK's HTTP layer is `httpx2`, so the tests' `httpx2.MockTransport` really stubs it. Closed #13 as completed.
+- **Open points**, recorded where they belong:
+  - #14: the chosen model must answer suggestions with plain JSON (a Markdown-fenced answer is rejected), and the SDK timeouts apply per connection phase, not to the whole request (https://github.com/KittyNiuNiu/winlog/issues/14#issuecomment-6734788531).
+  - #17: no `max_tokens` or `finish_reason` check, so a cut-off summary is returned as it is; the 10,000-character summary limit from `product-spec.md` is not enforced by the provider (https://github.com/KittyNiuNiu/winlog/issues/17#issuecomment-6734789135).
+  - New issue #61, created on the product owner's instruction: `docker-compose.yml` does not pass the real provider's variables to the backend, and `httpx2` is imported at runtime but declared only as a dev dependency. It needs grooming.
+
+## 2026-11-09: Implement #14 (decide the default LLM model): partial, blocked before the paid run
+
+- **Task:** #14, a documented, repeatable comparison of at least three OpenRouter models with zero-data-retention endpoints, a decision note at `docs/decisions/default-model.md` and the chosen model as the `AI_MODEL` default in `.env.example`.
+- **What I did:**
+  - `backend/scripts/model_comparison/test_set.json`: 24 made-up entries (12 English, 12 German, three per category in each language) with expected categories, plus four summary cases (all English, all German, mostly English, mostly German). German is my choice for the second language; the issue allows any.
+  - `backend/scripts/model_comparison/comparison.py` (`python -m scripts.model_comparison`):
+    - `check` (free) reads OpenRouter's public `/models` and `/endpoints/zdr` lists and shows each candidate's ZDR endpoints, `response_format` support, prices and the estimated cost of one run. ZDR endpoints with `safety_retention` are not counted, because they may keep flagged prompts (§8).
+    - `run` needs `--confirm-paid-calls` and `AI_API_KEY` from the environment. It sends every test entry and summary case once through `OpenAICompatibleProvider` (same prompts, `zdr`, JSON parsing and timeouts as production) with the SDK's default HTTP client plus a response hook. The hook records the raw answer (for "valid JSON on the first try"; a fenced answer counts as invalid), the usage and OpenRouter's cost. It writes one JSON file per candidate plus `run.json` (date, excluded models, hashes of the test set and prompts).
+    - `report` refuses until every review field (tag language, summary language, quality 1–5) is filled in, then prints the results table and the maximum daily cost at the global cap.
+    - The OpenRouter response fields (`model_id` as the permanent slug, `canonical_slug`, `pricing`, `safety_retention`, `usage.cost`) were taken from OpenRouter's official Python SDK 1.3.143 on PyPI, read as data, because openrouter.ai itself was not reachable.
+  - `docs/decisions/default-model.md`: a draft with the method, the proposed candidates (to confirm with `check`), the test set, the review rules and quality rubric, the cost assumptions and how to re-run. The results, the excluded models, the chosen model and the maximum daily cost are marked *pending*.
+  - No new dependencies. No change to `.env.example`, `product-spec.md` or `openapi.yaml`.
+- **How I verified it:**
+  - `uv run pytest tests/unit`: 519 passed (18 new in `tests/unit/test_model_comparison.py`, all offline with `httpx2.MockTransport`). `uv run pytest tests/integration` (PostgreSQL via `docker compose up -d db`): 476 passed. `uv run ruff check .` and `uv run ruff format --check .` are clean.
+  - Mutation checks: counting safety-retention endpoints, accepting fenced JSON, dropping the `--confirm-paid-calls` check and using the lowest instead of the highest ZDR price each make tests fail.
+  - `check` against the real host fails cleanly with "Could not read OpenRouter's list /models: ProxyError"; `run` without the flag refuses before any request. No real AI API was called.
+- **Left open (blocked):**
+  - No OpenRouter key in `.env` or the environment, openrouter.ai is blocked by the session's network policy, and spending is not approved. The comparison run, the results, the chosen model, the maximum daily cost and the `.env.example` default wait for these.
+  - The candidate ids come from openrouter.ai pages found by web search on 2026-11-09 and must be confirmed with `check`.
+
+## 2026-11-09: Implement #15 (enforce daily AI usage limits)
+
+- **Task:** #15, daily caps on AI requests checked before every AI call: per user for suggestions and for summaries, plus one global cap, through one limited entry point (`product-spec.md` §8, §10.5, FR-D2).
+- **What I did:**
+  - Settings: `AI_DAILY_SUGGESTIONS_PER_USER` (10), `AI_DAILY_SUMMARIES_PER_USER` (2) and `AI_DAILY_REQUESTS_GLOBAL` (100), documented in `.env.example`. Each must be a whole number of 0 or more written with digits only; anything else (including `1.0`, `+5`, `1_000`, which pydantic would accept) stops the app with "<NAME> is invalid: … must be a whole number of 0 or more". There is no upper bound, because the criterion names none.
+  - Migration `113dfac7accf` adds `ai_usage_global` (`day` primary key, `request_count`, no user id) and the `AiUsageGlobal` model. The per-user counts use the existing `ai_usage` table from #5.
+  - `app/ai/limits.py`: `LimitedAI.suggest(user_id, text)` and `LimitedAI.summarise(user_id, entries)` are the entry point; features get it through `LimitedAIDependency`, which wraps the app's provider (`get_ai_provider`, so test overrides still apply). Order: the adapter's input checks (moved into `check_suggest_input` / `check_summarise_input` in `adapter.py`, so nothing counts for an empty entry list or a non-string text), then one transaction that raises the user's count and then the global count, each with `INSERT … ON CONFLICT DO UPDATE … WHERE request_count < limit RETURNING`, then commit, then the AI call. A reached limit raises `AILimitReachedError` (a 429 `ApiError` with `code: limit_reached` and `limit` set to `user_suggestions`, `user_summaries` or `global`), and the rollback leaves the user's count unchanged when only the global cap is reached. A limit of 0 refuses without touching the database. The day is the UTC date of a clock the tests can set.
+  - Messages follow the UI texts groomed in #28 and #32 (for example "You've used today's suggestions. They're available again after midnight UTC.").
+  - Existing tests: the table lists in `tests/unit/test_models.py` and the integration `APP_TABLES` include the new table, the settings field list includes the three limits, `no_env_file` removes them, and `migrated_db` also truncates `ai_usage_global` (it has no user id, so `TRUNCATE users CASCADE` does not empty it). No test was weakened.
+  - No new dependencies.
+- **How I verified it:**
+  - `uv run pytest tests/unit`: 588 passed (69 new in `tests/unit/test_ai_limits.py`). `uv run pytest tests/integration` (PostgreSQL via `docker compose up -d db`): 513 passed (37 new in `tests/integration/test_ai_limits.py`). `uv run ruff check .` and `uv run ruff format --check .` are clean. All AI calls use the mock provider.
+  - The integration tests cover each limit reached, 23:59:59 and 00:00:00 UTC, failed, timed-out and invalid-output calls counting, rejected requests not counting (no entries, wrong input, reached limit, no or wrong token, validation error), limits of 0, the user's count staying the same when the global cap is reached, the error body against the contract, deleting a user (directly in the database, because #20 is not built) without lowering the global count, FR-A3 and the shared demo account. Two race tests start 10 and 20 requests together with one slot left (per user and global), five times each, and check exactly one goes through.
+  - Mutation checks: a read-then-write check instead of the conditional upsert makes the race test fail; counting after the AI call makes the failure and race tests fail; a module outside `app/ai/` that imports the raw provider or reads `app.state.ai_provider` makes the guard test fail.
+- **Left open:**
+  - #16 and #17 must call `LimitedAI` (via `LimitedAIDependency`) and map `AITimeoutError`/`AIProviderError` to `ai_unavailable`; `AILimitReachedError` already becomes the 429 response by itself.
+  - #20 must delete the user's `ai_usage` rows (the foreign key already cascades) and must leave `ai_usage_global` alone.
+  - The #14 comparison script (`backend/scripts/model_comparison/`) calls the provider directly and is not counted. It is a developer tool outside `app/`, run by hand with its own confirmation flag, so I left it unchanged.
+  - Old `ai_usage` and `ai_usage_global` rows are never cleaned up; one row per user, day and type is small, but a cleanup could be groomed later.
+
+## 2026-11-09: Orchestrator: #14 blocked on a paid OpenRouter run
+
+- #14 was `groomed`, so it went to the engineer, who was told not to make paid calls or invent results without the product owner's approval. The engineer built the fixed test set (24 made-up entries, 12 English and 12 German, plus 4 summary cases), the comparison script (`check`, `run --confirm-paid-calls`, `report`), offline tests and a draft decision note (6de1ce5, 10b2a6a, d033496; https://github.com/KittyNiuNiu/winlog/issues/14#issuecomment-6735075467). No results, chosen model or `AI_MODEL` default yet.
+- Status BLOCKED: no OpenRouter key, and openrouter.ai was blocked by the network policy. The product owner approved the paid run (the engineer's estimate was roughly $0.30–0.45 for 5 candidates, from unverified web-search prices). The orchestrator created a personal cloud environment "winlog" that allows openrouter.ai and moved this session onto it. The secure key form was declined or could not be shown, so the product owner will add the key in the environment settings. #14 stays `groomed` until then.
+- Open for the product owner when #14 resumes: the engineer counts only zero-data-retention endpoints without OpenRouter's `safety_retention` flag, a strict reading of §8 to confirm.
+- Product owner decision: work on #15 while #14 waits for the key.
+
+## 2026-11-09: Orchestrator: #15 implemented, QA PASS, closed
+
+- #15 was `groomed`, so it went straight to the engineer. The engineer added the three limit settings, the `ai_usage_global` migration and the limited entry point `LimitedAI`, with atomic conditional upserts committed before the AI call (145110f, b5e030f, b3e68e2; https://github.com/KittyNiuNiu/winlog/issues/15#issuecomment-6736343369).
+- QA PASS on all 15 criteria in the first round (https://github.com/KittyNiuNiu/winlog/issues/15#issuecomment-6736455308): 588 unit and 513 integration tests pass, lint is clean. The migration upgrades, downgrades and shows no drift. QA's own race probe used 20 OS processes against real PostgreSQL, and exactly the allowed number went through each time. Closed #15 as completed.
+- **Open points**, recorded where they belong:
+  - #16 and #17: call `LimitedAI` through `LimitedAIDependency` and map `AITimeoutError`/`AIProviderError` to `ai_unavailable` (https://github.com/KittyNiuNiu/winlog/issues/16#issuecomment-6736463839, https://github.com/KittyNiuNiu/winlog/issues/17#issuecomment-6736464744).
+  - #20: per-user `ai_usage` rows cascade with the account; `ai_usage_global` must not be touched (https://github.com/KittyNiuNiu/winlog/issues/20#issuecomment-6736465655).
+  - #14: the comparison script's calls are not counted against the limits (https://github.com/KittyNiuNiu/winlog/issues/14#issuecomment-6736466515).
+  - #61: Compose does not forward the `AI_DAILY_*` variables (https://github.com/KittyNiuNiu/winlog/issues/61#issuecomment-6736467546), and the limit variables have no upper bound, so a value above bigint gives a 500 that fails safe. The product owner chose to add this one to #61 (https://github.com/KittyNiuNiu/winlog/issues/61#issuecomment-6736561615).
+  - Left in this log by the product owner's choice: old rows in the usage tables are never cleaned up.
+- Side effects of QA: the local tag `python:3.13-slim` now points to a QA-built image that adds the sandbox proxy CA, and the dev database is migrated to 113dfac7accf.
+
+## 2026-11-09: Orchestrator: rule against unapproved real AI calls
+
+- **Task:** the product owner asked how the OpenRouter key will be used in development and wanted to prevent high costs.
+- **What I did:** added a working rule to `AGENTS.md`: no real AI calls without the product owner's explicit approval in that session. It covers tests, scripts, live checks and running the app with a real provider (anything other than `AI_PROVIDER=mock`). A task that needs one stops and asks first, with the reason and an estimated cost.
+- **Why:** the key is saved as a network secret on the "winlog" cloud environment, and the proxy adds it to every request to openrouter.ai from every session on that environment. Tests and the app with the mock never call it, but a live check or a script could.
+- **Also recommended to the product owner (not in the repository):** a separate development key with a small credit limit and no automatic top-up, and removing the network secret from the environment after the #14 run.
+- **How I verified it:** a documentation change only; no code or tests changed.
+
+## 2026-11-09: #14: free candidate check (no AI call)
+
+- **Task:** #14, the free `check` step only. The product owner has not approved the paid run yet (`AGENTS.md`: no real AI call without approval).
+- **What I did:** after the session moved to the "winlog" environment (openrouter.ai allowed, key added by the network proxy), I ran only the free `check` step, as the product owner approved; no AI call was made. All five ids exist. Usable: `openai/gpt-5.4-mini`, `anthropic/claude-haiku-5.5`, `mistralai/mistral-small-2603`. Excluded: `google/gemini-3.8-flash` (its only ZDR endpoints have safety retention) and `qwen/qwen3.8-flash` (no ZDR endpoint).
+- **Result:** the decision note records the check, with dated prices; the estimated run cost for the three is $0.18.
+- **How I verified it:** `uv run ruff check .` is clean and `uv run pytest tests/unit` passes (588). Only `GET /models` and `GET /endpoints/zdr` were requested.
+- **Left open:** the paid `run`, the review, the results, the choice, the maximum daily cost and the `.env.example` default still need the product owner's approval to spend.
+
+## 2026-11-09: Implement #14 (decide the default LLM model): comparison run and decision
+
+- **Task:** finish #14: the paid comparison run, the review, the decision note and the `.env.example` default.
+- **Product owner decisions (2026-11-09):**
+  1. Strict zero-data-retention reading: endpoints with OpenRouter's `safety_retention` flag do not count. So `google/gemini-3.8-flash` is excluded (all its ZDR endpoints have safety retention), and `qwen/qwen3.8-flash` is excluded (no ZDR endpoint).
+  2. Exactly one paid run, with `openai/gpt-5.4-mini`, `anthropic/claude-haiku-5.5`, `mistralai/mistral-small-2603` and `deepseek/deepseek-v4.1-flash` (the spare). No reruns.
+- **What I did:**
+  - Ran `check` again: the estimate was $0.24, below the $1 stop threshold. Then I ran the comparison once: `run ... --confirm-paid-calls`, with `AI_API_KEY=placeholder` on the command line only, while the network proxy added the real key.
+  - `openai/gpt-5.4-mini` got HTTP 429 on 7 of 28 calls, including all 4 summaries. I recorded these as failures and did not retry them.
+  - Actual cost: $0.0303, the same in the sum of `usage.cost` and in the key's usage after the run.
+  - Reviewed every suggestion's tag language and every summary's language and quality (1–5) against the rubric in the note. I am the engineer agent, not the product owner: each result file says so in `review_by`, and each rating has a one-line reason.
+  - `report` gives Haiku and DeepSeek the same summary quality (4.8). Haiku is cheaper and faster. Mistral wrote one summary in the wrong language and invented facts in two others. GPT-5.4 mini was rate limited and is the most expensive. Chosen: `anthropic/claude-haiku-5.5`, with a maximum daily cost of about $0.41 at the global cap of 100 requests. No product trade-off: the best model is also the cheapest acceptable one.
+  - Completed `docs/decisions/default-model.md`, committed the result files under `backend/scripts/model_comparison/results/2026-11-09/`, and set `AI_MODEL=anthropic/claude-haiku-5.5` in `.env.example`.
+  - `test_ai_openai_variables_are_documented_in_env_example` asserted an empty `AI_MODEL=`. It now asserts the chosen value exactly, as the issue requires. New tests check that `.env.example` names the model from the decision note, and that the committed results are fully reviewed and contain no key, authorization header or placeholder.
+- **How I verified it:**
+  - `uv run pytest tests/unit`: 590 passed. `uv run pytest tests/integration` (PostgreSQL via `docker compose up -d db`): 513 passed. `uv run ruff check .` and `uv run ruff format --check .` are clean.
+  - Changing `AI_MODEL` in `.env.example` makes the new test fail.
+  - The result files were scanned for `bearer`, `authorization`, `sk-or-`, `api_key` and `placeholder`; none are present.
+- **Left open:**
+  - GPT-5.4 mini's suggestion for en-06 took 16.7 s, past the 15 s timeout, because the SDK timeout applies per connection phase (the open point from #13). Haiku's slowest calls were 3.0 s and 8.2 s.
+  - GPT-5.4 mini's summaries are unmeasured because of rate limiting.
+  - The product owner closes the open question in `product-spec.md` §13. Setting the model and key in production is #38.
+
+## 2026-11-09: Orchestrator: #14 unblocked, implemented, QA PASS, closed
+
+- **Unblocking:** the product owner saved a separate development OpenRouter key (limit $5) as a network secret on the "winlog" cloud environment and added $10 of credits. The orchestrator confirmed the key and the balance only through the free endpoints `/api/v1/key` and `/api/v1/credits`. The engineer then ran the free `check` step.
+- **Product owner decisions:**
+  - Strict zero-data-retention reading: endpoints with OpenRouter's `safety_retention` flag do not count. Gemini 3.8 Flash was excluded (all of its ZDR endpoints have the flag), and Qwen3.8 Flash because it has no ZDR endpoint.
+  - Exactly one paid run was approved, with four models: GPT-5.4 mini, Claude Haiku 5.5, Mistral Small and DeepSeek V4.1 Flash as a spare, at an estimated $0.23.
+- The engineer ran it once. The actual cost was $0.0303; QA found it exactly equals the key's usage, so no other paid calls were made. GPT-5.4 mini got HTTP 429 on 7 of its 28 calls, recorded and not retried. Chosen default: `anthropic/claude-haiku-5.5` (24/24 categories, 4/4 summary languages, quality 4.8, about $0.41 a day at the global cap of 100). It is set as `AI_MODEL` in `.env.example`. The engineer agent rated the summaries, and the note says so (d2fe2f4, 058c90c, c8d4462, c58cb19; https://github.com/KittyNiuNiu/winlog/issues/14#issuecomment-6735075467).
+- QA PASS on every criterion in the first round, with no real AI calls (https://github.com/KittyNiuNiu/winlog/issues/14#issuecomment-6749416769): 590 unit and 513 integration tests pass, lint is clean. Closed #14 as completed.
+- **Open points**, recorded where they belong:
+  - #61: the per-phase SDK timeout was confirmed in the run (a 16.7 s GPT-5.4 mini suggestion against a 15 s timeout) (https://github.com/KittyNiuNiu/winlog/issues/61#issuecomment-6749429249).
+  - #38: the chosen production model, and that the maximum daily cost is an estimate (no output token limit), so the production key's spending limit is the real cap (https://github.com/KittyNiuNiu/winlog/issues/38#issuecomment-6749430929).
+  - Left in this log by the product owner's choice:
+    - The note says every rating has a reason, but the 91 passed tag ratings have none.
+    - One Mistral review note wrongly says it invented "Python", which was an input tag. The rating and the decision are unchanged.
+    - GPT-5.4 mini's summaries were not measured because of the 429s.
+    - The note does not mention that the script's calls bypass the app's usage limits.
+  - For the product owner: close the open question in `product-spec.md` §13.

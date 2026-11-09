@@ -18,6 +18,7 @@ def _client_for(database_url: str, timeout_seconds: int = 2) -> TestClient:
         _env_file=None,
         database_url=database_url,
         cors_allowed_origins=[ALLOWED_ORIGIN],
+        ai_provider="mock",
         database_connect_timeout_seconds=timeout_seconds,
     )
     return TestClient(create_app(settings))
