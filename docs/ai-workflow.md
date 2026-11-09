@@ -838,3 +838,22 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - #20 must delete the user's `ai_usage` rows (the foreign key already cascades) and must leave `ai_usage_global` alone.
   - The #14 comparison script (`backend/scripts/model_comparison/`) calls the provider directly and is not counted. It is a developer tool outside `app/`, run by hand with its own confirmation flag, so I left it unchanged.
   - Old `ai_usage` and `ai_usage_global` rows are never cleaned up; one row per user, day and type is small, but a cleanup could be groomed later.
+
+## 2026-11-09: Orchestrator: #14 blocked on a paid OpenRouter run
+
+- #14 was `groomed`, so it went to the engineer, who was told not to make paid calls or invent results without the product owner's approval. The engineer built the fixed test set (24 made-up entries, 12 English and 12 German, plus 4 summary cases), the comparison script (`check`, `run --confirm-paid-calls`, `report`), offline tests and a draft decision note (6de1ce5, 10b2a6a, d033496; https://github.com/KittyNiuNiu/winlog/issues/14#issuecomment-6735075467). No results, chosen model or `AI_MODEL` default yet.
+- Status BLOCKED: no OpenRouter key, and openrouter.ai was blocked by the network policy. The product owner approved the paid run (the engineer's estimate was roughly $0.30–0.45 for 5 candidates, from unverified web-search prices). The orchestrator created a personal cloud environment "winlog" that allows openrouter.ai and moved this session onto it. The secure key form was declined or could not be shown, so the product owner will add the key in the environment settings. #14 stays `groomed` until then.
+- Open for the product owner when #14 resumes: the engineer counts only zero-data-retention endpoints without OpenRouter's `safety_retention` flag, a strict reading of §8 to confirm.
+- Product owner decision: work on #15 while #14 waits for the key.
+
+## 2026-11-09: Orchestrator: #15 implemented, QA PASS, closed
+
+- #15 was `groomed`, so it went straight to the engineer. The engineer added the three limit settings, the `ai_usage_global` migration and the limited entry point `LimitedAI`, with atomic conditional upserts committed before the AI call (145110f, b5e030f, b3e68e2; https://github.com/KittyNiuNiu/winlog/issues/15#issuecomment-6736343369).
+- QA PASS on all 15 criteria in the first round (https://github.com/KittyNiuNiu/winlog/issues/15#issuecomment-6736455308): 588 unit and 513 integration tests pass, lint is clean. The migration upgrades, downgrades and shows no drift. QA's own race probe used 20 OS processes against real PostgreSQL, and exactly the allowed number went through each time. Closed #15 as completed.
+- **Open points**, recorded where they belong:
+  - #16 and #17: call `LimitedAI` through `LimitedAIDependency` and map `AITimeoutError`/`AIProviderError` to `ai_unavailable` (https://github.com/KittyNiuNiu/winlog/issues/16#issuecomment-6736463839, https://github.com/KittyNiuNiu/winlog/issues/17#issuecomment-6736464744).
+  - #20: per-user `ai_usage` rows cascade with the account; `ai_usage_global` must not be touched (https://github.com/KittyNiuNiu/winlog/issues/20#issuecomment-6736465655).
+  - #14: the comparison script's calls are not counted against the limits (https://github.com/KittyNiuNiu/winlog/issues/14#issuecomment-6736466515).
+  - #61: Compose does not forward the `AI_DAILY_*` variables (https://github.com/KittyNiuNiu/winlog/issues/61#issuecomment-6736467546), and the limit variables have no upper bound, so a value above bigint gives a 500 that fails safe. The product owner chose to add this one to #61 (https://github.com/KittyNiuNiu/winlog/issues/61#issuecomment-6736561615).
+  - Left in this log by the product owner's choice: old rows in the usage tables are never cleaned up.
+- Side effects of QA: the local tag `python:3.13-slim` now points to a QA-built image that adds the sandbox proxy CA, and the dev database is migrated to 113dfac7accf.
