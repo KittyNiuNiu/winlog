@@ -272,6 +272,20 @@ def _own_summary(
     return summary
 
 
+def user_summaries(session: Session, user: models.User) -> list[Summary]:
+    """All of the user's summaries, newest first by creation time (FR-R5, FR-A3).
+
+    The list endpoint and the data export (#19) both use it. The id only makes the order
+    stable for summaries created at the same moment.
+    """
+    rows = session.scalars(
+        select(models.Summary)
+        .where(models.Summary.user_id == user.id)
+        .order_by(models.Summary.created_at.desc(), models.Summary.id.desc())
+    )
+    return [_to_api(summary) for summary in rows]
+
+
 @router.get(
     "/summaries",
     operation_id="listSummaries",
@@ -282,14 +296,7 @@ def list_summaries(
     user: CurrentUser,
     session: Annotated[Session, Depends(get_session)],
 ) -> SummaryList:
-    rows = session.scalars(
-        select(models.Summary)
-        .where(models.Summary.user_id == user.id)
-        # Newest first. The id only makes the order stable for summaries created at the same
-        # moment.
-        .order_by(models.Summary.created_at.desc(), models.Summary.id.desc())
-    )
-    return SummaryList(summaries=[_to_api(summary) for summary in rows])
+    return SummaryList(summaries=user_summaries(session, user))
 
 
 @router.get(
