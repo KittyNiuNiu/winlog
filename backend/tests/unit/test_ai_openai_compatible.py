@@ -248,7 +248,8 @@ def test_ai_openai_variables_are_documented_in_env_example():
     for line in (
         "AI_BASE_URL=",
         "AI_API_KEY=\n",
-        "AI_MODEL=\n",
+        # The default model chosen in docs/decisions/default-model.md (issue #14).
+        "AI_MODEL=anthropic/claude-haiku-5.5\n",
         "AI_SUGGESTION_TIMEOUT_SECONDS=15\n",
         "AI_SUMMARY_TIMEOUT_SECONDS=60\n",
     ):
