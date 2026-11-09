@@ -1,7 +1,7 @@
 # Winlog: Product Specification
 
 **Version:** 0.2 (draft)
-**Last updated:** 1 November 2026
+**Last updated:** 9 November 2026
 
 ---
 
@@ -253,9 +253,15 @@ LoginAttempt  (key_hash, window_start, attempt_count)         -- attempt limits;
 
 ## 13. Open questions
 
-- Default LLM model: to be decided by a documented comparison (issue #14), recorded in `docs/decisions/default-model.md`.
+None at the moment.
+
+Closed:
+
+- Default LLM model (closed 9 November 2026): `anthropic/claude-haiku-5.5`, chosen by a documented comparison (issue #14). The backup model is `deepseek/deepseek-v4.1-flash`: if the default becomes unavailable, too expensive or worse, the model setting is switched to it. It is not an automatic fallback. Details in `docs/decisions/default-model.md`.
 
 ## 14. Change log
+
+**0.2, updated 9 November 2026.** §13: the open question about the default LLM model is closed. The default is `anthropic/claude-haiku-5.5`, with `deepseek/deepseek-v4.1-flash` as the backup model (issue #14). Nothing else changed.
 
 **0.2 (1 November 2026).** Updated with the decisions made while grooming the backlog (GitHub issues #2–#46). Section numbers are unchanged, so references such as §7.3 in the issues still point to the right place.
 - Accounts: password rule, case-insensitive emails, automatic login after registering, 7-day logins, failed-login limits (new FR-A4), and the current password required for account deletion.

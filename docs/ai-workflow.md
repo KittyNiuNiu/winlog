@@ -1029,3 +1029,12 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - New issue #64, created on the product owner's instruction: the shared `ContentDisposition` example in `openapi.yaml` shows a `.json` file name for the Markdown export too. The code sends `.md`; fixing the example needs a contract edit.
   - Left in this log by the product owner's choice: because text is not escaped (as required), a heading line inside an entry or summary renders as a heading when the Markdown file is viewed formatted. The data stays complete.
 - Housekeeping: the orchestrator removed QA's leftover test-account token files from the scratchpad. Test users from the live checks (`se19-*` and QA's accounts) remain in the local dev database.
+
+## 2026-11-09: Orchestrator: close the open question about the default model (spec §13)
+
+- **Task:** the product owner closed the open question in `product-spec.md` §13. They confirmed `anthropic/claude-haiku-5.5` as the default model and chose `deepseek/deepseek-v4.1-flash` as the backup.
+- **Product owner decision:** "backup" means a documented alternative that is switched to by changing `AI_MODEL`, not an automatic retry. The app keeps making at most one AI call per user action (#13).
+- **What I did:**
+  - `docs/product-spec.md`: §13 now lists no open questions and records the closed one with the default and backup model. "Last updated" is 9 November 2026, and the change log has an entry. The version stays 0.2, so references in the issues still match.
+  - `docs/decisions/default-model.md`: added the backup model at the top, as product owner decision 3, and in the Decision section with its trade-offs (same quality, about 3.5 times the cost per summary, slower). Before switching, its prices and ZDR endpoints should be checked again with the free `check` command.
+- **How I verified it:** `uv run pytest tests/unit` (746 passed, including the test that ties `.env.example` to the decision note) and `uv run ruff check .` (clean). Documentation only; no code changed.
