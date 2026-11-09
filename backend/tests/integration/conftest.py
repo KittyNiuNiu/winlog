@@ -18,6 +18,7 @@ from sqlalchemy import Engine, create_engine, inspect, text
 # import work without a .env file; tests build their own apps from explicit settings.
 os.environ.setdefault("DATABASE_URL", "postgresql://unused:unused@localhost:5432/unused")
 os.environ.setdefault("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
+os.environ.setdefault("AI_PROVIDER", "mock")
 
 from app.db import sqlalchemy_url  # noqa: E402
 from app.main import create_app  # noqa: E402
@@ -56,6 +57,7 @@ def client(test_database_url: str, migrated_db: Engine) -> TestClient:
         _env_file=None,
         database_url=test_database_url,
         cors_allowed_origins=[ALLOWED_ORIGIN],
+        ai_provider="mock",
     )
     return TestClient(create_app(settings))
 

@@ -45,6 +45,7 @@ def test_fr_a2_token_hash_is_sha256():
 def test_fr_a2_token_lifetime_defaults_to_seven_days(no_env_file, monkeypatch):
     monkeypatch.setenv("DATABASE_URL", DATABASE_URL)
     monkeypatch.setenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
+    monkeypatch.setenv("AI_PROVIDER", "mock")
 
     assert load_settings().token_lifetime_days == 7
 
@@ -52,6 +53,7 @@ def test_fr_a2_token_lifetime_defaults_to_seven_days(no_env_file, monkeypatch):
 def test_fr_a2_token_lifetime_comes_from_the_environment(no_env_file, monkeypatch):
     monkeypatch.setenv("DATABASE_URL", DATABASE_URL)
     monkeypatch.setenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
+    monkeypatch.setenv("AI_PROVIDER", "mock")
     monkeypatch.setenv("TOKEN_LIFETIME_DAYS", "30")
 
     assert load_settings().token_lifetime_days == 30
@@ -61,6 +63,7 @@ def test_fr_a2_token_lifetime_comes_from_the_environment(no_env_file, monkeypatc
 def test_fr_a2_invalid_token_lifetime_is_rejected(no_env_file, monkeypatch, value):
     monkeypatch.setenv("DATABASE_URL", DATABASE_URL)
     monkeypatch.setenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
+    monkeypatch.setenv("AI_PROVIDER", "mock")
     monkeypatch.setenv("TOKEN_LIFETIME_DAYS", value)
 
     with pytest.raises(SettingsError, match="TOKEN_LIFETIME_DAYS is invalid"):

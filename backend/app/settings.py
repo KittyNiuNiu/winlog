@@ -5,7 +5,7 @@ Real environment variables take precedence over the file, and a missing file is 
 """
 
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import Field, SecretStr, ValidationError, field_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
@@ -15,6 +15,11 @@ ENV_FILE = Path(__file__).resolve().parents[2] / ".env"
 
 class SettingsError(RuntimeError):
     """The configuration is missing or invalid. The message names the variables."""
+
+
+# The AI providers AI_PROVIDER can select (issue #12). app/ai/factory.py has one provider for
+# each name, and a unit test checks that the two lists match.
+AIProviderName = Literal["mock"]
 
 
 class Settings(BaseSettings):
@@ -32,6 +37,9 @@ class Settings(BaseSettings):
     database_connect_timeout_seconds: int = Field(default=3, ge=2, le=60)
     # Days a login token works before it expires (FR-A2).
     token_lifetime_days: int = Field(default=7, ge=1, le=365)
+    # The AI provider (product-spec.md §8). Required with no default, so the app never uses a
+    # real or a fake AI by accident.
+    ai_provider: AIProviderName
 
     @field_validator("database_url")
     @classmethod

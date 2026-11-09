@@ -298,6 +298,7 @@ def test_fr_e2_entry_is_saved_without_an_ai_provider(
         _env_file=None,
         database_url=test_database_url,
         cors_allowed_origins=["http://localhost:5173"],
+        ai_provider="mock",
     )
     client = TestClient(create_app(settings))
 
@@ -454,6 +455,7 @@ def test_fr_e3_failed_save_stores_neither_the_entry_nor_any_new_tag(
         _env_file=None,
         database_url=test_database_url,
         cors_allowed_origins=["http://localhost:5173"],
+        ai_provider="mock",
     )
     client = TestClient(create_app(settings), raise_server_exceptions=False)
     caplog.set_level(logging.DEBUG)

@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app import accounts, entries, health, tags
+from app.ai import create_ai_provider
 from app.cors import AllowedOriginsCORSMiddleware
 from app.db import create_db_engine
 from app.errors import UnexpectedErrorMiddleware, register_error_handlers
@@ -15,6 +16,7 @@ from app.settings import Settings, load_settings
 def create_app(settings: Settings | None = None) -> FastAPI:
     """Build the app. Without explicit settings, they are loaded from the environment."""
     settings = settings or load_settings()
+    ai_provider = create_ai_provider(settings)  # an unknown AI_PROVIDER stops the app here
     engine = create_db_engine(settings)  # connects lazily, on first use
 
     @asynccontextmanager
@@ -25,6 +27,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app = FastAPI(title="Winlog API", version="0.1.0", lifespan=lifespan)
     app.state.settings = settings
     app.state.engine = engine
+    app.state.ai_provider = ai_provider
 
     # The middleware added last runs first. UnexpectedErrorMiddleware runs inside the CORS
     # middleware, so the shared 500 response gets CORS headers like every other response.

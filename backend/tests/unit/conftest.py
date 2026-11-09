@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 # import work without a .env file; tests build their own apps from explicit settings.
 os.environ.setdefault("DATABASE_URL", "postgresql://unit:unit@localhost:5432/unit")
 os.environ.setdefault("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
+os.environ.setdefault("AI_PROVIDER", "mock")
 
 from app.health import check_database  # noqa: E402
 from app.main import create_app  # noqa: E402
@@ -23,6 +24,7 @@ def settings() -> Settings:
         _env_file=None,
         database_url="postgresql://winlog:unit-test-secret@localhost:5432/winlog",
         cors_allowed_origins=[ALLOWED_ORIGIN],
+        ai_provider="mock",
     )
 
 
@@ -42,3 +44,4 @@ def no_env_file(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("CORS_ALLOWED_ORIGINS", raising=False)
     monkeypatch.delenv("DATABASE_CONNECT_TIMEOUT_SECONDS", raising=False)
     monkeypatch.delenv("TOKEN_LIFETIME_DAYS", raising=False)
+    monkeypatch.delenv("AI_PROVIDER", raising=False)

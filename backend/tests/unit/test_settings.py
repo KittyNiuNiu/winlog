@@ -13,12 +13,14 @@ def test_settings_variables():
         "cors_allowed_origins",
         "database_connect_timeout_seconds",
         "token_lifetime_days",
+        "ai_provider",
     }
 
 
 def test_database_timeout_defaults_to_three_seconds(no_env_file, monkeypatch):
     monkeypatch.setenv("DATABASE_URL", DATABASE_URL)
     monkeypatch.setenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
+    monkeypatch.setenv("AI_PROVIDER", "mock")
 
     assert load_settings().database_connect_timeout_seconds == 3
 
@@ -27,6 +29,7 @@ def test_database_timeout_defaults_to_three_seconds(no_env_file, monkeypatch):
 def test_invalid_database_timeout_is_rejected(no_env_file, monkeypatch, value):
     monkeypatch.setenv("DATABASE_URL", DATABASE_URL)
     monkeypatch.setenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
+    monkeypatch.setenv("AI_PROVIDER", "mock")
     monkeypatch.setenv("DATABASE_CONNECT_TIMEOUT_SECONDS", value)
 
     with pytest.raises(SettingsError, match="DATABASE_CONNECT_TIMEOUT_SECONDS is invalid"):
@@ -36,6 +39,7 @@ def test_invalid_database_timeout_is_rejected(no_env_file, monkeypatch, value):
 def test_settings_come_from_environment_variables(no_env_file, monkeypatch):
     monkeypatch.setenv("DATABASE_URL", DATABASE_URL)
     monkeypatch.setenv("CORS_ALLOWED_ORIGINS", " http://localhost:5173 , https://app.example.com ")
+    monkeypatch.setenv("AI_PROVIDER", "mock")
 
     settings = load_settings()
 
@@ -45,6 +49,7 @@ def test_settings_come_from_environment_variables(no_env_file, monkeypatch):
 
 def test_missing_database_url_is_named(no_env_file, monkeypatch):
     monkeypatch.setenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
+    monkeypatch.setenv("AI_PROVIDER", "mock")
 
     with pytest.raises(SettingsError, match="DATABASE_URL is required"):
         load_settings()
@@ -52,6 +57,7 @@ def test_missing_database_url_is_named(no_env_file, monkeypatch):
 
 def test_missing_cors_origins_is_named(no_env_file, monkeypatch):
     monkeypatch.setenv("DATABASE_URL", DATABASE_URL)
+    monkeypatch.setenv("AI_PROVIDER", "mock")
 
     with pytest.raises(SettingsError, match="CORS_ALLOWED_ORIGINS is required"):
         load_settings()
@@ -63,11 +69,13 @@ def test_app_does_not_start_without_required_variables(no_env_file):
 
     assert "DATABASE_URL" in str(error.value)
     assert "CORS_ALLOWED_ORIGINS" in str(error.value)
+    assert "AI_PROVIDER" in str(error.value)
 
 
 def test_empty_database_url_is_invalid(no_env_file, monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "  ")
     monkeypatch.setenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
+    monkeypatch.setenv("AI_PROVIDER", "mock")
 
     with pytest.raises(SettingsError, match="DATABASE_URL is invalid"):
         load_settings()
@@ -77,6 +85,7 @@ def test_empty_database_url_is_invalid(no_env_file, monkeypatch):
 def test_invalid_cors_origins_are_rejected(no_env_file, monkeypatch, origins):
     monkeypatch.setenv("DATABASE_URL", DATABASE_URL)
     monkeypatch.setenv("CORS_ALLOWED_ORIGINS", origins)
+    monkeypatch.setenv("AI_PROVIDER", "mock")
 
     with pytest.raises(SettingsError, match="CORS_ALLOWED_ORIGINS is invalid"):
         load_settings()
@@ -85,6 +94,7 @@ def test_invalid_cors_origins_are_rejected(no_env_file, monkeypatch, origins):
 def test_error_message_never_contains_values(no_env_file, monkeypatch):
     monkeypatch.setenv("DATABASE_URL", DATABASE_URL)
     monkeypatch.setenv("CORS_ALLOWED_ORIGINS", "not-an-origin")
+    monkeypatch.setenv("AI_PROVIDER", "mock")
 
     with pytest.raises(SettingsError) as error:
         load_settings()
@@ -95,6 +105,7 @@ def test_error_message_never_contains_values(no_env_file, monkeypatch):
 def test_database_url_is_masked_when_printed_or_logged(no_env_file, monkeypatch, caplog):
     monkeypatch.setenv("DATABASE_URL", DATABASE_URL)
     monkeypatch.setenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
+    monkeypatch.setenv("AI_PROVIDER", "mock")
     settings = load_settings()
 
     import logging

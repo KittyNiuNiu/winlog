@@ -127,6 +127,7 @@ def test_fr_a2_token_lifetime_comes_from_the_setting(
         _env_file=None,
         database_url=test_database_url,
         cors_allowed_origins=[ALLOWED_ORIGIN],
+        ai_provider="mock",
         token_lifetime_days=2,
     )
     client = TestClient(create_app(settings))
