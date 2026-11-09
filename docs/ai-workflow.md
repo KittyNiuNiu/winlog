@@ -732,3 +732,26 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - #38: the access log records filter tag names. This was the product owner's choice (https://github.com/KittyNiuNiu/winlog/issues/38#issuecomment-6727416124).
   - #58: date errors use two wordings, and the generated schema shows optional parameters as nullable. This was the product owner's choice.
 - **Product owner decision on commit identity:** commits keep the environment's identity (`GIT_AUTHOR_EMAIL` and `GIT_COMMITTER_EMAIL` set to the product owner's account), not `noreply@anthropic.com`. The stop hook's "Unverified" warnings about this are expected and ignored. Pushed commits are never rewritten.
+
+## 2026-11-09: Implement #12 (AI adapter interface and mock provider)
+
+- **Task:** #12, the provider-agnostic AI adapter in `backend/app/ai/` with `suggest` and `summarise`, a required `AI_PROVIDER` variable with a factory, and a deterministic mock provider (`product-spec.md` §8 and §9).
+- **What I did:**
+  - `app/ai/adapter.py`: the sync interface (`AIProvider`, matching #4), `Suggestion`, `SummaryEntry` and the errors `AITimeoutError` and `AIProviderError` (both under `AIError`). Providers implement `_suggest` and `_summarise`; the public methods check the output for every provider: a category outside the four, tags that are not a list of valid tag names, or a summary that is blank, not text or not storable raises `AIProviderError`. Any other exception from a provider also becomes `AIProviderError` (chained). Tag names are normalised as `app.tags` does.
+  - Data minimisation: `summarise` accepts only `SummaryEntry` objects (date, category, text, Result/Impact, tag names; frozen, with slots). `SummaryEntry.from_entry` copies those fields from an API `Entry` and leaves the id behind. An empty list raises `ValueError`, so no AI call is made without entries.
+  - Logging: the adapter logs only the operation, provider, entry count, time taken and error type. Error messages never contain user content.
+  - `app/ai/mock.py`: `MockProvider`. The category comes from a SHA-256 of the text (not `hash()`, which changes per run); the tag is "Mock tag" and the summary is "Mock summary of N entries from <first date> to <last date>." Tests can call `return_suggestion`, `return_summary`, `raise_timeout`, `raise_provider_error` and `reset`, and read `suggest_calls` and `summarise_calls`.
+  - `app/ai/factory.py`: `create_ai_provider(settings)` and the `get_ai_provider` dependency (`AI` annotation) for #16 and #17. `create_app` creates the provider at startup and keeps it on `app.state.ai_provider`.
+  - `app/settings.py`: `ai_provider: Literal["mock"]`, required with no default. A missing value gives "AI_PROVIDER is required but not set", an unknown one "AI_PROVIDER is invalid: Input should be 'mock'". The factory gives the same kind of message if it ever gets an unknown name, and a test checks its list matches the setting's.
+  - `.env.example`: `AI_PROVIDER=mock` with its comment. `docker-compose.yml`: the backend gets `AI_PROVIDER` from `.env` and Compose stops with a message when it is missing; without this line, `docker compose up` would no longer start the backend (`AGENTS.md`: keep the commands working).
+  - Existing tests: the explicit test settings pass `ai_provider="mock"`, the import defaults set `AI_PROVIDER`, `no_env_file` removes it, and the settings tests set it where they expect a valid configuration. No test was weakened.
+  - No new dependencies. No changes to `openapi.yaml` or `product-spec.md`.
+- **How I verified it:**
+  - `uv run pytest tests/unit`: 397 passed. `uv run pytest tests/integration` (PostgreSQL 18 via `docker compose up -d db`): 476 passed. `uv run ruff check .` and `uv run ruff format --check .` are clean.
+  - New tests in `tests/unit/test_ai.py`: the factory (mock, unknown values, missing variable, at app startup), the contract's `Category` and `Suggestion` schemas, data minimisation, determinism with fixed values, configured output, both errors, invalid output, and a logging test that runs every path with captured logs and checks no input or output text appears in the logs or error messages.
+  - Mutation checks: logging the entry text, or skipping the category check, makes tests fail.
+  - `uv run uvicorn app.main:app` with `AI_PROVIDER=mock` served `/health`; with `openai` and with the variable unset it stopped with the messages above. `docker compose config` without `AI_PROVIDER` stops naming it. Building the backend image did not work in this session (pip in the image build could not reach PyPI through the sandbox proxy), so the container itself was not started.
+- **Left open:**
+  - The adapter does not limit the number of suggested tags; `openapi.yaml` allows at most 5 in a `Suggestion`, so #16 has to apply that limit (and map names to the user's spelling).
+  - The usage-limit check before each call is #15; the real provider, its timeouts and prompts are #13.
+  - The adapter logs each call's metadata at INFO (success) and WARNING (failure); #38 may want to review log levels.
