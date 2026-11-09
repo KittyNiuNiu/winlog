@@ -420,3 +420,30 @@ def test_issue14_max_daily_cost_assumes_the_largest_summary_for_every_request() 
     output_tokens = -(-10_000 // 3) + 500
     expected = 100 * (input_tokens * PRICE_IN + output_tokens * PRICE_OUT)
     assert max_daily_cost(result) == pytest.approx(expected)
+
+
+# --- The decision -------------------------------------------------------------------------
+
+
+def test_issue14_env_example_default_model_is_the_chosen_model() -> None:
+    root = Path(__file__).resolve().parents[3]
+    note = (root / "docs" / "decisions" / "default-model.md").read_text(encoding="utf-8")
+    chosen = re.search(r"^\*\*Chosen model:\*\* `([^`]+)`$", note, re.MULTILINE)
+    assert chosen, "the decision note names the chosen model"
+    env_example = (root / ".env.example").read_text(encoding="utf-8")
+    defaults = re.findall(r"^AI_MODEL=(.*)$", env_example, re.MULTILINE)
+    assert defaults == [chosen.group(1)]
+
+
+def test_issue14_committed_results_cover_the_decision_and_hold_no_secrets() -> None:
+    results = comparison.RESULTS_PATH / "2026-11-09"
+    run_info = json.loads((results / "run.json").read_text(encoding="utf-8"))
+    assert len(run_info["candidates"]) >= 3
+    for path in results.glob("*.json"):
+        text = path.read_text(encoding="utf-8").lower()
+        for secret in ("bearer", "authorization", "sk-or-", "api_key", "placeholder"):
+            assert secret not in text, f"{path.name} contains {secret!r}"
+    for model in run_info["candidates"]:
+        result = json.loads((results / f"{comparison._file_name(model)}.json").read_text())
+        assert missing_reviews(result) == []
+        assert "engineer agent" in result["review_by"].lower()
