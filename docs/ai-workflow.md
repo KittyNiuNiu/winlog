@@ -981,3 +981,60 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - #38: check that the production model's output cap accepts `AI_SUMMARY_MAX_TOKENS`, and add the setting to the production variables (https://github.com/KittyNiuNiu/winlog/issues/38#issuecomment-6750847264).
   - #43 already holds the maximum size of the entries sent in one summary.
 - Side effect of QA and the engineer's live checks: test users `se17-*`, `qa17a-*` and `qa17b-*`, with entries, summaries and usage rows, are in the local dev database.
+
+## 2026-11-09: Implement #18 (saved summary management)
+
+- **Task:** #18, list, get, edit and delete saved summaries (FR-R5, FR-A3, §7.4): `listSummaries`, `getSummary`, `updateSummary` and `deleteSummary` in `openapi.yaml`.
+- **What I did:**
+  - `backend/app/summaries.py` (the router from #17): `GET /summaries` returns the user's summaries with text and filter, newest first by `created_at` (id as a tie-breaker), not paginated. `GET`, `PATCH` and `DELETE /summaries/{summaryId}` load the summary scoped to the user, so another user's summary is the same 404 `not_found` as a missing id and stays unchanged.
+  - `SummaryUpdate` takes only `text`, with the entry text rules (#9's `EntryText`): required, stored exactly as typed, not empty or only whitespace (`pattern: '\S'`), no NUL or unpaired surrogate. Other fields, such as `filter`, are ignored. The row is locked (`FOR UPDATE`) and always written, so the trigger sets `updated_at` even for the same text and the last of two edits wins; `created_at`, the filter and all entries are untouched.
+  - The id uses #10's UUID rule (`_require_uuid`), so a wrong format is the validation error naming `summaryId`. Delete answers 204; deleting again is 404. All routes use `AuthenticateFirstRoute`, so without a valid token every operation is 401 and changes nothing, even with a bad body. Nothing is logged.
+  - No maximum length for edited text: `SummaryUpdate` in `openapi.yaml` sets none, and the issue moves it to #43.
+- **How I verified it:**
+  - New `tests/unit/test_summary_management.py` (60 tests: the four operations match the contract, current-user dependency, edit body rules, extra fields ignored, wrong id formats, 401 without a token, no text in validation errors).
+  - New `tests/integration/test_summary_management.py` (125 tests against PostgreSQL, summaries generated with the mock provider or stored directly: order and content of the list, empty list, no pagination, get, edit changes only the text and keeps the stored filter, text exactly as typed, invalid text changes nothing, non-object bodies, `updated_at`/`created_at`, last edit wins, edits never change entries, tags or links, ids and owner in the body ignored, delete keeps entries, second delete 404, missing ids, another user's summary for all operations and the list, wrong id formats, no/invalid/expired token for all four operations, summary text never logged).
+  - Mutations (list not scoped to the user, oldest first, no forced write, get/edit or delete not scoped, text trimmed) each make integration tests fail.
+  - `uv run pytest tests/unit`: 719 passed. `uv run pytest tests/integration`: 739 passed. `uv run ruff check .` and `uv run ruff format --check .` are clean. No AI call (the mock provider only for generating test summaries). No new dependency.
+- **Left open:** the 10,000-character limit for edited summary text is #43. `summaries.py` imports `_require_uuid` from `entries.py` to share the id rule; a shared public helper could replace it later.
+
+## 2026-11-09: Orchestrator: #18 implemented, QA PASS, closed
+
+- The product owner asked for #18–#19. Before starting, the orchestrator merged `main` (which includes PR #63) into the working branch. #18 was `groomed`, so it went straight to the engineer, who added list, get, edit (`PATCH`, text only) and delete for saved summaries in `backend/app/summaries.py`, all limited to the logged-in user (edf7da1, c0cbbd1, eaef272; https://github.com/KittyNiuNiu/winlog/issues/18#issuecomment-6751102292).
+- QA PASS on every criterion in the first round, with only `AI_PROVIDER=mock` (https://github.com/KittyNiuNiu/winlog/issues/18#issuecomment-6751181128): 719 unit and 739 integration tests pass, lint is clean. QA also checked the system live with two users. Closed #18 as completed.
+- **Open points**, recorded where they belong:
+  - #43: edited summary text has no maximum length yet (a 200,000-character edit was accepted); the shared `MAX_SUMMARY_CHARACTERS` from #17 could be reused (https://github.com/KittyNiuNiu/winlog/issues/43#issuecomment-6751188925).
+  - #58: a non-JSON body gives 422 with `field: "0"` and "JSON decode error", from the shared validation handler (https://github.com/KittyNiuNiu/winlog/issues/58#issuecomment-6751190144).
+  - Left in this log by the product owner's choice: `summaries.py` imports the private `_require_uuid` from `entries.py`; a shared public helper would be cleaner.
+
+## 2026-11-09: Implement #19 (data export in JSON and Markdown)
+
+- **Task:** #19, `GET /export/json` and `GET /export/markdown` (`exportJson`, `exportMarkdown` in `openapi.yaml`; FR-D1, FR-A3, §7.6, §8).
+- **What I did:**
+  - New `backend/app/export.py`. `collect_export` is the one function that collects the data; `render_json` and `render_markdown` both render its result, so both files always hold the same entries and summaries. Entries come from #11's `filter_entries` with an empty filter (the entry list's order: date, then creation time, newest first); summaries from #18's list query, which I moved into a shared `user_summaries` in `backend/app/summaries.py` (the list endpoint now uses it too; behaviour unchanged). Both are scoped to the user.
+  - JSON: `ExportFile` with `format_version` 1, `exported_at` (UTC), and the entries and summaries with exactly the fields of the `Entry` and `Summary` schemas (summaries with their filter). No email, password hash, token, user id or usage data.
+  - Markdown: `# Winlog export`, `Exported on YYYY-MM-DD`, `## Entries` and `## Summaries`. Each entry is `### <date> · <category>`, then its text, `Result/Impact: …` (only if it has one) and `Tags: …` (`None` without tags). Each summary is `### <created UTC date> · <start> to <end> · Categories: … · Tags: …` (`all` for an empty list, which means no restriction), then its text. Text is written as stored, without escaping. An empty section says `None`, which matches the example in `openapi.yaml`.
+  - Downloads: `Content-Disposition: attachment; filename="winlog-export-YYYY-MM-DD.json"` or `.md`, from the UTC date of the export time. Content types `application/json; charset=utf-8` and `text/markdown; charset=utf-8`; non-ASCII text is written unchanged (no `\u` escapes). The routes use `AuthenticateFirstRoute`, so no valid token is 401 `not_authenticated`. They have no AI dependency, write nothing, and log nothing.
+- **How I verified it:**
+  - New `tests/unit/test_export.py` (27 tests: both operations and `ExportFile` match the contract, no AI dependency on the routes, both formats from the same data and order, JSON fields, empty account (equal to the contract's Markdown example), every entry and summary in Markdown, text without escaping, non-English text, UTC file names, no token). `tests/unit/test_auth.py` lists the new router.
+  - New `tests/integration/test_export.py` (33 tests against PostgreSQL, mock provider only): JSON entries and summaries equal the list endpoints' responses (order and fields), Markdown holds every entry and summary in that order, both formats hold the same data, export time, text exactly as written, empty account, headers, content types and file names, CORS exposes `Content-Disposition`, non-English text, no email/password hash/token/user id/usage, works with the mock AI failing (timeout and provider error) and with the global AI limit reached, writes nothing, no/invalid/expired token, two users, nothing logged.
+  - Mutations (reversed entry order, ASCII-escaped JSON, stripped summary text, Result/Impact always shown, local instead of UTC date) each make tests fail.
+  - `uv run pytest tests/unit`: 746 passed. `uv run pytest tests/integration`: 772 passed. `uv run ruff check .` and `uv run ruff format --check .` are clean. Live check with `uvicorn` and `AI_PROVIDER=mock` against the dev database (user `se19-*`): empty and filled exports, headers and 401. No real AI call. No new dependency.
+- **Left open:** the shared `ContentDisposition` header example in `openapi.yaml` still shows a `.json` file name for the Markdown export too (open point from #2, comment on #19). The issue does not allow editing `openapi.yaml`, so I left it; the code sends `.md` as the criteria require. Entry or summary text that itself contains Markdown headings (for example a line `## Summaries`) is copied unescaped, as the criteria require, so it can look like part of the file's structure. The download buttons are #34.
+
+## 2026-11-09: Orchestrator: #19 implemented, QA PASS, closed
+
+- #19 was `groomed`, so it went straight to the engineer, who added `GET /export/json` and `GET /export/markdown` in `backend/app/export.py`. Both are built from one shared `collect_export`, and the summaries list query moved into a shared `user_summaries` (2981c4f, 1cbe097, ffd414f, b1e08b0; https://github.com/KittyNiuNiu/winlog/issues/19#issuecomment-6751365512).
+- QA PASS on all 17 criteria in the first round, with only `AI_PROVIDER=mock` (https://github.com/KittyNiuNiu/winlog/issues/19#issuecomment-6751448293): 746 unit and 772 integration tests pass, lint is clean. QA's live check with three accounts showed the empty Markdown export is byte-for-byte the `openapi.yaml` example, and that #18's list endpoint is unchanged after the refactor. Closed #19 as completed.
+- **Open points**, recorded where they belong:
+  - New issue #64, created on the product owner's instruction: the shared `ContentDisposition` example in `openapi.yaml` shows a `.json` file name for the Markdown export too. The code sends `.md`; fixing the example needs a contract edit.
+  - Left in this log by the product owner's choice: because text is not escaped (as required), a heading line inside an entry or summary renders as a heading when the Markdown file is viewed formatted. The data stays complete.
+- Housekeeping: the orchestrator removed QA's leftover test-account token files from the scratchpad. Test users from the live checks (`se19-*` and QA's accounts) remain in the local dev database.
+
+## 2026-11-09: Orchestrator: close the open question about the default model (spec §13)
+
+- **Task:** the product owner closed the open question in `product-spec.md` §13. They confirmed `anthropic/claude-haiku-5.5` as the default model and chose `deepseek/deepseek-v4.1-flash` as the backup.
+- **Product owner decision:** "backup" means a documented alternative that is switched to by changing `AI_MODEL`, not an automatic retry. The app keeps making at most one AI call per user action (#13).
+- **What I did:**
+  - `docs/product-spec.md`: §13 now lists no open questions and records the closed one with the default and backup model. "Last updated" is 9 November 2026, and the change log has an entry. The version stays 0.2, so references in the issues still match.
+  - `docs/decisions/default-model.md`: added the backup model at the top, as product owner decision 3, and in the Decision section with its trade-offs (same quality, about 3.5 times the cost per summary, slower). Before switching, its prices and ZDR endpoints should be checked again with the free `check` command.
+- **How I verified it:** `uv run pytest tests/unit` (746 passed, including the test that ties `.env.example` to the decision note) and `uv run ruff check .` (clean). Documentation only; no code changed.

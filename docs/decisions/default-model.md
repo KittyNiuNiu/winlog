@@ -2,6 +2,10 @@
 
 **Chosen model:** `anthropic/claude-haiku-5.5`
 
+**Backup model:** `deepseek/deepseek-v4.1-flash` (product owner, 2026-11-09). It is not an
+automatic fallback. If the chosen model becomes unavailable, too expensive or worse, the
+`AI_MODEL` setting is switched to the backup; no code change is needed.
+
 Issue #14 answers the open question in `product-spec.md` §13 with a documented, repeatable
 comparison. The product owner closes the question in the spec.
 
@@ -18,6 +22,10 @@ comparison. The product owner closes the question in the spec.
 2. **One paid run** of the comparison with exactly four models: `openai/gpt-5.4-mini`,
    `anthropic/claude-haiku-5.5`, `mistralai/mistral-small-2603` and
    `deepseek/deepseek-v4.1-flash`. No reruns: a candidate's failures are results.
+3. **Default and backup.** The product owner confirmed `anthropic/claude-haiku-5.5` as the
+   default and chose `deepseek/deepseek-v4.1-flash` as the backup model: a documented
+   alternative that is switched to by changing `AI_MODEL`, not an automatic retry. The app
+   keeps making at most one AI call per user action (#13).
 
 ## Candidates
 
@@ -154,6 +162,12 @@ Notes on the results:
   expensive candidate (about 3.5 times Haiku per suggestion, 7 times its maximum daily cost),
   and it showed both rate limiting on its only ZDR endpoints and a suggestion over the 15 s
   timeout. A complete result could not make it a better default than Haiku.
+
+**Backup:** `deepseek/deepseek-v4.1-flash`, chosen by the product owner. It matched Haiku on
+every measure, including summary quality (4.8), but costs about 3.5 times more per summary
+(maximum daily cost about $1.97 against $0.41) and is slower (20.4 s median per summary, within
+the 60 s summary timeout). Before switching to it, check its prices and zero-data-retention
+endpoints again with the free `check` command.
 
 ## Maximum daily cost
 
