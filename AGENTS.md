@@ -58,6 +58,7 @@ Backend (run in `backend/`):
 - Integration tests (needs PostgreSQL and `TEST_DATABASE_URL` in `.env`; start it first with `docker compose up -d db` in the repo root): `uv run pytest tests/integration`
 - Apply migrations: `uv run alembic upgrade head`
 - New migration: `uv run alembic revision --autogenerate -m "<message>"`
+- Seed or reset the demo account (needs `DEMO_EMAIL` and a migrated database; changes nothing when `DEMO_EMAIL` is empty): `uv run python -m scripts.seed_demo`
 
 Frontend (run in `frontend/`):
 

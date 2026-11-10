@@ -58,6 +58,8 @@ class SampleEntry:
     text: str
     tags: tuple[str, ...] = ()
     result_impact: str | None = None
+    # The language the entry is written in (ISO 639-1), so a test can check §9's mix.
+    language: str = "en"
 
 
 @dataclass(frozen=True)
@@ -127,6 +129,7 @@ SAMPLE_ENTRIES: tuple[SampleEntry, ...] = (
         "Habe den Workshop zu Code-Reviews für das Team in Berlin auf Deutsch gehalten.",
         ("Public speaking", "Mentoring"),
         "Zwölf Teilnehmende, und zwei Teams haben danach eine Review-Checkliste eingeführt.",
+        language="de",
     ),
     SampleEntry(
         117,
@@ -194,6 +197,7 @@ SAMPLE_ENTRIES: tuple[SampleEntry, ...] = (
         "Learning",
         "Empecé un curso de español para hablar mejor con el equipo de Madrid.",
         ("Teamwork",),
+        language="es",
     ),
     SampleEntry(
         47,

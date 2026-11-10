@@ -37,7 +37,8 @@ def is_demo_user(settings: Settings, user: User) -> bool:
 class DemoLoginResult(BaseModel):
     token: str
     expires_at: dt.datetime
-    demo: Literal[True] = True
+    # Always true: marks the session as a demo session.
+    demo: Literal[True]
 
 
 def _demo_not_available() -> ApiError:
@@ -68,7 +69,7 @@ def demo_login(
     lifetime = dt.timedelta(days=settings.token_lifetime_days)
     token, row = create_token(session, user_id, lifetime)
     session.commit()
-    return DemoLoginResult(token=token, expires_at=row.expires_at)
+    return DemoLoginResult(token=token, expires_at=row.expires_at, demo=True)
 
 
 def demo_account_not_deletable() -> ApiError:
