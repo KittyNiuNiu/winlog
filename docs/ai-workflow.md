@@ -1243,3 +1243,21 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - A local `.env` made before this change needs `VITE_API_BASE_URL`, or Compose stops with "set VITE_API_BASE_URL in .env". I added it to my git-ignored local `.env`.
   - The screens that use the client, and showing each error, are #26 to #35.
 - **Side effects:** the `db` container and the Docker daemon I started are still running. A TypeScript 5 comparison install and the build check output are in the scratchpad.
+
+## 2026-11-10: Orchestrator: #25 implemented, QA PASS, closed
+
+- The product owner asked for #25. #24 had been merged (PR #69), so the orchestrator restarted `developer/laughing-wozniak-ugxdbe` from `main` (fab8abc). #25 was `groomed`, so it went to the engineer.
+- **The engineer stopped before writing code** with three questions (https://github.com/KittyNiuNiu/winlog/issues/25#issuecomment-6777874411). One criterion contradicted #34 and #35, which is a stop point, so the orchestrator asked the product owner one question at a time.
+- **Product owner decisions (2026-11-10)**, recorded on the issue (https://github.com/KittyNiuNiu/winlog/issues/25#issuecomment-6778039072):
+  1. Logout always clears the stored token and demo flag, even if the request fails. Account deletion clears them only on success (204) or through the general 401 rule; 403 `wrong_password`, 409 `demo_account_not_deletable`, validation, network and unknown errors keep the session. This replaces the criterion "Logout and account deletion remove the stored token and flag, even if the request fails", which contradicted #34 and #35.
+  2. Two extra files, each limited to one change: `envDir: '..'` in `frontend/vite.config.ts`, and one `VITE_API_BASE_URL` build argument in the `frontend` service of `docker-compose.yml`.
+  3. `method_not_allowed`, `database_unreachable` and `internal_error` become the unknown error, keeping the status and code.
+- The engineer built the client in `frontend/src/api/` (openapi-typescript 7.13.0 and openapi-fetch 0.17.0): 20 typed operations, 10 typed errors plus network and unknown errors, the session in `localStorage` with an in-memory fallback, the 401 redirect, exports with file names, the ESLint rule against `fetch` outside `src/api/`, the Docker build argument, and a CI step that fails when the generated types drift from `openapi.yaml` (e09efb3, 467b6bd, be945aa, 57b7852, cbaa5c5, 455bc70; https://github.com/KittyNiuNiu/winlog/issues/25#issuecomment-6778458506). openapi-typescript declares peer `typescript ^5.x`, so a narrow npm `overrides` entry lets it install with TypeScript 6; the generated file is byte-identical to the TypeScript 5.9.3 output.
+- QA PASS on every criterion as changed by the decisions, in the first round with only `AI_PROVIDER=mock` (https://github.com/KittyNiuNiu/winlog/issues/25#issuecomment-6778680235). 145 frontend tests pass, plus 823 backend unit and 882 integration tests. Lint is clean, and CI runs 42894510287 and 42895064132 passed. QA also ran the client end to end against the backend. Closed #25 as completed.
+- **Open points**, recorded where they belong:
+  - #68 (https://github.com/KittyNiuNiu/winlog/issues/68#issuecomment-6778690088): `AGENTS.md` does not list `npm run generate:api`.
+  - #26 (https://github.com/KittyNiuNiu/winlog/issues/26#issuecomment-6778691811): the `setLoginRedirect` hook for the router, the logout decision, a 401 without the JSON `not_authenticated` body does not redirect, and a logout in another tab is noticed only at that tab's next request.
+  - Left in this log by the product owner's choice: the ESLint rule (like the rest of the ESLint setup) checks only `.ts` and `.tsx` files; and the npm override for openapi-typescript can be removed once a release supports TypeScript 6 (upstream pull request openapi-ts/openapi-typescript#2818).
+  - For the product owner: existing local `.env` files need `VITE_API_BASE_URL=http://localhost:8000` (as in `.env.example`), or `docker compose` stops with an error.
+  - Environment only: the image build was checked unmodified in CI; in the sandbox only with the proxy CA added.
+- Housekeeping: the orchestrator removed QA's TypeScript 5 comparison and Docker files from the scratchpad. The `db` container is still running.
