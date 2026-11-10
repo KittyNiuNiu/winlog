@@ -1196,3 +1196,68 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Left in this log: the failing cases of the new Backend step were shown only locally, because no other branch could be pushed. The Full system job's on-failure log step has not run in CI yet, because that job has not failed. setup-uv's cache key uses the runner's Python, not 3.13; this does not affect the tests.
   - Note for the product owner: the round 2 fix is on the working branch only; `main` still has the round 1 workflow until a new pull request merges it.
 - Housekeeping: the orchestrator removed the repository copies and leftover token and password files from the scratchpad.
+
+## 2026-11-10: Implement #25 (central API client): blocked before implementation
+
+- **Task:** #25, the typed API client in `frontend/src/api/`, built with openapi-typescript and openapi-fetch.
+- **What I did:** read the issue, `openapi.yaml`, spec §7.6, §7.7, §10 and §12, and the later issues that build on the client (#26, #34, #35). I found one criterion that contradicts settled criteria, and two files the work needs that the issue does not list. I stopped and asked on the issue (https://github.com/KittyNiuNiu/winlog/issues/25#issuecomment-6777874411):
+  1. "Account deletion removes the stored token even if the request fails" contradicts #34 (after a wrong password the user stays logged in and can try again) and #35 (the demo error is shown, so the demo visitor stays logged in). Recommended: logout clears the token always; account deletion clears it only on success, or through the general 401 rule.
+  2. `frontend/vite.config.ts` (`envDir: '..'`, so Vite reads the root `.env`) and one line in `docker-compose.yml` (pass `VITE_API_BASE_URL` from `.env` as a build argument) are needed but not in the file list. Recommended: allow both.
+  3. `method_not_allowed`, `database_unreachable` and `internal_error` are in the contract's error enum but not in the issue's list of typed errors. Recommended: they become the unknown error, which keeps the status and code.
+- **How I verified it:** checked npm on 2026-11-10. openapi-typescript 7.13.0 and openapi-fetch 0.17.0 are still the latest. openapi-typescript declares the peer dependency `typescript ^5.x`, and `npm install` fails with ERESOLVE against the frontend's TypeScript 6.0.3. A scoped npm `overrides` entry resolves it, which I tried locally and then reverted. The upstream fix is an open pull request, openapi-ts/openapi-typescript#2818. I read openapi-fetch 0.17.0's source for how it handles fetch, network failures and error bodies. No AI call.
+- **Left open:** the whole implementation waits for the answers above. Nothing in `frontend/` changed.
+
+## 2026-11-10: Implement #25 (central API client)
+
+- **Task:** #25, the typed API client in `frontend/src/api/`, after the product owner's decisions on my questions (https://github.com/KittyNiuNiu/winlog/issues/25#issuecomment-6778039072). Account deletion clears the token only on success or through the 401 rule. `vite.config.ts` and `docker-compose.yml` each get one change. The three other error codes become the unknown error.
+- **What I did:**
+  - `npm run generate:api` runs openapi-typescript on `../openapi.yaml` and writes `src/api/schema.d.ts` (committed). A new CI step in the Frontend job regenerates it and fails when the file is changed or missing.
+  - `src/api/`:
+    - `operations.ts` has one function per operationId (20), built on openapi-fetch with the generated types.
+    - `client.ts` adds the bearer token on every operation without `security: []`, turns error responses into typed errors, and on `not_authenticated` (except login and demo-login) clears the session and sends the user to `/login`. That is `location.assign('/login')` by default, replaceable with `setLoginRedirect`, for example for the router in #26.
+    - `errors.ts` has `ApiError` and its subclasses. There are 10 typed errors, plus `NetworkError` and `UnknownError`, which keeps the status and code.
+    - `session.ts` stores the token, `expires_at` and the demo flag under `winlog.session` in `localStorage`. All access is wrapped in try/catch, with an in-memory copy when storage is blocked. An expired or unreadable value is removed.
+    - `contentDisposition.ts` reads the export file name. The exports return `{ contents: Blob, filename }`.
+    - No timeout or abort signal is set.
+  - The base URL comes from `VITE_API_BASE_URL`. Vite reads it from the root `.env` (`envDir: '..'`), and `.env.example` documents it as public and never secret. The frontend Dockerfile has `ARG VITE_API_BASE_URL` and stops the build when it is empty. Compose passes it with `${VITE_API_BASE_URL:?…}`.
+  - ESLint (`no-restricted-globals` and `no-restricted-properties`) forbids `fetch`, `window.fetch`, `globalThis.fetch` and `self.fetch` outside `src/api/`.
+  - **Dependencies:**
+    - openapi-typescript 7.13.0 (dev), to generate the types from the contract (the issue's choice).
+    - openapi-fetch 0.17.0 (runtime, about 4 kB gzipped unminified, one dependency, `openapi-typescript-helpers`, which openapi-fetch uses only in its type declarations), the typed fetch client the issue names.
+    - Both were the latest on npm on 2026-11-10. openapi-typescript 7.13.0 declares the peer dependency `typescript ^5.x`, and `npm install` fails with ERESOLVE against the frontend's TypeScript 6.0.3. The fix is a scoped override in `package.json`: `"overrides": { "openapi-typescript": { "typescript": "$typescript" } }`. It applies only to openapi-typescript, and nothing uses `--legacy-peer-deps`. It can be removed once a release widens the range (open upstream pull request openapi-ts/openapi-typescript#2818).
+- **How I verified it:**
+  - **Generation on TypeScript 6:** `npm run generate:api` runs on TypeScript 6.0.3. Its output is byte-identical to the output of openapi-typescript 7.13.0 with TypeScript 5.9.3, installed separately in the scratchpad.
+  - **Frontend:** `npm run lint` clean, `npm test` 145 tests passed (123 new), `npm run build` passes (Node 26.13.0).
+    - The tests read `openapi.yaml` and check that there is one function per operationId (also checked by the type system), each function's method, path and token header, and that the public operations are exactly those with `security: []`.
+    - They also cover storing and clearing the token, a reload, expiry, logout on success, error and network failure, and account deletion on 204, 401, 403, 409, 422, 500 and network failure.
+    - The rest: the redirect, and none for login or demo-login. Each typed error, with fields and limit. Unknown, network and non-JSON responses. No timeout (150 s with fake timers). Blocked storage, both the methods and the `localStorage` getter. Both downloads. The Content-Disposition parser. The ESLint rule, run through the ESLint API.
+  - **Mutation checks:** six deliberate breaks each failed tests: no token header, deletion always clearing, logout without `finally`, no redirect, a redirect on login, unguarded storage.
+  - **Built-in base URL:** a library build of `src/api/index.ts` with the project's Vite config contains the URL from the root `.env`. A value in the build environment (the Docker path) overrides it. No backend secret is in the bundle.
+  - **CI step:** the drift check passes when nothing changed, and fails after a contract change and when the file is missing.
+  - **Compose and Docker:** `docker compose config` resolves the build argument and fails without it. The Dockerfile's guard fails on empty or unset values in a POSIX shell.
+  - **Backend:** unchanged. `ruff check` and `ruff format --check` clean, 823 unit and 882 integration tests passed.
+  - **CI on GitHub:** run https://github.com/KittyNiuNiu/winlog/actions/runs/42894510287 (57b7852) passed all four jobs. The new step "Generated API types match openapi.yaml" passed. In the Full system job, Compose passed `VITE_API_BASE_URL=http://localhost:8000` from the `.env` copied from `.env.example`, the Dockerfile guard passed, and the frontend image built and answered `/` and `/review` with 200. No AI call.
+- **Left open:**
+  - The image build was not run locally, because the sandbox's TLS proxy blocks npm inside Docker (as noted for #23). It was checked in CI only, with the argument set. That the build stops without the argument was checked in a POSIX shell only.
+  - `AGENTS.md` does not list `npm run generate:api`. `AGENTS.md` is not in this issue's files, and #68 already collects missing commands.
+  - A local `.env` made before this change needs `VITE_API_BASE_URL`, or Compose stops with "set VITE_API_BASE_URL in .env". I added it to my git-ignored local `.env`.
+  - The screens that use the client, and showing each error, are #26 to #35.
+- **Side effects:** the `db` container and the Docker daemon I started are still running. A TypeScript 5 comparison install and the build check output are in the scratchpad.
+
+## 2026-11-10: Orchestrator: #25 implemented, QA PASS, closed
+
+- The product owner asked for #25. #24 had been merged (PR #69), so the orchestrator restarted `developer/laughing-wozniak-ugxdbe` from `main` (fab8abc). #25 was `groomed`, so it went to the engineer.
+- **The engineer stopped before writing code** with three questions (https://github.com/KittyNiuNiu/winlog/issues/25#issuecomment-6777874411). One criterion contradicted #34 and #35, which is a stop point, so the orchestrator asked the product owner one question at a time.
+- **Product owner decisions (2026-11-10)**, recorded on the issue (https://github.com/KittyNiuNiu/winlog/issues/25#issuecomment-6778039072):
+  1. Logout always clears the stored token and demo flag, even if the request fails. Account deletion clears them only on success (204) or through the general 401 rule; 403 `wrong_password`, 409 `demo_account_not_deletable`, validation, network and unknown errors keep the session. This replaces the criterion "Logout and account deletion remove the stored token and flag, even if the request fails", which contradicted #34 and #35.
+  2. Two extra files, each limited to one change: `envDir: '..'` in `frontend/vite.config.ts`, and one `VITE_API_BASE_URL` build argument in the `frontend` service of `docker-compose.yml`.
+  3. `method_not_allowed`, `database_unreachable` and `internal_error` become the unknown error, keeping the status and code.
+- The engineer built the client in `frontend/src/api/` (openapi-typescript 7.13.0 and openapi-fetch 0.17.0): 20 typed operations, 10 typed errors plus network and unknown errors, the session in `localStorage` with an in-memory fallback, the 401 redirect, exports with file names, the ESLint rule against `fetch` outside `src/api/`, the Docker build argument, and a CI step that fails when the generated types drift from `openapi.yaml` (e09efb3, 467b6bd, be945aa, 57b7852, cbaa5c5, 455bc70; https://github.com/KittyNiuNiu/winlog/issues/25#issuecomment-6778458506). openapi-typescript declares peer `typescript ^5.x`, so a narrow npm `overrides` entry lets it install with TypeScript 6; the generated file is byte-identical to the TypeScript 5.9.3 output.
+- QA PASS on every criterion as changed by the decisions, in the first round with only `AI_PROVIDER=mock` (https://github.com/KittyNiuNiu/winlog/issues/25#issuecomment-6778680235). 145 frontend tests pass, plus 823 backend unit and 882 integration tests. Lint is clean, and CI runs 42894510287 and 42895064132 passed. QA also ran the client end to end against the backend. Closed #25 as completed.
+- **Open points**, recorded where they belong:
+  - #68 (https://github.com/KittyNiuNiu/winlog/issues/68#issuecomment-6778690088): `AGENTS.md` does not list `npm run generate:api`.
+  - #26 (https://github.com/KittyNiuNiu/winlog/issues/26#issuecomment-6778691811): the `setLoginRedirect` hook for the router, the logout decision, a 401 without the JSON `not_authenticated` body does not redirect, and a logout in another tab is noticed only at that tab's next request.
+  - Left in this log by the product owner's choice: the ESLint rule (like the rest of the ESLint setup) checks only `.ts` and `.tsx` files; and the npm override for openapi-typescript can be removed once a release supports TypeScript 6 (upstream pull request openapi-ts/openapi-typescript#2818).
+  - For the product owner: existing local `.env` files need `VITE_API_BASE_URL=http://localhost:8000` (as in `.env.example`), or `docker compose` stops with an error.
+  - Environment only: the image build was checked unmodified in CI; in the sandbox only with the proxy CA added.
+- Housekeeping: the orchestrator removed QA's TypeScript 5 comparison and Docker files from the scratchpad. The `db` container is still running.
