@@ -1,7 +1,8 @@
 # CI: checks every push to any branch (product-spec.md §10.2).
 # It needs no repository secrets. The configuration comes from .env.example, copied to .env,
-# so CI fails when .env.example misses a variable the app needs, and the AI provider is the
-# mock (AI_PROVIDER=mock in .env.example). No job calls a real AI API.
+# so CI fails when .env.example misses a variable the app needs (the Backend job starts the
+# backend with only that .env), and the AI provider is the mock (AI_PROVIDER=mock in
+# .env.example). No job calls a real AI API.
 #
 # Actions used, each pinned to at least a major version:
 # - actions/checkout@v7: checks out the repository.
@@ -88,6 +89,27 @@ jobs:
         working-directory: .
         # --wait returns once the db health check passes. The test database is created on start.
         run: docker compose up -d --wait db
+
+      - name: Backend starts with the settings from .env
+        # The tests set their own DATABASE_URL, CORS_ALLOWED_ORIGINS and AI_PROVIDER, and in the
+        # Full system job Compose sets the backend's variables, so only this step runs the backend
+        # with nothing but .env. Alembic and the app load every setting from .env (app/settings.py)
+        # and stop when one they require is missing or invalid. Alembic migrates the database
+        # DATABASE_URL names, then the app must answer GET /health with 200.
+        run: |
+          uv run alembic upgrade head
+          uv run uvicorn app.main:app --port 8000 > "$RUNNER_TEMP/backend.log" 2>&1 &
+          backend_pid=$!
+          status=none
+          for _ in $(seq 1 30); do
+            status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://127.0.0.1:8000/health || true)
+            [ "$status" = "200" ] && break
+            kill -0 "$backend_pid" 2>/dev/null || break
+            sleep 1
+          done
+          kill "$backend_pid" 2>/dev/null || true
+          cat "$RUNNER_TEMP/backend.log"
+          [ "$status" = "200" ] || { echo "::error::The backend did not start with the .env from .env.example (GET /health: $status)"; exit 1; }
 
       - name: Integration tests
         # TEST_DATABASE_URL comes from .env (copied from .env.example).
