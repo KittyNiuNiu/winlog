@@ -23,6 +23,7 @@ def test_settings_variables():
         "ai_daily_suggestions_per_user",
         "ai_daily_summaries_per_user",
         "ai_daily_requests_global",
+        "demo_email",
     }
 
 

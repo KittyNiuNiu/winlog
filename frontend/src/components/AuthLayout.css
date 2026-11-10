@@ -1,0 +1,23 @@
+/* Login and register: one centred column, no navigation. */
+
+.auth {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: var(--space-8) var(--space-4);
+}
+
+.auth__brand {
+  margin: 0 0 var(--space-6);
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.auth__main {
+  width: 100%;
+  max-width: 28rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

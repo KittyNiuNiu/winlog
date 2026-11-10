@@ -1,0 +1,95 @@
+/* Global styles: design tokens, a small reset and base typography. Mobile first. */
+
+:root {
+  --color-text: #1d2430;
+  --color-text-muted: #556070;
+  --color-bg: #ffffff;
+  --color-surface: #f4f6f9;
+  --color-border: #d9dee6;
+  --color-accent: #1f5f8b;
+  --color-accent-bg: #e3eef6;
+  --color-focus: #1f5f8b;
+
+  --font-sans: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --radius: 0.5rem;
+
+  /* Longest comfortable line of text, and the widest the content area gets. */
+  --measure: 70ch;
+  --content-max: 64rem;
+
+  color-scheme: light dark;
+  font-family: var(--font-sans);
+  font-size: 100%;
+  line-height: 1.5;
+  color: var(--color-text);
+  background: var(--color-bg);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-text: #e6e9ef;
+    --color-text-muted: #a7b0bd;
+    --color-bg: #14171c;
+    --color-surface: #1c2027;
+    --color-border: #2f3540;
+    --color-accent: #8cc4ec;
+    --color-accent-bg: #1f2f3d;
+    --color-focus: #8cc4ec;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 0;
+  background: var(--color-bg);
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.2;
+  margin: 0 0 var(--space-4);
+}
+
+h1 {
+  font-size: 1.75rem;
+}
+
+p {
+  margin: 0 0 var(--space-4);
+  max-width: var(--measure);
+}
+
+a {
+  color: var(--color-accent);
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+img,
+svg {
+  max-width: 100%;
+}
+
+@media (min-width: 48rem) {
+  h1 {
+    font-size: 2rem;
+  }
+}

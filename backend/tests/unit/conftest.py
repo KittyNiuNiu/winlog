@@ -54,3 +54,4 @@ def no_env_file(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("AI_DAILY_SUGGESTIONS_PER_USER", raising=False)
     monkeypatch.delenv("AI_DAILY_SUMMARIES_PER_USER", raising=False)
     monkeypatch.delenv("AI_DAILY_REQUESTS_GLOBAL", raising=False)
+    monkeypatch.delenv("DEMO_EMAIL", raising=False)

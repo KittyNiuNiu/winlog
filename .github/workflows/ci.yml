@@ -1,0 +1,186 @@
+# CI: checks every push to any branch (product-spec.md §10.2).
+# It needs no repository secrets. The configuration comes from .env.example, copied to .env,
+# so CI fails when .env.example misses a variable the app needs, and the AI provider is the
+# mock (AI_PROVIDER=mock in .env.example). No job calls a real AI API.
+#
+# Actions used, each pinned to at least a major version:
+# - actions/checkout@v7: checks out the repository.
+# - actions/setup-node@v7: installs Node from frontend/.nvmrc and caches npm downloads.
+# - astral-sh/setup-uv@v10.3.3: installs uv and caches uv downloads. setup-uv publishes no
+#   floating major tag (such as v10), so it is pinned to its exact release.
+# Python comes from backend/.python-version: `uv python install` reads that file.
+
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+
+# A new push to the same branch cancels the run still in progress for that branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    name: Contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: frontend/.nvmrc
+
+      - name: Lint openapi.yaml
+        # Redocly CLI pinned to its major version, so a new major cannot break CI unnoticed.
+        # Warnings are reported, errors fail the job.
+        run: npx --yes @redocly/cli@2 lint openapi.yaml
+
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Create .env from .env.example
+        working-directory: .
+        run: cp .env.example .env
+
+      - name: Check that the AI provider is the mock
+        working-directory: .
+        run: |
+          grep -qx 'AI_PROVIDER=mock' .env || { echo "::error::.env.example must set AI_PROVIDER=mock"; exit 1; }
+          grep -qx 'AI_API_KEY=' .env || { echo "::error::.env.example must leave AI_API_KEY empty"; exit 1; }
+
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          # Same uv version as backend/Dockerfile.
+          version: "0.11.32"
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Install Python from .python-version
+        run: uv python install
+
+      - name: Install dependencies
+        # --locked also fails when uv.lock is out of date with pyproject.toml.
+        run: uv sync --locked
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Check formatting
+        run: uv run ruff format --check .
+
+      - name: Unit tests
+        run: uv run pytest tests/unit
+
+      - name: Start PostgreSQL
+        working-directory: .
+        # --wait returns once the db health check passes. The test database is created on start.
+        run: docker compose up -d --wait db
+
+      - name: Integration tests
+        # TEST_DATABASE_URL comes from .env (copied from .env.example).
+        run: uv run pytest tests/integration
+
+      - name: Print the database logs
+        if: failure()
+        working-directory: .
+        run: docker compose logs --no-color db
+
+      - name: Stop PostgreSQL
+        if: always()
+        working-directory: .
+        run: docker compose down -v
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  full-system:
+    name: Full system
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Create .env from .env.example
+        run: cp .env.example .env
+
+      - name: Check that the AI provider is the mock
+        run: |
+          grep -qx 'AI_PROVIDER=mock' .env || { echo "::error::.env.example must set AI_PROVIDER=mock"; exit 1; }
+          grep -qx 'AI_API_KEY=' .env || { echo "::error::.env.example must leave AI_API_KEY empty"; exit 1; }
+
+      - name: Build and start all services
+        run: docker compose up --build -d
+
+      - name: Backend health endpoint returns 200
+        # The backend runs its migrations before it starts serving, so wait for it.
+        run: |
+          for attempt in $(seq 1 60); do
+            status=$(curl -s -o health.json -w '%{http_code}' --max-time 5 http://localhost:8000/health || true)
+            if [ "$status" = "200" ]; then
+              cat health.json; echo
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::GET /health did not return 200 (last status: $status)"
+          exit 1
+
+      - name: Backend migrations ran on start
+        # Exits with an error unless the database is at the latest migration.
+        run: docker compose exec -T backend alembic current --check-heads
+
+      - name: Frontend answers with 200
+        run: |
+          for path in / /review; do
+            status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "http://localhost:8080$path")
+            echo "GET $path -> $status"
+            [ "$status" = "200" ] || { echo "::error::GET $path returned $status"; exit 1; }
+          done
+
+      - name: Print the service logs
+        if: failure()
+        run: |
+          docker compose ps -a
+          docker compose logs --no-color
+
+      - name: Stop all services
+        if: always()
+        run: docker compose down -v

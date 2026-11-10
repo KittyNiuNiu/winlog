@@ -19,7 +19,8 @@ info:
     - Account deletion revokes all of the user's tokens.
     - Tokens expire after a time set by an environment variable (the value is
       chosen in issue #7).
-    - Every operation needs a valid token except health, register and login.
+    - Every operation needs a valid token except health, register, login and
+      demo-login.
     - After account deletion, the old token gets `not_authenticated` and the
       old email and password get `invalid_credentials` (`product-spec.md` §7.6).
 
@@ -182,6 +183,41 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /auth/demo:
+    post:
+      tags: [Accounts]
+      operationId: demoLogin
+      summary: Log in to the shared demo account.
+      description: |
+        Covers FR-X1 (issue #21). Needs no authentication and takes no request
+        body. Returns a new token for the demo account, exactly as login does
+        (same lifetime, and the demo account's expired tokens are deleted), and
+        `demo: true` to mark the session as a demo session. The demo account is
+        shared by every visitor, and so are its data and its AI limits (§8).
+        Its password is random and never shown, so this is the only way in.
+      security: []
+      responses:
+        '200':
+          description: Logged in to the demo account.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DemoLoginResult'
+        '404':
+          description: |
+            No demo account is configured, so the demo is turned off
+            (`code: not_found`). Also returned while the configured demo
+            account has not been created yet by the seed script.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: not_found
+                message: The demo is not available.
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /auth/logout:
     post:
       tags: [Accounts]
@@ -207,6 +243,12 @@ paths:
         Covers FR-D2. The request must include the user's current password
         (issue #20). Deletes the user with all their entries, tags, summaries,
         AI usage and tokens, so every token of the user stops working.
+
+        The demo account cannot be deleted (FR-X1, issue #21). For the demo
+        account, the token is checked first (401), and then the request gets
+        `demo_account_not_deletable` (409) whatever its body: before the body
+        is validated and before the password is checked, so a missing, invalid
+        or wrong password also gets this error. Nothing is deleted.
       requestBody:
         required: true
         content:
@@ -220,6 +262,8 @@ paths:
           $ref: '#/components/responses/NotAuthenticated'
         '403':
           $ref: '#/components/responses/WrongPassword'
+        '409':
+          $ref: '#/components/responses/DemoAccountNotDeletable'
         '422':
           $ref: '#/components/responses/ValidationFailed'
         '500':
@@ -761,6 +805,23 @@ components:
           format: date-time
           description: When the token stops working.
 
+    DemoLoginResult:
+      type: object
+      description: Like `LoginResult`, plus `demo`, which marks a demo session.
+      required: [token, expires_at, demo]
+      properties:
+        token:
+          type: string
+          description: 'Send as `Authorization: Bearer <token>`.'
+        expires_at:
+          type: string
+          format: date-time
+          description: When the token stops working.
+        demo:
+          type: boolean
+          const: true
+          description: Always `true`. The session uses the shared demo account.
+
     AccountDeletion:
       type: object
       required: [current_password]
@@ -965,6 +1026,7 @@ components:
             - not_authenticated
             - invalid_credentials
             - wrong_password
+            - demo_account_not_deletable
             - email_already_registered
             - not_found
             - method_not_allowed
@@ -1058,6 +1120,15 @@ components:
           example:
             code: wrong_password
             message: That password is incorrect.
+    DemoAccountNotDeletable:
+      description: 'The current user is the demo account, which cannot be deleted (`code: demo_account_not_deletable`, FR-X1). Nothing was deleted.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: demo_account_not_deletable
+            message: The demo account cannot be deleted.
     EmailAlreadyRegistered:
       description: 'An account with this email already exists (`code: email_already_registered`).'
       content:
