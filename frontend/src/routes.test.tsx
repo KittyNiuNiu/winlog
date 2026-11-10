@@ -1,6 +1,7 @@
 import { act, fireEvent, screen, within } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { renderRoute } from './test/renderRoute.tsx'
+import { removeTestSession, storeTestSession } from './test/session.ts'
 
 const SHELL_PAGES = [
   ['/', 'Entries'],
@@ -12,10 +13,19 @@ const SHELL_PAGES = [
 
 const AUTH_PAGES = [
   ['/login', 'Log in'],
-  ['/register', 'Register'],
+  ['/register', 'Create an account'],
 ]
 
-describe('routes', () => {
+// Route protection itself is tested in auth/routeProtection.test.tsx.
+describe('routes, logged in', () => {
+  beforeEach(() => {
+    storeTestSession()
+  })
+
+  afterEach(() => {
+    removeTestSession()
+  })
+
   it.each(SHELL_PAGES)('%s shows its placeholder page inside the app shell', (path, heading) => {
     renderRoute(path)
 
@@ -24,16 +34,6 @@ describe('routes', () => {
     expect(screen.getByRole('main').contains(screen.getByRole('heading', { level: 1 }))).toBe(
       true,
     )
-  })
-
-  it.each(AUTH_PAGES)('%s shows its placeholder page without the app shell', (path, heading) => {
-    renderRoute(path)
-
-    expect(screen.getByRole('heading', { level: 1, name: heading })).toBeTruthy()
-    expect(screen.queryByRole('navigation')).toBeNull()
-    for (const name of ['Entries', 'Review', 'Summaries', 'Settings']) {
-      expect(screen.queryByRole('link', { name })).toBeNull()
-    }
   })
 
   it.each(['/does-not-exist', '/summaries/42/extra', '/login/extra', '/Review-typo'])(
@@ -71,5 +71,21 @@ describe('routes', () => {
 
     expect(router.state.location.pathname).toBe('/')
     expect(screen.getByRole('heading', { level: 1, name: 'Entries' })).toBeTruthy()
+  })
+})
+
+describe('routes, logged out', () => {
+  afterEach(() => {
+    removeTestSession()
+  })
+
+  it.each(AUTH_PAGES)('%s shows its page without the app shell', (path, heading) => {
+    renderRoute(path)
+
+    expect(screen.getByRole('heading', { level: 1, name: heading })).toBeTruthy()
+    expect(screen.queryByRole('navigation')).toBeNull()
+    for (const name of ['Entries', 'Review', 'Summaries', 'Settings']) {
+      expect(screen.queryByRole('link', { name })).toBeNull()
+    }
   })
 })
