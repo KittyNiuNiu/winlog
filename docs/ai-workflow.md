@@ -1083,3 +1083,16 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - The script treats an existing user with `DEMO_EMAIL` as the demo account (it replaces the password and data). Before the first seed, someone could register that email; the seed then locks them out but does not revoke tokens they already have. `.env.example` says to use an address nobody can register. Blocking registration of the demo email is not in the criteria.
   - The reset keeps the demo user's tokens (visitors stay logged in across a reset); the criteria do not say whether it should revoke them.
   - Running the reset on every backend start is #38; the "Try the demo" button and notice are #35; rate-limiting demo-login is #46.
+
+## 2026-11-10: Orchestrator: #21 implemented, QA PASS, closed
+
+- The product owner asked for #21 to #23. #21 was `groomed`, so it went straight to the engineer. Main was already merged into the working branch.
+- The product owner's decision on #21 (https://github.com/KittyNiuNiu/winlog/issues/21#issuecomment-6752281732) settled the check order for `DELETE /account`: token (401) first, then the demo error for a demo session whatever the body, before body validation and the password check.
+- The engineer added `POST /auth/demo` (`demoLogin`), the `DEMO_EMAIL` setting, the 409 `demo_account_not_deletable` error on `deleteAccount` (a route dependency, so it runs before body validation), and the seed and reset script `uv run python -m scripts.seed_demo` with 26 sample entries and one pre-written summary (9c1db60, fb8e7a6, 309dcef, 835857a, 0182db8; https://github.com/KittyNiuNiu/winlog/issues/21#issuecomment-6762601160). Two choices the issue left open: 409 for the demo error, and 404 `not_found` from demo-login when `DEMO_EMAIL` is set but the script has not run yet.
+- QA PASS on all 14 criteria and the decision, in the first round with only `AI_PROVIDER=mock` (https://github.com/KittyNiuNiu/winlog/issues/21#issuecomment-6762728310): 823 unit and 831 integration tests pass, lint is clean. Closed #21 as completed.
+- **Open points**, recorded where they belong:
+  - #38 (https://github.com/KittyNiuNiu/winlog/issues/38#issuecomment-6762738033): the backend image does not include `scripts/`, so the seed cannot run from the image; `docker-compose.yml` does not pass `DEMO_EMAIL`, so the composed system has the demo off; and a reset keeps the demo user's tokens, which grooming should decide on since #38 resets on every deploy.
+  - Left in this log by the product owner's choice: the seed treats any existing user with `DEMO_EMAIL` as the demo account, so if someone registers that address before the first seed, the seed replaces their password and data and their tokens keep working. `.env.example` warns to use an address nobody can register.
+  - Already scoped elsewhere: "Try the demo" button and shared-account notice (#35), demo-login rate limit (#46).
+  - Environment only, not a code issue: QA could not run `docker compose up --build` in the sandbox because `pip install uv` failed TLS verification through the session proxy. The branch does not change the Dockerfile or `docker-compose.yml`.
+- Side effects: the engineer created a git-ignored `.env` and started the `db` container. QA reset the dev database to no users afterwards; the day's mock AI usage counters remain.
