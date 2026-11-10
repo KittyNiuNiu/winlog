@@ -1,0 +1,12 @@
+# Keep the build context small: dependencies are installed and the app is built
+# inside the image.
+node_modules
+dist
+dist-ssr
+coverage
+*.log
+*.local
+.env
+.env.*
+Dockerfile
+.dockerignore
