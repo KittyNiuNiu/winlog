@@ -1,6 +1,7 @@
-"""Registration, login and logout (`register`, `login` and `logout` in openapi.yaml).
+"""Registration, login, logout and account deletion.
 
-Covers FR-A1 and FR-A2.
+Operations `register`, `login`, `logout` and `deleteAccount` in openapi.yaml. Covers FR-A1,
+FR-A2 and FR-D2.
 """
 
 import datetime as dt
@@ -17,6 +18,7 @@ from sqlalchemy.orm import Session
 from app.auth import (
     AuthenticateFirstRoute,
     CurrentLogin,
+    CurrentUser,
     create_token,
     get_current_login,
     get_current_user,
@@ -151,4 +153,54 @@ def logout(
     # Only the token of this request; the user's other tokens keep working.
     session.execute(delete(Token).where(Token.id == current.token_id))
     session.commit()
+    return Response(status_code=204)
+
+
+class AccountDeletion(BaseModel):
+    # Checked as at login: an empty password counts as missing, and a password longer than
+    # registration allows (or with an unpaired surrogate, which argon2 cannot hash) gets the
+    # validation error. No account can have such a password.
+    current_password: str = Field(min_length=1, max_length=MAX_LENGTH)
+
+
+def _wrong_password() -> ApiError:
+    return ApiError(403, "wrong_password", "That password is incorrect.")
+
+
+def delete_user(session: Session, user_id: uuid.UUID) -> None:
+    """Delete the user and all of their data in one statement, so in one transaction.
+
+    The foreign keys cascade (issue #5): the user's entries, tags, entry-tag links,
+    summaries, per-user AI usage rows (`ai_usage`) and tokens go with the user. If any part
+    fails, the database deletes nothing. The global daily AI count (`ai_usage_global`, issue
+    #15) has no user id and is not touched, so deleting an account never lowers it (§7.6, §8).
+    The caller commits.
+    """
+    session.execute(delete(User).where(User.id == user_id))
+
+
+@router.delete(
+    "/account",
+    operation_id="deleteAccount",
+    summary="Delete the current user's account and all of its data.",
+    status_code=204,
+    responses={403: {"description": "The current password is wrong. Nothing was deleted."}},
+)
+def delete_account(
+    deletion: AccountDeletion,
+    user: CurrentUser,
+    session: Annotated[Session, Depends(get_session)],
+) -> Response:
+    # FR-D2. The token is checked first (`CurrentUser`), then the body, then the checks below,
+    # in order. Nothing is deleted unless every check passes. A check that refuses deletion
+    # whatever the password, such as the demo-account check (issue #21), goes here, before
+    # the password check.
+
+    # The same argon2 check as login. The password is never logged or echoed.
+    if not verify_password(user.password_hash, deletion.current_password):
+        raise _wrong_password()
+
+    delete_user(session, user.id)
+    session.commit()
+    # Every token of the user went with the user, so none of them authenticates any more.
     return Response(status_code=204)
