@@ -1196,3 +1196,13 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Left in this log: the failing cases of the new Backend step were shown only locally, because no other branch could be pushed. The Full system job's on-failure log step has not run in CI yet, because that job has not failed. setup-uv's cache key uses the runner's Python, not 3.13; this does not affect the tests.
   - Note for the product owner: the round 2 fix is on the working branch only; `main` still has the round 1 workflow until a new pull request merges it.
 - Housekeeping: the orchestrator removed the repository copies and leftover token and password files from the scratchpad.
+
+## 2026-11-10: Implement #25 (central API client): blocked before implementation
+
+- **Task:** #25, the typed API client in `frontend/src/api/`, built with openapi-typescript and openapi-fetch.
+- **What I did:** read the issue, `openapi.yaml`, spec §7.6, §7.7, §10 and §12, and the later issues that build on the client (#26, #34, #35). I found one criterion that contradicts settled criteria, and two files the work needs that the issue does not list. I stopped and asked on the issue (https://github.com/KittyNiuNiu/winlog/issues/25#issuecomment-6777874411):
+  1. "Account deletion removes the stored token even if the request fails" contradicts #34 (after a wrong password the user stays logged in and can try again) and #35 (the demo error is shown, so the demo visitor stays logged in). Recommended: logout clears the token always; account deletion clears it only on success, or through the general 401 rule.
+  2. `frontend/vite.config.ts` (`envDir: '..'`, so Vite reads the root `.env`) and one line in `docker-compose.yml` (pass `VITE_API_BASE_URL` from `.env` as a build argument) are needed but not in the file list. Recommended: allow both.
+  3. `method_not_allowed`, `database_unreachable` and `internal_error` are in the contract's error enum but not in the issue's list of typed errors. Recommended: they become the unknown error, which keeps the status and code.
+- **How I verified it:** checked npm on 2026-11-10. openapi-typescript 7.13.0 and openapi-fetch 0.17.0 are still the latest. openapi-typescript declares the peer dependency `typescript ^5.x`, and `npm install` fails with ERESOLVE against the frontend's TypeScript 6.0.3. A scoped npm `overrides` entry resolves it, which I tried locally and then reverted. The upstream fix is an open pull request, openapi-ts/openapi-typescript#2818. I read openapi-fetch 0.17.0's source for how it handles fetch, network failures and error bodies. No AI call.
+- **Left open:** the whole implementation waits for the answers above. Nothing in `frontend/` changed.
