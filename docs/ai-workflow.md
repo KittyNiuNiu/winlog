@@ -1110,3 +1110,12 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Mutation checks, each reverted: dropping the user filter from the entry lookup (3 failures), from the summary list (5), from the tag lookup (2), making the tag list public (5), and making the per-user AI limit count every user's usage (1).
   - `uv run pytest tests/unit`, `uv run pytest tests/integration`, `uv run ruff check .` and `uv run ruff format --check .` in `backend/`: 823 unit and 882 integration tests passed (51 of them new), lint and format clean. No real AI call. No new dependency.
 - **Left open:** the demo account is not one of the two users. #21's tests cover that demo visitors share one account, and the demo user is an ordinary user to the isolation rules.
+
+## 2026-11-10: Orchestrator: #22 implemented, QA PASS, closed
+
+- #22 was `groomed`, so it went straight to the engineer, who added `backend/tests/integration/test_data_isolation.py` with 51 `test_fr_a3_*` tests driven by `openapi.yaml`. The suite found no leak, so no backend code changed (613a7dd, 283a7f3; https://github.com/KittyNiuNiu/winlog/issues/22#issuecomment-6763347463).
+- QA PASS on all 11 criteria in the first round with only `AI_PROVIDER=mock` (https://github.com/KittyNiuNiu/winlog/issues/22#issuecomment-6763639312): 823 unit and 882 integration tests pass, lint is clean. QA broke isolation or route coverage 17 different ways in a copy of the repository, and the suite failed every time. Closed #22 as completed.
+- **Open points:** none that need an issue.
+  - The demo account is not one of the suite's two users. #21's own tests cover its isolation, so nothing was recorded elsewhere.
+  - Environment only: as in #21, `docker compose up --build` cannot build the backend image in the sandbox (`pip install uv` fails TLS through the session proxy). QA used uvicorn on the host.
+- Housekeeping: the orchestrator removed QA's repository copy from the scratchpad. QA's `qa-*@example.com` test users remain in the local dev database.
