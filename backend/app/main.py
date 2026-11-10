@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app import accounts, entries, export, health, suggestions, summaries, tags
+from app import accounts, demo, entries, export, health, suggestions, summaries, tags
 from app.ai import AILimits, create_ai_provider
 from app.cors import AllowedOriginsCORSMiddleware
 from app.db import create_db_engine
@@ -46,6 +46,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     register_error_handlers(app)
     app.include_router(health.router)
     app.include_router(accounts.router)
+    app.include_router(demo.router)
     app.include_router(entries.router)
     app.include_router(tags.router)
     app.include_router(suggestions.router)

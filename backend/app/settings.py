@@ -7,7 +7,15 @@ Real environment variables take precedence over the file, and a missing file is 
 from pathlib import Path
 from typing import Annotated, Literal
 
-from pydantic import Field, SecretStr, ValidationError, ValidationInfo, field_validator
+from pydantic import (
+    EmailStr,
+    Field,
+    SecretStr,
+    TypeAdapter,
+    ValidationError,
+    ValidationInfo,
+    field_validator,
+)
 from pydantic_core import PydanticCustomError
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
@@ -27,6 +35,8 @@ OPENAI_COMPATIBLE = "openai-compatible"
 
 # The error type for a variable that the selected AI provider needs but that is not set.
 _MISSING_FOR_AI_PROVIDER = "missing_for_ai_provider"
+
+_EMAIL = TypeAdapter(EmailStr)
 
 
 class Settings(BaseSettings):
@@ -69,6 +79,9 @@ class Settings(BaseSettings):
     ai_daily_summaries_per_user: int = 2
     # Suggestions and summaries of all users together.
     ai_daily_requests_global: int = 100
+    # The shared demo account's email (FR-X1, issue #21). Empty or not set turns the demo off.
+    # Stored in lower case, as registration stores emails, so it matches the users table.
+    demo_email: str | None = None
 
     @field_validator("database_url")
     @classmethod
@@ -119,6 +132,24 @@ class Settings(BaseSettings):
         if number < 0:
             raise ValueError("must be a whole number of 0 or more")
         return number
+
+    @field_validator("demo_email", mode="before")
+    @classmethod
+    def _check_demo_email(cls, value: object) -> object:
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            raise ValueError("must be an email address")
+        if not value.strip():
+            # An empty value, as in `DEMO_EMAIL=` in .env, turns the demo off.
+            return None
+        try:
+            email = _EMAIL.validate_python(value.strip())
+        except ValidationError:
+            raise ValueError(
+                "must be a valid email address, or empty to turn the demo off"
+            ) from None
+        return email.lower()
 
     @field_validator("cors_allowed_origins", mode="before")
     @classmethod

@@ -1,7 +1,7 @@
 """Registration, login, logout and account deletion.
 
 Operations `register`, `login`, `logout` and `deleteAccount` in openapi.yaml. Covers FR-A1,
-FR-A2 and FR-D2.
+FR-A2, FR-D2 and, for account deletion, FR-X1 (the demo account cannot be deleted).
 """
 
 import datetime as dt
@@ -24,6 +24,7 @@ from app.auth import (
     get_current_user,
 )
 from app.db import get_session, violates
+from app.demo import refuse_demo_account
 from app.errors import ApiError
 from app.models import Token, User
 from app.passwords import (
@@ -184,17 +185,24 @@ def delete_user(session: Session, user_id: uuid.UUID) -> None:
     operation_id="deleteAccount",
     summary="Delete the current user's account and all of its data.",
     status_code=204,
-    responses={403: {"description": "The current password is wrong. Nothing was deleted."}},
+    responses={
+        403: {"description": "The current password is wrong. Nothing was deleted."},
+        409: {"description": "The demo account cannot be deleted. Nothing was deleted."},
+    },
+    # Runs first, before the body is validated (see `refuse_demo_account`).
+    dependencies=[Depends(refuse_demo_account)],
 )
 def delete_account(
     deletion: AccountDeletion,
     user: CurrentUser,
     session: Annotated[Session, Depends(get_session)],
 ) -> Response:
-    # FR-D2. The token is checked first (`CurrentUser`), then the body, then the checks below,
-    # in order. Nothing is deleted unless every check passes. A check that refuses deletion
-    # whatever the password, such as the demo-account check (issue #21), goes here, before
-    # the password check.
+    # FR-D2. The checks run in this order, and nothing is deleted unless every one passes:
+    # 1. the token (`CurrentUser`, 401);
+    # 2. the demo account (`refuse_demo_account`, 409, FR-X1): a demo session gets this error
+    #    whatever its body, so before the body and the password are checked (issue #21);
+    # 3. the body (422);
+    # 4. the password, below (403).
 
     # The same argon2 check as login. The password is never logged or echoed.
     if not verify_password(user.password_hash, deletion.current_password):
