@@ -1279,10 +1279,12 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - **Same rule as the backend:** the frontend tests use the backend's #6 cases (`Ä`, `Α`, `Д`, `ẞ`, `Ⓐ`, `Ⅰ`, `ǅ`, `²`, `１`, 10, 128 and 129 characters, and emoji outside the BMP). I checked the new cases against `backend/app/passwords.py`, and both give the same results.
   - **Mutation checks:** 11 deliberate breaks each failed tests. They were: no redirect in either guard, no login after registering, no "Account created" notice, the hint at 20 s, ASCII-only uppercase, UTF-16 length, ignoring the wanted page, logout without navigation, a 401 forgetting the page, and no network message.
   - **Real browser:** headless Chromium (Playwright) against the dev server and the real backend with `AI_PROVIDER=mock`, at 360×640 and 1280×800. Checked steps: redirect to `/login`, registration with errors, registration that logs in and opens `/`, the token stored, `/login` with a token opening `/`, logout clearing the token, "Email already registered" (upper-case email), wrong password, login returning to `/settings`, and "Page not found". No sideways scroll at either width, and "Log out" is 44 px high and inside the viewport. No AI call.
-  - **Backend:** unchanged. Ruff and the unit and integration suites were run (results in the issue comment).
+  - **Backend:** unchanged. `ruff check` and `ruff format --check` are clean, and 823 unit and 882 integration tests passed.
+  - **CI:** run https://github.com/KittyNiuNiu/winlog/actions/runs/42921370887 (bc56ccc) passed all four jobs.
+  - Issue comment: https://github.com/KittyNiuNiu/winlog/issues/26#issuecomment-6781937879
 - **Left open:**
   - At 360px, "Log out" wraps onto its own row under the navigation. Final checks of every screen are #36.
   - Server validation reasons are shown as the backend sends them, for example pydantic's "value is not a valid email address: …".
   - Unchanged from #25: a 401 without the JSON `not_authenticated` body does not redirect, and a logout in another tab is noticed at that tab's next request.
   - The wanted page is kept in the history state, so it is lost if the visitor reloads `/login`, and they then land on `/`.
-- **Side effects:** Node 26.13.0 was installed with nvm in the sandbox. Docker, the `db` container, uvicorn and the Vite dev server are running. A local `.env` (git-ignored) was copied from `.env.example`.
+- **Side effects:** Node 26.13.0 was installed with nvm in the sandbox. Docker and the `db` container are still running. uvicorn and the Vite dev server are stopped. A local `.env` (git-ignored) was copied from `.env.example`.
