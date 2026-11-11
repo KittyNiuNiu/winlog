@@ -1,0 +1,53 @@
+/* The development-only component preview. */
+
+.preview {
+  max-width: var(--content-max);
+  min-width: 0;
+  padding: var(--space-24) var(--space-20) var(--space-48);
+  overflow-wrap: anywhere;
+}
+
+.preview h1 {
+  margin-bottom: var(--space-16);
+}
+
+.preview__section h2 {
+  margin: var(--space-40) 0 var(--space-16);
+}
+
+.preview__sample {
+  margin: 0 0 var(--space-24);
+  min-width: 0;
+}
+
+.preview__caption {
+  margin-bottom: var(--space-8);
+  font-size: var(--text-body-small-size);
+  font-weight: 600;
+  color: var(--color-muted-plum-grey);
+}
+
+.preview__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.preview__after {
+  margin-top: var(--space-16);
+}
+
+.preview__illustration {
+  width: 160px;
+  height: 120px;
+  background: var(--color-peach-wash);
+  border: var(--border-hairline) solid var(--color-hairline);
+  border-radius: var(--radius-panel);
+}
+
+@media (min-width: 48rem) {
+  .preview {
+    padding: var(--space-40) var(--space-48) var(--space-48);
+  }
+}
