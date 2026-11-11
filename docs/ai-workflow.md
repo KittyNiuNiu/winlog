@@ -1310,3 +1310,9 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Review:** no hooks were added and no Claude Code settings changed. I read `SKILL.md`, the launcher script `scripts/impeccable` and the agents' headers, and searched the skill text for network calls; the only ones are the engine download and an optional local preview server (`localhost:8400`) for its `live` command. The engine's SHA-256 matched the checksum list shipped with the package; that shows the download is intact, not that the program is safe. `impeccable engine-probe` answered `impeccable-engine 0.1.21`.
 - **Not a runtime or build dependency:** nothing in `backend/` or `frontend/` changed.
 - **Left open:** Impeccable keeps its own design context in `PRODUCT.md` and `DESIGN.md` (created by `/impeccable init` and `document`). The design brief planned in this session is `docs/design-brief.md`, so the two should be aligned before `/impeccable init` is run.
+
+## 2026-11-11: Impeccable product record (PRODUCT.md)
+
+- **Task:** the product owner ran `/impeccable` to remake the palette options. Impeccable needs a product record before visual work, so I wrote `PRODUCT.md` in the repository root (its required location).
+- **Content:** product facts taken from `docs/product-spec.md` (which stays the source of truth and wins where they differ) plus the product owner's answers from 2026-11-11: phone to capture, desktop to review; warm but focused, no streaks; AI helpful but in the background; basic accessibility care with no formal standard; positioning "review-ready in minutes"; the look must not feel too corporate or too generic.
+- **Left open:** the visual direction is still being chosen. `DESIGN.md` is written only after a direction is built. How `PRODUCT.md`/`DESIGN.md` relate to the planned `docs/design-brief.md` still needs a decision.
