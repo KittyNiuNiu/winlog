@@ -1296,3 +1296,17 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Review:** I read both files before committing. The skill is Markdown guidance only: design direction, typography, layout, restraint and interface copy. It has no scripts. Where it and the design brief differ, its own text says the brief wins.
 - **Not a runtime or build dependency:** nothing in `backend/` or `frontend/` changed, and nothing is added to `package.json`.
 - **How I verified it:** `git status` showed only these files. The skill appears as `frontend-design` in the session's skill list.
+
+## 2026-11-11: Add the Impeccable design skill (product owner request)
+
+- **Task:** the product owner asked to install Impeccable (`npx impeccable install`) for this project, without hooks and with telemetry off.
+- **What I did:**
+  - The first try failed, because the session's network policy blocked `impeccable.style`, where the installer downloads the skills. The product owner allowed the host.
+  - Ran `npx impeccable telemetry off` (stored in the user-level `~/.impeccable/config.json`, not in the repository) and `npx impeccable install --project --no-hooks -y` (npm `impeccable` 4.8.2, by Paul Bakaus, Apache 2.0).
+  - It installed the `impeccable` skill in `.claude/skills/impeccable/`, four Claude Code agents in `.claude/agents/impeccable-*.md` (asset producer, documenter, finish reviewer, manual-edit applier), a 22 MB Linux engine program, and a copy of all of it for GitHub Copilot under `.github/`.
+- **Product owner decision (2026-11-11):** commit the Claude Code skill and its agents only.
+  - The engine program (`.claude/skills/impeccable/scripts/bin/`) is git-ignored. The skill's launcher downloads it on first use and checks it against `scripts/engine-checksums.txt`.
+  - The GitHub Copilot copies under `.github/skills/` and `.github/agents/` were deleted; the project does not use Copilot. `.github/workflows/` is unchanged.
+- **Review:** no hooks were added and no Claude Code settings changed. I read `SKILL.md`, the launcher script `scripts/impeccable` and the agents' headers, and searched the skill text for network calls; the only ones are the engine download and an optional local preview server (`localhost:8400`) for its `live` command. The engine's SHA-256 matched the checksum list shipped with the package; that shows the download is intact, not that the program is safe. `impeccable engine-probe` answered `impeccable-engine 0.1.21`.
+- **Not a runtime or build dependency:** nothing in `backend/` or `frontend/` changed.
+- **Left open:** Impeccable keeps its own design context in `PRODUCT.md` and `DESIGN.md` (created by `/impeccable init` and `document`). The design brief planned in this session is `docs/design-brief.md`, so the two should be aligned before `/impeccable init` is run.
