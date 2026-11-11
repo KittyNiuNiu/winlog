@@ -1288,3 +1288,11 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Unchanged from #25: a 401 without the JSON `not_authenticated` body does not redirect, and a logout in another tab is noticed at that tab's next request.
   - The wanted page is kept in the history state, so it is lost if the visitor reloads `/login`, and they then land on `/`.
 - **Side effects:** Node 26.13.0 was installed with nvm in the sandbox. Docker and the `db` container are still running. uvicorn and the Vite dev server are stopped. A local `.env` (git-ignored) was copied from `.env.example`.
+
+## 2026-11-11: Add the frontend-design skill (product owner request)
+
+- **Task:** the product owner asked to install Anthropic's `frontend-design` skill for this project with `npx skills add anthropics/skills --skill frontend-design`.
+- **What I did:** ran it with the `skills` CLI from npm (1.8.1, Vercel Labs), with `--agent claude-code --copy -y`, so the files are copied into the repository rather than symlinked. It added `.claude/skills/frontend-design/SKILL.md`, its `LICENSE.txt` (Apache 2.0), and `skills-lock.json` at the repository root, which records the source (`anthropics/skills`, `skills/frontend-design/SKILL.md`) and a content hash, so `npx skills experimental_install` can restore it.
+- **Review:** I read both files before committing. The skill is Markdown guidance only: design direction, typography, layout, restraint and interface copy. It has no scripts. Where it and the design brief differ, its own text says the brief wins.
+- **Not a runtime or build dependency:** nothing in `backend/` or `frontend/` changed, and nothing is added to `package.json`.
+- **How I verified it:** `git status` showed only these files. The skill appears as `frontend-design` in the session's skill list.
