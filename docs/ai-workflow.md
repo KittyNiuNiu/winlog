@@ -1343,3 +1343,21 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Left open:**
   - Merging this branch and `developer/zen-bell-yusvf7` will conflict in `docs/tasks.md` (and probably in this log). The combined list on this branch is the intended result.
   - Several issue bodies still say "Task N of 41". They get corrected when each issue is groomed or re-groomed.
+
+## 2026-11-11: New UX/UI designer role
+
+- **Product owner decision (2026-11-11):** add a UX/UI designer subagent that works on every task that changes screens, both before and after the build.
+- **What I did:**
+  - New guide `docs/ux-designer.md` and agent `.claude/agents/ux-designer.md`. The designer has two modes:
+    - **note**, after grooming: a design note on the issue covering phone and laptop layout, every state, exact interface text, and components and icons from `DESIGN.md`;
+    - **review**, after QA passes: screenshots at 390×844 and 1280×800 in light and dark mode, Impeccable's detector, and a PASS or FAIL comment.
+  - Like QA, the designer never changes code and never changes acceptance criteria; conflicts go to the product owner.
+  - `docs/process.md`:
+    - roles, lifecycle and rules include the designer;
+    - new status labels `designed`, `qa-passed` and `design-failed`;
+    - `design-failed` issues are picked first, like `qa-failed`;
+    - new stop points: a second design FAIL, or a criterion that contradicts `DESIGN.md`.
+  - `.claude/skills/orchestrate/SKILL.md`: new steps 3 (design note) and 6 (design review); the steps after them are renumbered.
+  - `docs/software-engineer.md` and `docs/pm.md`: one line each about the design note and `DESIGN.md`.
+- **How I verified it:** read the edited files against each other; the label names and step numbers match. No code changed.
+- **Left open:** the labels `designed`, `qa-passed` and `design-failed` are created on GitHub the first time the orchestrator sets them. #75 is the first issue to go through the new steps.
