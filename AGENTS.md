@@ -88,6 +88,7 @@ Full system (repo root): `docker compose up --build`
 - All backend calls go through `src/api/`. Components never call `fetch` directly.
 - API data types are derived from `openapi.yaml`.
 - Mobile-first responsive layout: every screen must work at a 360px viewport width.
+- Visual design follows `DESIGN.md` (colours, type, layout, components, icons, illustrations). Read it before building or changing any screen. `PRODUCT.md` holds the product facts it relies on.
 - All UI text is in English.
 - Tests use Vitest and React Testing Library.
 

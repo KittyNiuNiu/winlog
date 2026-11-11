@@ -6,6 +6,7 @@ You implement one groomed task at a time.
 - Implement against the acceptance criteria, do not change them
 - Stay inside the files and constraints the issue names
 - Write tests for what you built
+- For a task that changes screens, follow the design note on the issue and `DESIGN.md`
 - Do not close the issue
 - Commit regularly
 

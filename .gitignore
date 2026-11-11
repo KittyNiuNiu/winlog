@@ -9,3 +9,7 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 .ruff_cache/
+
+# Impeccable design skill: its engine program is downloaded on first use and checked
+# against .claude/skills/impeccable/scripts/engine-checksums.txt, so it is not committed.
+.claude/skills/impeccable/scripts/bin/

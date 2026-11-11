@@ -1288,3 +1288,76 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Unchanged from #25: a 401 without the JSON `not_authenticated` body does not redirect, and a logout in another tab is noticed at that tab's next request.
   - The wanted page is kept in the history state, so it is lost if the visitor reloads `/login`, and they then land on `/`.
 - **Side effects:** Node 26.13.0 was installed with nvm in the sandbox. Docker and the `db` container are still running. uvicorn and the Vite dev server are stopped. A local `.env` (git-ignored) was copied from `.env.example`.
+
+## 2026-11-11: Add the frontend-design skill (product owner request)
+
+- **Task:** the product owner asked to install Anthropic's `frontend-design` skill for this project with `npx skills add anthropics/skills --skill frontend-design`.
+- **What I did:** ran it with the `skills` CLI from npm (1.8.1, Vercel Labs), with `--agent claude-code --copy -y`, so the files are copied into the repository rather than symlinked. It added `.claude/skills/frontend-design/SKILL.md`, its `LICENSE.txt` (Apache 2.0), and `skills-lock.json` at the repository root, which records the source (`anthropics/skills`, `skills/frontend-design/SKILL.md`) and a content hash, so `npx skills experimental_install` can restore it.
+- **Review:** I read both files before committing. The skill is Markdown guidance only: design direction, typography, layout, restraint and interface copy. It has no scripts. Where it and the design brief differ, its own text says the brief wins.
+- **Not a runtime or build dependency:** nothing in `backend/` or `frontend/` changed, and nothing is added to `package.json`.
+- **How I verified it:** `git status` showed only these files. The skill appears as `frontend-design` in the session's skill list.
+
+## 2026-11-11: Add the Impeccable design skill (product owner request)
+
+- **Task:** the product owner asked to install Impeccable (`npx impeccable install`) for this project, without hooks and with telemetry off.
+- **What I did:**
+  - The first try failed, because the session's network policy blocked `impeccable.style`, where the installer downloads the skills. The product owner allowed the host.
+  - Ran `npx impeccable telemetry off` (stored in the user-level `~/.impeccable/config.json`, not in the repository) and `npx impeccable install --project --no-hooks -y` (npm `impeccable` 4.8.2, by Paul Bakaus, Apache 2.0).
+  - It installed the `impeccable` skill in `.claude/skills/impeccable/`, four Claude Code agents in `.claude/agents/impeccable-*.md` (asset producer, documenter, finish reviewer, manual-edit applier), a 22 MB Linux engine program, and a copy of all of it for GitHub Copilot under `.github/`.
+- **Product owner decision (2026-11-11):** commit the Claude Code skill and its agents only.
+  - The engine program (`.claude/skills/impeccable/scripts/bin/`) is git-ignored. The skill's launcher downloads it on first use and checks it against `scripts/engine-checksums.txt`.
+  - The GitHub Copilot copies under `.github/skills/` and `.github/agents/` were deleted; the project does not use Copilot. `.github/workflows/` is unchanged.
+- **Review:** no hooks were added and no Claude Code settings changed. I read `SKILL.md`, the launcher script `scripts/impeccable` and the agents' headers, and searched the skill text for network calls; the only ones are the engine download and an optional local preview server (`localhost:8400`) for its `live` command. The engine's SHA-256 matched the checksum list shipped with the package; that shows the download is intact, not that the program is safe. `impeccable engine-probe` answered `impeccable-engine 0.1.21`.
+- **Not a runtime or build dependency:** nothing in `backend/` or `frontend/` changed.
+- **Left open:** Impeccable keeps its own design context in `PRODUCT.md` and `DESIGN.md` (created by `/impeccable init` and `document`). The design brief planned in this session is `docs/design-brief.md`, so the two should be aligned before `/impeccable init` is run.
+
+## 2026-11-11: Impeccable product record (PRODUCT.md)
+
+- **Task:** the product owner ran `/impeccable` to remake the palette options. Impeccable needs a product record before visual work, so I wrote `PRODUCT.md` in the repository root (its required location).
+- **Content:** product facts taken from `docs/product-spec.md` (which stays the source of truth and wins where they differ) plus the product owner's answers from 2026-11-11: phone to capture, desktop to review; warm but focused, no streaks; AI helpful but in the background; basic accessibility care with no formal standard; positioning "review-ready in minutes"; the look must not feel too corporate or too generic.
+- **Left open:** the visual direction is still being chosen. `DESIGN.md` is written only after a direction is built. How `PRODUCT.md`/`DESIGN.md` relate to the planned `docs/design-brief.md` still needs a decision.
+
+## 2026-11-11: Design system chosen and recorded (DESIGN.md)
+
+- **Product owner decisions (2026-11-11):**
+  - Visual direction: "Plum & Peach v2". It overrides Impeccable's assigned direction ("Specimen label"); the canvas with every option is https://claude.ai/artifact/4ivGiFFqkHwBBjDfm76ZBg.
+  - Icons, colour blocks, images and illustrations only where they are reasonable, not overdone.
+  - The design system lives in one file, `DESIGN.md`, in the repository root, linked from `docs/product-spec.md` §9 (new "Design" row, change log entry, version unchanged at 0.2) and from `AGENTS.md` (frontend conventions). This replaces the earlier plan for `docs/design-brief.md`; product facts stay in `PRODUCT.md`.
+- **How the options were made:** with the `frontend-design` and `impeccable` skills and the Laws of UX (https://lawsofux.com/, by Jon Yablonski). Impeccable's decision page runs as a local server in the cloud session and may not be reachable from the product owner's app, so its options were shown on the design canvas and chosen through the question tool instead.
+- **What `DESIGN.md` holds:** written in Impeccable's seed form, because nothing is built yet: palette for light and dark (plum actions, peach highlights, four category tints), type (Bricolage Grotesque for the wordmark and headings, Figtree for everything else), layout for phone and laptop, depth, shapes, components (buttons, category chips and labels, fields, navigation, saved message, entry row, summary panel), where icons and up to three illustrations go, and do's and don'ts tied to the Laws of UX.
+- **How I verified it:** every text and background pair in light and dark mode was checked at 4.5:1 or more with a contrast script. No code changed.
+- **Left open:**
+  - The Creative North Star name ("The Pocket Applause") is my proposal; the product owner can rename it.
+  - Building it in code needs a new "UI foundations" issue before #27: CSS tokens, self-hosted fonts (licence check), an icon library (choice and licence check), shared components, and restyling the #26 login and registration screens.
+  - #27–#35 need re-grooming against `DESIGN.md`.
+  - After the UI foundations issue, `/impeccable document` should record the real tokens from the code into `DESIGN.md`.
+
+## 2026-11-11: New issue #75 (UI foundations) and the backlog renumbered
+
+- **Task:** the product owner asked for a "UI foundations" issue before the entry form.
+- **What I did:**
+  - Created #75 "26. Build the UI foundations from DESIGN.md" as a draft with no status label, so the PM grooms it first. It covers design tokens, self-hosted fonts, an icon library, shared components, and restyling the app shell and the #26 screens.
+  - Inserted it as task 26 in `docs/tasks.md` and renumbered the later tasks and their GitHub issue titles by one.
+  - Found that another session (branch `developer/zen-bell-yusvf7`, not yet merged) added #73 and #74 as tasks 39 and 40 and moved #38–#40. I combined both changes: #36 is 38, #37 is 39, #73 is 40, #74 is 41, #38 is 42, #39 is 43, #40 is 44. Issue titles and `docs/tasks.md` on this branch match that order, and the line for #39 uses the other branch's new name.
+- **How I verified it:** listed the open issues after the updates; every title number matches `docs/tasks.md`, and status labels were unchanged (#39 had already lost `groomed` in the other session, because it went back to grooming).
+- **Left open:**
+  - Merging this branch and `developer/zen-bell-yusvf7` will conflict in `docs/tasks.md` (and probably in this log). The combined list on this branch is the intended result.
+  - Several issue bodies still say "Task N of 41". They get corrected when each issue is groomed or re-groomed.
+
+## 2026-11-11: New UX/UI designer role
+
+- **Product owner decision (2026-11-11):** add a UX/UI designer subagent that works on every task that changes screens, both before and after the build.
+- **What I did:**
+  - New guide `docs/ux-designer.md` and agent `.claude/agents/ux-designer.md`. The designer has two modes:
+    - **note**, after grooming: a design note on the issue covering phone and laptop layout, every state, exact interface text, and components and icons from `DESIGN.md`;
+    - **review**, after QA passes: screenshots at 390×844 and 1280×800 in light and dark mode, Impeccable's detector, and a PASS or FAIL comment.
+  - Like QA, the designer never changes code and never changes acceptance criteria; conflicts go to the product owner.
+  - `docs/process.md`:
+    - roles, lifecycle and rules include the designer;
+    - new status labels `designed`, `qa-passed` and `design-failed`;
+    - `design-failed` issues are picked first, like `qa-failed`;
+    - new stop points: a second design FAIL, or a criterion that contradicts `DESIGN.md`.
+  - `.claude/skills/orchestrate/SKILL.md`: new steps 3 (design note) and 6 (design review); the steps after them are renumbered.
+  - `docs/software-engineer.md` and `docs/pm.md`: one line each about the design note and `DESIGN.md`.
+- **How I verified it:** read the edited files against each other; the label names and step numbers match. No code changed.
+- **Left open:** the labels `designed`, `qa-passed` and `design-failed` are created on GitHub the first time the orchestrator sets them. #75 is the first issue to go through the new steps.

@@ -7,6 +7,8 @@ You groom a task before anyone implements it.
 - Make the acceptance criteria checkable - someone should be able to
   point at the screen and say yes or no
 - Think about the edge cases the person who filed it did not consider
+- For a task that changes screens, keep the criteria consistent with `DESIGN.md`;
+  the designer adds the layout and wording in a design note after grooming
 - Do not write any code
 
 Definition of done:
