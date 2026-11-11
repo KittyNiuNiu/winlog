@@ -1,0 +1,25 @@
+/* Each category's tint (background), text and dot colours, for its chip, label and row. */
+
+.category--achievement {
+  --category-background: var(--color-achievement-background);
+  --category-text: var(--color-achievement-text);
+  --category-dot: var(--color-achievement-dot);
+}
+
+.category--learning {
+  --category-background: var(--color-learning-background);
+  --category-text: var(--color-learning-text);
+  --category-dot: var(--color-learning-dot);
+}
+
+.category--feedback {
+  --category-background: var(--color-feedback-background);
+  --category-text: var(--color-feedback-text);
+  --category-dot: var(--color-feedback-dot);
+}
+
+.category--side-project {
+  --category-background: var(--color-side-project-background);
+  --category-text: var(--color-side-project-text);
+  --category-dot: var(--color-side-project-dot);
+}

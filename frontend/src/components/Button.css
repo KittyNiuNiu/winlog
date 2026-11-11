@@ -1,0 +1,71 @@
+/* Buttons (DESIGN.md → Buttons). No transitions: hover and focus change at once. */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+  min-height: var(--control-height);
+  padding: var(--space-8) var(--space-24);
+  font-family: var(--font-body);
+  font-size: var(--text-button-size);
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+  text-decoration: none;
+  border-radius: var(--radius-button);
+  cursor: pointer;
+}
+
+.button--primary {
+  color: var(--color-on-plum);
+  background: var(--color-plum);
+  border: var(--border-control) solid var(--color-plum);
+  box-shadow: var(--shadow-action-lift);
+}
+
+.button--primary:hover {
+  background: var(--color-plum-hover);
+  border-color: var(--color-plum-hover);
+}
+
+.button--secondary {
+  color: var(--color-plum);
+  background: var(--color-paper-white);
+  border: var(--border-control) solid var(--color-field-border);
+}
+
+.button--secondary:hover {
+  background: var(--color-secondary-hover);
+  border-color: var(--color-plum);
+}
+
+.button--large {
+  min-height: var(--control-height-large);
+  font-size: var(--text-button-large-size);
+  border-radius: var(--radius-button-large);
+}
+
+.button:disabled {
+  color: var(--color-muted-plum-grey);
+  background: var(--color-peach-wash);
+  border-color: var(--color-field-border);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* Busy keeps the normal colours; presses are ignored because the button is disabled. */
+.button--primary[aria-busy='true'] {
+  color: var(--color-on-plum);
+  background: var(--color-plum);
+  border-color: var(--color-plum);
+  box-shadow: var(--shadow-action-lift);
+  cursor: progress;
+}
+
+.button--secondary[aria-busy='true'] {
+  color: var(--color-plum);
+  background: var(--color-paper-white);
+  border-color: var(--color-field-border);
+  cursor: progress;
+}

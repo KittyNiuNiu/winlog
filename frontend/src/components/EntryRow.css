@@ -1,0 +1,70 @@
+/* Phone: the date in a 64px column; the label, text and result stacked beside it.
+   Laptop: date (64px), category label (120px) and text in three columns. */
+
+.entry-row {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  grid-template-areas:
+    'date category'
+    'date body';
+  column-gap: var(--space-12);
+  align-items: start;
+  padding: var(--space-12) 0;
+  border-top: var(--border-hairline) solid var(--color-hairline);
+}
+
+.entry-row__date {
+  grid-area: date;
+  font-size: var(--text-body-small-size);
+  font-weight: 700;
+  /* The text's line height, so the date lines up with its first line. */
+  line-height: calc(var(--text-body-size) * 1.5);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-aubergine-ink);
+}
+
+.entry-row__category {
+  grid-area: category;
+  margin-bottom: var(--space-8);
+}
+
+.entry-row__body {
+  grid-area: body;
+  min-width: 0;
+}
+
+.entry-row__text {
+  margin: 0;
+  max-width: var(--measure);
+  font-size: var(--text-body-size);
+  line-height: var(--text-body-line-height);
+  color: var(--color-aubergine-ink);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.entry-row__result {
+  margin: var(--space-4) 0 0;
+  max-width: var(--measure);
+  font-size: var(--text-body-small-size);
+  color: var(--color-muted-plum-grey);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.entry-row__result-label {
+  font-weight: 600;
+}
+
+@media (min-width: 48rem) {
+  .entry-row {
+    grid-template-columns: 64px 120px minmax(0, 1fr);
+    grid-template-areas: 'date category body';
+    column-gap: var(--space-16);
+    padding: var(--space-16) 0;
+  }
+
+  .entry-row__category {
+    margin-bottom: 0;
+  }
+}

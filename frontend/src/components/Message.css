@@ -1,0 +1,35 @@
+/* Information and error messages. The icon hangs in the left padding and lines up with
+   the first line of text, so the text can hold links and wraps freely. */
+
+.message {
+  position: relative;
+  padding: var(--space-12) var(--space-16) var(--space-12) calc(var(--space-16) + 20px + var(--space-8));
+  font-size: var(--text-body-size);
+  font-weight: 400;
+  line-height: var(--text-body-line-height);
+  border-radius: var(--radius-message);
+  overflow-wrap: anywhere;
+}
+
+.message:empty {
+  display: none;
+}
+
+.message__icon {
+  position: absolute;
+  left: var(--space-16);
+  /* Centred on the first line: padding + (line height − icon) / 2. */
+  top: calc(var(--space-12) + (var(--text-body-size) * 1.5 - 20px) / 2);
+}
+
+.message--info {
+  color: var(--color-aubergine-ink);
+  background: var(--color-peach-wash);
+  border: var(--border-hairline) solid var(--color-hairline);
+}
+
+.message--error {
+  color: var(--color-error);
+  background: var(--color-paper-white);
+  border: var(--border-hairline) solid var(--color-error);
+}

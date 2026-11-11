@@ -1,0 +1,28 @@
+.wordmark {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-wordmark-size);
+  font-weight: var(--text-wordmark-weight);
+  font-optical-sizing: auto;
+  line-height: 1;
+  letter-spacing: var(--text-wordmark-letter-spacing);
+  color: var(--color-plum);
+  text-decoration: none;
+}
+
+/* A 44px-tall tap area. */
+.wordmark--link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap-target);
+}
+
+.wordmark--link:hover {
+  text-decoration: none;
+}
+
+@media (min-width: 48rem) {
+  .wordmark {
+    font-size: var(--text-wordmark-laptop-size);
+  }
+}
