@@ -1261,3 +1261,30 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - For the product owner: existing local `.env` files need `VITE_API_BASE_URL=http://localhost:8000` (as in `.env.example`), or `docker compose` stops with an error.
   - Environment only: the image build was checked unmodified in CI; in the sandbox only with the proxy CA added.
 - Housekeeping: the orchestrator removed QA's TypeScript 5 comparison and Docker files from the scratchpad. The `db` container is still running.
+
+## 2026-11-10: Implement #26 (registration, login and logout screens)
+
+- **Task:** #26, the `/register` and `/login` screens, route protection and "Log out" in the app shell (FR-A1, FR-A2). Inputs from #25 (https://github.com/KittyNiuNiu/winlog/issues/26#issuecomment-6778691811): the `setLoginRedirect` hook, and logout always clearing the token.
+- **What I did:**
+  - `src/auth/`: `validation.ts` (the #6 password rule: characters counted as code points, uppercase = Unicode `Lu`, digit = `0`–`9`, special = neither a letter nor `0`–`9`; email missing or without `@`), `AuthFields.tsx` (email field, password field with a Show/Hide toggle, form alert, submit button with progress and the waking-up hint), `useWakingUpHint.ts` (10 seconds), `requestErrors.ts` (the texts, and server validation errors split per field), `RouteGuards.tsx`, `wantedPage.ts` and `loginRedirect.ts`.
+  - **Route protection:** without a stored token, every page except `/login`, `/register` and "Page not found" opens `/login` and keeps the wanted page (path, query and hash) in the history state. After logging in, the user goes there, or to `/`. Only same-app paths are accepted, so `//host` and the guest pages fall back to `/`. With a token, `/login` and `/register` open `/`. "Page not found" is shown in the app shell when logged in and without it when logged out.
+  - **#25 hook:** `connectLoginRedirect(router)` (called in `main.tsx` and in the test helper) makes a 401 open `/login` through the router, remembering the page, instead of reloading.
+  - **Registration:** errors under each field on leaving it and on submit, and they update as the user types. Nothing is sent while they remain, and focus moves to the first invalid field. "Email already registered." shows under the email field with a "Log in instead" link. Other server validation errors show under the field they name, or above the form. After registering, the page calls login with the same email and password and opens `/`. If that fails, it opens `/login` with "Account created. Please log in."
+  - **Login:** no password rule. Two required-field checks: the same email check as registration, and "Enter your password." for an empty password. "Wrong email or password." is one alert above the form.
+  - **Both pages:** links to each other, the button is disabled and shows progress while the request runs, the waking-up hint after 10 seconds, the network and generic error messages, and the form keeps what was typed. Labels are visible, `autocomplete` is `email`, `new-password` or `current-password`, and messages sit in `role="alert"` regions linked with `aria-describedby` and `aria-invalid`.
+  - **App shell:** "Log out" calls `logout()`, ignores a failed request (the client clears the token anyway, #25), and opens `/login`. `AppShell` and `AuthLayout` take optional children. `index.css` gets two colour tokens (`--color-error`, `--color-on-accent`).
+  - No new dependency.
+- **How I verified it:**
+  - **Frontend (Node 26.13.0):** `npm run lint` clean, `npm test` 253 tests passed (108 new: 30 registration, 19 login, 21 route protection, 35 rule and wanted-page unit tests, 3 logout), and `npm run build` passes. Tests mock `register`, `login` and `logout` and are named after FR-A1 or FR-A2. The existing route and shell tests now run with a stored session, plus a logged-out case for the guest pages.
+  - **Same rule as the backend:** the frontend tests use the backend's #6 cases (`Ä`, `Α`, `Д`, `ẞ`, `Ⓐ`, `Ⅰ`, `ǅ`, `²`, `１`, 10, 128 and 129 characters, and emoji outside the BMP). I checked the new cases against `backend/app/passwords.py`, and both give the same results.
+  - **Mutation checks:** 11 deliberate breaks each failed tests. They were: no redirect in either guard, no login after registering, no "Account created" notice, the hint at 20 s, ASCII-only uppercase, UTF-16 length, ignoring the wanted page, logout without navigation, a 401 forgetting the page, and no network message.
+  - **Real browser:** headless Chromium (Playwright) against the dev server and the real backend with `AI_PROVIDER=mock`, at 360×640 and 1280×800. Checked steps: redirect to `/login`, registration with errors, registration that logs in and opens `/`, the token stored, `/login` with a token opening `/`, logout clearing the token, "Email already registered" (upper-case email), wrong password, login returning to `/settings`, and "Page not found". No sideways scroll at either width, and "Log out" is 44 px high and inside the viewport. No AI call.
+  - **Backend:** unchanged. `ruff check` and `ruff format --check` are clean, and 823 unit and 882 integration tests passed.
+  - **CI:** run https://github.com/KittyNiuNiu/winlog/actions/runs/42921370887 (bc56ccc) passed all four jobs.
+  - Issue comment: https://github.com/KittyNiuNiu/winlog/issues/26#issuecomment-6781937879
+- **Left open:**
+  - At 360px, "Log out" wraps onto its own row under the navigation. Final checks of every screen are #36.
+  - Server validation reasons are shown as the backend sends them, for example pydantic's "value is not a valid email address: …".
+  - Unchanged from #25: a 401 without the JSON `not_authenticated` body does not redirect, and a logout in another tab is noticed at that tab's next request.
+  - The wanted page is kept in the history state, so it is lost if the visitor reloads `/login`, and they then land on `/`.
+- **Side effects:** Node 26.13.0 was installed with nvm in the sandbox. Docker and the `db` container are still running. uvicorn and the Vite dev server are stopped. A local `.env` (git-ignored) was copied from `.env.example`.

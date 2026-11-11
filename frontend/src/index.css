@@ -9,6 +9,8 @@
   --color-accent: #1f5f8b;
   --color-accent-bg: #e3eef6;
   --color-focus: #1f5f8b;
+  --color-on-accent: #ffffff;
+  --color-error: #b3261e;
 
   --font-sans: system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --space-1: 0.25rem;
@@ -43,6 +45,8 @@
     --color-accent: #8cc4ec;
     --color-accent-bg: #1f2f3d;
     --color-focus: #8cc4ec;
+    --color-on-accent: #14171c;
+    --color-error: #f2b8b5;
   }
 }
 
