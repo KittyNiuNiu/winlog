@@ -1,6 +1,7 @@
-/* App shell. Small screens: a top bar with the name and the navigation, which wraps
-   onto more lines instead of scrolling sideways. From 48rem: a sidebar on the left and
-   the page content beside it, with the content width capped. */
+/* App shell. Phone (below 48rem): a peach-wash header with the wordmark and pills; it
+   wraps onto a second line instead of scrolling sideways, and the More menu opens inside
+   it, below the row. Laptop: a sticky peach-wash sidebar beside the content. Hover only
+   turns labels plum, so peach only ever marks the current page. */
 
 .shell {
   min-height: 100vh;
@@ -9,93 +10,53 @@
 
 .shell__skip-link {
   position: absolute;
-  left: var(--space-4);
   top: -10rem;
-  z-index: 1;
-  padding: var(--space-2) var(--space-4);
-  background: var(--color-bg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
+  left: var(--space-20);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap-target);
+  padding: 0 var(--space-16);
+  font-size: var(--text-button-size);
+  font-weight: 700;
+  color: var(--color-plum);
+  text-decoration: none;
+  background: var(--color-paper-white);
+  border: var(--border-control) solid var(--color-field-border);
+  border-radius: var(--radius-button);
 }
 
 .shell__skip-link:focus {
-  top: var(--space-2);
+  top: var(--space-8);
 }
 
 .shell__header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-4);
-  padding: var(--space-3) var(--space-4);
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
+  background: var(--color-peach-wash);
 }
 
-.shell__brand {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--color-text);
-  text-decoration: none;
-}
-
-.shell__nav {
-  min-width: 0;
-}
-
-.shell__nav-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
+.shell__nav ul {
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.shell__nav-link {
-  display: flex;
-  align-items: center;
-  /* At least 44px high, so each link is easy to tap. */
-  min-height: 2.75rem;
-  padding: 0 var(--space-3);
-  border-radius: var(--radius);
-  color: var(--color-text);
-  text-decoration: none;
-}
-
-.shell__nav-link:hover {
-  background: var(--color-accent-bg);
-}
-
-.shell__nav-link.active {
-  background: var(--color-accent-bg);
-  color: var(--color-accent);
-  font-weight: 600;
-}
-
-.shell__logout {
-  min-height: 2.75rem;
-  margin-left: auto;
-  padding: 0 var(--space-3);
-  font: inherit;
-  color: var(--color-text);
+.shell__logout-button {
+  font-family: var(--font-body);
+  text-align: left;
   background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius);
+  border: 0;
   cursor: pointer;
 }
 
-.shell__logout:hover {
-  background: var(--color-accent-bg);
-}
-
-.shell__logout:disabled {
+/* Logging out: disabled, in the normal colours. */
+.shell__logout-button:disabled {
+  color: var(--color-aubergine-ink);
   cursor: progress;
 }
 
 .shell__main {
   min-width: 0;
-  padding: var(--space-6) var(--space-4);
+  padding: var(--space-24) var(--space-20) var(--space-48);
   overflow-wrap: anywhere;
 }
 
@@ -107,45 +68,187 @@
   max-width: var(--content-max);
 }
 
-@media (min-width: 48rem) {
-  .shell {
-    display: grid;
-    grid-template-columns: 14rem minmax(0, 1fr);
-  }
+.page h1 {
+  margin-bottom: var(--space-16);
+}
 
-  .shell__header {
-    flex-direction: column;
-    flex-wrap: nowrap;
-    align-items: stretch;
-    gap: var(--space-6);
-    position: sticky;
-    top: 0;
-    height: 100vh;
-    height: 100dvh;
-    padding: var(--space-6) var(--space-4);
-    border-bottom: none;
-    border-right: 1px solid var(--color-border);
-  }
+/* Phone */
 
-  .shell__brand {
-    padding: 0 var(--space-3);
-    font-size: 1.5rem;
-  }
+.shell--phone .shell__header {
+  display: flex;
+  align-items: center;
+  min-height: 68px;
+  padding: var(--space-12) var(--space-20);
+  border-bottom: var(--border-hairline) solid var(--color-hairline);
+}
 
-  .shell__nav-list {
-    flex-direction: column;
-  }
+.shell--phone .shell__nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8);
+  width: 100%;
+  min-width: 0;
+}
 
-  .shell__logout {
-    margin-top: auto;
-    margin-left: 0;
-  }
+.shell--phone .wordmark {
+  margin-right: auto;
+}
 
-  .shell__main {
-    padding: var(--space-8);
-  }
+.shell__pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  min-width: 0;
+}
 
-  .page {
-    margin-inline: auto;
-  }
+.shell__pill {
+  display: flex;
+  align-items: center;
+  min-height: var(--tap-target);
+  padding: 0 var(--space-12);
+  font-family: var(--font-body);
+  font-size: var(--text-label-size);
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--color-aubergine-ink);
+  text-decoration: none;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+}
+
+.shell__pill:hover {
+  color: var(--color-plum);
+}
+
+.shell__pill--current,
+.shell__pill--current:hover {
+  font-weight: 700;
+  color: var(--color-on-peach);
+  background: var(--color-peach);
+}
+
+.shell__menu {
+  flex: 1 1 100%;
+  min-width: 0;
+  padding: var(--space-8);
+  background: var(--color-paper-white);
+  border: var(--border-hairline) solid var(--color-hairline);
+  border-radius: var(--radius-panel);
+}
+
+.shell__menu[hidden] {
+  display: none;
+}
+
+.shell__menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  width: 100%;
+  min-height: var(--control-height);
+  padding: 0 var(--space-16);
+  font-size: var(--text-body-size);
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--color-aubergine-ink);
+  text-decoration: none;
+  border-radius: var(--radius-label);
+}
+
+.shell__menu-item:hover {
+  color: var(--color-plum);
+}
+
+.shell__menu-item--current,
+.shell__menu-item--current:hover {
+  font-weight: 700;
+  color: var(--color-on-peach);
+  background: var(--color-peach);
+}
+
+.shell__menu-separator {
+  height: 1px;
+  margin: var(--space-8) 0;
+  background: var(--color-hairline);
+}
+
+/* Laptop */
+
+.shell--laptop {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+}
+
+.shell--laptop .shell__header {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100dvh;
+  overflow-y: auto;
+  padding: var(--space-24) var(--space-16);
+  border-right: var(--border-hairline) solid var(--color-hairline);
+}
+
+.shell--laptop .shell__nav {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.shell--laptop .wordmark {
+  align-self: flex-start;
+  margin-bottom: var(--space-32);
+}
+
+.shell__rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.shell__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  width: 100%;
+  min-height: var(--tap-target);
+  padding: 0 var(--space-12);
+  font-size: var(--text-label-size);
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--color-aubergine-ink);
+  text-decoration: none;
+  border-radius: var(--radius-message);
+}
+
+.shell__row:hover {
+  color: var(--color-plum);
+}
+
+.shell__row--current {
+  font-weight: 700;
+  color: var(--color-plum);
+  background: var(--color-peach);
+}
+
+.shell__row-icon {
+  flex: 0 0 auto;
+}
+
+.shell__new-entry {
+  width: 100%;
+  margin: var(--space-24) 0;
+}
+
+.shell__logout {
+  margin-top: auto;
+  padding-top: var(--space-12);
+  border-top: var(--border-hairline) solid var(--color-hairline);
+}
+
+.shell--laptop .shell__main {
+  padding: var(--space-40) var(--space-48) var(--space-48);
 }

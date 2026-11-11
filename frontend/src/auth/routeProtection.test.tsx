@@ -12,7 +12,7 @@ vi.mock('../api/index.ts', async (importOriginal) => {
   return { ...actual, setLoginRedirect: vi.fn(actual.setLoginRedirect) }
 })
 
-const PROTECTED_PATHS = ['/', '/review', '/summaries', '/summaries/42', '/settings']
+const PROTECTED_PATHS = ['/', '/entries/new', '/review', '/summaries', '/summaries/42', '/settings']
 
 afterEach(() => {
   removeTestSession()
