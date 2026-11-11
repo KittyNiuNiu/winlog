@@ -1377,17 +1377,17 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - A shared information and error message component, because the login and registration screens already show both and `DESIGN.md` gives them icons.
   - "New entry" in the sidebar opens a placeholder at `/entries/new` until #27.
   - "White" in `DESIGN.md`'s component descriptions means the paper-white token (peach wash in dark mode); the action lift has one value for both modes; the entry row shows dates as "10 Nov", as on the approved boards; the favicon changes from blue to plum.
-- **Pending with the product owner (NEEDS DECISION):**
-  - Q1: what "More" opens in the phone header, and where Log out goes. `DESIGN.md` names "More" but not its contents, never mentions Log out, and the boards do not show either. Recommended: a menu with Summaries, Settings and Log out on the phone, and Log out at the bottom of the laptop sidebar.
-  - Q2: the dark-mode focus glow, which `DESIGN.md` gives only for light mode. Recommended: `0 0 0 3px rgba(231, 163, 207, 0.3)`.
-  - The criteria that depend on them are marked "(pending Q1)" or "(pending Q2)" in #75.
+- **Product owner decisions (2026-11-11):** two design questions that `DESIGN.md` does not answer went to the product owner through the orchestrator. Both answers are the recommended option:
+  - More and Log out: `DESIGN.md` names "More" in the phone header but not its contents, never mentions Log out, and the boards show neither. On the phone, More is a button that opens a menu with Summaries, Settings and Log out. The menu closes when an item is chosen, on Escape, or on a tap outside it. On the laptop, Log out stays at the bottom of the sidebar.
+  - Dark-mode focus glow, which `DESIGN.md` gives only for light mode: `0 0 0 3px rgba(231, 163, 207, 0.3)`. The plum border (#E7A3CF) stays the main focus signal.
+  - I replaced the "(pending Q1)" and "(pending Q2)" criteria in #75 with these decisions, recorded them under Constraints, and read the issue back: it matches, and its labels are unchanged.
 - **How I verified it:**
   - Read the approved boards (phone capture and laptop review) on the design canvas: the fonts load Bricolage Grotesque with its `opsz` axis at 700 and 800 and Figtree at 400–700; the phone header's "More" and the sidebar have no Log out or menu shown; no board has a dark-mode focus glow.
   - `npm view` and the package tarballs: both Fontsource packages are 5.3.0 and OFL-1.1 and include the licence; `lucide-react` 1.72.0 is ISC, supports React 19, and defaults to 24px, a 2px stroke and `currentColor`.
   - With fontTools on the downloaded font files: both fonts have tabular figures (`tnum`), and each file carries its copyright and licence link in its metadata, which OFL 1.1 accepts when the fonts are served.
   - Read the updated issue back from GitHub and checked it against the definition of done in `docs/pm.md`.
 - **Left open:**
-  - #77 and #78 are not in `docs/tasks.md`. Recommended places: #78 right after #75, and #77 after #31 and before #36.
+  - #77 and #78 are not in `docs/tasks.md`. The orchestrator settles their place with the product owner. My recommendation: #78 right after #75, and #77 after #31 and before #36.
   - Found while grooming, for the re-grooming of #27–#35 against `DESIGN.md` (those issues still carry `groomed`):
     - #31 groups review results by category (FR-R2 in `product-spec.md`), while `DESIGN.md` groups entries by month on the review screen. The spec and `DESIGN.md` disagree, so this needs the product owner.
     - #29 shows dates as "2 Nov 2026" in an ungrouped list, while `DESIGN.md` uses month groups and a 64px date column ("10 Nov").
