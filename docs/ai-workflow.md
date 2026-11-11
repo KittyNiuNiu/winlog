@@ -1392,3 +1392,26 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
     - #31 groups review results by category (FR-R2 in `product-spec.md`), while `DESIGN.md` groups entries by month on the review screen. The spec and `DESIGN.md` disagree, so this needs the product owner.
     - #29 shows dates as "2 Nov 2026" in an ungrouped list, while `DESIGN.md` uses month groups and a 64px date column ("10 Nov").
     - #27 sends the user back to `/` with "Entry saved.", while `DESIGN.md` shows the saved message at the top of the capture screen with a "Just saved" list below.
+
+## 2026-11-11: Build the UI foundations from DESIGN.md (#75)
+
+- **Task:** implement #75 as the software engineer, following its 48 criteria, the design note (issue comment 6807801086) and `DESIGN.md`.
+- **What I did:**
+  - Tokens: every `DESIGN.md` colour (light and dark), the type scale, spacing scale, radii, borders, line length and both shadows are custom properties in `frontend/src/index.css`, named after `DESIGN.md` (`--color-plum`, `--color-peach-wash`, `--space-16`, `--radius-pill`, …). Dark mode follows `prefers-color-scheme` and switches live; the dark focus glow is the product owner's `rgba(231, 163, 207, 0.3)`. Hover fills are derived tokens. The old blue palette is gone and the favicon is plum.
+  - Fonts: self-hosted Bricolage Grotesque (`opsz.css`, headings and wordmark only, with optical sizing) and Figtree, with the `DESIGN.md` fallbacks and `font-display: swap`. Dates use tabular figures.
+  - Shared components in `frontend/src/components/`: `Button` and `ButtonLink` (primary, secondary, large, disabled, busy), `TextField` and `TextArea`, `CategoryChip` (with the filter variant), `CategoryLabel`, `SavedMessage` with `useSavedMessage` (5 seconds, restarts when shown again, fades in and out, no motion with reduced motion), `Message` (information and error), `EntryRow` with `formatShortDate`, `EmptyState`, `Wordmark` and `Icon` (lucide-react, 1.75px absolute stroke, hidden from screen readers).
+  - App shell: one `nav` named "Main", built for the width it is shown at (`useMediaQuery` with the same 48rem query as the CSS): on the phone a peach-wash header with Entries, Review and a More menu (Summaries, Settings, Log out; closes on choice, Escape with focus back on More, a tap outside, or More again); on the laptop a sticky, self-scrolling sidebar with icons, "New entry" and Log out at the bottom. The current section comes from exact path patterns, so nothing is current on "Page not found".
+  - New placeholder page at `/entries/new`. Login, registration, placeholders and "Page not found" restyled with the shared components; their behaviour and text are unchanged.
+  - Development-only preview page at `/dev/components` with every component in every state and the design note's sample text (German and Japanese included). The route is only added when `import.meta.env.DEV` is true, so the production build has neither the page nor its code.
+- **New dependencies:**
+  - `@fontsource-variable/bricolage-grotesque` and `@fontsource-variable/figtree` 5.3.0 (OFL 1.1): the two `DESIGN.md` fonts, self-hosted from the app's origin, as decided while grooming.
+  - `lucide-react` 1.72.0 (ISC): the one icon set, as decided while grooming.
+  - `@testing-library/user-event` 14.6.9 (dev only, MIT): realistic keyboard and pointer input in tests (Space and Enter on chips, Tab order, Escape and a tap outside the More menu), which `fireEvent` cannot simulate.
+- **How I verified it:**
+  - `npm run lint`, `npm test` (20 files, 378 tests) and `npm run build` pass in `frontend/`. The #26 login, registration, logout and route-protection tests pass with their behaviour checks unchanged; the logout tests now run at laptop width, where Log out is in the sidebar, and a phone test covers Log out from the More menu.
+  - New tests: each shared component; the More menu; current-page marking at both widths; Tab order; the date in a time zone behind UTC; the preview page and its absence from production routes; and `design.test.ts`, which checks every token value against `DESIGN.md`, that no CSS or TSX file outside `index.css` has a colour value, that the old palette is gone, and that nothing uses capitals or Google Fonts hosts.
+  - In Chrome (Playwright) with the dev server: no sideways scrolling at 360, 390 and 1280px in light and dark mode, including the open More menu, the preview page and 150% text (the header wraps onto a second line); every button, control and stand-alone link is at least 44px tall; only requests to the app's origin; both fonts load; with font files blocked the text shows in the fallback font; a focused field with an error shows the plum border and the focus glow; in a 360px-tall laptop window the sidebar scrolls so Log out stays reachable.
+  - `npm run build` with `vite preview`: `/dev/components` shows "Page not found", and `dist/` mentions neither Google Fonts host nor the preview page.
+- **Left open:**
+  - The illustrations (#77) and recording the tokens in `DESIGN.md` (#78).
+  - The designer's review of the built screens against the design note, after QA.
