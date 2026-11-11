@@ -1361,3 +1361,34 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - `docs/software-engineer.md` and `docs/pm.md`: one line each about the design note and `DESIGN.md`.
 - **How I verified it:** read the edited files against each other; the label names and step numbers match. No code changed.
 - **Left open:** the labels `designed`, `qa-passed` and `design-failed` are created on GitHub the first time the orchestrator sets them. #75 is the first issue to go through the new steps.
+
+## 2026-11-11: Groom issue #75 (Build the UI foundations from DESIGN.md)
+
+- **Task:** groom #75, the product owner's draft from the design work, following `docs/pm.md`.
+- **What I did:**
+  - Rewrote #75 with the task template: 48 checkable criteria in groups (tokens, fonts, icons, shared components, navigation and app shell, restyled screens, a development-only preview page, phone and accessibility, tests). Out-of-scope items link to #27–#36, #43, #77 and #78.
+  - Filed two draft follow-ups, without a status label so they are groomed later: #77 "Add the three illustrations from DESIGN.md" and #78 "Record the built design tokens in DESIGN.md".
+- **Decisions taken under the standing rule:**
+  - Illustrations move to #77: two of their three places only exist after #29 and #31, and drawing all three together keeps one style. #75 builds the empty state's illustration slot only.
+  - `/impeccable document` moves to #78, because it asks the product owner whether to refresh, overwrite or merge `DESIGN.md`. #75 does not edit `DESIGN.md`.
+  - Fonts: `@fontsource-variable/bricolage-grotesque` (its `opsz.css`, the optical sizes the boards load) and `@fontsource-variable/figtree`, both 5.3.0, both SIL Open Font License 1.1.
+  - Icons: `lucide-react` 1.72.0, ISC licence (icons that come from Feather are MIT).
+  - A development-only preview page at `/dev/components`, so QA and the designer can check the components that have no screen yet. It is not in the production build.
+  - A shared information and error message component, because the login and registration screens already show both and `DESIGN.md` gives them icons.
+  - "New entry" in the sidebar opens a placeholder at `/entries/new` until #27.
+  - "White" in `DESIGN.md`'s component descriptions means the paper-white token (peach wash in dark mode); the action lift has one value for both modes; the entry row shows dates as "10 Nov", as on the approved boards; the favicon changes from blue to plum.
+- **Pending with the product owner (NEEDS DECISION):**
+  - Q1: what "More" opens in the phone header, and where Log out goes. `DESIGN.md` names "More" but not its contents, never mentions Log out, and the boards do not show either. Recommended: a menu with Summaries, Settings and Log out on the phone, and Log out at the bottom of the laptop sidebar.
+  - Q2: the dark-mode focus glow, which `DESIGN.md` gives only for light mode. Recommended: `0 0 0 3px rgba(231, 163, 207, 0.3)`.
+  - The criteria that depend on them are marked "(pending Q1)" or "(pending Q2)" in #75.
+- **How I verified it:**
+  - Read the approved boards (phone capture and laptop review) on the design canvas: the fonts load Bricolage Grotesque with its `opsz` axis at 700 and 800 and Figtree at 400–700; the phone header's "More" and the sidebar have no Log out or menu shown; no board has a dark-mode focus glow.
+  - `npm view` and the package tarballs: both Fontsource packages are 5.3.0 and OFL-1.1 and include the licence; `lucide-react` 1.72.0 is ISC, supports React 19, and defaults to 24px, a 2px stroke and `currentColor`.
+  - With fontTools on the downloaded font files: both fonts have tabular figures (`tnum`), and each file carries its copyright and licence link in its metadata, which OFL 1.1 accepts when the fonts are served.
+  - Read the updated issue back from GitHub and checked it against the definition of done in `docs/pm.md`.
+- **Left open:**
+  - #77 and #78 are not in `docs/tasks.md`. Recommended places: #78 right after #75, and #77 after #31 and before #36.
+  - Found while grooming, for the re-grooming of #27–#35 against `DESIGN.md` (those issues still carry `groomed`):
+    - #31 groups review results by category (FR-R2 in `product-spec.md`), while `DESIGN.md` groups entries by month on the review screen. The spec and `DESIGN.md` disagree, so this needs the product owner.
+    - #29 shows dates as "2 Nov 2026" in an ungrouped list, while `DESIGN.md` uses month groups and a 64px date column ("10 Nov").
+    - #27 sends the user back to `/` with "Entry saved.", while `DESIGN.md` shows the saved message at the top of the capture screen with a "Just saved" list below.
