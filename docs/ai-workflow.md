@@ -1331,3 +1331,15 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Building it in code needs a new "UI foundations" issue before #27: CSS tokens, self-hosted fonts (licence check), an icon library (choice and licence check), shared components, and restyling the #26 login and registration screens.
   - #27–#35 need re-grooming against `DESIGN.md`.
   - After the UI foundations issue, `/impeccable document` should record the real tokens from the code into `DESIGN.md`.
+
+## 2026-11-11: New issue #75 (UI foundations) and the backlog renumbered
+
+- **Task:** the product owner asked for a "UI foundations" issue before the entry form.
+- **What I did:**
+  - Created #75 "26. Build the UI foundations from DESIGN.md" as a draft with no status label, so the PM grooms it first. It covers design tokens, self-hosted fonts, an icon library, shared components, and restyling the app shell and the #26 screens.
+  - Inserted it as task 26 in `docs/tasks.md` and renumbered the later tasks and their GitHub issue titles by one.
+  - Found that another session (branch `developer/zen-bell-yusvf7`, not yet merged) added #73 and #74 as tasks 39 and 40 and moved #38–#40. I combined both changes: #36 is 38, #37 is 39, #73 is 40, #74 is 41, #38 is 42, #39 is 43, #40 is 44. Issue titles and `docs/tasks.md` on this branch match that order, and the line for #39 uses the other branch's new name.
+- **How I verified it:** listed the open issues after the updates; every title number matches `docs/tasks.md`, and status labels were unchanged (#39 had already lost `groomed` in the other session, because it went back to grooming).
+- **Left open:**
+  - Merging this branch and `developer/zen-bell-yusvf7` will conflict in `docs/tasks.md` (and probably in this log). The combined list on this branch is the intended result.
+  - Several issue bodies still say "Task N of 41". They get corrected when each issue is groomed or re-groomed.
