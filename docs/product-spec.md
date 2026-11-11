@@ -1,7 +1,7 @@
 # Winlog: Product Specification
 
 **Version:** 0.2 (draft)
-**Last updated:** 9 November 2026
+**Last updated:** 11 November 2026
 
 ---
 
@@ -161,6 +161,7 @@ Individual professionals who want a lightweight record of their work so they can
 | Area | Requirement |
 |---|---|
 | Responsiveness | All screens are usable from a 360px wide mobile viewport up to desktop. |
+| Design | The user interface follows the design system in `DESIGN.md` (colours, typography, layout, components, icons and illustrations). Product facts for design work are in `PRODUCT.md`; this specification wins where they differ. |
 | Language | The user interface is in English. Entries can be written in any language. |
 | Security | Passwords are stored only as hashes. Logins use tokens that the server stores, so they can be revoked, and that expire. Repeated failed logins are slowed down (FR-A4). Secrets and keys come from environment variables and are never committed. All data access is scoped to the authenticated user. |
 | Privacy | Users can export and delete their data (see 7.6). AI providers do not retain request data (see 8). |
@@ -260,6 +261,8 @@ Closed:
 - Default LLM model (closed 9 November 2026): `anthropic/claude-haiku-5.5`, chosen by a documented comparison (issue #14). The backup model is `deepseek/deepseek-v4.1-flash`: if the default becomes unavailable, too expensive or worse, the model setting is switched to it. It is not an automatic fallback. Details in `docs/decisions/default-model.md`.
 
 ## 14. Change log
+
+**0.2, updated 11 November 2026.** §9: new "Design" row. The user interface follows `DESIGN.md`, the design system the product owner chose on 11 November 2026 ("Plum & Peach v2"). Nothing else changed.
 
 **0.2, updated 9 November 2026.** §13: the open question about the default LLM model is closed. The default is `anthropic/claude-haiku-5.5`, with `deepseek/deepseek-v4.1-flash` as the backup model (issue #14). Nothing else changed.
 

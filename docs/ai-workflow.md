@@ -1316,3 +1316,18 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Task:** the product owner ran `/impeccable` to remake the palette options. Impeccable needs a product record before visual work, so I wrote `PRODUCT.md` in the repository root (its required location).
 - **Content:** product facts taken from `docs/product-spec.md` (which stays the source of truth and wins where they differ) plus the product owner's answers from 2026-11-11: phone to capture, desktop to review; warm but focused, no streaks; AI helpful but in the background; basic accessibility care with no formal standard; positioning "review-ready in minutes"; the look must not feel too corporate or too generic.
 - **Left open:** the visual direction is still being chosen. `DESIGN.md` is written only after a direction is built. How `PRODUCT.md`/`DESIGN.md` relate to the planned `docs/design-brief.md` still needs a decision.
+
+## 2026-11-11: Design system chosen and recorded (DESIGN.md)
+
+- **Product owner decisions (2026-11-11):**
+  - Visual direction: "Plum & Peach v2". It overrides Impeccable's assigned direction ("Specimen label"); the canvas with every option is https://claude.ai/artifact/4ivGiFFqkHwBBjDfm76ZBg.
+  - Icons, colour blocks, images and illustrations only where they are reasonable, not overdone.
+  - The design system lives in one file, `DESIGN.md`, in the repository root, linked from `docs/product-spec.md` §9 (new "Design" row, change log entry, version unchanged at 0.2) and from `AGENTS.md` (frontend conventions). This replaces the earlier plan for `docs/design-brief.md`; product facts stay in `PRODUCT.md`.
+- **How the options were made:** with the `frontend-design` and `impeccable` skills and the Laws of UX (https://lawsofux.com/, by Jon Yablonski). Impeccable's decision page runs as a local server in the cloud session and may not be reachable from the product owner's app, so its options were shown on the design canvas and chosen through the question tool instead.
+- **What `DESIGN.md` holds:** written in Impeccable's seed form, because nothing is built yet: palette for light and dark (plum actions, peach highlights, four category tints), type (Bricolage Grotesque for the wordmark and headings, Figtree for everything else), layout for phone and laptop, depth, shapes, components (buttons, category chips and labels, fields, navigation, saved message, entry row, summary panel), where icons and up to three illustrations go, and do's and don'ts tied to the Laws of UX.
+- **How I verified it:** every text and background pair in light and dark mode was checked at 4.5:1 or more with a contrast script. No code changed.
+- **Left open:**
+  - The Creative North Star name ("The Pocket Applause") is my proposal; the product owner can rename it.
+  - Building it in code needs a new "UI foundations" issue before #27: CSS tokens, self-hosted fonts (licence check), an icon library (choice and licence check), shared components, and restyling the #26 login and registration screens.
+  - #27–#35 need re-grooming against `DESIGN.md`.
+  - After the UI foundations issue, `/impeccable document` should record the real tokens from the code into `DESIGN.md`.
