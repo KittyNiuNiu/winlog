@@ -8,6 +8,7 @@ import { connectLoginRedirect } from '../auth/loginRedirect.ts'
 import { SAVED_MESSAGE_MS } from '../components/useSavedMessage.ts'
 import { entrySavedState } from '../entries/entrySavedNotice.ts'
 import { routes } from '../routes.tsx'
+import { WRITING_NUDGE_TEXT } from './EntriesPage.tsx'
 import { renderRoute } from '../test/renderRoute.tsx'
 import { removeTestSession, storeTestSession } from '../test/session.ts'
 import { setViewport } from '../test/viewport.ts'
@@ -849,4 +850,338 @@ describe('empty, loading and error states', () => {
     expect(listEntries).toHaveBeenCalledTimes(2)
     expect(rows()).toHaveLength(6)
   })
+})
+
+// The tests run in Australia/Sydney (vite.config.ts): UTC+11 in summer time (from 4 October
+// 2026 to 4 April 2027), UTC+10 otherwise.
+describe('the writing nudge (FR-N1)', () => {
+  /** Midday on 12 November 2026 in Sydney. */
+  const NOON_NOV_12 = '2026-11-12T01:00:00Z'
+
+  /** Fakes only the clock, so promises and React work as usual. */
+  function setNow(iso: string) {
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date(iso) })
+  }
+
+  async function renderWith(entries: Entry[], now = NOON_NOV_12) {
+    setNow(now)
+    listEntries.mockResolvedValue({ entries })
+    return renderEntries()
+  }
+
+  function nudge(): HTMLElement | null {
+    return document.querySelector('.entries-page__nudge')
+  }
+
+  function nudgeShown(): boolean {
+    return screen.queryByText(WRITING_NUDGE_TEXT) !== null
+  }
+
+  it('test_fr_n1_banner_and_empty_state_for_a_user_without_entries', async () => {
+    await renderWith([])
+
+    expect(nudgeShown()).toBe(true)
+    expect(screen.getByText(EMPTY_TEXT)).toBeTruthy()
+    // The empty state is unchanged, with its own "New entry" as the only way in.
+    const links = pageNewEntryLinks()
+    expect(links).toHaveLength(1)
+    expect(links[0].closest('.empty-state')).not.toBeNull()
+    // The banner comes first, then the empty state.
+    const empty = document.querySelector('.empty-state') as HTMLElement
+    expect((nudge() as HTMLElement).compareDocumentPosition(empty) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('test_fr_n1_banner_text_invites_without_reproach', () => {
+    expect(WRITING_NUDGE_TEXT).toBe('Did something go well? Even a small win is worth writing down.')
+    expect(WRITING_NUDGE_TEXT).not.toMatch(/\d|day|week|streak|again|lately|haven't|missed|since|last/i)
+  })
+
+  it('test_fr_n1_banner_hides_with_entry_from_today', async () => {
+    await renderWith([makeEntry('today', '2026-11-12'), makeEntry('old', '2026-10-01')])
+
+    expect(nudgeShown()).toBe(false)
+    expect(nudge()).toBeNull()
+    expect(rows()).toHaveLength(2)
+  })
+
+  it('test_fr_n1_banner_hides_with_entry_from_six_days_ago', async () => {
+    await renderWith([makeEntry('six', '2026-11-06')])
+
+    expect(nudgeShown()).toBe(false)
+  })
+
+  it('test_fr_n1_banner_shows_with_entry_from_exactly_seven_days_ago', async () => {
+    await renderWith([makeEntry('seven', '2026-11-05'), makeEntry('older', '2026-01-02')])
+
+    expect(nudgeShown()).toBe(true)
+    // Above the list, which is unchanged.
+    expect(rows()).toHaveLength(2)
+    expect((nudge() as HTMLElement).compareDocumentPosition(rows()[0]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('test_fr_n1_future_dated_entries_do_not_count', async () => {
+    await renderWith([makeEntry('next-year', '2027-01-05'), makeEntry('tomorrow', '2026-11-13')])
+
+    expect(nudgeShown()).toBe(true)
+  })
+
+  it('test_fr_n1_today_is_the_local_date_not_the_utc_date', async () => {
+    // 08:00 on 13 November in Sydney, still 12 November in UTC.
+    const morning = '2026-11-12T21:00:00Z'
+    const first = await renderWith([makeEntry('nov6', '2026-11-06')], morning)
+    expect(new Date().toISOString().slice(0, 10)).toBe('2026-11-12')
+    // 2026-11-06 is 7 days before 13 November, so it no longer counts.
+    expect(nudgeShown()).toBe(true)
+    first.unmount()
+
+    await renderWith([makeEntry('nov7', '2026-11-07')], morning)
+    expect(nudgeShown()).toBe(false)
+  })
+
+  it('test_fr_n1_stored_dates_are_not_shifted_in_a_time_zone_behind_utc', async () => {
+    vi.stubEnv('TZ', 'America/Los_Angeles')
+    // There, new Date('2026-11-06') is still 5 November; the stored text must be used.
+    expect(new Date('2026-11-06').getDate()).toBe(5)
+
+    // Midday on 12 November in Los Angeles.
+    await renderWith([makeEntry('nov6', '2026-11-06')], '2026-11-12T20:00:00Z')
+
+    expect(nudgeShown()).toBe(false)
+  })
+
+  it.each([
+    // Summer time starts on 4 October 2026: 00:30 on 8 October (UTC+11) minus 6 × 24 hours
+    // is 23:30 on 1 October (UTC+10). The range is still 2 to 8 October.
+    ['starts', '2026-10-07T13:30:00Z', '2026-10-01', '2026-10-02'],
+    // Summer time ends on 5 April 2026: 23:30 on 8 April (UTC+10) minus 6 × 24 hours is
+    // 00:30 on 3 April (UTC+11). The range is still 2 to 8 April.
+    ['ends', '2026-04-08T13:30:00Z', '2026-04-01', '2026-04-02'],
+  ])(
+    'test_fr_n1_range_across_a_daylight_saving_change_when_summer_time_%s',
+    async (_change, now, outside, inside) => {
+      const first = await renderWith([makeEntry('outside', outside)], now)
+      expect(nudgeShown()).toBe(true)
+      first.unmount()
+
+      await renderWith([makeEntry('inside', inside)], now)
+      expect(nudgeShown()).toBe(false)
+    },
+  )
+
+  it('test_fr_n1_no_banner_while_loading_or_after_a_load_error_then_after_try_again', async () => {
+    setNow(NOON_NOV_12)
+    const load = deferred<{ entries: Entry[] }>()
+    listEntries.mockReturnValueOnce(load.promise)
+    const first = await renderEntries()
+    expect(screen.getByText('Loading entries…')).toBeTruthy()
+    expect(nudgeShown()).toBe(false)
+    await act(async () => {
+      load.resolve({ entries: [] })
+    })
+    expect(nudgeShown()).toBe(true)
+    first.unmount()
+
+    listEntries.mockRejectedValueOnce(new api.NetworkError())
+    await renderEntries()
+    expect(screen.getByRole('alert').textContent).toBe(NETWORK_MESSAGE)
+    expect(nudgeShown()).toBe(false)
+
+    const retry = deferred<{ entries: Entry[] }>()
+    listEntries.mockReturnValueOnce(retry.promise)
+    await click(screen.getByRole('button', { name: 'Try again' }))
+    expect(screen.getByText('Loading entries…')).toBeTruthy()
+    expect(nudgeShown()).toBe(false)
+    await act(async () => {
+      retry.resolve({ entries: [makeEntry('old', '2026-10-01')] })
+    })
+    expect(nudgeShown()).toBe(true)
+  })
+
+  it('test_fr_n1_try_again_with_a_recent_entry_shows_no_banner', async () => {
+    setNow(NOON_NOV_12)
+    listEntries.mockRejectedValueOnce(new api.NetworkError())
+    await renderEntries()
+
+    listEntries.mockResolvedValueOnce({ entries: [makeEntry('today', '2026-11-12')] })
+    await click(screen.getByRole('button', { name: 'Try again' }))
+
+    expect(rows()).toHaveLength(1)
+    expect(nudgeShown()).toBe(false)
+  })
+
+  it('test_fr_n1_deleting_the_only_recent_entry_shows_the_banner_at_once', async () => {
+    await renderWith([makeEntry('recent', '2026-11-10'), makeEntry('old', '2026-10-01')])
+    expect(nudgeShown()).toBe(false)
+
+    await deleteRow('10 Nov 2026')
+
+    expect(nudgeShown()).toBe(true)
+    expect(savedBand()).toBe('Entry deleted.')
+    // Without loading the list again, and focus goes where #29 sends it, not to the banner.
+    expect(listEntries).toHaveBeenCalledTimes(1)
+    expect(document.activeElement).toBe(editLink('1 Oct 2026'))
+  })
+
+  it('test_fr_n1_deleting_the_only_entry_shows_the_banner_and_the_empty_state', async () => {
+    await renderWith([makeEntry('recent', '2026-11-10')])
+
+    await deleteRow('10 Nov 2026')
+
+    expect(nudgeShown()).toBe(true)
+    expect(screen.getByText(EMPTY_TEXT)).toBeTruthy()
+    expect(document.activeElement).toBe(pageNewEntryLinks()[0])
+  })
+
+  it('test_fr_n1_deleting_a_recent_entry_when_another_remains_keeps_it_hidden', async () => {
+    await renderWith([makeEntry('nov12', '2026-11-12'), makeEntry('nov8', '2026-11-08')])
+
+    await deleteRow('12 Nov 2026')
+
+    expect(rows()).toHaveLength(1)
+    expect(nudgeShown()).toBe(false)
+  })
+
+  it('test_fr_n1_deleting_an_old_entry_while_the_banner_shows_leaves_it_shown', async () => {
+    await renderWith([makeEntry('oct', '2026-10-01'), makeEntry('sep', '2026-09-01')])
+    expect(nudgeShown()).toBe(true)
+
+    await deleteRow('1 Oct 2026')
+    expect(nudgeShown()).toBe(true)
+
+    // Also next to "This entry was already deleted.".
+    deleteEntry.mockRejectedValueOnce(new api.NotFoundError('Not found.', 404))
+    await deleteRow('1 Sep 2026')
+    expect(notice()).toBe('This entry was already deleted.')
+    expect(nudgeShown()).toBe(true)
+  })
+
+  it('test_fr_n1_after_an_edit_entry_saved_and_the_banner_both_show', async () => {
+    // The edit moved the only recent entry out of the range.
+    setNow(NOON_NOV_12)
+    listEntries.mockResolvedValue({ entries: [makeEntry('moved', '2026-10-20'), makeEntry('old', '2026-10-01')] })
+
+    await renderAfterSave()
+
+    expect(savedBand()).toBe('Entry saved.')
+    expect(nudgeShown()).toBe(true)
+    // The banner is not in the message slot, and neither replaces the other.
+    const band = document.querySelector('.saved-region') as HTMLElement
+    expect(band.contains(nudge())).toBe(false)
+    expect(document.querySelector('.entries-page__notice')?.contains(nudge())).toBe(false)
+  })
+
+  it('test_fr_n1_after_an_edit_moves_an_old_entry_into_the_range_the_banner_is_gone', async () => {
+    setNow(NOON_NOV_12)
+    listEntries.mockResolvedValue({ entries: [makeEntry('moved', '2026-11-09'), makeEntry('old', '2026-10-01')] })
+
+    await renderAfterSave()
+
+    expect(savedBand()).toBe('Entry saved.')
+    expect(nudgeShown()).toBe(false)
+  })
+
+  it('test_fr_n1_the_banner_stays_while_entry_saved_fades', async () => {
+    vi.useFakeTimers({ now: new Date(NOON_NOV_12) })
+    listEntries.mockResolvedValue({ entries: [makeEntry('old', '2026-10-01')] })
+    await renderAfterSave()
+    expect(savedBand()).toBe('Entry saved.')
+
+    act(() => {
+      vi.advanceTimersByTime(SAVED_MESSAGE_MS)
+    })
+
+    expect(savedBand()).toBe('')
+    expect(nudgeShown()).toBe(true)
+  })
+
+  it('test_fr_n1_new_entry_in_range_hides_the_banner_next_time_the_page_opens', async () => {
+    const { router } = await renderWith([makeEntry('old', '2026-10-01')])
+    expect(nudgeShown()).toBe(true)
+
+    // The user saves a new entry dated today, then opens "/" again.
+    listEntries.mockResolvedValue({ entries: [makeEntry('new', '2026-11-12'), makeEntry('old', '2026-10-01')] })
+    await act(async () => {
+      await router.navigate('/review')
+    })
+    await act(async () => {
+      await router.navigate('/')
+    })
+
+    expect(listEntries).toHaveBeenCalledTimes(2)
+    expect(nudgeShown()).toBe(false)
+  })
+
+  it('test_fr_n1_no_timer_the_banner_catches_up_on_the_next_render', async () => {
+    // A minute before midnight on 12 November: 2026-11-06 is still in the range.
+    await renderWith([makeEntry('nov6', '2026-11-06')], '2026-11-12T12:59:00Z')
+    expect(nudgeShown()).toBe(false)
+
+    // Past midnight, with nothing rendered: no timer changes the page.
+    vi.setSystemTime(new Date('2026-11-12T13:01:00Z'))
+    await act(async () => {})
+    expect(nudgeShown()).toBe(false)
+
+    // The next render (here, opening the delete dialog) catches up.
+    await click(deleteButton('6 Nov 2026'))
+    expect(nudgeShown()).toBe(true)
+    // It stays as it was behind the dialog.
+    await click(dialogButton('Cancel'))
+    expect(nudgeShown()).toBe(true)
+  })
+
+  it('test_fr_n1_banner_is_plain_text_below_new_entry_at_the_top_of_the_content', async () => {
+    await renderWith([makeEntry('old', '2026-10-01')])
+
+    const element = nudge() as HTMLElement
+    expect(element.tagName).toBe('P')
+    expect(element.textContent).toBe(WRITING_NUDGE_TEXT)
+    // Text a screen reader reads in the page: no role, no live region, not focusable.
+    for (const attribute of ['role', 'aria-live', 'tabindex', 'aria-hidden']) {
+      expect(element.hasAttribute(attribute)).toBe(false)
+    }
+    expect(screen.queryByRole('alert')).toBeNull()
+    // No link, no button, no close button, no icon.
+    expect(within(element).queryAllByRole('link')).toEqual([])
+    expect(within(element).queryAllByRole('button')).toEqual([])
+    expect(element.querySelector('svg')).toBeNull()
+    expect(element.children).toHaveLength(0)
+    // The first thing in the content area, below the phone's "New entry", outside the slot.
+    expect(element.parentElement).toBe(content())
+    expect(content().firstElementChild).toBe(element)
+    const [link] = pageNewEntryLinks()
+    expect(link.compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // Not a message: neither the Message nor the SavedMessage component.
+    expect(element.className).toBe('entries-page__nudge')
+  })
+
+  it.each([
+    ['phone', 'list', [makeEntry('old', '2026-10-01')], 1],
+    ['phone', 'empty state', [], 1],
+    ['laptop', 'list', [makeEntry('old', '2026-10-01')], 0],
+    ['laptop', 'empty state', [], 1],
+  ] as const)(
+    'test_fr_n1_one_action_rule_holds_with_the_banner_on_the_%s_%s',
+    async (width, _state, entries, primaries) => {
+      setViewport(width)
+      await renderWith([...entries])
+
+      expect(nudgeShown()).toBe(true)
+      expect(primaryButtons()).toHaveLength(primaries)
+      expect(nudge()?.querySelector('.button, a, button')).toBeNull()
+    },
+  )
+
+  it.each(['/entries/new', '/review', '/summaries', '/settings'])(
+    'test_fr_n1_banner_shows_only_on_the_entries_page_%s',
+    async (path) => {
+      setNow(NOON_NOV_12)
+      listEntries.mockResolvedValue({ entries: [] })
+
+      await renderEntries(path)
+
+      expect(screen.getByRole('heading', { level: 1 })).toBeTruthy()
+      expect(nudgeShown()).toBe(false)
+      expect(nudge()).toBeNull()
+    },
+  )
 })

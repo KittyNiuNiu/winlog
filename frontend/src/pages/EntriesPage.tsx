@@ -14,7 +14,11 @@ import { useSavedMessage } from '../components/useSavedMessage.ts'
 import DeleteEntryDialog from '../entries/DeleteEntryDialog.tsx'
 import { cameFromEntrySave } from '../entries/entrySavedNotice.ts'
 import { ENTRY_DELETED_MESSAGE, ENTRY_GONE_ON_DELETE_MESSAGE, ENTRY_SAVED_MESSAGE } from '../entries/entryTexts.ts'
+import { hasDateInLastSevenDays, localToday } from '../entries/localDate.ts'
 import './EntriesPage.css'
+
+/** The writing nudge (FR-N1, design note on #30): an invitation, never a reproach. */
+export const WRITING_NUDGE_TEXT = 'Did something go well? Even a small win is worth writing down.'
 
 type Load =
   | { status: 'loading' }
@@ -181,6 +185,9 @@ export default function EntriesPage() {
   }
 
   const empty = current.status === 'loaded' && current.entries.length === 0
+  // Worked out on every render from the loaded list and today's date, with no timer (#30).
+  const nudge =
+    current.status === 'loaded' && !hasDateInLastSevenDays(current.entries.map((entry) => entry.date), localToday())
 
   return (
     <section className="page entries-page">
@@ -200,6 +207,8 @@ export default function EntriesPage() {
         </div>
       )}
       <div className="entries-page__content">
+        {/* A lasting state of the page, not an announcement: no role, no live region. */}
+        {nudge && <p className="entries-page__nudge">{WRITING_NUDGE_TEXT}</p>}
         {current.status === 'loading' && (
           <div className="entries-page__state">
             <p className="entries-page__loading" role="status">

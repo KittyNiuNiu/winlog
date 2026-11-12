@@ -98,4 +98,17 @@ describe('entries page styles (#29)', () => {
     expect(rule('../pages/EntriesPage.css', '.entries-page')).not.toContain('max-width')
     expect(rule('../pages/EntriesPage.css', '.entries-page__new .button')).toContain('width: 100%')
   })
+
+  it('the writing nudge (#30) keeps the list edges, is a quiet surface and not a control', () => {
+    const nudge = rule('../pages/EntriesPage.css', '.entries-page__nudge')
+    // The global p rule would stop it at 68ch and add 16px below.
+    expect(nudge).toContain('max-width: none')
+    expect(nudge).toContain('margin: 0 0 var(--space-24)')
+    expect(nudge).toContain('background: var(--color-peach-wash)')
+    expect(nudge).toContain('border: var(--border-hairline) solid var(--color-hairline)')
+    expect(nudge).toContain('border-radius: var(--radius-message)')
+    expect(nudge).toContain('color: var(--color-aubergine-ink)')
+    expect(nudge).not.toMatch(/--color-plum|--color-error|--color-peach[;)]|--color-saved-peach|-background|shadow|cursor/)
+    expect(fs.readFileSync(new URL('../pages/EntriesPage.css', HERE), 'utf8')).not.toMatch(/entries-page__nudge:/)
+  })
 })

@@ -49,3 +49,20 @@
 .entries-page__state > * + * {
   margin-top: var(--space-12);
 }
+
+/* The writing nudge (FR-N1, design note on #30): a quiet surface at the top of the
+   content, before the list or the empty state. It overrides the global p rule, so its
+   box keeps the list's edges on the laptop and the gap below it is 24px. */
+
+.entries-page__nudge {
+  max-width: none;
+  margin: 0 0 var(--space-24);
+  padding: var(--space-12) var(--space-16);
+  border: var(--border-hairline) solid var(--color-hairline);
+  border-radius: var(--radius-message);
+  background: var(--color-peach-wash);
+  color: var(--color-aubergine-ink);
+  font-size: var(--text-body-size);
+  font-weight: 400;
+  line-height: var(--text-body-line-height);
+}
