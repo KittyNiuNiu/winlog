@@ -1711,3 +1711,8 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Designer's request: scrolled to 2500px and deleted a row in view; the row above kept its viewport position when "Entry deleted." appeared and after it disappeared (Chrome scroll anchoring), at 360 and 1280px.
   - Issue comment: https://github.com/KittyNiuNiu/winlog/issues/29#issuecomment-6836556639
 - **Left open:** scroll anchoring not checked in Firefox (not available here). After a delete by mouse the focused Edit shows no ring, as `:focus-visible` intends.
+
+## 2026-11-12: Orchestrator: handoff update, #29 is implemented
+
+- The engineer for #29 did report after the handoff: IMPLEMENTED, commits 5f9e7e5 and 9489cd5, issue comment 6836556639. Frontend lint, 611 tests and the build pass; backend unchanged and green. #29 is now labelled `implemented`.
+- **Next step for the new session:** launch `qa-engineer` on #29 (do not relaunch the engineer), then the design review, then close. Open points from the engineer for the closing entry: rows not checked for jumping in Firefox (Chrome only); no visible focus ring on the next row's Edit after a mouse delete (expected `:focus-visible` behaviour); four small choices listed in the issue comment.
