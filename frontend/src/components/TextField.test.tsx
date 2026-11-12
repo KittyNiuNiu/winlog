@@ -106,3 +106,43 @@ describe('TextArea', () => {
     expect(area.getAttribute('aria-invalid')).toBe('false')
   })
 })
+
+describe('a hint or message outside the field (#31)', () => {
+  it('links further elements after its own hint and messages', () => {
+    render(
+      <>
+        <TextField id="tags" label="Tags" hint="Own hint." messages={['Own message.']} describedBy="below" />
+        <p id="below">A note under the field.</p>
+      </>,
+    )
+
+    expect(screen.getByLabelText('Tags').getAttribute('aria-describedby')).toBe('tags-hint tags-messages below')
+  })
+
+  it('without a hint of its own, links only the given elements', () => {
+    render(<TextField id="tags" label="Tags" describedBy="below" />)
+
+    const input = screen.getByLabelText('Tags')
+    expect(input.getAttribute('aria-describedby')).toBe('below')
+    expect(input.getAttribute('aria-invalid')).toBe('false')
+    expect(document.getElementById('tags-hint')).toBeNull()
+  })
+
+  it('shows the error state for a message outside it', () => {
+    render(<TextField id="start" label="Start date" type="date" invalid describedBy="dates-error" />)
+
+    const input = screen.getByLabelText('Start date')
+    expect(input.getAttribute('aria-invalid')).toBe('true')
+    expect(input.getAttribute('aria-describedby')).toBe('dates-error')
+    // Its own message region stays empty.
+    expect(document.getElementById('start-messages')?.textContent).toBe('')
+  })
+
+  it('works the same on a text area', () => {
+    render(<TextArea id="entry" label="Entry" invalid describedBy="other" />)
+
+    const area = screen.getByLabelText('Entry')
+    expect(area.getAttribute('aria-invalid')).toBe('true')
+    expect(area.getAttribute('aria-describedby')).toBe('other')
+  })
+})

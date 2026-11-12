@@ -215,11 +215,14 @@ export default function ReviewPage() {
           aria-controls={panelId}
           onClick={() => setPanelOpen(dateError ? true : !panelShown)}
         >
-          Filters{' '}
+          Filters
+          {inUse > 0 && ' '}
           {inUse > 0 && (
             <span className="review-page__count">
               {inUse}
-              <span className="visually-hidden"> in use</span>
+              {/* A whitespace text node: it shows nothing in the badge but separates the words. */}
+              {' '}
+              <span className="visually-hidden">in use</span>
             </span>
           )}
         </Button>
