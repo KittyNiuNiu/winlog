@@ -15,9 +15,10 @@ export interface SavedMessageState {
 
 /**
  * The state of a saved message. `show()` shows it, or, while it is visible, keeps it and
- * starts its time again; there is never a second message.
+ * starts its time again; there is never a second message. `hide()` removes it at once,
+ * for example when another message takes its place.
  */
-export function useSavedMessage(): SavedMessageState & { show: () => void } {
+export function useSavedMessage(): SavedMessageState & { show: () => void; hide: () => void } {
   const [state, setState] = useState<SavedMessageState>({ phase: 'hidden', count: 0 })
   const timers = useRef<number[]>([])
 
@@ -42,5 +43,10 @@ export function useSavedMessage(): SavedMessageState & { show: () => void } {
     ]
   }, [clearTimers])
 
-  return { ...state, show }
+  const hide = useCallback(() => {
+    clearTimers()
+    setState((current) => ({ ...current, phase: 'hidden' }))
+  }, [clearTimers])
+
+  return { ...state, show, hide }
 }

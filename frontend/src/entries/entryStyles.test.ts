@@ -67,3 +67,35 @@ describe('entry form styles', () => {
     expect(rule('../components/CategoryChip.css', '.chip__mark')).toContain('white-space: nowrap')
   })
 })
+
+describe('entries page styles (#29)', () => {
+  it('the Edit and Delete actions are 44×44, always visible, with no fill until hover', () => {
+    const action = rule('../components/EntryRow.css', '.entry-row__action')
+    expect(action).toContain('width: var(--tap-target)')
+    expect(action).toContain('height: var(--tap-target)')
+    expect(action).toContain('background: transparent')
+    expect(action).not.toContain('opacity')
+    expect(rule('../components/EntryRow.css', '.entry-row__action:hover')).toContain(
+      'background: var(--color-peach-wash)',
+    )
+  })
+
+  it('read-only tags wrap, long tag names wrap inside the pill, and there is no tint or plum', () => {
+    expect(rule('../components/EntryRow.css', '.entry-row__tags')).toContain('flex-wrap: wrap')
+    const tag = rule('../components/EntryRow.css', '.entry-row__tag')
+    expect(tag).toContain('max-width: 100%')
+    expect(tag).toContain('overflow-wrap: anywhere')
+    expect(tag).not.toMatch(/--category-|--color-plum/)
+  })
+
+  it('the delete dialog keeps 20px each side on the phone and has no shadow', () => {
+    const dialog = rule('DeleteEntryDialog.css', '.delete-dialog')
+    expect(dialog).toContain('width: min(25rem, 100% - 2 * var(--space-20))')
+    expect(dialog).not.toContain('box-shadow')
+  })
+
+  it('the messages and the list share the page column, and "New entry" is full width on the phone', () => {
+    expect(rule('../pages/EntriesPage.css', '.entries-page')).not.toContain('max-width')
+    expect(rule('../pages/EntriesPage.css', '.entries-page__new .button')).toContain('width: 100%')
+  })
+})

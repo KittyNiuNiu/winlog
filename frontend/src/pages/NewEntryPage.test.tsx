@@ -67,6 +67,8 @@ async function renderNewEntry() {
 beforeEach(() => {
   storeTestSession()
   listTags.mockResolvedValue({ tags: KNOWN_TAGS })
+  // For tests that go to `/`, which loads the list (#29).
+  listEntries.mockResolvedValue({ entries: [] })
   createEntry.mockImplementation(async (body) => entryFrom(body))
   scrollTo = vi.fn()
   window.scrollTo = scrollTo as unknown as typeof window.scrollTo
@@ -729,6 +731,10 @@ describe('after saving a new entry (DESIGN.md → Layout, Saved message)', () =>
     expect(rows[1]?.textContent).toContain('10 Nov')
     expect(rows[1]?.textContent).toContain('Achievement')
     expect(rows[1]?.textContent).toContain('First win')
+    // As #27 built them: no Edit or Delete and no tags (those are the entries page's, #29).
+    for (const row of rows) {
+      expect(row.querySelector('a, button, .entry-row__tags')).toBeNull()
+    }
     // Kept in the page: no list request.
     expect(listEntries).not.toHaveBeenCalled()
   })

@@ -104,6 +104,18 @@ describe('component preview (development only)', () => {
     expect(document.body.textContent).not.toMatch(/lorem|ipsum/i)
   })
 
+  it('shows entry rows with tags, with long tag names, and with Edit and Delete (#29)', () => {
+    renderPreview()
+
+    const tagged = screen.getByText('With tags').closest('figure') as HTMLElement
+    expect(within(tagged).getByRole('list', { name: 'Tags' })).toBeTruthy()
+    const long = screen.getByText('With long tag names').closest('figure') as HTMLElement
+    expect(within(long).getByText('database-transaction-isolation-levels-and-locking')).toBeTruthy()
+    const actions = screen.getByText('With Edit and Delete').closest('figure') as HTMLElement
+    expect(within(actions).getByRole('link', { name: 'Edit entry from 4 Nov 2026' })).toBeTruthy()
+    expect(within(actions).getByRole('button', { name: 'Delete entry from 4 Nov 2026' })).toBeTruthy()
+  })
+
   it('shows the empty state with and without an illustration placeholder', () => {
     renderPreview()
 

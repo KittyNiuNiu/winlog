@@ -58,6 +58,31 @@ const SAMPLE_ENTRIES: PreviewEntry[] = [
   },
 ]
 
+// Entry rows with the entries page's extras (#29). No result, so the plain rows above stay
+// the only ones with "Result: …".
+const TAGGED_ENTRY: PreviewEntry = {
+  date: '2026-11-11',
+  category: 'Achievement',
+  text: 'Paired with two new joiners on their first pull requests.',
+  result_impact: null,
+}
+
+const LONG_TAGS_ENTRY: PreviewEntry = {
+  date: '2026-11-09',
+  category: 'Learning',
+  text: 'Read the whole Postgres documentation chapter on transaction isolation.',
+  result_impact: null,
+}
+
+const LONG_TAGS = ['database-transaction-isolation-levels-and-locking', 'Weiterbildungsveranstaltungsreihe', 'sql']
+
+const ACTIONS_ENTRY: PreviewEntry = {
+  date: '2026-11-04',
+  category: 'Side project',
+  text: 'Fixed the flaky export test in my open source library and wrote down why it failed.',
+  result_impact: null,
+}
+
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="preview__section">
@@ -230,6 +255,15 @@ export default function ComponentPreviewPage() {
             <EntryRow key={entry.date} entry={entry} />
           ))}
         </div>
+        <Sample caption="With tags">
+          <EntryRow entry={TAGGED_ENTRY} tags={['onboarding', 'Leadership', 'Q4']} />
+        </Sample>
+        <Sample caption="With long tag names">
+          <EntryRow entry={LONG_TAGS_ENTRY} tags={LONG_TAGS} />
+        </Sample>
+        <Sample caption="With Edit and Delete">
+          <EntryRow entry={ACTIONS_ENTRY} tags={['incident']} actions={{ editTo: '#', onDelete: () => {} }} />
+        </Sample>
       </Section>
 
       <Section title="Empty state">

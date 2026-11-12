@@ -1,5 +1,7 @@
 /* Phone: the date in a 64px column; the label, text and result stacked beside it.
-   Laptop: date (64px), category label (120px) and text in three columns. */
+   Laptop: date (64px), category label (120px) and text in three columns.
+   Optional (#29 design note): the Edit and Delete actions sit right of the label on the
+   phone and under it on the laptop; read-only tags sit under the text. */
 
 .entry-row {
   display: grid;
@@ -56,6 +58,66 @@
   font-weight: 600;
 }
 
+/* The meta line with actions: label on the left, Edit and Delete on the right. The
+   actions reach 9px into the row's padding, so the line stays as tall as the label (26px)
+   and the date still lines up with it. */
+.entry-row__category--with-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+
+.entry-row__actions {
+  display: flex;
+  flex: none;
+  gap: var(--space-8);
+  margin: calc((26px - var(--tap-target)) / 2) 0;
+}
+
+.entry-row__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tap-target);
+  height: var(--tap-target);
+  padding: 0;
+  color: var(--color-muted-plum-grey);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-button);
+  cursor: pointer;
+}
+
+/* Peach wash, not the secondary hover token: in dark mode that equals the page ground. */
+.entry-row__action:hover {
+  color: var(--color-plum);
+  background: var(--color-peach-wash);
+}
+
+/* Read-only tags: small quiet pills, no tint, no plum, no remove button. */
+.entry-row__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  margin: var(--space-8) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.entry-row__tag {
+  max-width: 100%;
+  padding: 2px 10px;
+  font-size: var(--text-label-small-size);
+  font-weight: 600;
+  line-height: 18px;
+  color: var(--color-muted-plum-grey);
+  background: var(--color-peach-wash);
+  border: var(--border-hairline) solid var(--color-hairline);
+  border-radius: var(--radius-pill);
+  overflow-wrap: anywhere;
+}
+
 @media (min-width: 48rem) {
   .entry-row {
     grid-template-columns: 64px 120px minmax(0, 1fr);
@@ -66,5 +128,17 @@
 
   .entry-row__category {
     margin-bottom: 0;
+  }
+
+  /* The actions sit 8px under the label in the 120px column. The pencil lines up with the
+     label's left edge; the 12px it reaches left stays inside the 16px column gap. */
+  .entry-row__category--with-actions {
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: flex-start;
+  }
+
+  .entry-row__actions {
+    margin: 0 0 0 calc(-1 * var(--space-12));
   }
 }

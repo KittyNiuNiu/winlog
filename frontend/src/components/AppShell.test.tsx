@@ -134,8 +134,9 @@ describe('app shell on the phone', () => {
     expect(screen.queryByRole('link', { name: 'Summaries' })).toBeNull()
     expect(screen.queryByRole('link', { name: 'Settings' })).toBeNull()
     expect(screen.queryByRole('button', { name: 'Log out' })).toBeNull()
-    // No sidebar on the phone: no "New entry" and no icons.
-    expect(screen.queryByRole('link', { name: 'New entry' })).toBeNull()
+    // No sidebar on the phone: no "New entry" and no icons. (The entries page has its own
+    // "New entry" under its title on the phone, #29; it is not part of the navigation.)
+    expect(within(mainNav()).queryByRole('link', { name: 'New entry' })).toBeNull()
     expect(mainNav().querySelector('svg')).toBeNull()
   })
 

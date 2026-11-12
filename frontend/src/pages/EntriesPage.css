@@ -1,6 +1,51 @@
-/* "Entry saved." after saving an edit: 20px above the page title, as on the capture
-   screen. It takes no space when hidden. */
+/* The entries page (design note on #29). One column at the page's default width, so the
+   message slot and the list share their left and right edges. Top to bottom: the message
+   slot (20px above the title, no space when empty), the title, on the phone "New entry",
+   then the list or a state 24px below. Month headings have 24px above the first, 32px
+   above the others, and 8px below. */
 
-.page > .saved-region:not(:empty) {
+.entries-page {
+  min-width: 0;
+}
+
+.entries-page > .saved-region:not(:empty),
+.entries-page__notice:not(:empty) {
   margin-bottom: var(--space-20);
+}
+
+.entries-page__new .button {
+  width: 100%;
+}
+
+.entries-page__content {
+  margin-top: var(--space-24);
+}
+
+.entries-page__month + .entries-page__month {
+  margin-top: var(--space-32);
+}
+
+.entries-page__month h2 {
+  margin-bottom: var(--space-8);
+}
+
+.entries-page__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Loading and load-failed states. */
+
+.entries-page__loading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin: 0;
+  font-size: var(--text-body-small-size);
+  color: var(--color-muted-plum-grey);
+}
+
+.entries-page__state > * + * {
+  margin-top: var(--space-12);
 }

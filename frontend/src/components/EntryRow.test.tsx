@@ -1,7 +1,9 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
+import { createRef, type ReactNode } from 'react'
+import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import EntryRow from './EntryRow.tsx'
-import { formatShortDate } from './formatDate.ts'
+import { formatFullDate, formatMonthHeading, formatShortDate } from './formatDate.ts'
 
 const ENTRY = {
   date: '2026-11-10',
@@ -38,6 +40,71 @@ describe('EntryRow', () => {
   })
 })
 
+function inRouter(children: ReactNode) {
+  return <MemoryRouter>{children}</MemoryRouter>
+}
+
+describe('EntryRow without tags and actions ("Just saved", #27)', () => {
+  it('has no tag area, no actions and no actions layout', () => {
+    render(<EntryRow entry={ENTRY} />)
+
+    expect(screen.queryByRole('list')).toBeNull()
+    expect(screen.queryByRole('link')).toBeNull()
+    expect(screen.queryByRole('button')).toBeNull()
+    expect(document.querySelector('.entry-row__category')?.className).toBe('entry-row__category')
+  })
+})
+
+describe('EntryRow with tags and actions (#29)', () => {
+  it('shows the tags read-only, with their stored spelling, below the text and result', () => {
+    render(<EntryRow entry={ENTRY} tags={['incident', 'Leadership', 'a-very-long-tag-name-without-spaces']} />)
+
+    const list = screen.getByRole('list', { name: 'Tags' })
+    expect(within(list).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
+      'incident',
+      'Leadership',
+      'a-very-long-tag-name-without-spaces',
+    ])
+    expect(within(list).queryByRole('button')).toBeNull()
+    const body = document.querySelector('.entry-row__body') as HTMLElement
+    expect(body.lastElementChild).toBe(list)
+  })
+
+  it('has no tag area for an empty tag list', () => {
+    render(<EntryRow entry={ENTRY} tags={[]} />)
+
+    expect(screen.queryByRole('list')).toBeNull()
+  })
+
+  it('has Edit as a link and Delete as a button, named with the full date', () => {
+    const onDelete = vi.fn()
+    const editRef = createRef<HTMLAnchorElement>()
+    const deleteRef = createRef<HTMLButtonElement>()
+    render(
+      inRouter(
+        <EntryRow
+          entry={ENTRY}
+          actions={{ editTo: '/entries/42/edit', onDelete }}
+          editRef={editRef}
+          deleteRef={deleteRef}
+        />,
+      ),
+    )
+
+    const edit = screen.getByRole('link', { name: 'Edit entry from 10 Nov 2026' })
+    expect(edit.getAttribute('href')).toBe('/entries/42/edit')
+    expect(edit.textContent).toBe('')
+    expect(editRef.current).toBe(edit)
+    const remove = screen.getByRole('button', { name: 'Delete entry from 10 Nov 2026' })
+    expect(remove.getAttribute('type')).toBe('button')
+    expect(deleteRef.current).toBe(remove)
+    // Next to the category label, in the same column.
+    expect(remove.closest('.entry-row__category')?.classList.contains('entry-row__category--with-actions')).toBe(true)
+    fireEvent.click(remove)
+    expect(onDelete).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('the entry date has no time-zone shift', () => {
   beforeEach(() => {
     // Behind UTC: there, new Date('2026-11-10') is still 9 November.
@@ -65,5 +132,16 @@ describe('the entry date has no time-zone shift', () => {
     ['2026-12-31', '31 Dec'],
   ])('formats %s as "%s"', (stored, shown) => {
     expect(formatShortDate(stored)).toBe(shown)
+  })
+
+  it.each([
+    ['2026-11-10', '10 Nov 2026', 'November 2026'],
+    ['2026-11-01', '1 Nov 2026', 'November 2026'],
+    ['2026-12-31', '31 Dec 2026', 'December 2026'],
+    ['2027-01-05', '5 Jan 2027', 'January 2027'],
+    ['2026-09-30', '30 Sep 2026', 'September 2026'],
+  ])('formats %s as "%s" under "%s"', (stored, full, month) => {
+    expect(formatFullDate(stored)).toBe(full)
+    expect(formatMonthHeading(stored)).toBe(month)
   })
 })
