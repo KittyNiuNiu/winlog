@@ -1531,3 +1531,25 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Quoted `description` line and the blank line after the frontmatter (engineer): QA judged both against the criteria and passed them. Nothing left open.
   - Left in this log, as the product owner chose: the DESIGN.md format linter (`@google/design.md`) was not run. QA's own script compared every frontmatter value with `index.css`.
   - The test database needs `--env-file .env.example` and an inline `TEST_DATABASE_URL`, because the checkout has no `.env` (QA): left in this log, as with #79.
+
+## 2026-11-12: Re-groom issue #27 (Build the entry form) against DESIGN.md
+
+- **Task:** re-groom #27 (task 29) following `docs/pm.md`, against `DESIGN.md`, `PRODUCT.md`, `product-spec.md` v0.2, `openapi.yaml` and the code from #75, with the three open points from #75 in issue comment 6817370557 as inputs.
+- **What I did:**
+  - Rewrote #27 with the task template: 58 checkable criteria in groups (pages and navigation, fields, saving, after saving a new entry, editing, leaving with unsaved changes, phone and laptop, tests). Out of scope links to #28, #29, #36 and #43, as before. No new follow-up issue was needed.
+  - Updated the task number (29 of 47) and the dependencies (#75 added; #8, #9, #10, #25, #26 and #75 are closed).
+- **Decisions taken under the standing rule:**
+  - After saving a new entry, the user stays on the capture screen, with "Entry saved." at the top, the form reset (date recomputed as today) and "Just saved" below, as `DESIGN.md` shows. This replaces "return to `/`" from 2026-11-01 (the #75 open point 3). After saving an edit, the user still returns to `/` with "Entry saved.", because `DESIGN.md` describes only the capture screen; `/` shows it above the placeholder until #29.
+  - The capture screen has no Cancel button, because `DESIGN.md` gives its full order without one. The "Discard changes?" prompt therefore covers every way of leaving (Cancel on the edit page, navigation links, the back button), the browser's own prompt covers closing or reloading the tab, and logout and the expired-login redirect never ask.
+  - The native date input stays, with the browser's own display format (#75 open point 2; `DESIGN.md` Do's: standard controls). Its digits use tabular figures (#75 open point 1; `DESIGN.md` Typography).
+  - Tags and result are folded under "Add tags and result" (`DESIGN.md` Do's); open on edit when the entry has either, and opened by a server error on the result.
+  - Edge cases: autocomplete matches names containing the typed text; text left in the tag input is added on save; comma and paste split tags; tapping the selected category keeps it; server validation errors show the app's own text under the named field; an invalid entry id counts as "doesn't exist"; an entry deleted while editing keeps the input; fields are locked while saving.
+- **Question for the product owner (Q1, through the orchestrator):** what "Just saved" lists, which `DESIGN.md` names but does not define. Recommended: the entries saved on this screen since it was opened, newest first, as entry rows, kept in page memory. Alternatives: the latest entries from the server (survives a reload, needs a list request), or entries dated today. The criterion is marked "(pending Q1)" with the recommended option.
+- **How I verified it:**
+  - Read `DESIGN.md` (Layout, Typography, Components, Do's and Don'ts), `PRODUCT.md`, the spec, `openapi.yaml` (`EntryInput`, `Entry`, `EntryList`, `FieldError`, `/tags`), `backend/app/errors.py` (field names such as `tags.0`, `entryId`), and the #75 components, routes and app shell in `frontend/src/`.
+  - Checked in the `react-router` 8.5.1 package (the locked version) that `useBlocker` and `useBeforeUnload` are exported; the app and the test helper use data routers.
+  - The approved "Plum & Peach v2" boards could not be opened from this session (artifact not found), so the criteria rest on `DESIGN.md` only.
+  - Read the updated issue back from GitHub: the body matches, and its labels are unchanged (none).
+- **Left open:**
+  - Q1, above.
+  - For the re-grooming of #28: suggested tags must open "Add tags and result" (or otherwise be visible) when they are added while it is closed.
