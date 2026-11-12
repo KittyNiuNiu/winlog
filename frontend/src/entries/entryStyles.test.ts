@@ -47,4 +47,23 @@ describe('entry form styles', () => {
     expect(dialog).toContain('width: min(25rem, 100% - 2 * var(--space-20))')
     expect(dialog).not.toContain('box-shadow')
   })
+
+  it('the suggestion actions and marks (#28): 44px targets, dashed marks, marks never wrap', () => {
+    expect(rule('EntryForm.css', '.quiet-action')).toContain('min-height: var(--tap-target)')
+    expect(rule('EntryForm.css', '.quiet-action')).toContain('min-width: var(--tap-target)')
+    expect(rule('EntryForm.css', '.quiet-action')).toContain('background: transparent')
+    expect(rule('EntryForm.css', '.quiet-action')).toContain('border: 0')
+    expect(rule('EntryForm.css', '.quiet-action')).toContain('max-width: 100%')
+    expect(rule('EntryForm.css', '.entry-form__suggest-row')).toContain('flex-wrap: wrap')
+    expect(rule('EntryForm.css', '.entry-form__suggest-button')).toContain('max-width: 100%')
+    const tag = rule('TagField.css', '.tag-chip--suggested')
+    expect(tag).toContain('border-style: dashed')
+    expect(tag).toContain('border-color: var(--color-muted-plum-grey)')
+    // No tint and no plum fill on a suggested tag.
+    expect(tag).not.toContain('background')
+    expect(rule('TagField.css', '.tag-chip__mark')).toContain('white-space: nowrap')
+    expect(rule('TagField.css', '.tag-chip__mark')).toContain('flex: none')
+    expect(rule('../components/CategoryChip.css', '.chip--suggested')).toContain('border-style: dashed')
+    expect(rule('../components/CategoryChip.css', '.chip__mark')).toContain('white-space: nowrap')
+  })
 })

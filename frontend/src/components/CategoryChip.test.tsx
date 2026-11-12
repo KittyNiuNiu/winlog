@@ -75,4 +75,23 @@ describe('CategoryChip', () => {
     // The icon adds nothing to the name.
     expect(screen.getByRole('button', { name: 'Side project', pressed: true })).toBe(chip)
   })
+
+  it('suggested: a dashed chip with the mark, which screen readers hear as ", suggested"', () => {
+    render(<CategoryChip category="Learning" selected suggested onToggle={() => {}} />)
+
+    const chip = screen.getByRole('button', { name: 'Learning, suggested', pressed: true })
+    expect(chip.className).toContain('chip--suggested')
+    const mark = chip.querySelector('.chip__mark') as HTMLElement
+    expect(mark.textContent).toBe('Suggested')
+    expect(mark.getAttribute('aria-hidden')).toBe('true')
+    expect(mark.querySelector('svg')?.getAttribute('width')).toBe('16')
+  })
+
+  it('is not marked suggested by default', () => {
+    render(<CategoryChip category="Learning" selected onToggle={() => {}} />)
+
+    const chip = screen.getByRole('button', { name: 'Learning', pressed: true })
+    expect(chip.className).not.toContain('chip--suggested')
+    expect(chip.querySelector('.chip__mark')).toBeNull()
+  })
 })

@@ -1,7 +1,8 @@
-import { X } from 'lucide-react'
+import { Sparkles, X } from 'lucide-react'
 import { useState, type ClipboardEvent, type KeyboardEvent, type ReactNode, type RefObject } from 'react'
 import Icon from '../components/Icon.tsx'
 import { TextField } from '../components/TextField.tsx'
+import { SUGGESTED_MARK } from './suggestions.ts'
 import { addTagNames, matchingTags } from './tagNames.ts'
 import './TagField.css'
 
@@ -9,6 +10,8 @@ interface TagFieldProps {
   id: string
   /** The added tags, in the order they were added. */
   tags: readonly string[]
+  /** The added tags that an AI suggestion put there, shown marked "Suggested". */
+  suggested?: readonly string[]
   /** The text in the tag input that is not a tag yet. */
   input: string
   /** The user's existing tags, offered in the list. */
@@ -17,7 +20,8 @@ interface TagFieldProps {
   /** While saving: nothing can be changed, but the field keeps its normal look. */
   readOnly: boolean
   inputRef: RefObject<HTMLInputElement | null>
-  onTagsChange: (tags: string[]) => void
+  /** The new tags, and the names the user typed or chose (none when a tag was removed). */
+  onTagsChange: (tags: string[], typed: readonly string[]) => void
   onInputChange: (input: string) => void
 }
 
@@ -31,6 +35,7 @@ export const TAGS_HINT = 'Optional. Press Enter or type a comma to add a tag.'
 export default function TagField({
   id,
   tags,
+  suggested = [],
   input,
   knownTags,
   messages,
@@ -53,7 +58,7 @@ export default function TagField({
   }
 
   function add(names: readonly string[]) {
-    onTagsChange(addTagNames(tags, names))
+    onTagsChange(addTagNames(tags, names), names)
     onInputChange('')
     closeList()
   }
@@ -71,7 +76,7 @@ export default function TagField({
     // A typed comma ends a tag; what follows it stays in the input.
     const parts = value.split(',')
     const rest = parts.pop() ?? ''
-    onTagsChange(addTagNames(tags, parts))
+    onTagsChange(addTagNames(tags, parts), parts)
     onInputChange(rest)
     setListOpen(rest.trim() !== '')
   }
@@ -133,7 +138,10 @@ export default function TagField({
     if (readOnly) {
       return
     }
-    onTagsChange(tags.filter((existing) => existing !== tag))
+    onTagsChange(
+      tags.filter((existing) => existing !== tag),
+      [],
+    )
     inputRef.current?.focus()
   }
 
@@ -186,19 +194,31 @@ export default function TagField({
       />
       {tags.length > 0 && (
         <ul className="tag-chips" aria-label="Added tags">
-          {tags.map((tag) => (
-            <li key={tag} className="tag-chip">
-              <span className="tag-chip__label">{tag}</span>
-              <button
-                type="button"
-                className="tag-chip__remove"
-                aria-label={`Remove ${tag}`}
-                onClick={() => remove(tag)}
-              >
-                <Icon icon={X} size={16} />
-              </button>
-            </li>
-          ))}
+          {tags.map((tag) => {
+            const isSuggested = suggested.includes(tag)
+            return (
+              <li key={tag} className={isSuggested ? 'tag-chip tag-chip--suggested' : 'tag-chip'}>
+                <span className="tag-chip__label">{tag}</span>
+                {isSuggested && (
+                  <>
+                    <span className="visually-hidden">, suggested</span>
+                    <span className="tag-chip__mark" aria-hidden="true">
+                      <Icon icon={Sparkles} size={16} />
+                      {SUGGESTED_MARK}
+                    </span>
+                  </>
+                )}
+                <button
+                  type="button"
+                  className="tag-chip__remove"
+                  aria-label={`Remove ${tag}`}
+                  onClick={() => remove(tag)}
+                >
+                  <Icon icon={X} size={16} />
+                </button>
+              </li>
+            )
+          })}
         </ul>
       )}
     </div>

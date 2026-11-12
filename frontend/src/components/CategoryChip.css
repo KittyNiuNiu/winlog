@@ -38,3 +38,20 @@
   flex: 0 0 auto;
   color: var(--category-text);
 }
+
+/* Selected by an AI suggestion (design note on #28): dashed, "AI put this here, it's
+   yours to edit", with the mark "Sparkles Suggested" after the label. */
+.chip--suggested {
+  border-style: dashed;
+}
+
+.chip__mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-4);
+  font-size: var(--text-label-small-size);
+  font-weight: 600;
+  color: var(--category-text);
+  white-space: nowrap;
+}

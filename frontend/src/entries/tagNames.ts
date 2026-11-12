@@ -1,7 +1,8 @@
 // Tag names in the entry form. Names are trimmed and compared without regard to case
 // (FR-E3); a name keeps the spelling it was first added with.
 
-function sameName(a: string, b: string): boolean {
+/** Whether two tag names are the same tag (ignoring case). */
+export function sameName(a: string, b: string): boolean {
   return a.toLowerCase() === b.toLowerCase()
 }
 
