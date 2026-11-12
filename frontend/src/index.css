@@ -116,8 +116,8 @@
   text-size-adjust: 100%;
 }
 
-/* Dark mode follows the device setting and switches live. The category dots and the
-   action lift keep one value for both modes. */
+/* Dark mode follows the device setting and switches live. The category dots keep one
+   value for both modes. */
 @media (prefers-color-scheme: dark) {
   :root {
     --color-plum: #e7a3cf;
@@ -151,6 +151,9 @@
 
     /* Product owner, 2026-11-11: the dark-mode plum at 30%. */
     --shadow-focus-glow: 0 0 0 3px rgba(231, 163, 207, 0.3);
+    /* Product owner, 2026-11-12: the dark-mode plum at 25%, with the light-mode offset
+       and blur. */
+    --shadow-action-lift: 0 4px 12px rgba(231, 163, 207, 0.25);
   }
 }
 

@@ -1441,3 +1441,46 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Backlog (product owner, 2026-11-12):** #79 is task 27 and #78 task 28 (so #78 records the final tokens), and #77 is task 34, after #31. `docs/tasks.md` and the titles of all 21 open issues from task 27 on are renumbered to match.
 - **Re-grooming (product owner, 2026-11-12):** removed `groomed` from #27–#35 and #43, so the PM re-grooms each against `DESIGN.md` before the design note.
 - **Left open:** some issue bodies still name their old task number. They get corrected when each issue is groomed or re-groomed.
+
+## 2026-11-12: Groom issue #79 (Make the button shadow visible in dark mode)
+
+- **Task:** groom #79, a draft from the design review of #75, following `docs/pm.md`.
+- **What I did:**
+  - Rewrote #79 with the task template: 12 checkable criteria for the token, where the lift shows (and where it must not), and tests. Out of scope links to #78 and #75.
+  - Filed no new follow-up issue: recording the value in `DESIGN.md` fits #78, which already exists for that.
+- **Decisions taken under the standing rule:**
+  - The dark-mode value goes into the code only (`frontend/src/index.css`). #78 records it in `DESIGN.md` with the other values #75 settled, so `DESIGN.md` is edited once and the product owner's merge answer for #78 covers it. Same route as the dark-mode focus glow.
+  - Only the token's dark-mode value changes; the button rules already use the token, so hover, busy, the large size and later primary buttons follow without component changes.
+  - The token test in `frontend/src/design.test.ts` that asserts no dark-mode value is replaced by one that asserts the new value. The requirement changed; the test is not weakened.
+- **Product owner decision (2026-11-12):** the dark-mode action lift, which `DESIGN.md` does not give, went to the product owner through the orchestrator. Answer: the recommended option, `0 4px 12px rgba(231, 163, 207, 0.25)`, the dark-mode plum at the same 25% as in light mode. It replaces the #75 decision that the action lift has one value for both modes. I replaced the "(pending Q1)" criterion and its note under Constraints in #79 with this decision, and read the issue back: it matches, and it still has no labels.
+- **How I verified it:**
+  - Read `DESIGN.md` (Elevation & Depth, Buttons), and on branch `developer/sleepy-faraday-d7uut7` the #75 code: `--shadow-action-lift` has no dark override in `index.css`, it is used only in `components/Button.css` (normal and busy primary; disabled sets `none`), and `design.test.ts` asserts that there is no dark override.
+  - Computed the contrast of each shadow at its densest point against the ground (WCAG relative luminance): current lift on dark blush white 1.14:1; light mode 1.53:1; recommended value 1.69:1 (blush white) and 1.71:1 (peach wash); dark plum at 30% 1.94:1; black at 50% 1.09:1.
+  - Read the updated issue back from GitHub: it matches the draft and has no labels, as before.
+- **Left open:**
+  - #75's code is not on `main` or on this session's branch yet (2026-11-12); the engineer needs a branch that contains `developer/sleepy-faraday-d7uut7`.
+  - #78's grooming should include the dark-mode action lift among the values to record.
+
+## 2026-11-12: Implement issue #79 (Make the button shadow visible in dark mode)
+
+- **Task:** build #79 (task 27) as the software engineer, following `docs/software-engineer.md`, the design note (https://github.com/KittyNiuNiu/winlog/issues/79#issuecomment-6818573227) and `DESIGN.md`.
+- **What I did:**
+  - `frontend/src/index.css`: added `--shadow-action-lift: 0 4px 12px rgba(231, 163, 207, 0.25);` inside the existing dark-mode `:root`, next to the focus glow, with the comment the design note suggested. Changed the comment above the dark-mode block so only the category dots keep one value. No other token, and no change to `Button.css`.
+  - `frontend/src/design.test.ts`: the shadow test now checks the unchanged light value and the new dark value, replacing the check that there was no dark value (the product owner changed that decision). Added two tests: only the primary button rules in `Button.css` (normal and busy) use the action lift, and the only other `box-shadow` rules are `none` on the disabled button and the focus glow on fields.
+- **How I verified it:**
+  - With the old `index.css`, the shadow test fails; with the new one it passes.
+  - `npm run lint`, `npm test` (20 files, 380 tests) and `npm run build` pass.
+  - Dev server and headless Chrome (playwright-core installed in the scratchpad only, not a project dependency) at 390×844 and 1280×800, light and dark, on `/login`, `/register` and `/dev/components`: in dark mode the computed `box-shadow` of "Log in", "Create account", busy "Logging in…" and large "Save entry" is `rgba(231, 163, 207, 0.25) 0px 4px 12px 0px`, also on hover and keyboard focus; the disabled primary and every other element have none, and a focused field has only the dark focus glow. Switching the emulated colour scheme without a reload switches the shadow at once. Screenshots show a soft plum haze below the button, and the 2px focus outline reads clearly over it.
+  - Light mode: screenshots of all three pages at both sizes are pixel-identical to the pre-change code (one run of `/dev/components` at 1280 had a small render difference that also appears between two runs of the same code).
+- **Left open:** `DESIGN.md` does not record the dark-mode value yet; #78 does that, as the issue says.
+
+## 2026-11-12: Orchestrator: closed #79 (task 27, dark-mode action lift)
+
+- **Lifecycle:** groomed (product owner decision: the dark-mode action lift is `0 4px 12px rgba(231, 163, 207, 0.25)`), design note posted (https://github.com/KittyNiuNiu/winlog/issues/79#issuecomment-6818573227), implemented in 7367231 (https://github.com/KittyNiuNiu/winlog/issues/79#issuecomment-6818640650), QA PASS on the first run (https://github.com/KittyNiuNiu/winlog/issues/79#issuecomment-6818786927), design review PASS (https://github.com/KittyNiuNiu/winlog/issues/79#issuecomment-6818865334). Closed #79 as completed; its last status label `qa-passed` stays.
+- **Branch (product owner, 2026-11-12):** #75's code was only on `developer/sleepy-faraday-d7uut7` and not on `main`. As the product owner chose, it was merged into this branch (03c9b38). The only conflict was in this log, and both sides were kept in date order. This branch's pull request therefore also carries #75's work.
+- **Where each open point went:**
+  - Recording the dark-mode action lift in `DESIGN.md` (PM and engineer): comment on #78 (https://github.com/KittyNiuNiu/winlog/issues/78#issuecomment-6818515337).
+  - Left in this log, as the product owner chose:
+    - QA and designer: light-mode screenshots of `/dev/components` differ by about 200 pixels between runs (date field and CJK entry row) whatever the code, so pixel comparisons on that page are noisy.
+    - Designer: the busy state on the real login form can be checked without a backend by starting the dev server with `VITE_API_BASE_URL` set to a fake host and holding the request open in Playwright.
+    - QA: with no `.env` in the checkout, the test database was started with `docker compose --env-file .env.example up -d db`, and `TEST_DATABASE_URL` was passed on the command line.
