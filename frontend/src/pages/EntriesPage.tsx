@@ -6,7 +6,7 @@ import { useWakingUpHint } from '../auth/useWakingUpHint.ts'
 import { Button, ButtonLink } from '../components/Button.tsx'
 import EmptyState from '../components/EmptyState.tsx'
 import EntryRow from '../components/EntryRow.tsx'
-import { formatMonthHeading } from '../components/formatDate.ts'
+import { groupByMonth } from '../components/groupByMonth.ts'
 import Message from '../components/Message.tsx'
 import SavedMessage from '../components/SavedMessage.tsx'
 import { LAPTOP_QUERY, useMediaQuery } from '../components/useMediaQuery.ts'
@@ -34,31 +34,6 @@ interface Confirm {
 
 /** Where keyboard focus goes after the next render. */
 type FocusTarget = { kind: 'edit' | 'delete'; id: string } | { kind: 'empty' }
-
-interface MonthGroup {
-  /** "YYYY-MM" */
-  key: string
-  heading: string
-  entries: Entry[]
-}
-
-/**
- * The entries split into months, in the order they come. The API sorts by date, newest
- * first, so each month is one run of entries and the page does not sort again.
- */
-function groupByMonth(entries: Entry[]): MonthGroup[] {
-  const groups: MonthGroup[] = []
-  for (const entry of entries) {
-    const key = entry.date.slice(0, 7)
-    const last = groups.at(-1)
-    if (last !== undefined && last.key === key) {
-      last.entries.push(entry)
-    } else {
-      groups.push({ key, heading: formatMonthHeading(entry.date), entries: [entry] })
-    }
-  }
-  return groups
-}
 
 // All of the user's entries, grouped by month, with Edit and Delete on each (FR-E4). After
 // saving an edit, it shows "Entry saved." at the top once (#27).

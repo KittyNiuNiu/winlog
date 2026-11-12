@@ -5,7 +5,8 @@ import './TextField.css'
 // optional hint, and messages below. The messages sit in a live region (role="alert")
 // that is always in the page, so screen readers announce each new message. Hint and
 // messages are linked to the control with aria-describedby; with messages, the control
-// is aria-invalid.
+// is aria-invalid. A caller can link further elements (`describedBy`) and set the error
+// state (`invalid`) for a hint or message that sits outside the field (#31).
 
 interface FieldProps {
   /** The control's id. The hint gets `<id>-hint`, the messages `<id>-messages`. */
@@ -14,6 +15,13 @@ interface FieldProps {
   hint?: string
   /** Messages that say what to fix. Any message puts the field in its error state. */
   messages?: ReactNode[]
+  /**
+   * Ids of other elements that describe the control, for example a hint under the field
+   * or a message shared by two fields. Linked after the hint and the messages.
+   */
+  describedBy?: string
+  /** Puts the field in its error state for a message outside it. */
+  invalid?: boolean
 }
 
 function describedBy(...ids: (string | false | undefined)[]): string | undefined {
@@ -48,11 +56,11 @@ function FieldFrame({ id, label, hint, messages = [], children }: FieldFrameProp
   )
 }
 
-function controlA11y({ id, hint, messages = [] }: FieldProps) {
-  const invalid = messages.length > 0
+function controlA11y({ id, hint, messages = [], describedBy: others, invalid: outsideError = false }: FieldProps) {
+  const hasMessages = messages.length > 0
   return {
-    'aria-invalid': invalid,
-    'aria-describedby': describedBy(hint !== undefined && `${id}-hint`, invalid && `${id}-messages`),
+    'aria-invalid': hasMessages || outsideError,
+    'aria-describedby': describedBy(hint !== undefined && `${id}-hint`, hasMessages && `${id}-messages`, others),
   }
 }
 
@@ -63,14 +71,24 @@ type TextFieldProps = FieldProps &
   }
 
 /** A one-line field for text, email, password or date input. */
-export function TextField({ id, label, hint, messages, after, className, ...inputProps }: TextFieldProps) {
+export function TextField({
+  id,
+  label,
+  hint,
+  messages,
+  describedBy,
+  invalid,
+  after,
+  className,
+  ...inputProps
+}: TextFieldProps) {
   return (
     <FieldFrame id={id} label={label} hint={hint} messages={messages}>
       <input
         {...inputProps}
         className={['field__input', className].filter(Boolean).join(' ')}
         id={id}
-        {...controlA11y({ id, label, hint, messages })}
+        {...controlA11y({ id, label, hint, messages, describedBy, invalid })}
       />
       {after}
     </FieldFrame>
@@ -80,14 +98,23 @@ export function TextField({ id, label, hint, messages, after, className, ...inpu
 type TextAreaProps = FieldProps & Omit<ComponentProps<'textarea'>, 'id' | 'aria-invalid' | 'aria-describedby'>
 
 /** A text area that grows with the user: at least 120px tall, resizable vertically. */
-export function TextArea({ id, label, hint, messages, className, ...textareaProps }: TextAreaProps) {
+export function TextArea({
+  id,
+  label,
+  hint,
+  messages,
+  describedBy,
+  invalid,
+  className,
+  ...textareaProps
+}: TextAreaProps) {
   return (
     <FieldFrame id={id} label={label} hint={hint} messages={messages}>
       <textarea
         {...textareaProps}
         className={['field__input', 'field__input--area', className].filter(Boolean).join(' ')}
         id={id}
-        {...controlA11y({ id, label, hint, messages })}
+        {...controlA11y({ id, label, hint, messages, describedBy, invalid })}
       />
     </FieldFrame>
   )

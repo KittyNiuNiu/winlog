@@ -1100,8 +1100,9 @@ describe('the writing nudge (FR-N1)', () => {
 
     // The user saves a new entry dated today, then opens "/" again.
     listEntries.mockResolvedValue({ entries: [makeEntry('new', '2026-11-12'), makeEntry('old', '2026-10-01')] })
+    // Away to a page that loads no entries (the review page loads them since #31).
     await act(async () => {
-      await router.navigate('/review')
+      await router.navigate('/settings')
     })
     await act(async () => {
       await router.navigate('/')
