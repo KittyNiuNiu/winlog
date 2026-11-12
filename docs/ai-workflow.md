@@ -1671,3 +1671,10 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - The approved "Plum & Peach v2" boards could not be opened from this session (artifact not found), so the criteria rest on `DESIGN.md` only.
   - Read the updated issue back from GitHub: the body matches what I sent, and its labels are unchanged (none).
 - **Left open:** Q1, above.
+
+## 2026-11-12: Product owner answer for #29 (Q1, "New entry" on the phone)
+
+- **Product owner decision (2026-11-12):** option A, the recommended one. On the phone, a full-width primary "New entry" button sits directly under the page title on `/`, scrolls with the page, and is hidden when the list is empty (the empty state has its own button). On the laptop the content has no second button; the sidebar's "New entry" is the way in.
+- **What I did:** removed "(pending Q1)" from the three affected criteria in #29 (the button itself, hidden in the empty state, shown while loading and after a load error) and replaced the pending question under Constraints with the product owner's decision, dated 2026-11-12. No other decision was reopened.
+- **How I verified it:** read #29 back from GitHub: the body matches what I sent, all four sections are there, nothing is pending, and its labels are unchanged (none).
+- **Left open:** nothing for #29.
