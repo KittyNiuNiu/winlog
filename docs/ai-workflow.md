@@ -1493,11 +1493,11 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Wrote down the mapping from the custom properties to frontmatter keys and a typography table, so the result can be checked against `frontend/src/index.css` one value at a time.
   - Filed no follow-up issue.
 - **Decisions taken under the standing rule:**
-  - Merge, not refresh or overwrite, when `/impeccable document` asks. `DESIGN.md` already says the tokens go into its frontmatter, and merge changes no text the product owner approved. The draft had left this answer to the product owner.
   - No weight tokens for the label and body styles (QA note from #75). Those weights stay in the component CSS and the prose. This task changes no frontend code, so it records only the tokens that exist.
   - Dark-mode values are sibling colour keys with the suffix `-dark`. The format has one value per key and no dark-mode group.
   - No `components` group and no `.impeccable/design.json` sidecar. They would be a second copy of the components that drifts from the code.
   - Only custom properties are recorded. Ranges in the prose that contain the built value stay as they are.
+- **Product owner decision (2026-11-12):** do not use Impeccable (`/impeccable document`) for this task. The design was chosen by the product owner ("Plum & Peach v2"), and Impeccable is not the design authority. The engineer copies the values into the frontmatter by hand from `frontend/src/index.css`, makes the six prose changes by hand and checks the result against the criteria. This replaces my standing-rule decision to answer "merge" when Impeccable asks, so the merge, refresh or overwrite question no longer applies. I updated Constraints in #78 to match: the decision, and "How to do it" now says the values are copied by hand. The criteria are unchanged. I read the issue back: it matches, and it still has no labels.
 - **How I verified it:**
   - Read `DESIGN.md`, `frontend/src/index.css`, `frontend/src/design.test.ts` and the component CSS on this branch (with #75 and #79 merged). Counted the custom properties with a script: 78 in the light block and 25 in the dark block (23 colours and 2 shadows).
   - Checked the DESIGN.md format in google-labs-code/design.md `docs/spec.md`: the only token groups are `colors`, `typography`, `rounded`, `spacing` and `components`; colours accept `color-mix()`; a dimension uses px, em or rem, and other spacing values (such as `68ch`) are kept as strings.
