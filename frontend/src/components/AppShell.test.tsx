@@ -25,6 +25,7 @@ const NAV_LINKS = [
 const CURRENT_SECTION: [string, string | null][] = [
   ['/', 'Entries'],
   ['/entries/new', 'Entries'],
+  ['/entries/123/edit', 'Entries'],
   ['/review', 'Review'],
   ['/summaries', 'Summaries'],
   ['/summaries/123', 'Summaries'],

@@ -2,6 +2,7 @@ import type { RouteObject } from 'react-router'
 import { GuestOnly, NotFoundRoute, RequireAuth } from './auth/RouteGuards.tsx'
 import AppShell from './components/AppShell.tsx'
 import AuthLayout from './components/AuthLayout.tsx'
+import EditEntryPage from './pages/EditEntryPage.tsx'
 import EntriesPage from './pages/EntriesPage.tsx'
 import LoginPage from './pages/LoginPage.tsx'
 import NewEntryPage from './pages/NewEntryPage.tsx'
@@ -40,6 +41,7 @@ export function createRoutes(devRoutes: RouteObject[]): RouteObject[] {
           children: [
             { index: true, element: <EntriesPage /> },
             { path: 'entries/new', element: <NewEntryPage /> },
+            { path: 'entries/:id/edit', element: <EditEntryPage /> },
             { path: 'review', element: <ReviewPage /> },
             { path: 'summaries', element: <SummariesPage /> },
             { path: 'summaries/:id', element: <SummaryPage /> },

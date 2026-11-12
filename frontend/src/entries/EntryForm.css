@@ -1,0 +1,101 @@
+/* The entry page and form (design note on #27). One left-aligned column at both widths,
+   at most the comfortable line length on the laptop. Groups are 24px apart; Save entry
+   has 32px above it, or 12px below the error message when one is shown. */
+
+.entry-page {
+  max-width: var(--measure);
+  min-width: 0;
+}
+
+.entry-page h1 {
+  margin-bottom: var(--space-24);
+}
+
+.entry-page .saved-region:not(:empty) {
+  margin-bottom: var(--space-20);
+}
+
+.entry-form {
+  min-width: 0;
+}
+
+.entry-form__section {
+  min-width: 0;
+  margin-top: var(--space-24);
+}
+
+.entry-form__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  margin-top: var(--space-8);
+}
+
+.entry-form__more {
+  margin-top: var(--space-20);
+}
+
+.entry-form__more[hidden] {
+  display: none;
+}
+
+.entry-form__error {
+  margin-top: var(--space-24);
+}
+
+.entry-form__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  margin-top: var(--space-32);
+}
+
+.entry-form__error:not(:empty) + .entry-form__actions {
+  margin-top: var(--space-12);
+}
+
+.entry-form__actions .button {
+  width: 100%;
+}
+
+/* The edit page's loading, error and "doesn't exist" states. */
+
+.entry-page__loading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin: 0;
+  font-size: var(--text-body-small-size);
+  color: var(--color-muted-plum-grey);
+}
+
+.entry-page__state > * + * {
+  margin-top: var(--space-12);
+}
+
+/* "Just saved": the entries saved on the capture screen during this visit. */
+
+.just-saved {
+  margin-top: var(--space-40);
+}
+
+.just-saved h2 {
+  margin-bottom: var(--space-12);
+}
+
+.just-saved__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 48rem) {
+  .entry-form__actions {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  .entry-form__actions .button {
+    width: auto;
+  }
+}

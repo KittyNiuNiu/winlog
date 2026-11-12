@@ -10,5 +10,9 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
+    // A time zone ahead of UTC, so tests notice a local date worked out in UTC (#27: the
+    // entry form pre-fills today's date in the user's own time zone). Node reads TZ when
+    // the test process starts, so it is set here, not in a test.
+    env: { TZ: 'Australia/Sydney' },
   },
 })

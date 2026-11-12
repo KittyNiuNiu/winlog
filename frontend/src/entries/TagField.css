@@ -1,0 +1,102 @@
+/* The tag field (design note on #27): the input looks like a text field; the list of
+   matching tags looks like the shell's More menu and lies over the content below; the
+   added tags are peach-wash pills, with no dot and no tint, so they never read as a
+   category chip. */
+
+.tag-field {
+  min-width: 0;
+}
+
+.tag-field .field__control {
+  position: relative;
+}
+
+.tag-list {
+  position: absolute;
+  top: calc(100% + var(--space-4));
+  left: 0;
+  right: 0;
+  z-index: 10;
+  /* At most five 48px rows are visible; then the panel scrolls. */
+  max-height: calc(5 * var(--control-height) + 2 * var(--space-8));
+  margin: 0;
+  padding: var(--space-8);
+  overflow-y: auto;
+  list-style: none;
+  background: var(--color-paper-white);
+  border: var(--border-hairline) solid var(--color-hairline);
+  border-radius: var(--radius-panel);
+}
+
+.tag-list[hidden] {
+  display: none;
+}
+
+.tag-list__option {
+  display: flex;
+  align-items: center;
+  min-height: var(--control-height);
+  padding: var(--space-8) var(--space-16);
+  font-size: var(--text-body-size);
+  line-height: 1.25;
+  color: var(--color-aubergine-ink);
+  border-radius: var(--radius-label);
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.tag-list__option--active {
+  font-weight: 700;
+  color: var(--color-on-peach);
+  background: var(--color-peach);
+}
+
+.tag-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  margin: var(--space-12) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-width: 0;
+  min-height: var(--tap-target);
+  padding-left: var(--space-16);
+  font-size: var(--text-label-size);
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--color-aubergine-ink);
+  background: var(--color-peach-wash);
+  border: var(--border-control) solid var(--color-field-border);
+  border-radius: var(--radius-pill);
+}
+
+.tag-chip__label {
+  min-width: 0;
+  padding: var(--space-8) 0;
+  overflow-wrap: anywhere;
+}
+
+.tag-chip__remove {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: var(--tap-target);
+  height: var(--tap-target);
+  padding: 0;
+  color: var(--color-aubergine-ink);
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.tag-chip__remove:hover {
+  color: var(--color-plum);
+}

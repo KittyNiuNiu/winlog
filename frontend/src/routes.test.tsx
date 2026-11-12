@@ -10,6 +10,7 @@ import { setViewport } from './test/viewport.ts'
 const SHELL_PAGES = [
   ['/', 'Entries'],
   ['/entries/new', 'New entry'],
+  ['/entries/42/edit', 'Edit entry'],
   ['/review', 'Review'],
   ['/summaries', 'Summaries'],
   ['/summaries/42', 'Summary'],

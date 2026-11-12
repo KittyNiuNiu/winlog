@@ -20,7 +20,7 @@ interface Section {
 }
 
 const SECTIONS: Section[] = [
-  { key: 'entries', to: '/', label: 'Entries', icon: NotebookText, paths: ['/', '/entries/new'] },
+  { key: 'entries', to: '/', label: 'Entries', icon: NotebookText, paths: ['/', '/entries/new', '/entries/:id/edit'] },
   { key: 'review', to: '/review', label: 'Review', icon: ListFilter, paths: ['/review'] },
   { key: 'summaries', to: '/summaries', label: 'Summaries', icon: FileText, paths: ['/summaries', '/summaries/:id'] },
   { key: 'settings', to: '/settings', label: 'Settings', icon: Settings, paths: ['/settings'] },

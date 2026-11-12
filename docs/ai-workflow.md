@@ -1531,3 +1531,64 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Quoted `description` line and the blank line after the frontmatter (engineer): QA judged both against the criteria and passed them. Nothing left open.
   - Left in this log, as the product owner chose: the DESIGN.md format linter (`@google/design.md`) was not run. QA's own script compared every frontmatter value with `index.css`.
   - The test database needs `--env-file .env.example` and an inline `TEST_DATABASE_URL`, because the checkout has no `.env` (QA): left in this log, as with #79.
+
+## 2026-11-12: Re-groom issue #27 (Build the entry form) against DESIGN.md
+
+- **Task:** re-groom #27 (task 29) following `docs/pm.md`, against `DESIGN.md`, `PRODUCT.md`, `product-spec.md` v0.2, `openapi.yaml` and the code from #75, with the three open points from #75 in issue comment 6817370557 as inputs.
+- **What I did:**
+  - Rewrote #27 with the task template: 47 checkable criteria in groups (pages and navigation, fields, saving, after saving a new entry, editing, leaving with unsaved changes, phone and laptop, tests). Out of scope links to #28, #29, #36 and #43, as before. No new follow-up issue was needed.
+  - Updated the task number (29 of 47) and the dependencies (#75 added; #8, #9, #10, #25, #26 and #75 are closed).
+- **Decisions taken under the standing rule:**
+  - After saving a new entry, the user stays on the capture screen, with "Entry saved." at the top, the form reset (date recomputed as today) and "Just saved" below, as `DESIGN.md` shows. This replaces "return to `/`" from 2026-11-01 (the #75 open point 3). After saving an edit, the user still returns to `/` with "Entry saved.", because `DESIGN.md` describes only the capture screen; `/` shows it above the placeholder until #29.
+  - The capture screen has no Cancel button, because `DESIGN.md` gives its full order without one. The "Discard changes?" prompt therefore covers every way of leaving (Cancel on the edit page, navigation links, the back button), the browser's own prompt covers closing or reloading the tab, and logout and the expired-login redirect never ask.
+  - The native date input stays, with the browser's own display format (#75 open point 2; `DESIGN.md` Do's: standard controls). Its digits use tabular figures (#75 open point 1; `DESIGN.md` Typography).
+  - Tags and result are folded under "Add tags and result" (`DESIGN.md` Do's); open on edit when the entry has either, and opened by a server error on the result.
+  - Edge cases: autocomplete matches names containing the typed text; text left in the tag input is added on save; comma and paste split tags; tapping the selected category keeps it; server validation errors show the app's own text under the named field; an invalid entry id counts as "doesn't exist"; an entry deleted while editing keeps the input; fields are locked while saving.
+- **Question for the product owner (Q1, through the orchestrator):** what "Just saved" lists, which `DESIGN.md` names but does not define. Recommended: the entries saved on this screen since it was opened, newest first, as entry rows, kept in page memory. Alternatives: the latest entries from the server (survives a reload, needs a list request), or entries dated today. The criterion is marked "(pending Q1)" with the recommended option.
+- **How I verified it:**
+  - Read `DESIGN.md` (Layout, Typography, Components, Do's and Don'ts), `PRODUCT.md`, the spec, `openapi.yaml` (`EntryInput`, `Entry`, `EntryList`, `FieldError`, `/tags`), `backend/app/errors.py` (field names such as `tags.0`, `entryId`), and the #75 components, routes and app shell in `frontend/src/`.
+  - Checked in the `react-router` 8.5.1 package (the locked version) that `useBlocker` and `useBeforeUnload` are exported; the app and the test helper use data routers.
+  - The approved "Plum & Peach v2" boards could not be opened from this session (artifact not found), so the criteria rest on `DESIGN.md` only.
+  - Read the updated issue back from GitHub: the body matches, and its labels are unchanged (none).
+- **Left open:**
+  - Q1, above.
+  - For the re-grooming of #28: suggested tags must open "Add tags and result" (or otherwise be visible) when they are added while it is closed.
+
+## 2026-11-12: Product owner answer for #27 (Q1, "Just saved")
+
+- **Product owner decision (2026-11-12):** option A, "Saved this visit". The "Just saved" list on the capture screen shows the entries saved on that screen since it was opened, newest first, as entry rows. It is kept in the page only, with no extra request, and empties when the user leaves or reloads. It was the recommended option.
+- **What I did:** replaced the "(pending Q1)" criterion in #27 with the final wording and replaced the pending note under Constraints with the product owner's decision. Leaving the look of tag chips and the tag list to the design note is confirmed by the orchestrator; the designer raises it if `DESIGN.md` does not answer it.
+- **How I verified it:** read the issue back from GitHub: the body matches, nothing is pending, and its labels are unchanged (none).
+- **Left open:** the note for the re-grooming of #28 (suggested tags must be visible when "Add tags and result" is closed).
+
+## 2026-11-12: Implement issue #27 (Build the entry form)
+
+- **Task:** build #27 (task 29) as the software engineer, following `docs/software-engineer.md`, the re-groomed criteria (including the product owner's "Just saved" decision), the design note (issue comment 6833530480) and `DESIGN.md`.
+- **What I did:**
+  - `frontend/src/entries/`: `EntryForm` (text, category chips, native date input, "Add tags and result" fold with tags and result, validation, server errors, saving), `TagField` (combobox with the matching-tags list and tag chips), `DiscardDialog` and `useLeavePrompt` (React Router `useBlocker` and `useBeforeUnload`; navigation to `/login` never asks), `useKnownTags` (`GET /tags`, silent on failure), and small helpers for local today, tag names, texts and the saved notice for `/`.
+  - Pages: `NewEntryPage` (capture screen: "Entry saved." at the top, a fresh form after each save, "Just saved" kept in the page), new `EditEntryPage` (loading with the waking-up hint, load error with "Try again", "doesn't exist" for `not_found` or an invalid `entryId`), and `EntriesPage` shows "Entry saved." once after an edit, then drops it from the history entry.
+  - Routing and shell: `/entries/:id/edit` in `routes.tsx`; Entries is current on it (`AppShell.tsx`).
+  - Shared components: tabular figures on the date input (`TextField.css`); `PlaceholderPage` takes an optional notice above its title.
+  - Tests: `test/dialog.ts` stubs `showModal()`/`close()` (jsdom has neither); `vite.config.ts` runs the tests in `Australia/Sydney`, so a date worked out in UTC is caught (Node reads TZ at process start, so it cannot be set inside a test). No new dependency.
+- **How I verified it:**
+  - Component tests for every criterion group: `pages/NewEntryPage.test.tsx`, `pages/EditEntryPage.test.tsx`, `entries/leavePrompt.test.tsx`, plus unit and stylesheet tests in `entries/` and a tabular-figures test in `components/TextField.test.tsx`; route, shell and route-protection tests now include the edit page.
+  - Frontend `npm run lint`, `npm test` (26 files, 476 tests) and `npm run build` pass. Backend unchanged; `ruff check`, unit tests (823) and integration tests (882, PostgreSQL in Docker) pass.
+  - Drove the app in Chrome (backend with `AI_PROVIDER=mock`) at 360px and 1280px: no sideways scrolling with very long words in the text, tags and "Just saved"; Save entry 320×54 on the phone and 48px tall on the laptop; chips 44px; the date input's computed `font-variant-numeric` is `tabular-nums`; the cursor is back in the text field at the top after a save; Escape closes the dialog and stays; "Entry saved." on `/` after an edit and not after a reload.
+- **Left open:**
+  - Moving the cursor to the first field with a server validation error is not done; the criteria ask for it only for the app's own check.
+  - A `tags.*` server error also opens "Add tags and result", like a `result_impact` error, so its message is visible.
+
+## 2026-11-12: Orchestrator: closed #27 (task 29, build the entry form)
+
+- **Outcome:** PM re-groomed against `DESIGN.md` (product owner chose "Saved this visit" for "Just saved"), designer note posted, engineer implemented, QA PASS (issue comment 6834403234), design review PASS (issue comment 6834579764). Closed as completed; the last status label `qa-passed` stays.
+- **Where each open point went:**
+  - Suggested tags must be visible when "Add tags and result" is closed (PM): comment on #28.
+  - "Entry saved." on `/` spans the full width above the placeholder (designer): comment on #29.
+  - `tags.*` server errors open the fold; their messages for the tag limits (engineer, QA): comment on #43.
+  - "Back to entries" inline link is under 44px (designer): comment on #36.
+  - Frontend tests pinned to `Australia/Sydney` in `vite.config.ts` (engineer, QA): comment on #73, at the product owner's choice.
+  - Tag chip, tag list, dialog, dropdown and icon uses missing from `DESIGN.md` (designer): new issue #83, at the product owner's request.
+  - Focus drops to the page body while saving; the cursor does not move after a server validation error (designer, engineer, QA): new issue #84, at the product owner's request.
+  - `docker compose up --build` fails in the cloud sandbox because `pip install uv` cannot get through its proxy (QA): left in this log, at the product owner's choice.
+  - "Just saved" is kept when the sidebar's "New entry" is clicked on `/entries/new` (QA): within the criteria; left in this log.
+  - The laptop column is 697px, not the note's "about 580px" estimate; the 68ch measure is correct (designer): no action.
