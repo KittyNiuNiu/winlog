@@ -1460,3 +1460,16 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Left open:**
   - #75's code is not on `main` or on this session's branch yet (2026-11-12); the engineer needs a branch that contains `developer/sleepy-faraday-d7uut7`.
   - #78's grooming should include the dark-mode action lift among the values to record.
+
+## 2026-11-12: Implement issue #79 (Make the button shadow visible in dark mode)
+
+- **Task:** build #79 (task 27) as the software engineer, following `docs/software-engineer.md`, the design note (https://github.com/KittyNiuNiu/winlog/issues/79#issuecomment-6818573227) and `DESIGN.md`.
+- **What I did:**
+  - `frontend/src/index.css`: added `--shadow-action-lift: 0 4px 12px rgba(231, 163, 207, 0.25);` inside the existing dark-mode `:root`, next to the focus glow, with the comment the design note suggested. Changed the comment above the dark-mode block so only the category dots keep one value. No other token, and no change to `Button.css`.
+  - `frontend/src/design.test.ts`: the shadow test now checks the unchanged light value and the new dark value, replacing the check that there was no dark value (the product owner changed that decision). Added two tests: only the primary button rules in `Button.css` (normal and busy) use the action lift, and the only other `box-shadow` rules are `none` on the disabled button and the focus glow on fields.
+- **How I verified it:**
+  - With the old `index.css`, the shadow test fails; with the new one it passes.
+  - `npm run lint`, `npm test` (20 files, 380 tests) and `npm run build` pass.
+  - Dev server and headless Chrome (playwright-core installed in the scratchpad only, not a project dependency) at 390×844 and 1280×800, light and dark, on `/login`, `/register` and `/dev/components`: in dark mode the computed `box-shadow` of "Log in", "Create account", busy "Logging in…" and large "Save entry" is `rgba(231, 163, 207, 0.25) 0px 4px 12px 0px`, also on hover and keyboard focus; the disabled primary and every other element have none, and a focused field has only the dark focus glow. Switching the emulated colour scheme without a reload switches the shadow at once. Screenshots show a soft plum haze below the button, and the 2px focus outline reads clearly over it.
+  - Light mode: screenshots of all three pages at both sizes are pixel-identical to the pre-change code (one run of `/dev/components` at 1280 had a small render difference that also appears between two runs of the same code).
+- **Left open:** `DESIGN.md` does not record the dark-mode value yet; #78 does that, as the issue says.
