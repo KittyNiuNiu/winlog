@@ -1785,3 +1785,15 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
     - No banner on the other pages.
   - Issue comment: https://github.com/KittyNiuNiu/winlog/issues/30#issuecomment-6837291960
 - **Left open:** nothing for #30. Recording the banner pattern in `DESIGN.md` is #83.
+
+## 2026-11-12: Orchestrator: closed #30 (task 32, writing nudge banner)
+
+- **Outcome:** PM re-groomed (log entry e4e5d0c), design note posted (issue comment 6837086328), engineer implemented in 06edb70 (issue comment 6837291960), QA PASS (issue comment 6837511824), design review PASS (issue comment 6837604676). Closed as completed; the last status label `qa-passed` stays. No real AI calls: every run used `AI_PROVIDER=mock`.
+- **Decisions accepted under the 2026-11-12 standing rule (orchestrator checked `docs/product-spec.md` FR-N1, which fixes neither the text nor a button):**
+  - PM: the 2026-11-01 banner text ("You haven't written anything in the last 7 days…") is replaced because `DESIGN.md`/`PRODUCT.md` rule out "you missed a day" messages; the banner has no button (One Action Rule) and no close button; a new user sees it next to the empty state; it is independent of the message slot; no midnight timer.
+  - Designer: text "Did something go well? Even a small win is worth writing down."; first in the content area, below the phone's "New entry", list-width, 24px gap; peach wash, hairline border, 12px radius, no icon; plain paragraph, no role or live region; built in `EntriesPage.tsx`/`.css`, not the `Message` component.
+  - Engineer: the banner's CSS check sits in the existing `entries/entryStyles.test.ts`.
+- **Where each open point went:**
+  - The banner uses the same surface as the info message, so the two look alike when shown together (designer): comment on #83 (6837611094).
+  - Text sizes are in pixels, so larger text could not be checked (designer): comment on #36 (6837612043).
+  - Two `GET /entries` in dev under React StrictMode, an empty `role="alert"` slot from #29's closed dialog, the built Docker image not checked because of the pip TLS limit (QA): left in this log; expected behaviour or an environment limit, not defects.
