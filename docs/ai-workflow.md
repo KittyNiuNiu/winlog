@@ -1640,3 +1640,15 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - A limit error naming `user_summaries` shows the "aren't available right now" notice, like a limit error that names no limit.
   - Focus goes back to the suggest button only when focus was lost (on the page body) or is still on the button. If the user moved into another field while waiting, focus stays there.
   - An answer is also dropped when Save entry was tapped but saving stopped at the app's own check (for example no category). This follows the criterion's wording ("after Save entry was tapped").
+
+## 2026-11-12: Orchestrator: closed #28 (task 30, AI suggestions on the entry form)
+
+- **Outcome:** PM re-groomed (product owner placed the suggest button under the text field), designer note posted, engineer implemented, QA PASS (issue comment 6835756482), design review PASS (issue comment 6835886320). Closed as completed; the last status label `qa-passed` stays. No real AI calls were made: every run used `AI_PROVIDER=mock` or mocked responses.
+- **Where each open point went:**
+  - Focus returns to the suggest button only if focus was lost or still on it (engineer, QA); edit page starts with focus on the page body (QA, from #27): comment on #84.
+  - Quiet text action, `Sparkles` as the one AI icon, dark-mode secondary hover equal to the page background, dark-mode disabled secondary button looking ready (designer): comment on #83. The "Suggested" marks were already posted on #83 by the PM.
+  - No feedback when a suggestion adds nothing new, and a suggestion silently dropped when Save entry is stopped by the form's own check (designer, engineer, QA): new issue #86, at the product owner's request.
+  - Suggest button shrinks while busy, so "Discard suggestions" shifts on the laptop (designer): left in this log, at the product owner's choice.
+  - Tapping another chip while the category is marked "Suggested" shows no hint; a `user_summaries` limit error shows the general "aren't available right now" notice (engineer): accepted, left in this log, at the product owner's choice.
+  - "Suggested" in sentence case on screen for both chip kinds, "<tag>, suggested" for screen readers (designer): settled in the design note; no action.
+  - Focus drops to the page body while saving (QA): already covered by #84.
