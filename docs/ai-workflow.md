@@ -1560,3 +1560,20 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **What I did:** replaced the "(pending Q1)" criterion in #27 with the final wording and replaced the pending note under Constraints with the product owner's decision. Leaving the look of tag chips and the tag list to the design note is confirmed by the orchestrator; the designer raises it if `DESIGN.md` does not answer it.
 - **How I verified it:** read the issue back from GitHub: the body matches, nothing is pending, and its labels are unchanged (none).
 - **Left open:** the note for the re-grooming of #28 (suggested tags must be visible when "Add tags and result" is closed).
+
+## 2026-11-12: Implement issue #27 (Build the entry form)
+
+- **Task:** build #27 (task 29) as the software engineer, following `docs/software-engineer.md`, the re-groomed criteria (including the product owner's "Just saved" decision), the design note (issue comment 6833530480) and `DESIGN.md`.
+- **What I did:**
+  - `frontend/src/entries/`: `EntryForm` (text, category chips, native date input, "Add tags and result" fold with tags and result, validation, server errors, saving), `TagField` (combobox with the matching-tags list and tag chips), `DiscardDialog` and `useLeavePrompt` (React Router `useBlocker` and `useBeforeUnload`; navigation to `/login` never asks), `useKnownTags` (`GET /tags`, silent on failure), and small helpers for local today, tag names, texts and the saved notice for `/`.
+  - Pages: `NewEntryPage` (capture screen: "Entry saved." at the top, a fresh form after each save, "Just saved" kept in the page), new `EditEntryPage` (loading with the waking-up hint, load error with "Try again", "doesn't exist" for `not_found` or an invalid `entryId`), and `EntriesPage` shows "Entry saved." once after an edit, then drops it from the history entry.
+  - Routing and shell: `/entries/:id/edit` in `routes.tsx`; Entries is current on it (`AppShell.tsx`).
+  - Shared components: tabular figures on the date input (`TextField.css`); `PlaceholderPage` takes an optional notice above its title.
+  - Tests: `test/dialog.ts` stubs `showModal()`/`close()` (jsdom has neither); `vite.config.ts` runs the tests in `Australia/Sydney`, so a date worked out in UTC is caught (Node reads TZ at process start, so it cannot be set inside a test). No new dependency.
+- **How I verified it:**
+  - Component tests for every criterion group: `pages/NewEntryPage.test.tsx`, `pages/EditEntryPage.test.tsx`, `entries/leavePrompt.test.tsx`, plus unit and stylesheet tests in `entries/` and a tabular-figures test in `components/TextField.test.tsx`; route, shell and route-protection tests now include the edit page.
+  - Frontend `npm run lint`, `npm test` (26 files, 476 tests) and `npm run build` pass. Backend unchanged; `ruff check`, unit tests (823) and integration tests (882, PostgreSQL in Docker) pass.
+  - Drove the app in Chrome (backend with `AI_PROVIDER=mock`) at 360px and 1280px: no sideways scrolling with very long words in the text, tags and "Just saved"; Save entry 320×54 on the phone and 48px tall on the laptop; chips 44px; the date input's computed `font-variant-numeric` is `tabular-nums`; the cursor is back in the text field at the top after a save; Escape closes the dialog and stays; "Entry saved." on `/` after an edit and not after a reload.
+- **Left open:**
+  - Moving the cursor to the first field with a server validation error is not done; the criteria ask for it only for the app's own check.
+  - A `tags.*` server error also opens "Add tags and result", like a `result_impact` error, so its message is visible.
