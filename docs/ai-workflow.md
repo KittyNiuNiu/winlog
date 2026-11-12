@@ -1415,3 +1415,13 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Left open:**
   - The illustrations (#77) and recording the tokens in `DESIGN.md` (#78).
   - The designer's review of the built screens against the design note, after QA.
+
+## 2026-11-12: Fix the QA FAIL on #75 (old palette in a test file)
+
+- **Task:** fix the one failing criterion from QA (issue comment 6808401013). QA's grep for the old blue colours matched `frontend/src/design.test.ts`, the test file that checks those colours are gone.
+- **What I did:** the test now holds the old colours without their leading `#` and adds the `#` when it runs, so no file in `frontend/src` contains them. The check itself is stricter than before: no file may contain an old colour at all, where the old version allowed the test file's own mentions.
+- **How I verified it:**
+  - QA's command `grep -rn -i -e '#1f5f8b' -e '#8cc4ec' -e '#e3eef6' frontend/src frontend/public frontend/index.html` finds nothing.
+  - I added a stylesheet containing `#1F5F8B` for one run: the palette test failed. Then I removed it.
+  - `npm run lint`, `npm test` (20 files, 378 tests) and `npm run build` pass.
+- **Left open:** QA's two notes outside the criteria, no tokens for label and body font weights and no tabular figures on the date input, are not changed.

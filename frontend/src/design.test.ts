@@ -144,7 +144,11 @@ describe('design tokens in index.css', () => {
   })
 })
 
-const OLD_PALETTE = ['#1f5f8b', '#8cc4ec', '#e3eef6', '#1d2430', '#556070', '#f4f6f9', '#d9dee6', '#14171c', '#1f2f3d']
+// The old blue palette, without the leading '#', so that this file does not contain the
+// colours it looks for (the criterion: no file in src/ contains them).
+const OLD_PALETTE = ['1f5f8b', '8cc4ec', 'e3eef6', '1d2430', '556070', 'f4f6f9', 'd9dee6', '14171c', '1f2f3d'].map(
+  (hex) => `#${hex}`,
+)
 const NAMED_COLOURS =
   /(?<![\w-])(white|black|red|green|blue|yellow|orange|purple|pink|gray|grey|brown|navy|teal|maroon|olive|silver|gold|cyan|magenta|lime|indigo|violet|plum|peachpuff|salmon|coral|tomato|crimson)(?![\w-])/i
 
@@ -176,8 +180,7 @@ describe('colours come from tokens', () => {
   it('the old blue palette is gone from src, public and index.html', () => {
     const everything = [...Object.values(sources), favicon, indexHtml].join('\n').toLowerCase()
     for (const colour of OLD_PALETTE) {
-      // Only this test file names the old colours, to look for them.
-      expect(everything.split(colour).length - 1, colour).toBe(designTestMentions(colour))
+      expect(everything.includes(colour), colour).toBe(false)
     }
   })
 
@@ -185,12 +188,6 @@ describe('colours come from tokens', () => {
     expect(favicon).toContain('fill="#7A2E68"')
   })
 })
-
-/** How often this test file itself names a colour (in OLD_PALETTE above). */
-function designTestMentions(colour: string): number {
-  const self = sources['./design.test.ts'] ?? ''
-  return self.toLowerCase().split(colour).length - 1
-}
 
 describe('sentence case and fonts', () => {
   it('no stylesheet turns text into capitals', () => {
