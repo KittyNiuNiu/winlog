@@ -1361,3 +1361,22 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - `docs/software-engineer.md` and `docs/pm.md`: one line each about the design note and `DESIGN.md`.
 - **How I verified it:** read the edited files against each other; the label names and step numbers match. No code changed.
 - **Left open:** the labels `designed`, `qa-passed` and `design-failed` are created on GitHub the first time the orchestrator sets them. #75 is the first issue to go through the new steps.
+
+## 2026-11-12: Groom issue #79 (Make the button shadow visible in dark mode)
+
+- **Task:** groom #79, a draft from the design review of #75, following `docs/pm.md`.
+- **What I did:**
+  - Rewrote #79 with the task template: 12 checkable criteria for the token, where the lift shows (and where it must not), and tests. Out of scope links to #78 and #75.
+  - Filed no new follow-up issue: recording the value in `DESIGN.md` fits #78, which already exists for that.
+- **Decisions taken under the standing rule:**
+  - The dark-mode value goes into the code only (`frontend/src/index.css`). #78 records it in `DESIGN.md` with the other values #75 settled, so `DESIGN.md` is edited once and the product owner's merge answer for #78 covers it. Same route as the dark-mode focus glow.
+  - Only the token's dark-mode value changes; the button rules already use the token, so hover, busy, the large size and later primary buttons follow without component changes.
+  - The token test in `frontend/src/design.test.ts` that asserts no dark-mode value is replaced by one that asserts the new value. The requirement changed; the test is not weakened.
+- **Question for the product owner (Q1):** the dark-mode action lift value, which `DESIGN.md` does not give. Recommended: `0 4px 12px rgba(231, 163, 207, 0.25)`, the dark-mode plum at the same 25%. The criterion is marked "pending Q1" in the issue.
+- **How I verified it:**
+  - Read `DESIGN.md` (Elevation & Depth, Buttons), and on branch `developer/sleepy-faraday-d7uut7` the #75 code: `--shadow-action-lift` has no dark override in `index.css`, it is used only in `components/Button.css` (normal and busy primary; disabled sets `none`), and `design.test.ts` asserts that there is no dark override.
+  - Computed the contrast of each shadow at its densest point against the ground (WCAG relative luminance): current lift on dark blush white 1.14:1; light mode 1.53:1; recommended value 1.69:1 (blush white) and 1.71:1 (peach wash); dark plum at 30% 1.94:1; black at 50% 1.09:1.
+  - Read the updated issue back from GitHub: it matches the draft and has no labels, as before.
+- **Left open:**
+  - #75's code is not on `main` or on this session's branch yet (2026-11-12); the engineer needs a branch that contains `developer/sleepy-faraday-d7uut7`.
+  - #78's grooming should include the dark-mode action lift among the values to record.
