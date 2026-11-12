@@ -1683,3 +1683,8 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 
 - **Product owner decision (2026-11-12):** for the 15 issues orchestrated from #29 on (in build order: #29, #30, #31, #77, #32, #33, #43, #34, #35, #46, #36, #37, #73, #74, #38), the orchestrator takes the option recommended by the role that raised a decision, without asking, as long as it benefits the project, keeps to the product's and project's purpose, and does not make the codebase unnecessarily unclear or complicated. Severe or critical decisions for the product or the system still go to the product owner, as do the stop points in `docs/process.md` and real AI calls (`AGENTS.md`).
 - **What I did:** added the rule under "Product decisions" in `docs/process.md`, so the roles see it.
+
+## 2026-11-12: Orchestrator: product owner moves #83 and #84 before #36
+
+- **Product owner decision (2026-11-12):** handle #83 (record the tag chip, tag list, dialog and dropdown patterns in `DESIGN.md`) and #84 (keyboard focus while saving and after server validation errors) before #36 (check every screen on mobile and desktop), so the final screen check covers them. `docs/tasks.md` is unchanged; this is an orchestration order.
+- **Batch order for the 15 issues under the 2026-11-12 standing rule:** #29, #30, #31, #77, #32, #33, #43, #34, #35, #46, #83, #84, #36, #37, #73. #74 and #38 now fall after the batch.
