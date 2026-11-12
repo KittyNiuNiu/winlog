@@ -1622,3 +1622,21 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **What I did:** removed "(pending Q1)" from the button-place criterion in #28, which already had the recommended wording, and replaced the pending question under Constraints with the product owner's decision, dated 2026-11-12. No other decision was reopened. Commented on #83 that the "suggested" marks on tag chips and category chips from #28 should be among the patterns it records in `DESIGN.md` (an input for grooming, not a new requirement): https://github.com/KittyNiuNiu/winlog/issues/83#issuecomment-6835004830
 - **How I verified it:** read #28 back from GitHub: the body matches what I sent, all four sections are there, nothing is pending, and its labels are unchanged (none).
 - **Left open:** nothing for #28.
+
+## 2026-11-12: Implement issue #28 (Add AI suggestions to the entry form)
+
+- **Task:** build #28 (task 30) as the software engineer, following `docs/software-engineer.md`, the re-groomed criteria (including the product owner's decision on the button's place), the design note (issue comment 6835082666) and `DESIGN.md`.
+- **What I did:**
+  - `frontend/src/entries/suggestions.ts` (new): the texts, the error-to-notice mapping, and pure rules for applying an answer (discard the earlier suggestions, then fill an empty category and mark it, give a different chosen category the hint, add new tags at the end, ignoring case, and mark them), for "Discard suggestions" and for taking a value over.
+  - `EntryForm.tsx`: the "Suggest category and tags" button (secondary `Button` with `Sparkles`, `busy` "Suggesting…") under the text field, "Discard suggestions" and the info `Message` notice next to it, and the "Suggested: <category>" hint under the chips. Values, marks and the fold are now one state object, so each answer is applied to the form as it is when it arrives. A request counter drops an answer that arrives after Save entry was tapped or after the form is gone. Focus goes back to the button when the request ends, if it had focus and the user has not moved it. Discard moves focus to the button, and the hint moves it to the chip it selected.
+  - `TagField.tsx`: suggested tag chips (dashed muted border, the mark "Sparkles Suggested", ", suggested" for screen readers). `onTagsChange` also reports the typed names, so a typed suggested name becomes the user's own. `tagNames.ts` exports `sameName`.
+  - `CategoryChip` (shared): optional `suggested` prop (dashed border, mark, ", suggested"). `index.css`: a `.visually-hidden` utility. No new dependency.
+- **How I verified it:**
+  - Component tests in `entries/suggestions.test.tsx` (54, named after FR-S1 to FR-S3), rule tests in `entries/suggestionRules.test.ts`, and new tests in `components/CategoryChip.test.tsx` and `entries/entryStyles.test.ts`. Mutation checks: removing the drop on Save entry or the focus return makes the matching tests fail.
+  - Frontend `npm run lint`, `npm test` (28 files, 552 tests) and `npm run build` pass. Backend unchanged; `ruff check`, unit tests (823) and integration tests (882, PostgreSQL in Docker) pass.
+  - Drove the app in headless Chrome (backend with `AI_PROVIDER=mock`; other answers and the 503 intercepted in the browser) at 360px and 1280px, light and dark: no sideways scrolling with a suggested "Side project" chip, the "Suggested: Side project" hint, the notice, "Discard suggestions" wrapped under the button and a long unbroken suggested tag; suggest button 48px tall, Discard, hint and remove buttons at least 44×44px; one primary button; the reset form after saving has no marks and no notice.
+- **Left open:**
+  - Tapping another chip while the category is still marked "Suggested" makes the tapped category the user's own and shows no hint. The criteria only say an existing hint stays.
+  - A limit error naming `user_summaries` shows the "aren't available right now" notice, like a limit error that names no limit.
+  - Focus goes back to the suggest button only when focus was lost (on the page body) or is still on the button. If the user moved into another field while waiting, focus stays there.
+  - An answer is also dropped when Save entry was tapped but saving stopped at the app's own check (for example no category). This follows the criterion's wording ("after Save entry was tapped").
