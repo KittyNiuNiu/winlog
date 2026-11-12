@@ -1592,3 +1592,26 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - `docker compose up --build` fails in the cloud sandbox because `pip install uv` cannot get through its proxy (QA): left in this log, at the product owner's choice.
   - "Just saved" is kept when the sidebar's "New entry" is clicked on `/entries/new` (QA): within the criteria; left in this log.
   - The laptop column is 697px, not the note's "about 580px" estimate; the 68ch measure is correct (designer): no action.
+
+## 2026-11-12: Re-groom issue #28 (Add AI suggestions to the entry form) against DESIGN.md and #27
+
+- **Task:** re-groom #28 (task 30) following `docs/pm.md`, against `DESIGN.md`, `PRODUCT.md`, `product-spec.md` v0.2, `openapi.yaml` (`POST /suggestions`) and the entry form built in #27, with the open point from #27 in issue comment 6834594935 (suggested tags hidden by the closed fold) as an input.
+- **What I did:** rewrote #28 with the task template: checkable criteria in groups (the button, category, tags, discarding/asking again/saving, failures, phone and laptop, tests). Out of scope links to #13, #16, #35, #43, #83, #84 and #36. No new follow-up issue was needed.
+- **Decisions taken under the standing rule:**
+  - Suggested tags open "Add tags and result" when it is closed, so they can be seen; the cursor does not move. No tag added, no change to the fold. This matches #27, where server errors open the fold.
+  - The button works on both the capture and the edit page, because they share the form.
+  - Tapping any category chip, or applying the "Suggested: <category>" hint, makes the category the user's own; typing a suggested tag's name makes that tag the user's own. "Discard suggestions" keeps the user's own values.
+  - Asking again replaces the earlier suggestions (discard, then apply); a failed second request keeps the earlier ones. Rules apply to the form as it is when the answer arrives. An answer that arrives after Save entry was tapped is dropped.
+  - Suggested values count as unsaved changes for the "Discard changes?" prompt.
+  - The notice also goes when the button is tapped again. A limit error that names no limit shows the "aren't available right now" text. Network and other errors use the shared texts from `auth/requestErrors.ts`.
+  - Keyboard focus returns to the button after the request; the general busy-button fix stays in #84.
+  - No "server is waking up" hint on the button: on an awake server the AI may take up to `AI_SUGGESTION_TIMEOUT_SECONDS` (15), so the hint would be wrong, and Save entry has none.
+- **Question for the product owner (Q1, through the orchestrator):** where the button goes. `DESIGN.md` gives the capture screen's full order with no place for it. Recommended: directly under the text field, above the category chips. Alternatives: after the category chips, or next to "Add tags and result". The criterion is marked "(pending Q1)" with the recommended option.
+- **How I verified it:**
+  - Read `DESIGN.md` (Layout, Buttons, Chips, Icons, Do's and Don'ts), `PRODUCT.md`, the spec (FR-S1 to FR-S3, §7.3, §8), `openapi.yaml` (`/suggestions`, `Suggestion`, `LimitReached`, `AiUnavailable`), `backend/app/suggestions.py`, `backend/app/ai/mock.py` (the mock suggests a category from the text and "Mock tag"), and the #27 code in `frontend/src/entries/`, `frontend/src/pages/` and `frontend/src/api/`.
+  - Read #27's final criteria, design note, QA and design review, and #16, #35, #43, #83 and #84.
+  - The approved "Plum & Peach v2" boards could not be opened from this session (artifact not found), so the criteria rest on `DESIGN.md` only.
+  - Read the updated issue back from GitHub: the body matches, and its labels are unchanged (none).
+- **Left open:**
+  - Q1, above.
+  - #83 does not yet list the "suggested" marks on tag chips and category chips among the patterns to record in `DESIGN.md`; the orchestrator may add that as a comment there.
