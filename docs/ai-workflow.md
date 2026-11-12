@@ -1814,3 +1814,44 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Kept from 2026-11-01: native date inputs, category chips, searchable tag selection with the "any" hint (#2), automatic updates, the start-after-end error, filters in the URL, "Clear filters", fixed category order with counts and empty groups hidden, read-only rows, a collapsible filter panel on the phone.
 - **How I verified it:** checked the issue against the definition of done in `docs/pm.md` (four sections, checkable criteria, every out-of-scope line links an issue). Read #32, #77, #83 and #36 so nothing they cover is pulled in. Checked in the installed `react-router` types that `useSearchParams`'s setter takes navigate options (`{ replace: true }`). Read #31 back from GitHub: the body matches what I sent (plus the automatic footer), the title is unchanged and it still has no labels.
 - **Left open:** an input comment for #83 (record the tag filter field, the phone's collapsible filter panel, and category groups with month sub-headings in `DESIGN.md`) could not be posted from this session (permission denied); passed to the orchestrator. The "Plum & Peach v2" boards still could not be opened (artifact not found).
+
+## 2026-11-12: Engineer: implement #31 (review page with filters)
+
+- **Task:** implement #31 (task 33, FR-R1, FR-R2, §12) following `docs/software-engineer.md`, the design note on the issue (comment 6837814048) and `DESIGN.md`.
+- **What I did:**
+  - `pages/ReviewPage.tsx` / `.css` replace the placeholder:
+    - On the phone, a "Filters" toggle with a count badge and a collapsible panel; on the laptop, the filters are always shown.
+    - Filters: native date inputs, the category filter chips and the tag filter.
+    - "Clear filters", in the filter area and in the no-match state.
+    - Results: an announced total line, then category groups (`h2` with dot and count) with month groups (`h3`), rows from `EntryRow` without actions.
+    - States: loading (previous results stay), waking-up and error with "Try again", no-match and no-entries. All buttons are secondary.
+  - `review/reviewFilter.ts`: the one parsed filter, read from and written to the URL (`useSearchParams`, replace), and the `GET /entries` query with only the filters in use and never an empty tag.
+  - `review/TagFilterField.tsx` / `.css`: only offered tags can be chosen, with the hint under the input. It reuses `TagField.css`, `matchingTags` and `addTagNames`.
+  - `review/reviewTexts.ts`: the page's texts.
+  - Shared, backward-compatible changes:
+    - `TextField`/`TextArea` take optional `describedBy` and `invalid`.
+    - The month grouping moved unchanged from `EntriesPage.tsx` to `components/groupByMonth.ts`.
+  - No new dependency. The backend and `openapi.yaml` are unchanged.
+- **Decisions under the 2026-11-12 standing rule (recorded in the issue comment):**
+  - One line in an existing entries-page test changed. `test_fr_n1_new_entry_in_range_hides_the_banner_next_time_the_page_opens` used `/review` as a detour and counted `listEntries` calls, and the review page now loads entries. The detour is now `/settings`; the assertions are unchanged. This conflicts with the letter of "existing tests for the entries page pass unchanged", so confirmation is asked on the issue.
+  - The tag filter is a separate component rather than options on the entry form's `TagField`, so the entry form's code stays untouched.
+  - Focus fallbacks the note leaves open:
+    - Removing a tag chip without a search field focuses the next chip, else "Achievement".
+    - A search field replaced while it has focus moves focus to "Achievement".
+  - A filter change while the date error shows keeps the phone panel open.
+  - Year `0000` is not a real date. The URL is not rewritten on load.
+- **How I verified it:**
+  - Frontend `npm run lint` clean, `npm test` 744 passed (31 files; 99 new: 66 in `ReviewPage.test.tsx`, 30 in `reviewFilter.test.ts`, 4 in `TextField.test.tsx`), `npm run build` OK.
+  - Backend (unchanged): `ruff check` clean, unit tests 823 passed, integration tests 882 passed (PostgreSQL in Docker).
+  - Real app: PostgreSQL in Docker, `uvicorn` with `AI_PROVIDER=mock`, the Vite dev server, and headless Chrome (playwright-core in the scratchpad, not a project dependency), at 360 and 1280px in light and dark.
+    - No sideways scroll with the panel open, the offered list open or long tag chips.
+    - No control in `main` under 44×44px.
+    - 0 primary buttons in every state.
+    - Requests carry only the filters in use.
+    - The date error is styled as in the note.
+    - "Clear filters" empties the URL and focuses "Achievement".
+  - Issue comment: https://github.com/KittyNiuNiu/winlog/issues/31#issuecomment-6838162064
+- **Left open:**
+  - Confirmation of the one-line test change above.
+  - Two `GET /entries` on the first load in dev under React StrictMode (expected).
+  - Recording the new patterns in `DESIGN.md` is #83.
