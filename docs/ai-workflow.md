@@ -1759,3 +1759,29 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Kept from 2026-11-01: the check runs in the frontend on the loaded list; "the last 7 days" are today and the 6 days before, in the user's time zone; future dates do not count.
 - **How I verified it:** checked the issue against the definition of done in `docs/pm.md` (four sections, checkable criteria, every out-of-scope line links an issue). Read #30 back from GitHub: the body matches what I sent (plus the automatic footer), the title is unchanged and it still has no labels. #30 had no comments; #29's comments hold no open point for #30.
 - **Left open:** nothing for #30. The designer's note sets the banner's text, placement and component.
+
+## 2026-11-12: Engineer: implement #30 (writing nudge banner)
+
+- **Task:** implement #30 (task 32, FR-N1, §7.5) following `docs/software-engineer.md`, the design note on the issue (comment 6837086328) and `DESIGN.md`.
+- **What I did:**
+  - `entries/localDate.ts`: `daysBefore` counts calendar days on the `YYYY-MM-DD` date in UTC, so daylight saving cannot shift it. `hasDateInLastSevenDays` checks today and the 6 days before, compares stored dates as text and ignores future dates.
+  - `pages/EntriesPage.tsx` / `.css`: once the list has loaded, a plain `<p class="entries-page__nudge">` shows when no entry is in that range. It is worked out on each render from the loaded list and `localToday()`, with no timer. It is the first element in the content area (below the phone's "New entry", outside the message slot), with no role, live region, link, button or icon. The text is the design note's: "Did something go well? Even a small win is worth writing down." The styles are peach wash, a hairline border, a 12px radius and body text. `max-width: none` and `margin: 0 0 24px` override the global `p` rule.
+  - No new dependency, request, endpoint or component. The backend and `openapi.yaml` are unchanged.
+- **Decision under the 2026-11-12 standing rule:** the CSS check on the banner went into `entries/entryStyles.test.ts`, next to the #29 checks on `EntriesPage.css`, rather than into a new file. This is a test file outside the issue's file list. Recorded in the issue comment.
+- **How I verified it:**
+  - New tests:
+    - `EntriesPage.test.tsx`: 30 `test_fr_n1_*` tests covering every listed case.
+    - `localDate.test.ts`: 3 tests.
+    - `entryStyles.test.ts`: 1 test.
+  - A mutation check with a naive implementation (6 × 24 h, or a UTC "today") fails the daylight-saving and local-date tests.
+  - Frontend `npm run lint` clean, `npm test` 645 passed (29 files), `npm run build` OK.
+  - Backend (unchanged): `ruff check` clean, unit tests 823 passed, integration tests 882 passed (PostgreSQL in Docker).
+  - Real app: PostgreSQL in Docker, `uvicorn` with `AI_PROVIDER=mock`, the Vite dev server, and headless Chrome (playwright-core in the scratchpad, not a project dependency), at 360 and 1280px in light and dark.
+    - The banner and the list share their edges (20–340px and 280–1232px), with 24px below the banner and no sideways scroll.
+    - The phone's "New entry" stays in place.
+    - Primary buttons: phone list 1, phone empty 1, laptop list 0, laptop empty 1.
+    - Dark values are as in the note.
+    - A delete shows the banner at once; "Entry saved." and the banner show together after an edit.
+    - No banner on the other pages.
+  - Issue comment: https://github.com/KittyNiuNiu/winlog/issues/30#issuecomment-6837291960
+- **Left open:** nothing for #30. Recording the banner pattern in `DESIGN.md` is #83.
