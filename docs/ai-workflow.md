@@ -1716,3 +1716,20 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 
 - The engineer for #29 did report after the handoff: IMPLEMENTED, commits 5f9e7e5 and 9489cd5, issue comment 6836556639. Frontend lint, 611 tests and the build pass; backend unchanged and green. #29 is now labelled `implemented`.
 - **Next step for the new session:** launch `qa-engineer` on #29 (do not relaunch the engineer), then the design review, then close. Open points from the engineer for the closing entry: rows not checked for jumping in Firefox (Chrome only); no visible focus ring on the next row's Edit after a mouse delete (expected `:focus-visible` behaviour); four small choices listed in the issue comment.
+
+## 2026-11-12: Engineer: re-verify #29 in a new session (no code change)
+
+- **Task:** the orchestrator relaunched the engineer on #29 after the handoff, to confirm the work pushed in 5f9e7e5. The first engineer session had already reported meanwhile (entry above, issue comment 6836556639), so this entry adds only what this session checked on top of it.
+- **What I did:** reviewed 5f9e7e5 against every criterion and the design note again, and found no gap. No code change.
+- **How I verified it:**
+  - Frontend `npm run lint` clean, `npm test` 611 passed (29 files), `npm run build` OK. The backend is unchanged.
+  - New in this session: the real app end to end (PostgreSQL in Docker, the real backend with `AI_PROVIDER=mock`, the Vite dev server), not an intercepted API. I drove it in Chrome with Playwright as new users with 18 seeded entries, at 360px and 1280px in light and dark, plus 767 and 768px. Results:
+    - No sideways scroll on `/` or `/dev/components`.
+    - Month order January 2027 → November 2025. Edit and Delete measure 44×44, with one plum fill on the phone and none in the laptop content.
+    - The band and the list share both edges (20–340px, 280–1232px).
+    - Focus: on "Cancel" when the dialog opens, back to Delete after Escape, then to the next Edit after a delete.
+    - With the band appearing and fading during a mid-page delete, the rows in view stay in place (measured per animation frame).
+    - "Entry saved." shows once after a real edit and not after a reload. A real `not_found` (deleted through the API first) shows "This entry was already deleted.". Deleting everything shows the empty state, with focus on its "New entry".
+- **Left open (in addition to the entry above):**
+  - While "Delete entry" is busy, the shared `Button` is disabled, so `document.activeElement` is the page body (inside the open modal) until the request ends. Then focus moves as the criteria ask. This is the same busy-button pattern #84 covers for the entry form.
+  - Deleting the very last row at the bottom of a long page shortens the page, so the browser clamps the scroll position. This is browser behaviour, not the band.
