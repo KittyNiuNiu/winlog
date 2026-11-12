@@ -92,6 +92,15 @@ Product decisions
   recorded in the issue and in `docs/ai-workflow.md`.
 - Design decisions follow `DESIGN.md`. A design question that `DESIGN.md` does not answer
   goes to the product owner.
+- Standing rule (product owner, 2026-11-12, for the 15 issues orchestrated from #29 on):
+  the orchestrator takes the option recommended by the role that raised a decision (PM,
+  designer, engineer or QA), including design questions `DESIGN.md` does not answer and
+  where to record open points, without asking. This holds when the option benefits the
+  project, keeps to the purpose of the product and the project, and does not make the
+  codebase unnecessarily unclear or complicated. Decisions that are severe or critical for
+  the product or the system still go to the product owner, and so do the stop points
+  below and the `AGENTS.md` rule on real AI calls. Every decision is recorded in the issue
+  and in `docs/ai-workflow.md`.
 
 Branches and logging
 

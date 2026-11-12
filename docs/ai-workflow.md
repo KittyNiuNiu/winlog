@@ -1678,3 +1678,8 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **What I did:** removed "(pending Q1)" from the three affected criteria in #29 (the button itself, hidden in the empty state, shown while loading and after a load error) and replaced the pending question under Constraints with the product owner's decision, dated 2026-11-12. No other decision was reopened.
 - **How I verified it:** read #29 back from GitHub: the body matches what I sent, all four sections are there, nothing is pending, and its labels are unchanged (none).
 - **Left open:** nothing for #29.
+
+## 2026-11-12: Orchestrator: new standing rule for the next 15 issues
+
+- **Product owner decision (2026-11-12):** for the 15 issues orchestrated from #29 on (in build order: #29, #30, #31, #77, #32, #33, #43, #34, #35, #46, #36, #37, #73, #74, #38), the orchestrator takes the option recommended by the role that raised a decision, without asking, as long as it benefits the project, keeps to the product's and project's purpose, and does not make the codebase unnecessarily unclear or complicated. Severe or critical decisions for the product or the system still go to the product owner, as do the stop points in `docs/process.md` and real AI calls (`AGENTS.md`).
+- **What I did:** added the rule under "Product decisions" in `docs/process.md`, so the roles see it.
