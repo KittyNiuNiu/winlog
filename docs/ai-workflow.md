@@ -1484,3 +1484,50 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
     - QA and designer: light-mode screenshots of `/dev/components` differ by about 200 pixels between runs (date field and CJK entry row) whatever the code, so pixel comparisons on that page are noisy.
     - Designer: the busy state on the real login form can be checked without a backend by starting the dev server with `VITE_API_BASE_URL` set to a fake host and holding the request open in Playwright.
     - QA: with no `.env` in the checkout, the test database was started with `docker compose --env-file .env.example up -d db`, and `TEST_DATABASE_URL` was passed on the command line.
+
+## 2026-11-12: Groom issue #78 (Record the built design tokens in DESIGN.md)
+
+- **Task:** groom #78 (task 28), a draft from the grooming of #75, following `docs/pm.md`. Inputs: the #75 QA note on weight tokens and the #79 dark-mode action lift, both issue comments.
+- **What I did:**
+  - Rewrote #78 with the task template: 22 checkable criteria for the frontmatter (keys, 52 colours, 12 typography roles, 8 radii, 15 spacing values, quoting, every custom property in `index.css` accounted for), the six prose changes (SEED comment, intro sentence, font and icon licences, dark-mode action lift and focus glow) and the files that must not change.
+  - Wrote down the mapping from the custom properties to frontmatter keys and a typography table, so the result can be checked against `frontend/src/index.css` one value at a time.
+  - Filed no follow-up issue.
+- **Decisions taken under the standing rule:**
+  - No weight tokens for the label and body styles (QA note from #75). Those weights stay in the component CSS and the prose. This task changes no frontend code, so it records only the tokens that exist.
+  - Dark-mode values are sibling colour keys with the suffix `-dark`. The format has one value per key and no dark-mode group.
+  - No `components` group and no `.impeccable/design.json` sidecar. They would be a second copy of the components that drifts from the code.
+  - Only custom properties are recorded. Ranges in the prose that contain the built value stay as they are.
+- **Product owner decision (2026-11-12):** do not use Impeccable (`/impeccable document`) for this task. The design was chosen by the product owner ("Plum & Peach v2"), and Impeccable is not the design authority. The engineer copies the values into the frontmatter by hand from `frontend/src/index.css`, makes the six prose changes by hand and checks the result against the criteria. This replaces my standing-rule decision to answer "merge" when Impeccable asks, so the merge, refresh or overwrite question no longer applies. I updated Constraints in #78 to match: the decision, and "How to do it" now says the values are copied by hand. The criteria are unchanged. I read the issue back: it matches, and it still has no labels.
+- **How I verified it:**
+  - Read `DESIGN.md`, `frontend/src/index.css`, `frontend/src/design.test.ts` and the component CSS on this branch (with #75 and #79 merged). Counted the custom properties with a script: 78 in the light block and 25 in the dark block (23 colours and 2 shadows).
+  - Checked the DESIGN.md format in google-labs-code/design.md `docs/spec.md`: the only token groups are `colors`, `typography`, `rounded`, `spacing` and `components`; colours accept `color-mix()`; a dimension uses px, em or rem, and other spacing values (such as `68ch`) are kept as strings.
+  - Checked the licences in `frontend/node_modules`: both Fontsource packages are 5.3.0 and OFL-1.1, and `lucide-react` 1.72.0 is ISC, with the Feather-derived icons under MIT in its `LICENSE`.
+  - Read the updated issue back from GitHub: the body matches, and it still has no labels.
+- **Left open:**
+  - The design.md linter (`@google/design.md` 0.4.0 on npm) could not be run in this session. The criteria do not depend on it.
+
+## 2026-11-12: Implement issue #78 (Record the built design tokens in DESIGN.md)
+
+- **Task:** build #78 (task 28) as the software engineer, following `docs/software-engineer.md`. No screen changes, so no design note.
+- **What I did:**
+  - `DESIGN.md`: added the YAML frontmatter by hand from `frontend/src/index.css` (product owner, 2026-11-12: no Impeccable), using the mapping and table in the issue: 52 colours (28 light, 24 `-dark`; the four category dots have no `-dark`), 12 typography roles, 8 radii and 15 spacing values. The `var()` values are written out; `color-mix()` stays as `color-mix()`. Quoted every hex value, both font stacks and `description` (it contains a comma; the text is unchanged).
+  - Made the six prose changes: removed the SEED comment and the blank line after it; rewrote the intro sentence (the suggested wording); named the font licence (SIL OFL 1.1) and the two Fontsource packages; named Lucide (`lucide-react`, ISC; Feather-derived icons MIT); added the dark-mode values of the Action lift and the Focus glow.
+- **How I verified it:**
+  - A Python script in the scratchpad (PyYAML, not committed) parsed the frontmatter and compared every key and value with `index.css` (78 light and 25 dark custom properties), checked the top-level keys, the quoting rule, and that no value contains `var(` or `{`.
+  - `git diff DESIGN.md` shows only the frontmatter and the six prose changes; headings and their order are unchanged.
+  - Licences checked in `frontend/node_modules`: Fontsource 5.3.0 OFL-1.1 (both), `lucide-react` 1.72.0 ISC with the Feather icons under MIT.
+  - Frontend `npm run lint`, `npm test` (20 files, 380 tests) and `npm run build` pass. Backend `ruff check`, unit tests (823) and integration tests (882, PostgreSQL in Docker, started with `docker compose --env-file .env.example up -d db`) pass.
+  - Issue comment: https://github.com/KittyNiuNiu/winlog/issues/78#issuecomment-6829496435
+- **Left open:**
+  - The design.md linter (`@google/design.md`) was not run; the criteria do not depend on it.
+  - The closing `---` is followed by one blank line, then `# Design System: Winlog` (the blank line that was there before the SEED comment stays).
+
+## 2026-11-12: Orchestrator: closed #78 (task 28, record the built design tokens in DESIGN.md)
+
+- **Lifecycle:** groomed, then implemented in 3f4b1df (https://github.com/KittyNiuNiu/winlog/issues/78#issuecomment-6829496435), QA PASS on the first run, all 23 criteria (https://github.com/KittyNiuNiu/winlog/issues/78#issuecomment-6829624882). No screen change, so no design note or design review. Closed #78 as completed; its last status label `implemented` stays.
+- **Product owner decision (2026-11-12):** Impeccable is not used for #78. The product owner chose the design ("Plum & Peach v2"), and Impeccable is not the design authority. The values were copied by hand from `frontend/src/index.css` and checked against the criteria. This replaced the PM's first standing-rule answer ("merge" in `/impeccable document`).
+- **Decisions under the standing rule (PM):** no weight tokens for the label and body styles (the #75 QA note); dark-mode colours as sibling keys with the suffix `-dark`; no `components` group and no `.impeccable/design.json` sidecar; only custom properties are recorded.
+- **Where each open point went:**
+  - Quoted `description` line and the blank line after the frontmatter (engineer): QA judged both against the criteria and passed them. Nothing left open.
+  - Left in this log, as the product owner chose: the DESIGN.md format linter (`@google/design.md`) was not run. QA's own script compared every frontmatter value with `index.css`.
+  - The test database needs `--env-file .env.example` and an inline `TEST_DATABASE_URL`, because the checkout has no `.env` (QA): left in this log, as with #79.
