@@ -1577,3 +1577,18 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Left open:**
   - Moving the cursor to the first field with a server validation error is not done; the criteria ask for it only for the app's own check.
   - A `tags.*` server error also opens "Add tags and result", like a `result_impact` error, so its message is visible.
+
+## 2026-11-12: Orchestrator: closed #27 (task 29, build the entry form)
+
+- **Outcome:** PM re-groomed against `DESIGN.md` (product owner chose "Saved this visit" for "Just saved"), designer note posted, engineer implemented, QA PASS (issue comment 6834403234), design review PASS (issue comment 6834579764). Closed as completed; the last status label `qa-passed` stays.
+- **Where each open point went:**
+  - Suggested tags must be visible when "Add tags and result" is closed (PM): comment on #28.
+  - "Entry saved." on `/` spans the full width above the placeholder (designer): comment on #29.
+  - `tags.*` server errors open the fold; their messages for the tag limits (engineer, QA): comment on #43.
+  - "Back to entries" inline link is under 44px (designer): comment on #36.
+  - Frontend tests pinned to `Australia/Sydney` in `vite.config.ts` (engineer, QA): comment on #73, at the product owner's choice.
+  - Tag chip, tag list, dialog, dropdown and icon uses missing from `DESIGN.md` (designer): new issue #83, at the product owner's request.
+  - Focus drops to the page body while saving; the cursor does not move after a server validation error (designer, engineer, QA): new issue #84, at the product owner's request.
+  - `docker compose up --build` fails in the cloud sandbox because `pip install uv` cannot get through its proxy (QA): left in this log, at the product owner's choice.
+  - "Just saved" is kept when the sidebar's "New entry" is clicked on `/entries/new` (QA): within the criteria; left in this log.
+  - The laptop column is 697px, not the note's "about 580px" estimate; the 68ch measure is correct (designer): no action.
