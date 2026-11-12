@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
+import { addStylesheet } from '../test/entryForm.ts'
 import { TextArea, TextField } from './TextField.tsx'
 
 const HINT = 'At least 10 characters, including an uppercase letter, a number and a special character.'
@@ -64,6 +65,25 @@ describe('TextField', () => {
     render(<TextField id="password" label="Password" type="password" after={<button type="button">Show</button>} />)
 
     expect(screen.getByRole('button', { name: 'Show' })).toBeTruthy()
+  })
+})
+
+describe('date input', () => {
+  it('uses tabular figures (DESIGN.md → Typography); other inputs do not', async () => {
+    const remove = await addStylesheet('components/TextField.css')
+    try {
+      render(
+        <>
+          <TextField id="date" label="Date" type="date" defaultValue="2026-11-02" />
+          <TextField id="name" label="Name" />
+        </>,
+      )
+
+      expect(getComputedStyle(screen.getByLabelText('Date')).fontVariantNumeric).toBe('tabular-nums')
+      expect(getComputedStyle(screen.getByLabelText('Name')).fontVariantNumeric).not.toBe('tabular-nums')
+    } finally {
+      remove()
+    }
   })
 })
 
