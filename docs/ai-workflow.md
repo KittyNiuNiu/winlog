@@ -1688,3 +1688,10 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 
 - **Product owner decision (2026-11-12):** handle #83 (record the tag chip, tag list, dialog and dropdown patterns in `DESIGN.md`) and #84 (keyboard focus while saving and after server validation errors) before #36 (check every screen on mobile and desktop), so the final screen check covers them. `docs/tasks.md` is unchanged; this is an orchestration order.
 - **Batch order for the 15 issues under the 2026-11-12 standing rule:** #29, #30, #31, #77, #32, #33, #43, #34, #35, #46, #83, #84, #36, #37, #73. #74 and #38 now fall after the batch.
+
+## 2026-11-12: Orchestrator: handoff to a new session (session resources used up)
+
+- **Why:** the cloud session ran out of its allowance, so the batch continues in a new session on the same branch, `claude/affectionate-darwin-pfzdeh`.
+- **Batch (16 issues, product owner, 2026-11-12):** #29, #30, #31, #77, #32, #33, #43, #34, #35, #46, #83, #84, #36, #37, #73, #74. #38 stays out (needs the product owner's accounts). The standing rule for these issues is in `docs/process.md` → Product decisions.
+- **State of #29 (label `designed`):** groomed (product owner: "New entry" under the title on the phone), design note posted (issue comment 6836163864). The engineer's code and tests are pushed in 5f9e7e5, but the engineer did not send its final report before the session ended. Its issue comment and its `docs/ai-workflow.md` entry may be missing, and lint, tests and build are not yet confirmed. Next step: relaunch `software-engineer` on #29 to verify the pushed work, finish anything missing (tests, issue comment, log entry), and report; then QA and the design review.
+- **Pending in the closing entry for #29:** the product owner added #74 to the batch (16 issues).
