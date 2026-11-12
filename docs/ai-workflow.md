@@ -1615,3 +1615,10 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Left open:**
   - Q1, above.
   - #83 does not yet list the "suggested" marks on tag chips and category chips among the patterns to record in `DESIGN.md`; the orchestrator may add that as a comment there.
+
+## 2026-11-12: Product owner answer for #28 (Q1, the suggest button's place)
+
+- **Product owner decision (2026-11-12):** the recommended option. The "Suggest category and tags" button sits directly under the text field, above the category chips, with its notice and "Discard suggestions" next to it.
+- **What I did:** removed "(pending Q1)" from the button-place criterion in #28, which already had the recommended wording, and replaced the pending question under Constraints with the product owner's decision, dated 2026-11-12. No other decision was reopened. Commented on #83 that the "suggested" marks on tag chips and category chips from #28 should be among the patterns it records in `DESIGN.md` (an input for grooming, not a new requirement): https://github.com/KittyNiuNiu/winlog/issues/83#issuecomment-6835004830
+- **How I verified it:** read #28 back from GitHub: the body matches what I sent, all four sections are there, nothing is pending, and its labels are unchanged (none).
+- **Left open:** nothing for #28.
