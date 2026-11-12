@@ -1361,3 +1361,83 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - `docs/software-engineer.md` and `docs/pm.md`: one line each about the design note and `DESIGN.md`.
 - **How I verified it:** read the edited files against each other; the label names and step numbers match. No code changed.
 - **Left open:** the labels `designed`, `qa-passed` and `design-failed` are created on GitHub the first time the orchestrator sets them. #75 is the first issue to go through the new steps.
+
+## 2026-11-11: Groom issue #75 (Build the UI foundations from DESIGN.md)
+
+- **Task:** groom #75, the product owner's draft from the design work, following `docs/pm.md`.
+- **What I did:**
+  - Rewrote #75 with the task template: 48 checkable criteria in groups (tokens, fonts, icons, shared components, navigation and app shell, restyled screens, a development-only preview page, phone and accessibility, tests). Out-of-scope items link to #27–#36, #43, #77 and #78.
+  - Filed two draft follow-ups, without a status label so they are groomed later: #77 "Add the three illustrations from DESIGN.md" and #78 "Record the built design tokens in DESIGN.md".
+- **Decisions taken under the standing rule:**
+  - Illustrations move to #77: two of their three places only exist after #29 and #31, and drawing all three together keeps one style. #75 builds the empty state's illustration slot only.
+  - `/impeccable document` moves to #78, because it asks the product owner whether to refresh, overwrite or merge `DESIGN.md`. #75 does not edit `DESIGN.md`.
+  - Fonts: `@fontsource-variable/bricolage-grotesque` (its `opsz.css`, the optical sizes the boards load) and `@fontsource-variable/figtree`, both 5.3.0, both SIL Open Font License 1.1.
+  - Icons: `lucide-react` 1.72.0, ISC licence (icons that come from Feather are MIT).
+  - A development-only preview page at `/dev/components`, so QA and the designer can check the components that have no screen yet. It is not in the production build.
+  - A shared information and error message component, because the login and registration screens already show both and `DESIGN.md` gives them icons.
+  - "New entry" in the sidebar opens a placeholder at `/entries/new` until #27.
+  - "White" in `DESIGN.md`'s component descriptions means the paper-white token (peach wash in dark mode); the action lift has one value for both modes; the entry row shows dates as "10 Nov", as on the approved boards; the favicon changes from blue to plum.
+- **Product owner decisions (2026-11-11):** two design questions that `DESIGN.md` does not answer went to the product owner through the orchestrator. Both answers are the recommended option:
+  - More and Log out: `DESIGN.md` names "More" in the phone header but not its contents, never mentions Log out, and the boards show neither. On the phone, More is a button that opens a menu with Summaries, Settings and Log out. The menu closes when an item is chosen, on Escape, or on a tap outside it. On the laptop, Log out stays at the bottom of the sidebar.
+  - Dark-mode focus glow, which `DESIGN.md` gives only for light mode: `0 0 0 3px rgba(231, 163, 207, 0.3)`. The plum border (#E7A3CF) stays the main focus signal.
+  - I replaced the "(pending Q1)" and "(pending Q2)" criteria in #75 with these decisions, recorded them under Constraints, and read the issue back: it matches, and its labels are unchanged.
+- **How I verified it:**
+  - Read the approved boards (phone capture and laptop review) on the design canvas: the fonts load Bricolage Grotesque with its `opsz` axis at 700 and 800 and Figtree at 400–700; the phone header's "More" and the sidebar have no Log out or menu shown; no board has a dark-mode focus glow.
+  - `npm view` and the package tarballs: both Fontsource packages are 5.3.0 and OFL-1.1 and include the licence; `lucide-react` 1.72.0 is ISC, supports React 19, and defaults to 24px, a 2px stroke and `currentColor`.
+  - With fontTools on the downloaded font files: both fonts have tabular figures (`tnum`), and each file carries its copyright and licence link in its metadata, which OFL 1.1 accepts when the fonts are served.
+  - Read the updated issue back from GitHub and checked it against the definition of done in `docs/pm.md`.
+- **Left open:**
+  - #77 and #78 are not in `docs/tasks.md`. The orchestrator settles their place with the product owner. My recommendation: #78 right after #75, and #77 after #31 and before #36.
+  - Found while grooming, for the re-grooming of #27–#35 against `DESIGN.md` (those issues still carry `groomed`):
+    - #31 groups review results by category (FR-R2 in `product-spec.md`), while `DESIGN.md` groups entries by month on the review screen. The spec and `DESIGN.md` disagree, so this needs the product owner.
+    - #29 shows dates as "2 Nov 2026" in an ungrouped list, while `DESIGN.md` uses month groups and a 64px date column ("10 Nov").
+    - #27 sends the user back to `/` with "Entry saved.", while `DESIGN.md` shows the saved message at the top of the capture screen with a "Just saved" list below.
+
+## 2026-11-11: Build the UI foundations from DESIGN.md (#75)
+
+- **Task:** implement #75 as the software engineer, following its 48 criteria, the design note (issue comment 6807801086) and `DESIGN.md`.
+- **What I did:**
+  - Tokens: every `DESIGN.md` colour (light and dark), the type scale, spacing scale, radii, borders, line length and both shadows are custom properties in `frontend/src/index.css`, named after `DESIGN.md` (`--color-plum`, `--color-peach-wash`, `--space-16`, `--radius-pill`, …). Dark mode follows `prefers-color-scheme` and switches live; the dark focus glow is the product owner's `rgba(231, 163, 207, 0.3)`. Hover fills are derived tokens. The old blue palette is gone and the favicon is plum.
+  - Fonts: self-hosted Bricolage Grotesque (`opsz.css`, headings and wordmark only, with optical sizing) and Figtree, with the `DESIGN.md` fallbacks and `font-display: swap`. Dates use tabular figures.
+  - Shared components in `frontend/src/components/`: `Button` and `ButtonLink` (primary, secondary, large, disabled, busy), `TextField` and `TextArea`, `CategoryChip` (with the filter variant), `CategoryLabel`, `SavedMessage` with `useSavedMessage` (5 seconds, restarts when shown again, fades in and out, no motion with reduced motion), `Message` (information and error), `EntryRow` with `formatShortDate`, `EmptyState`, `Wordmark` and `Icon` (lucide-react, 1.75px absolute stroke, hidden from screen readers).
+  - App shell: one `nav` named "Main", built for the width it is shown at (`useMediaQuery` with the same 48rem query as the CSS): on the phone a peach-wash header with Entries, Review and a More menu (Summaries, Settings, Log out; closes on choice, Escape with focus back on More, a tap outside, or More again); on the laptop a sticky, self-scrolling sidebar with icons, "New entry" and Log out at the bottom. The current section comes from exact path patterns, so nothing is current on "Page not found".
+  - New placeholder page at `/entries/new`. Login, registration, placeholders and "Page not found" restyled with the shared components; their behaviour and text are unchanged.
+  - Development-only preview page at `/dev/components` with every component in every state and the design note's sample text (German and Japanese included). The route is only added when `import.meta.env.DEV` is true, so the production build has neither the page nor its code.
+- **New dependencies:**
+  - `@fontsource-variable/bricolage-grotesque` and `@fontsource-variable/figtree` 5.3.0 (OFL 1.1): the two `DESIGN.md` fonts, self-hosted from the app's origin, as decided while grooming.
+  - `lucide-react` 1.72.0 (ISC): the one icon set, as decided while grooming.
+  - `@testing-library/user-event` 14.6.9 (dev only, MIT): realistic keyboard and pointer input in tests (Space and Enter on chips, Tab order, Escape and a tap outside the More menu), which `fireEvent` cannot simulate.
+- **How I verified it:**
+  - `npm run lint`, `npm test` (20 files, 378 tests) and `npm run build` pass in `frontend/`. The #26 login, registration, logout and route-protection tests pass with their behaviour checks unchanged; the logout tests now run at laptop width, where Log out is in the sidebar, and a phone test covers Log out from the More menu.
+  - New tests: each shared component; the More menu; current-page marking at both widths; Tab order; the date in a time zone behind UTC; the preview page and its absence from production routes; and `design.test.ts`, which checks every token value against `DESIGN.md`, that no CSS or TSX file outside `index.css` has a colour value, that the old palette is gone, and that nothing uses capitals or Google Fonts hosts.
+  - In Chrome (Playwright) with the dev server: no sideways scrolling at 360, 390 and 1280px in light and dark mode, including the open More menu, the preview page and 150% text (the header wraps onto a second line); every button, control and stand-alone link is at least 44px tall; only requests to the app's origin; both fonts load; with font files blocked the text shows in the fallback font; a focused field with an error shows the plum border and the focus glow; in a 360px-tall laptop window the sidebar scrolls so Log out stays reachable.
+  - `npm run build` with `vite preview`: `/dev/components` shows "Page not found", and `dist/` mentions neither Google Fonts host nor the preview page.
+- **Left open:**
+  - The illustrations (#77) and recording the tokens in `DESIGN.md` (#78).
+  - The designer's review of the built screens against the design note, after QA.
+
+## 2026-11-12: Fix the QA FAIL on #75 (old palette in a test file)
+
+- **Task:** fix the one failing criterion from QA (issue comment 6808401013). QA's grep for the old blue colours matched `frontend/src/design.test.ts`, the test file that checks those colours are gone.
+- **What I did:** the test now holds the old colours without their leading `#` and adds the `#` when it runs, so no file in `frontend/src` contains them. The check itself is stricter than before: no file may contain an old colour at all, where the old version allowed the test file's own mentions.
+- **How I verified it:**
+  - QA's command `grep -rn -i -e '#1f5f8b' -e '#8cc4ec' -e '#e3eef6' frontend/src frontend/public frontend/index.html` finds nothing.
+  - I added a stylesheet containing `#1F5F8B` for one run: the palette test failed. Then I removed it.
+  - `npm run lint`, `npm test` (20 files, 378 tests) and `npm run build` pass.
+- **Left open:** QA's two notes outside the criteria, no tokens for label and body font weights and no tabular figures on the date input, are not changed.
+
+## 2026-11-12: Orchestrator: closed #75 (task 26, UI foundations) and renumbered the backlog
+
+- **Lifecycle:** groomed (two product owner decisions: the phone's More menu and the dark-mode focus glow), design note posted, implemented, QA FAIL once (old palette colours in `frontend/src/design.test.ts`), fixed in 03c0f79, QA PASS (https://github.com/KittyNiuNiu/winlog/issues/75#issuecomment-6817256934), design review PASS (https://github.com/KittyNiuNiu/winlog/issues/75#issuecomment-6817356808). Closed #75 as completed; its last status label `qa-passed` stays.
+- **Where each open point went:**
+  - Illustrations (engineer): #77, created for it while grooming.
+  - Recording the built tokens in `DESIGN.md` (engineer): #78, created for it while grooming.
+  - No weight tokens for the label and body styles (QA): comment on #78.
+  - Date input without tabular figures (QA) and the native browser date format (designer): comment on #27.
+  - Phone entry row not compared with the phone board, because the designer could not open the boards (designer): comment on #29.
+  - Conflicts found while grooming #75 (PM): after-save behaviour on #27, dates and month groups on #29, category vs. month grouping (FR-R2 vs. `DESIGN.md`) on #31, which needs a product owner decision when #31 is re-groomed. Posted as comments on those issues.
+  - Dark-mode action lift barely visible (designer): new draft issue #79, as the product owner chose.
+  - Old colours kept as bare hex digits in `frontend/src/design.test.ts` (QA): left in this log, as the product owner chose.
+- **Backlog (product owner, 2026-11-12):** #79 is task 27 and #78 task 28 (so #78 records the final tokens), and #77 is task 34, after #31. `docs/tasks.md` and the titles of all 21 open issues from task 27 on are renumbered to match.
+- **Re-grooming (product owner, 2026-11-12):** removed `groomed` from #27–#35 and #43, so the PM re-grooms each against `DESIGN.md` before the design note.
+- **Left open:** some issue bodies still name their old task number. They get corrected when each issue is groomed or re-groomed.
