@@ -1,15 +1,145 @@
 ---
 name: Winlog
-description: A personal success diary, warm but focused, in plum and peach.
+description: "A personal success diary, warm but focused, in plum and peach."
+colors:
+  plum: "#7a2e68"
+  plum-dark: "#e7a3cf"
+  on-plum: "#ffffff"
+  on-plum-dark: "#2a0f23"
+  peach: "#f9d9cb"
+  peach-dark: "#3e2433"
+  on-peach: "#5e2150"
+  on-peach-dark: "#f6c2a9"
+  saved-peach: "#fce3d6"
+  saved-peach-dark: "#3a2330"
+  on-saved-peach: "#5e2150"
+  on-saved-peach-dark: "#f6c2a9"
+  achievement-background: "#fbe0cf"
+  achievement-background-dark: "#3d2618"
+  achievement-text: "#7a3412"
+  achievement-text-dark: "#f4be9a"
+  achievement-dot: "#c76a3a"
+  learning-background: "#e8e0f6"
+  learning-background-dark: "#2d2542"
+  learning-text: "#4b3684"
+  learning-text-dark: "#cdbef0"
+  learning-dot: "#7b66b8"
+  feedback-background: "#f8dce2"
+  feedback-background-dark: "#3f1e29"
+  feedback-text: "#8a2440"
+  feedback-text-dark: "#f2afc0"
+  feedback-dot: "#c25570"
+  side-project-background: "#ddede0"
+  side-project-background-dark: "#1e3326"
+  side-project-text: "#2e5a3a"
+  side-project-text-dark: "#a9d7b3"
+  side-project-dot: "#5e9468"
+  blush-white: "#fffaf7"
+  blush-white-dark: "#1a1519"
+  peach-wash: "#fff1ea"
+  peach-wash-dark: "#241d23"
+  paper-white: "#ffffff"
+  paper-white-dark: "#241d23"
+  aubergine-ink: "#2a1f2a"
+  aubergine-ink-dark: "#f3e9ee"
+  muted-plum-grey: "#6a5966"
+  muted-plum-grey-dark: "#b9a8b3"
+  hairline: "#f0dcd2"
+  hairline-dark: "#3a2f38"
+  field-border: "#e8d3c9"
+  field-border-dark: "#3a2f38"
+  error: "#a8253b"
+  error-dark: "#f4a3b0"
+  plum-hover: "color-mix(in srgb, #7a2e68 88%, black)"
+  plum-hover-dark: "color-mix(in srgb, #e7a3cf 88%, black)"
+  secondary-hover: "#fff1ea"
+  secondary-hover-dark: "#1a1519"
+typography:
+  display:
+    fontFamily: "'Bricolage Grotesque Variable', 'Figtree Variable', system-ui, sans-serif"
+    fontSize: 2.5rem
+    fontWeight: 700
+    lineHeight: 1.05
+    letterSpacing: -0.03em
+  headline:
+    fontFamily: "'Bricolage Grotesque Variable', 'Figtree Variable', system-ui, sans-serif"
+    fontSize: 2rem
+    fontWeight: 700
+    lineHeight: 1.1
+    letterSpacing: -0.03em
+  headline-panel:
+    fontFamily: "'Bricolage Grotesque Variable', 'Figtree Variable', system-ui, sans-serif"
+    fontSize: 1.625rem
+    fontWeight: 700
+    lineHeight: 1.1
+    letterSpacing: -0.03em
+  title:
+    fontFamily: "'Bricolage Grotesque Variable', 'Figtree Variable', system-ui, sans-serif"
+    fontSize: 1.25rem
+    fontWeight: 700
+    lineHeight: 1.2
+  body:
+    fontFamily: "'Figtree Variable', system-ui, sans-serif"
+    fontSize: 1rem
+    lineHeight: 1.5
+  body-small:
+    fontFamily: "'Figtree Variable', system-ui, sans-serif"
+    fontSize: 0.9375rem
+    lineHeight: 1.5
+  label:
+    fontFamily: "'Figtree Variable', system-ui, sans-serif"
+    fontSize: 0.9375rem
+  label-small:
+    fontFamily: "'Figtree Variable', system-ui, sans-serif"
+    fontSize: 0.8125rem
+  button:
+    fontFamily: "'Figtree Variable', system-ui, sans-serif"
+    fontSize: 1rem
+  button-large:
+    fontFamily: "'Figtree Variable', system-ui, sans-serif"
+    fontSize: 1.0625rem
+  wordmark:
+    fontFamily: "'Bricolage Grotesque Variable', 'Figtree Variable', system-ui, sans-serif"
+    fontSize: 1.5rem
+    fontWeight: 800
+    letterSpacing: -0.03em
+  wordmark-laptop:
+    fontFamily: "'Bricolage Grotesque Variable', 'Figtree Variable', system-ui, sans-serif"
+    fontSize: 1.875rem
+    fontWeight: 800
+    letterSpacing: -0.03em
+rounded:
+  pill: 22px
+  button: 14px
+  button-large: 16px
+  field: 14px
+  panel: 14px
+  label: 10px
+  message: 12px
+  dialog: 18px
+spacing:
+  space-4: 4px
+  space-8: 8px
+  space-12: 12px
+  space-16: 16px
+  space-20: 20px
+  space-24: 24px
+  space-32: 32px
+  space-40: 40px
+  space-48: 48px
+  measure: 68ch
+  content-max: 64rem
+  sidebar-width: 232px
+  tap-target: 44px
+  control-height: 48px
+  control-height-large: 54px
 ---
-
-<!-- SEED: established with the user before implementation; re-run /impeccable document once there's code to capture the actual tokens and components. -->
 
 # Design System: Winlog
 
 This is the visual design system for Winlog, chosen by the product owner on 11 November 2026 ("Plum & Peach v2"). Product facts live in `PRODUCT.md` and `docs/product-spec.md`. The approved mock-ups are the "Plum & Peach v2" boards (phone capture and laptop review) on the design canvas: https://claude.ai/artifact/4ivGiFFqkHwBBjDfm76ZBg
 
-The values below were chosen and contrast-checked during that work. The UI foundations task turns them into CSS custom properties in `frontend/src/index.css`; after that, `/impeccable document` records them from the code into this file's frontmatter.
+The values below were chosen and contrast-checked during that work. They are built as CSS custom properties in `frontend/src/index.css`, and the frontmatter at the top of this file lists them with the same values.
 
 ## Overview
 
@@ -71,7 +201,7 @@ All text and background pairs above meet a contrast of at least 4.5:1 (checked o
 **Display Font:** Bricolage Grotesque (with Figtree, system-ui, sans-serif)
 **Body Font:** Figtree (with system-ui, sans-serif)
 
-**Character:** Bricolage Grotesque has a hand-made warmth and slightly irregular details, so the name and headings feel personal. Figtree is plain and friendly, so entries and forms read without effort. Both are on Google Fonts and are self-hosted from the project. The UI foundations task confirms their licence.
+**Character:** Bricolage Grotesque has a hand-made warmth and slightly irregular details, so the name and headings feel personal. Figtree is plain and friendly, so entries and forms read without effort. Both are on Google Fonts and are self-hosted from the project. Both are under the SIL Open Font License 1.1; the self-hosted packages are `@fontsource-variable/bricolage-grotesque` and `@fontsource-variable/figtree`.
 
 ### Hierarchy
 - **Display** (Bricolage Grotesque 700, 40px, line-height 1.05, letter-spacing -0.03em): page titles on laptop ("Review").
@@ -103,8 +233,8 @@ Mobile first, from 360px wide.
 Mostly flat. Depth comes from tonal layers (blush-white ground, peach-wash surfaces, white fields) and hairlines, not shadows.
 
 ### Shadow Vocabulary
-- **Action lift** (`box-shadow: 0 4px 12px rgba(122, 46, 104, 0.25)`): only under the primary plum button.
-- **Focus glow** (`box-shadow: 0 0 0 3px #F6DDEB` in light mode, plus a plum border): the focused text field.
+- **Action lift** (`box-shadow: 0 4px 12px rgba(122, 46, 104, 0.25)` in light mode, `0 4px 12px rgba(231, 163, 207, 0.25)` in dark mode): only under the primary plum button.
+- **Focus glow** (`box-shadow: 0 0 0 3px #F6DDEB` in light mode, `0 0 0 3px rgba(231, 163, 207, 0.3)` in dark mode, plus a plum border): the focused text field.
 
 ### Named Rules
 **The Flat Rows Rule.** Entry rows and panels have no shadows. Only the main action is lifted.
@@ -155,7 +285,7 @@ Date (tabular, bold) | category label | entry text, with "Result: …" below in 
 White panel (Peach wash in dark mode) with the title "Summary", one line saying which entries it was drafted from, the editable summary text, then Save summary and Draft again. It always says it is a draft the user can edit. Limits are stated calmly, for example "You can draft 1 more summary today."
 
 ### Icons
-One consistent outline icon set at 1.5–2px stroke, 16–24px, in the current text colour. The UI foundations task picks the library and checks its licence. Icons appear only where they help:
+One consistent outline icon set at 1.5–2px stroke, 16–24px, in the current text colour. The icons are Lucide (`lucide-react`), under the ISC licence; the icons that come from Feather are under the MIT licence. Icons appear only where they help:
 - next to navigation items on the laptop sidebar;
 - the check in the saved message and in selected filter chips;
 - small actions on entries and summaries: edit, delete, copy, download;
