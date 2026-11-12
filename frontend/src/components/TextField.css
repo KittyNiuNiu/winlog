@@ -44,6 +44,11 @@
   border-radius: var(--radius-field);
 }
 
+.field__input[type='date'] {
+  /* Dates use tabular figures (DESIGN.md → Typography). */
+  font-variant-numeric: tabular-nums;
+}
+
 .field__input--area {
   min-height: 120px;
   resize: vertical;

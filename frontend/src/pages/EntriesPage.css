@@ -1,0 +1,6 @@
+/* "Entry saved." after saving an edit: 20px above the page title, as on the capture
+   screen. It takes no space when hidden. */
+
+.page > .saved-region:not(:empty) {
+  margin-bottom: var(--space-20);
+}
