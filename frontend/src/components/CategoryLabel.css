@@ -1,0 +1,10 @@
+.category-label {
+  display: inline-block;
+  padding: var(--space-4) var(--space-8);
+  font-size: var(--text-label-small-size);
+  font-weight: 700;
+  line-height: 18px;
+  color: var(--category-text);
+  background: var(--category-background);
+  border-radius: var(--radius-label);
+}

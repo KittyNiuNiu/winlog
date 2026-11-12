@@ -1,0 +1,60 @@
+/* The saved message: the app's one authored motion. It fades in over 200ms while moving
+   4px down into place, and fades out during its last 300ms. With reduced motion it
+   appears and disappears at once. */
+
+.saved-region:empty {
+  display: none;
+}
+
+.saved-message {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-12) var(--space-16);
+  font-size: var(--text-body-size);
+  font-weight: 600;
+  line-height: var(--text-body-line-height);
+  color: var(--color-on-saved-peach);
+  background: var(--color-saved-peach);
+  border-radius: var(--radius-message);
+  overflow-wrap: anywhere;
+  animation: saved-message-in 200ms ease-out;
+}
+
+.saved-message__icon {
+  flex: 0 0 auto;
+  color: var(--color-plum);
+}
+
+.saved-region--leaving {
+  animation: saved-message-out 300ms ease-in forwards;
+}
+
+@keyframes saved-message-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes saved-message-out {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .saved-message,
+  .saved-region--leaving {
+    animation: none;
+  }
+}

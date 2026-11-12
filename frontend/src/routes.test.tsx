@@ -1,10 +1,15 @@
-import { act, fireEvent, screen, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, within } from '@testing-library/react'
+import { createMemoryRouter } from 'react-router'
+import { RouterProvider } from 'react-router/dom'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { DEV_PREVIEW_PATH, createRoutes } from './routes.tsx'
 import { renderRoute } from './test/renderRoute.tsx'
 import { removeTestSession, storeTestSession } from './test/session.ts'
+import { setViewport } from './test/viewport.ts'
 
 const SHELL_PAGES = [
   ['/', 'Entries'],
+  ['/entries/new', 'New entry'],
   ['/review', 'Review'],
   ['/summaries', 'Summaries'],
   ['/summaries/42', 'Summary'],
@@ -51,6 +56,7 @@ describe('routes, logged in', () => {
   )
 
   it('navigates on the client when a navigation link is clicked', async () => {
+    setViewport('laptop')
     const { router } = renderRoute('/')
     const nav = screen.getByRole('navigation', { name: 'Main' })
 
@@ -87,5 +93,33 @@ describe('routes, logged out', () => {
     for (const name of ['Entries', 'Review', 'Summaries', 'Settings']) {
       expect(screen.queryByRole('link', { name })).toBeNull()
     }
+  })
+})
+
+describe('the development-only component preview', () => {
+  afterEach(() => {
+    removeTestSession()
+  })
+
+  it.each([
+    ['logged out', false],
+    ['logged in', true],
+  ])('opens with npm run dev (%s), without the app shell', async (_case, loggedIn) => {
+    if (loggedIn) {
+      storeTestSession()
+    }
+    const { router } = renderRoute(DEV_PREVIEW_PATH)
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Component preview' })).toBeTruthy()
+    expect(router.state.location.pathname).toBe(DEV_PREVIEW_PATH)
+    expect(screen.queryByRole('navigation', { name: 'Main' })).toBeNull()
+  })
+
+  it('is "Page not found" in the production build, which has no development routes', () => {
+    const router = createMemoryRouter(createRoutes([]), { initialEntries: [DEV_PREVIEW_PATH] })
+    render(<RouterProvider router={router} />)
+
+    expect(screen.getByRole('heading', { level: 1, name: 'Page not found' })).toBeTruthy()
+    expect(screen.queryByRole('heading', { name: 'Component preview' })).toBeNull()
   })
 })

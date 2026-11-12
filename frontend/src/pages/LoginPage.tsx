@@ -1,7 +1,7 @@
 import { useRef, useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { InvalidCredentialsError, ValidationError, login } from '../api/index.ts'
-import { EmailField, FormAlert, PasswordField, SubmitButton } from '../auth/AuthFields.tsx'
+import { EmailField, FormAlert, FormNotice, PasswordField, SubmitButton } from '../auth/AuthFields.tsx'
 import {
   ACCOUNT_CREATED_MESSAGE,
   WRONG_CREDENTIALS_MESSAGE,
@@ -96,11 +96,7 @@ export default function LoginPage() {
   return (
     <section className="auth-page">
       <h1>Log in</h1>
-      {showAccountCreated && (
-        <p className="form__notice" role="status">
-          {ACCOUNT_CREATED_MESSAGE}
-        </p>
-      )}
+      <FormNotice message={showAccountCreated ? ACCOUNT_CREATED_MESSAGE : null} />
       <FormAlert message={formError} />
       <form className="form" noValidate onSubmit={(event) => void handleSubmit(event)}>
         <EmailField
