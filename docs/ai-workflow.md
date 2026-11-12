@@ -1553,3 +1553,10 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Left open:**
   - Q1, above.
   - For the re-grooming of #28: suggested tags must open "Add tags and result" (or otherwise be visible) when they are added while it is closed.
+
+## 2026-11-12: Product owner answer for #27 (Q1, "Just saved")
+
+- **Product owner decision (2026-11-12):** option A, "Saved this visit". The "Just saved" list on the capture screen shows the entries saved on that screen since it was opened, newest first, as entry rows. It is kept in the page only, with no extra request, and empties when the user leaves or reloads. It was the recommended option.
+- **What I did:** replaced the "(pending Q1)" criterion in #27 with the final wording and replaced the pending note under Constraints with the product owner's decision. Leaving the look of tag chips and the tag list to the design note is confirmed by the orchestrator; the designer raises it if `DESIGN.md` does not answer it.
+- **How I verified it:** read the issue back from GitHub: the body matches, nothing is pending, and its labels are unchanged (none).
+- **Left open:** the note for the re-grooming of #28 (suggested tags must be visible when "Add tags and result" is closed).
