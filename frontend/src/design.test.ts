@@ -98,9 +98,10 @@ describe('design tokens in index.css', () => {
     }
   })
 
-  it('has the two shadows, with the dark-mode focus glow from the product owner', () => {
+  it('has the two shadows, with the dark-mode values from the product owner', () => {
     expect(light.get('--shadow-action-lift')).toBe('0 4px 12px rgba(122, 46, 104, 0.25)')
-    expect(darkOverrides.has('--shadow-action-lift')).toBe(false)
+    // Product owner, 2026-11-12 (#79): the dark-mode plum at 25%, same offset and blur.
+    expect(dark.get('--shadow-action-lift')).toBe('0 4px 12px rgba(231, 163, 207, 0.25)')
     expect(light.get('--shadow-focus-glow')).toBe('0 0 0 3px #f6ddeb')
     expect(dark.get('--shadow-focus-glow')).toBe('0 0 0 3px rgba(231, 163, 207, 0.3)')
   })
@@ -186,6 +187,49 @@ describe('colours come from tokens', () => {
 
   it('the favicon is plum', () => {
     expect(favicon).toContain('fill="#7A2E68"')
+  })
+})
+
+describe('the action lift is only on the primary button (#79)', () => {
+  /** Every rule in a stylesheet as [selector, declarations], comments removed. */
+  function rules(source: string): [string, string][] {
+    return [...withoutComments(source).matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((match) => [
+      match[1].trim(),
+      match[2],
+    ])
+  }
+
+  const stylesheets = Object.entries(sources).filter(([path]) => path.endsWith('.css') && path !== './index.css')
+
+  it('only the primary button rules in Button.css use the action lift', () => {
+    const users: string[] = []
+    for (const [path, source] of stylesheets) {
+      for (const [selector, body] of rules(source)) {
+        if (body.includes('var(--shadow-action-lift)')) {
+          users.push(`${path} ${selector}`)
+        }
+      }
+    }
+    expect(users).toEqual([
+      './components/Button.css .button--primary',
+      "./components/Button.css .button--primary[aria-busy='true']",
+    ])
+  })
+
+  it('the disabled button has no shadow, and no other rule sets a shadow but the field focus glow', () => {
+    const shadows: string[] = []
+    for (const [path, source] of stylesheets) {
+      for (const [selector, body] of rules(source)) {
+        const value = /box-shadow\s*:\s*([^;]+);/.exec(body)?.[1].trim()
+        if (value !== undefined && value !== 'var(--shadow-action-lift)') {
+          shadows.push(`${path} ${selector}: ${value}`)
+        }
+      }
+    }
+    expect(shadows).toEqual([
+      './components/Button.css .button:disabled: none',
+      './components/TextField.css .field__input:focus,\n.field__input:focus-visible: var(--shadow-focus-glow)',
+    ])
   })
 })
 
