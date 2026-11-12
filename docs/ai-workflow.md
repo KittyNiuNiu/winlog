@@ -1425,3 +1425,19 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - I added a stylesheet containing `#1F5F8B` for one run: the palette test failed. Then I removed it.
   - `npm run lint`, `npm test` (20 files, 378 tests) and `npm run build` pass.
 - **Left open:** QA's two notes outside the criteria, no tokens for label and body font weights and no tabular figures on the date input, are not changed.
+
+## 2026-11-12: Orchestrator: closed #75 (task 26, UI foundations) and renumbered the backlog
+
+- **Lifecycle:** groomed (two product owner decisions: the phone's More menu and the dark-mode focus glow), design note posted, implemented, QA FAIL once (old palette colours in `frontend/src/design.test.ts`), fixed in 03c0f79, QA PASS (https://github.com/KittyNiuNiu/winlog/issues/75#issuecomment-6817256934), design review PASS (https://github.com/KittyNiuNiu/winlog/issues/75#issuecomment-6817356808). Closed #75 as completed; its last status label `qa-passed` stays.
+- **Where each open point went:**
+  - Illustrations (engineer): #77, created for it while grooming.
+  - Recording the built tokens in `DESIGN.md` (engineer): #78, created for it while grooming.
+  - No weight tokens for the label and body styles (QA): comment on #78.
+  - Date input without tabular figures (QA) and the native browser date format (designer): comment on #27.
+  - Phone entry row not compared with the phone board, because the designer could not open the boards (designer): comment on #29.
+  - Conflicts found while grooming #75 (PM): after-save behaviour on #27, dates and month groups on #29, category vs. month grouping (FR-R2 vs. `DESIGN.md`) on #31, which needs a product owner decision when #31 is re-groomed. Posted as comments on those issues.
+  - Dark-mode action lift barely visible (designer): new draft issue #79, as the product owner chose.
+  - Old colours kept as bare hex digits in `frontend/src/design.test.ts` (QA): left in this log, as the product owner chose.
+- **Backlog (product owner, 2026-11-12):** #79 is task 27 and #78 task 28 (so #78 records the final tokens), and #77 is task 34, after #31. `docs/tasks.md` and the titles of all 21 open issues from task 27 on are renumbered to match.
+- **Re-grooming (product owner, 2026-11-12):** removed `groomed` from #27–#35 and #43, so the PM re-grooms each against `DESIGN.md` before the design note.
+- **Left open:** some issue bodies still name their old task number. They get corrected when each issue is groomed or re-groomed.
