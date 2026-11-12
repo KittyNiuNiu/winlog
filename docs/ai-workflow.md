@@ -1652,3 +1652,22 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Tapping another chip while the category is marked "Suggested" shows no hint; a `user_summaries` limit error shows the general "aren't available right now" notice (engineer): accepted, left in this log, at the product owner's choice.
   - "Suggested" in sentence case on screen for both chip kinds, "<tag>, suggested" for screen readers (designer): settled in the design note; no action.
   - Focus drops to the page body while saving (QA): already covered by #84.
+
+## 2026-11-12: Re-groom issue #29 (Build the entries page with edit and delete) against DESIGN.md
+
+- **Task:** re-groom #29 (task 31) following `docs/pm.md`, against `DESIGN.md`, `PRODUCT.md`, `product-spec.md` v0.2, `openapi.yaml` (`GET /entries`, `DELETE /entries/{entryId}`) and the code from #75, #27 and #28, with the open points from #75 (issue comment 6817371534) and #27 (issue comment 6834596168) as inputs.
+- **What I did:** rewrote #29 with the task template: checkable criteria in groups (the page, the list, edit and delete, messages at the top, empty/loading/error states, shared component and preview, tests). Out of scope links to #30, #31, #77, #83, #84 and #36. No new follow-up issue was needed. Commented on #83 that read-only tags on rows, the row's Edit and Delete actions and the delete dialog are patterns to record there (an input, not a requirement): https://github.com/KittyNiuNiu/winlog/issues/83#issuecomment-6836039333
+- **Decisions taken under the standing rule:**
+  - Entries are grouped by month ("November 2026", Title style, `h2`), rows show "10 Nov" in the fixed date column (`DESIGN.md` → Layout: Lists). Replaces the ungrouped list with "2 Nov 2026" from 2026-11-01. Headings come from the date text, in English, with no time-zone shift.
+  - Tags stay on the row (2026-11-01), below the text, read-only, no tint and no plum; the design note derives their look, #83 records it.
+  - "Entry deleted." uses the saved message (`DESIGN.md`: saved peach for success messages); "This entry was already deleted." is an information message; both sit where "Entry saved." sits, in the list's column, one at a time; the page does not scroll.
+  - The delete dialog follows #27's "Discard changes?" dialog: two secondary buttons ("Cancel", "Delete entry"), focus on "Cancel", Escape cancels; locked while the request runs; other errors stay in the dialog with the shared texts and can be retried.
+  - Edit is a link, Delete a button; accessible names "Edit entry from 10 Nov 2026" / "Delete entry from 10 Nov 2026". After a delete, focus moves to the next row's Edit (or the previous row's, or the empty state's button).
+  - The empty state's button is "New entry". `EntryRow` gains only optional props, so #27's "Just saved" is unchanged. The preview page shows the new row variants.
+- **Question for the product owner (Q1, through the orchestrator):** where "New entry" goes on the phone. `DESIGN.md` gives the laptop sidebar one, always within reach, but says nothing for the phone, whose header has only Entries, Review and More. Recommended: a full-width primary button under the page title on the phone, scrolling with the page, hidden in the empty state; no second button in the laptop content. Alternatives: a button fixed at the bottom of the phone screen; or a button next to the title at every width. The three affected criteria are marked "(pending Q1)" with the recommended option.
+- **How I verified it:**
+  - Read `DESIGN.md`, `PRODUCT.md`, the spec (FR-E4, FR-A3, §7.2, §9, §12), `openapi.yaml` (list: not paginated, sort order; delete: 204, 404, 422), and the code in `frontend/src/` (`pages/EntriesPage.tsx`, `pages/EditEntryPage.tsx`, `components/EntryRow.tsx`, `formatDate.ts`, `SavedMessage`, `Message`, `EmptyState`, `entries/DiscardDialog.tsx`, `entrySavedNotice.ts`, `AppShell.tsx`, `api/operations.ts`).
+  - Read #27's and #28's final criteria, #75's criteria, and #30, #31, #77, #83 and #84, so nothing they cover is pulled in.
+  - The approved "Plum & Peach v2" boards could not be opened from this session (artifact not found), so the criteria rest on `DESIGN.md` only.
+  - Read the updated issue back from GitHub: the body matches what I sent, and its labels are unchanged (none).
+- **Left open:** Q1, above.
