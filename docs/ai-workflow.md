@@ -1505,3 +1505,19 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Read the updated issue back from GitHub: the body matches, and it still has no labels.
 - **Left open:**
   - The design.md linter (`@google/design.md` 0.4.0 on npm) could not be run in this session. The criteria do not depend on it.
+
+## 2026-11-12: Implement issue #78 (Record the built design tokens in DESIGN.md)
+
+- **Task:** build #78 (task 28) as the software engineer, following `docs/software-engineer.md`. No screen changes, so no design note.
+- **What I did:**
+  - `DESIGN.md`: added the YAML frontmatter by hand from `frontend/src/index.css` (product owner, 2026-11-12: no Impeccable), using the mapping and table in the issue: 52 colours (28 light, 24 `-dark`; the four category dots have no `-dark`), 12 typography roles, 8 radii and 15 spacing values. The `var()` values are written out; `color-mix()` stays as `color-mix()`. Quoted every hex value, both font stacks and `description` (it contains a comma; the text is unchanged).
+  - Made the six prose changes: removed the SEED comment and the blank line after it; rewrote the intro sentence (the suggested wording); named the font licence (SIL OFL 1.1) and the two Fontsource packages; named Lucide (`lucide-react`, ISC; Feather-derived icons MIT); added the dark-mode values of the Action lift and the Focus glow.
+- **How I verified it:**
+  - A Python script in the scratchpad (PyYAML, not committed) parsed the frontmatter and compared every key and value with `index.css` (78 light and 25 dark custom properties), checked the top-level keys, the quoting rule, and that no value contains `var(` or `{`.
+  - `git diff DESIGN.md` shows only the frontmatter and the six prose changes; headings and their order are unchanged.
+  - Licences checked in `frontend/node_modules`: Fontsource 5.3.0 OFL-1.1 (both), `lucide-react` 1.72.0 ISC with the Feather icons under MIT.
+  - Frontend `npm run lint`, `npm test` (20 files, 380 tests) and `npm run build` pass. Backend `ruff check`, unit tests (823) and integration tests (882, PostgreSQL in Docker, started with `docker compose --env-file .env.example up -d db`) pass.
+  - Issue comment: https://github.com/KittyNiuNiu/winlog/issues/78#issuecomment-6829496435
+- **Left open:**
+  - The design.md linter (`@google/design.md`) was not run; the criteria do not depend on it.
+  - The closing `---` is followed by one blank line, then `# Design System: Winlog` (the blank line that was there before the SEED comment stays).
