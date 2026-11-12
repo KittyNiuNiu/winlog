@@ -1521,3 +1521,13 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Left open:**
   - The design.md linter (`@google/design.md`) was not run; the criteria do not depend on it.
   - The closing `---` is followed by one blank line, then `# Design System: Winlog` (the blank line that was there before the SEED comment stays).
+
+## 2026-11-12: Orchestrator: closed #78 (task 28, record the built design tokens in DESIGN.md)
+
+- **Lifecycle:** groomed, then implemented in 3f4b1df (https://github.com/KittyNiuNiu/winlog/issues/78#issuecomment-6829496435), QA PASS on the first run, all 23 criteria (https://github.com/KittyNiuNiu/winlog/issues/78#issuecomment-6829624882). No screen change, so no design note or design review. Closed #78 as completed; its last status label `implemented` stays.
+- **Product owner decision (2026-11-12):** Impeccable is not used for #78. The product owner chose the design ("Plum & Peach v2"), and Impeccable is not the design authority. The values were copied by hand from `frontend/src/index.css` and checked against the criteria. This replaced the PM's first standing-rule answer ("merge" in `/impeccable document`).
+- **Decisions under the standing rule (PM):** no weight tokens for the label and body styles (the #75 QA note); dark-mode colours as sibling keys with the suffix `-dark`; no `components` group and no `.impeccable/design.json` sidecar; only custom properties are recorded.
+- **Where each open point went:**
+  - Quoted `description` line and the blank line after the frontmatter (engineer): QA judged both against the criteria and passed them. Nothing left open.
+  - Left in this log, as the product owner chose: the DESIGN.md format linter (`@google/design.md`) was not run. QA's own script compared every frontmatter value with `index.css`.
+  - The test database needs `--env-file .env.example` and an inline `TEST_DATABASE_URL`, because the checkout has no `.env` (QA): left in this log, as with #79.
