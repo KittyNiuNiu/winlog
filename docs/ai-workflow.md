@@ -1745,3 +1745,17 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - `docker compose up --build` fails in the cloud session because pip in the image cannot verify TLS through the agent proxy; QA and the designer ran PostgreSQL in Docker and the backend with `uv` instead (QA): left in this log as an environment limit, not a code defect.
   - `GET /entries` fires twice in the dev server under React StrictMode, once in the production build (QA): left in this log; expected React behaviour.
   - The "Plum & Peach v2" boards still could not be opened from the session (designer): left in this log.
+
+## 2026-11-12: Re-groom issue #30 (Add the writing nudge banner) against DESIGN.md
+
+- **Task:** re-groom #30 (task 32) following `docs/pm.md`. Its body dated from 2026-11-01, before `DESIGN.md` and the entries page from #29 (closed, 5f9e7e5). Checked against `DESIGN.md`, `PRODUCT.md`, `product-spec.md` v0.2 (FR-N1, §7.5), `openapi.yaml` (`GET /entries`, not paginated) and `frontend/src/` (`pages/EntriesPage.tsx`, its message slot, the phone "New entry", `EmptyState`, `Message`, `AppShell`, `entries/localDate.ts`, `vite.config.ts` test time zone).
+- **What I did:** rewrote #30 with the task template. Criteria are grouped: when it shows (calendar-day range in the browser's time zone, boundaries at 6 and 7 days, future dates, DST, only on `/`), what it looks like and says, when it hides (loading, error, after save, edit and delete, no midnight timer), how it works (frontend only, no API change) and tests. Out of scope links to #83 and #36. No new follow-up issue was needed. Commented on #83 that a banner pattern may need recording there (an input, not a requirement): https://github.com/KittyNiuNiu/winlog/issues/83#issuecomment-6837039727
+- **Decisions taken under the standing rule (2026-11-12), recorded in the issue:**
+  - The banner text from 2026-11-01 ("You haven't written anything in the last 7 days. …") is replaced: it is a "you missed a day" message, which `DESIGN.md` and `PRODUCT.md` rule out. The criteria limit what the text may say (an invitation, no gaps, counts or reproach, works for a new user); the design note sets it.
+  - The banner has no button or link (the old "Write an entry" button would be a second filled plum element on the phone, against the One Action Rule). The page's existing "New entry" stays the way to write. Still no close button.
+  - The banner also shows for a new user, next to the unchanged empty state (FR-N1 read literally; no special case).
+  - The banner is separate from the message slot from #29 and can show alongside "Entry saved." and the other messages.
+  - No timer at midnight: the banner is worked out on each render.
+  - Kept from 2026-11-01: the check runs in the frontend on the loaded list; "the last 7 days" are today and the 6 days before, in the user's time zone; future dates do not count.
+- **How I verified it:** checked the issue against the definition of done in `docs/pm.md` (four sections, checkable criteria, every out-of-scope line links an issue). Read #30 back from GitHub: the body matches what I sent (plus the automatic footer), the title is unchanged and it still has no labels. #30 had no comments; #29's comments hold no open point for #30.
+- **Left open:** nothing for #30. The designer's note sets the banner's text, placement and component.
