@@ -1733,3 +1733,15 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Left open (in addition to the entry above):**
   - While "Delete entry" is busy, the shared `Button` is disabled, so `document.activeElement` is the page body (inside the open modal) until the request ends. Then focus moves as the criteria ask. This is the same busy-button pattern #84 covers for the entry form.
   - Deleting the very last row at the bottom of a long page shortens the page, so the browser clamps the scroll position. This is browser behaviour, not the band.
+
+## 2026-11-12: Orchestrator: closed #29 (task 31, entries page with edit and delete)
+
+- **Outcome:** the code from 5f9e7e5 was re-verified by a new engineer session (issue comment 6836600612; first session's comment 6836556639), QA PASS (issue comment 6836831932), design review PASS (issue comment 6836973070). Closed as completed; the last status label `qa-passed` stays. No real AI calls: every run used `AI_PROVIDER=mock`.
+- **Decisions under the 2026-11-12 standing rule:** none new in this run. Where to record the open points follows the roles' framing (below).
+- **Where each open point went:**
+  - Focus on the page body while "Delete entry" is busy (engineer, QA, designer), and after "Try again" fails a second time (designer): comment on #84 (6836983682).
+  - Laptop entry rows at least about 111px tall because Edit and Delete sit under the label (designer): comment on #83 (6836984546).
+  - Deleting the last row at the bottom of a long page shifts the rows above (browser scroll behaviour), scroll stability not checked in Firefox, no focus ring on Edit after a mouse delete (normal browser behaviour) (engineer): left in this log; the roles call them browser behaviour, not defects.
+  - `docker compose up --build` fails in the cloud session because pip in the image cannot verify TLS through the agent proxy; QA and the designer ran PostgreSQL in Docker and the backend with `uv` instead (QA): left in this log as an environment limit, not a code defect.
+  - `GET /entries` fires twice in the dev server under React StrictMode, once in the production build (QA): left in this log; expected React behaviour.
+  - The "Plum & Peach v2" boards still could not be opened from the session (designer): left in this log.
