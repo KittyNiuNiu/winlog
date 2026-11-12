@@ -1536,7 +1536,7 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 
 - **Task:** re-groom #27 (task 29) following `docs/pm.md`, against `DESIGN.md`, `PRODUCT.md`, `product-spec.md` v0.2, `openapi.yaml` and the code from #75, with the three open points from #75 in issue comment 6817370557 as inputs.
 - **What I did:**
-  - Rewrote #27 with the task template: 58 checkable criteria in groups (pages and navigation, fields, saving, after saving a new entry, editing, leaving with unsaved changes, phone and laptop, tests). Out of scope links to #28, #29, #36 and #43, as before. No new follow-up issue was needed.
+  - Rewrote #27 with the task template: 47 checkable criteria in groups (pages and navigation, fields, saving, after saving a new entry, editing, leaving with unsaved changes, phone and laptop, tests). Out of scope links to #28, #29, #36 and #43, as before. No new follow-up issue was needed.
   - Updated the task number (29 of 47) and the dependencies (#75 added; #8, #9, #10, #25, #26 and #75 are closed).
 - **Decisions taken under the standing rule:**
   - After saving a new entry, the user stays on the capture screen, with "Entry saved." at the top, the form reset (date recomputed as today) and "Just saved" below, as `DESIGN.md` shows. This replaces "return to `/`" from 2026-11-01 (the #75 open point 3). After saving an edit, the user still returns to `/` with "Entry saved.", because `DESIGN.md` describes only the capture screen; `/` shows it above the placeholder until #29.
