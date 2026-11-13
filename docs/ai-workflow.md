@@ -2082,3 +2082,51 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - the order of the actions;
   - focus after a delete;
   - the exact wording.
+
+## 2026-11-13: Engineer: implement #33 (Build the saved summaries pages)
+
+- **Task:** implement #33 (task 36) against its acceptance criteria and the design note (6848949580), following `docs/software-engineer.md`.
+- **What I did:**
+  - `frontend/src/pages/SummariesPage.tsx` and `.css`: the summaries list.
+    - Each row is one link: a two-line date ("13 Nov" / "2026", local day of `created_at`), the shared filter line, and a preview cut to 240 characters and clamped to two lines.
+    - The empty state has "Go to Review".
+    - "Summary deleted." or "This summary was already deleted." shows once, with focus on the `h1`.
+    - Loading has the waking-up hint, and a failed load has "Try again".
+  - `frontend/src/pages/SummaryPage.tsx` and `.css`: the summary page.
+    - Back link, source and created lines, and the always editable "Summary text" field with the §7.4 note as its hint.
+    - "Save summary" (the one primary button), "Copy" and "Delete", with the action order per width from the design note.
+    - The message slot, and a hidden status for "Copied".
+    - The delete dialog, the leave prompt, and the not-found, loading and error states.
+  - Shared modules:
+    - `components/summaryEditor.ts`: the texts and helpers shared with the #32 panel. `review/summaryDraft.ts` re-exports them.
+    - `summaries/summaryTexts.ts` and `summaries/summaryDeletedNotice.ts`.
+    - Optional `title`, `text` and `deleteLabel` props on `entries/DeleteEntryDialog.tsx`, defaulting to the entry texts.
+  - Tests:
+    - `pages/SummariesPage.test.tsx` (22);
+    - `pages/SummaryPage.test.tsx` (45);
+    - `summaries/summaryTexts.test.ts` and `summaries/summaryStyles.test.ts` (25 together).
+    - Named after FR-R4, FR-R5 and FR-R6.
+  - Commits 6f3cfcb, f69971e, 25776ac; issue comment 6849396572.
+- **Decisions taken under the standing rule (2026-11-12, 2026-11-13), recorded in the issue:**
+  - The shared texts moved to a new module that `summaryDraft.ts` re-exports, so the #32 panel and its tests are unchanged.
+  - The delete dialog's texts became optional props with the entry texts as defaults, so the entries page and its tests are unchanged.
+  - Save and copy errors share one error message in the slot. A new Copy clears only a copy error.
+  - Focus goes back to "Delete" unconditionally after Cancel or Escape.
+  - A `created_at` that is not a timestamp is shown as it is.
+  - No existing test changed.
+- **How I verified it:**
+  - Frontend: `npm run lint`, `npm test` (41 files, 952 tests, with no backend on localhost:8000, see #73) and `npm run build` pass.
+  - Mutation checks on the key behaviours: `allowLeaving`, the history replace, the focus return and Delete disabled while saving. Each one, when removed, fails a test.
+  - Backend is unchanged: `ruff check`, unit (823) and integration (882) tests pass.
+  - Manual check with `AI_PROVIDER=mock` (no real AI call), using `docker compose up -d db`, `uv run uvicorn`, the dev server and headless Chrome at 360×800 and 1280×800:
+    - The empty state, then a draft from `/review`, which was listed with its filter.
+    - The page showed the mock text.
+    - Save showed "Summary saved." and the text was kept after a reload.
+    - Copy passed the field text with its line breaks to `writeText` and showed "Copied"; when refused, it showed the copy error.
+    - The beforeunload prompt showed with an unsaved edit.
+    - Delete opened the list with "Summary deleted." and focus on the `h1`, and the band was gone after a reload.
+    - Nothing scrolled sideways at 360px, with or without the dialog.
+- **Left open (also in the issue comment):**
+  - For the design review: the `h1` focused after a delete shows the global focus outline.
+  - The real clipboard contents could not be read back in headless Chrome (no system clipboard), so a real-browser copy is left for QA.
+  - No dark mode screenshots were taken; the pages use tokens only.
