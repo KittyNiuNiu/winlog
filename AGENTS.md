@@ -75,7 +75,7 @@ Frontend (run in `frontend/`):
   Each run drafts one summary, which counts against the global daily AI limit (`AI_DAILY_REQUESTS_GLOBAL`); `docker compose down -v` resets a local database. Traces and screenshots of a failed run go to `frontend/e2e-results/`.
 - Viewport tests (Playwright, 360×640 and 1280×800, every API call mocked; builds the app and serves it with `vite preview`; screenshots go to `viewport-screenshots/`; needs Chromium once: `npx playwright install chromium`): `npm run test:viewport`
 
-Full system (repo root): `docker compose up --build`
+Full system (repo root): `docker compose up --build`. It also starts the local telemetry stack (the `lgtm` service), with Grafana at http://localhost:3000 (no login, see `docs/observability.md`).
 
 All unit and integration tests (repo root): `./test-all.sh`. It runs the three suites in order: backend unit tests, backend integration tests and frontend tests (`npm test`), runs every suite even after one fails, prints a summary and exits with 0 only when all pass. It starts the test database with `docker compose up -d --wait db` if needed and stops it again with `docker compose stop db` only if it started it. It needs `.env` in the repo root, Docker, uv and `npm ci` done in `frontend/` first. The separate commands above stay.
 
@@ -89,7 +89,8 @@ All unit and integration tests (repo root): `./test-all.sh`. It runs the three s
 - All AI calls go through the adapter in `app/ai/`. Provider and model come from environment variables.
 - Check the AI usage limits (per user and global, per day) before every AI call.
 - Send only the data a request needs to the AI provider.
-- Never log entry text, summaries or passwords.
+- Logs, traces and metrics never contain customer data or credentials. Use only the fields in the allowlist in `docs/observability.md`. In particular, never entry text, Result/Impact, summary text, tag names, AI request or response content, passwords, tokens, email addresses, user ids, IP addresses, query strings or exception messages.
+- Telemetry goes through `app/telemetry.py` (OpenTelemetry). Do not add OpenTelemetry auto-instrumentation packages.
 
 ## Frontend conventions
 
@@ -106,6 +107,7 @@ All unit and integration tests (repo root): `./test-all.sh`. It runs the three s
 - Unit tests and integration tests live in separate folders and run separately. `./test-all.sh` runs them all in one go.
 - Integration tests run against real PostgreSQL (via Docker Compose), never SQLite.
 - Tests never call a real AI API. They use the mock provider.
+- Tests never need a running telemetry collector. They capture telemetry with in-memory exporters.
 - Frontend tests never reach a real backend: unmocked requests fail in the shared test set-up.
 - Every new endpoint gets tests for the success case, validation errors, and access by another user.
 - Cover each acceptance criterion in `product-spec.md` with at least one test, and name the test after its requirement ID (for example `test_fr_e1_one_text_creates_one_entry`).

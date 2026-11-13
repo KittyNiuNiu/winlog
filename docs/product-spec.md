@@ -165,9 +165,10 @@ Individual professionals who want a lightweight record of their work so they can
 | Language | The user interface is in English. Entries can be written in any language. |
 | Security | Passwords are stored only as hashes. Logins use tokens that the server stores, so they can be revoked, and that expire. Repeated failed logins are slowed down (FR-A4). Secrets and keys come from environment variables and are never committed. All data access is scoped to the authenticated user. |
 | Privacy | Users can export and delete their data (see 7.6). AI providers do not retain request data (see 8). |
+| Observability | One key user journey, generating a summary (FR-R3), is instrumented with traces, metrics and structured logs that share a trace ID. Telemetry contains no customer data or credentials: no entry text, Result/Impact, tag names, summary text, AI request or response content, passwords, tokens, email addresses, user ids or IP addresses. Locally, the signals are collected, stored and viewable in a UI that starts with Docker Compose. The app works the same when no collector is running. |
 | Reliability | The app stays usable if the AI provider is unavailable. |
 | Testability | Backend and frontend have automated unit and integration tests, and one command runs them all. AI calls are mocked in tests. |
-| Reproducibility | The full system (frontend, backend, database) starts locally with Docker Compose. |
+| Reproducibility | The full system (frontend, backend, database and the local telemetry stack) starts locally with Docker Compose. |
 
 ---
 
@@ -195,6 +196,7 @@ React + TypeScript frontend ──── HTTPS / JSON ────► FastAPI ba
 | Database | PostgreSQL | Persistent storage in all environments, with schema migrations |
 | AI | LLM router service (OpenRouter planned) | Category and tag suggestions; summaries |
 | Containers | Docker, Docker Compose | Local development and integration testing of the full system |
+| Observability | OpenTelemetry (Python SDK, OTLP); Grafana's all-in-one otel-lgtm image (OpenTelemetry Collector, Prometheus, Tempo, Loki, Grafana) | The backend's traces, metrics and JSON logs, sent over OTLP when a collector is configured. Locally, collection, storage and the viewer UI run in Docker Compose. Deployed environments send no telemetry yet. |
 | CI/CD | GitHub Actions | Runs lint and tests on every push; production deploys only after all CI checks for the commit have passed |
 | Hosting | Render (frontend as a static site, backend as a web service, both defined in a Render Blueprint), Neon (PostgreSQL) | Production environment |
 
@@ -261,6 +263,8 @@ Closed:
 - Default LLM model (closed 9 November 2026): `anthropic/claude-haiku-5.5`, chosen by a documented comparison (issue #14). The backup model is `deepseek/deepseek-v4.1-flash`: if the default becomes unavailable, too expensive or worse, the model setting is switched to it. It is not an automatic fallback. Details in `docs/decisions/default-model.md`.
 
 ## 14. Change log
+
+**0.2, updated 13 November 2026.** §9: new "Observability" row, and the Reproducibility row includes the local telemetry stack. §10.2: new "Observability" row (issue #74). Nothing else changed.
 
 **0.2, updated 13 November 2026.** §9: the Testability row adds that one command runs all unit and integration tests (issue #73). Nothing else changed.
 
