@@ -116,11 +116,16 @@ describe('entries page styles (#29)', () => {
 describe('maximum input sizes (#43 design note)', () => {
   it('test_fr_e2_counter_8px_under_the_field_messages_4px_under_it_in_the_error_colour_over_the_limit', () => {
     const counter = rule('../components/TextField.css', '.field__counter')
+    const over = rule('../components/TextField.css', '.field__counter--over')
     expect(counter).toContain('margin: var(--space-8) 0 0')
     expect(counter).toContain('font-size: var(--text-body-small-size)')
     expect(counter).toContain('color: var(--color-muted-plum-grey)')
     expect(counter).toContain('white-space: nowrap')
-    const over = rule('../components/TextField.css', '.field__counter--over')
+    // Spans the field so its end aligns with the field's right edge at 1280px too: without
+    // this the global p rule caps it at 68ch, short of a 697px field (design review 1).
+    expect(counter).toContain('max-width: none')
+    expect(counter).toContain('text-align: end')
+    expect(over).not.toMatch(/max-width|width|margin|padding|text-align/)
     expect(over).toContain('color: var(--color-error)')
     expect(over).toContain('font-weight: 600')
     expect(rule('../components/TextField.css', '.field__counter + .field__messages')).toContain(

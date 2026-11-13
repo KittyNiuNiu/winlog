@@ -66,6 +66,8 @@
 }
 
 .field__counter {
+  /* The global p rule would stop it at 68ch, short of a wide field's right edge. */
+  max-width: none;
   margin: var(--space-8) 0 0;
   font-size: var(--text-body-small-size);
   font-weight: 400;
