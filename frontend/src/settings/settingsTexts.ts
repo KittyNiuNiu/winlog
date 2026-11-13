@@ -12,6 +12,8 @@ export const DOWNLOADING_LABEL = 'Downloading…'
 export const ACCOUNT_HEADING = 'Account'
 export const ACCOUNT_TEXT = 'Deleting your account removes all of your data.'
 export const DELETE_ACCOUNT_LABEL = 'Delete account'
+/** For demo sessions instead of the sentence and "Delete account", and for the 409 in the step (#35). */
+export const DEMO_ACCOUNT_TEXT = "The demo account can't be deleted."
 
 export const DELETE_STEP_TITLE = 'Delete your account?'
 export const DELETE_STEP_TEXT =

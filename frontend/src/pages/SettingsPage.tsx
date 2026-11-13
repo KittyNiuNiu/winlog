@@ -2,12 +2,14 @@ import { Download, Trash2 } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
 import {
+  DemoAccountNotDeletableError,
   NotAuthenticatedError,
   ValidationError,
   WrongPasswordError,
   deleteAccount,
   exportJson,
   exportMarkdown,
+  getSession,
   type DownloadedFile,
 } from '../api/index.ts'
 import { PasswordField } from '../auth/AuthFields.tsx'
@@ -31,6 +33,7 @@ import {
   DELETE_STEP_TEXT,
   DELETE_STEP_TITLE,
   DELETING_LABEL,
+  DEMO_ACCOUNT_TEXT,
   DOWNLOADING_LABEL,
   DOWNLOAD_JSON_LABEL,
   DOWNLOAD_MARKDOWN_LABEL,
@@ -72,6 +75,19 @@ interface DeleteStep {
 }
 
 const EMPTY_STEP: DeleteStep = { password: '', confirmation: '', deleting: false, wrongPassword: false, error: null }
+
+/** The step's message for a failed deletion that is not a wrong password. */
+function deleteErrorMessage(error: unknown): string | null {
+  // An expired login already went to the login page (#25).
+  if (error instanceof NotAuthenticatedError) {
+    return null
+  }
+  // 409 `demo_account_not_deletable`, for example from a session without the demo flag.
+  if (error instanceof DemoAccountNotDeletableError) {
+    return DEMO_ACCOUNT_TEXT
+  }
+  return unexpectedErrorMessage(error)
+}
 
 /** `wrong_password`, or a validation error that names the password (for example too long). */
 function isWrongPassword(error: unknown): boolean {
@@ -120,10 +136,12 @@ function DownloadButtons({ place, busy, disabled, slot, wakingUp, onDownload }: 
 
 // Data and account settings (FR-D1, FR-D2, design note on #34): download all entries and
 // summaries as JSON or Markdown, and delete the account after a confirmation step in the
-// page. Logging out stays in the navigation (FR-A2). Every button is secondary.
+// page. Logging out stays in the navigation (FR-A2). Every button is secondary. The demo
+// account cannot be deleted (FR-X1), so its Account section has one sentence only.
 export default function SettingsPage() {
   const navigate = useNavigate()
   const id = useId()
+  const demo = getSession()?.demo === true
 
   const [downloading, setDownloading] = useState<Record<ExportFormat, boolean>>({ json: false, markdown: false })
   const [downloadSlot, setDownloadSlot] = useState<DownloadSlot>({ place: 'data', error: null })
@@ -229,8 +247,8 @@ export default function SettingsPage() {
         setStep((current) => current && { ...current, deleting: false, wrongPassword: true })
         setFocusRequest({ target: 'password' })
       } else {
-        // An expired login already went to the login page (#25); the rest can be tried again.
-        const error = failure instanceof NotAuthenticatedError ? null : unexpectedErrorMessage(failure)
+        // The rest can be tried again.
+        const error = deleteErrorMessage(failure)
         setStep((current) => current && { ...current, deleting: false, error })
       }
       return
@@ -262,8 +280,8 @@ export default function SettingsPage() {
 
       <section className="settings-page__section" aria-labelledby={`${id}-account`}>
         <h2 id={`${id}-account`}>{ACCOUNT_HEADING}</h2>
-        <p className="settings-page__text">{ACCOUNT_TEXT}</p>
-        {step === null ? (
+        <p className="settings-page__text">{demo ? DEMO_ACCOUNT_TEXT : ACCOUNT_TEXT}</p>
+        {demo ? null : step === null ? (
           <div className="settings-page__buttons">
             <Button ref={deleteAccountRef} variant="secondary" onClick={openStep}>
               <Icon icon={Trash2} size={20} />

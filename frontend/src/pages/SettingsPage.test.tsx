@@ -50,6 +50,7 @@ const GENERIC_MESSAGE = 'Something went wrong. Please try again.'
 const WAKING_UP = 'The server is waking up. This can take up to a minute.'
 const WRONG_PASSWORD = 'That password is incorrect.'
 const DELETED_NOTICE = 'Your account has been deleted.'
+const DEMO_NOT_DELETABLE = "The demo account can't be deleted."
 const PASSWORD = 'Correct-Horse-7'
 const BLOB_URL = 'blob:http://localhost/winlog-export'
 
@@ -708,7 +709,8 @@ describe('the confirmation step (FR-D2)', () => {
 
   it.each([
     ['a network error', new NetworkError(), NETWORK_MESSAGE],
-    ['the demo error', new DemoAccountNotDeletableError('server text', 403), GENERIC_MESSAGE],
+    // #35: the contract's 409 `demo_account_not_deletable` has its own text in the step.
+    ['the demo error', new DemoAccountNotDeletableError('server text', 409), DEMO_NOT_DELETABLE],
     [
       'another validation error',
       new ValidationError('server text', 422, [{ field: 'request', reason: 'Invalid JSON' }]),
@@ -850,5 +852,82 @@ describe('after the deletion (FR-D2)', () => {
     await click(screen.getByRole('button', { name: 'Log in' }))
 
     expect(fresh.state.location.pathname).toBe('/')
+  })
+})
+
+// The demo account on the settings page (FR-X1, #35).
+describe('the settings page in a demo session (FR-X1)', () => {
+  function storeDemoSession(): void {
+    saveSession({ token: 'demo-token', expiresAt: '2099-01-01T00:00:00Z', demo: true })
+  }
+
+  it('test_fr_x1_settings_demo_account_section_has_one_sentence_and_no_delete_account', async () => {
+    storeDemoSession()
+    await renderSettings()
+
+    const section = accountSection()
+    expect(within(section).getByRole('heading', { level: 2, name: 'Account' })).toBeTruthy()
+    expect(Array.from(section.querySelectorAll('p'), (p) => p.textContent)).toEqual([DEMO_NOT_DELETABLE])
+    expect(within(section).queryByRole('button')).toBeNull()
+    expect(within(section).queryByText('Deleting your account removes all of your data.')).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Delete account' })).toBeNull()
+    expect(queryStep()).toBeNull()
+    expect(deleteAccount).not.toHaveBeenCalled()
+  })
+
+  it('test_fr_x1_settings_demo_your_data_is_unchanged_and_downloads_work', async () => {
+    storeDemoSession()
+    exportJson.mockResolvedValue(jsonFile())
+    exportMarkdown.mockResolvedValue(markdownFile())
+    await renderSettings()
+
+    expect(
+      within(dataSection()).getByText(
+        'Download all your entries and summaries. JSON is complete and machine-readable. Markdown is easy to read.',
+      ),
+    ).toBeTruthy()
+    await click(button(dataSection(), 'Download JSON'))
+    await click(button(dataSection(), 'Download Markdown'))
+
+    expect(exportJson).toHaveBeenCalledTimes(1)
+    expect(exportMarkdown).toHaveBeenCalledTimes(1)
+    expect(await savedContents(0)).toBe(JSON_BODY)
+    expect(await savedContents(1)).toBe(MARKDOWN_BODY)
+    expect(savedLinks.map((link) => link.download)).toEqual([
+      'winlog-export-2026-11-13.json',
+      'winlog-export-2026-11-13.md',
+    ])
+    expect(dataMessages()).toEqual([])
+  })
+
+  it('test_fr_x1_settings_demo_error_409_shows_the_demo_sentence_in_the_step', async () => {
+    // A session without the demo flag, for example from before the flag was stored.
+    deleteAccount.mockRejectedValue(new DemoAccountNotDeletableError('server text', 409))
+    const { router } = await renderSettings()
+    await openStep()
+    await fillStep()
+
+    await submitDeletion()
+
+    expect(messageTexts(step())).toEqual([DEMO_NOT_DELETABLE])
+    expect(within(step()).getAllByRole('alert').some((alert) => alert.textContent === DEMO_NOT_DELETABLE)).toBe(true)
+    expect(screen.queryByText(GENERIC_MESSAGE)).toBeNull()
+    expect(screen.queryByText('server text')).toBeNull()
+    expect(messagesOf(passwordInput())).toEqual([])
+    expect(passwordInput().value).toBe(PASSWORD)
+    expect(confirmInput().value).toBe('delete')
+    expect(deleteMyAccountButton().textContent).toBe('Delete my account')
+    expect(deleteMyAccountButton().disabled).toBe(false)
+    expect(api.getSession()).not.toBeNull()
+    expect(router.state.location.pathname).toBe('/settings')
+  })
+
+  it('test_fr_x1_settings_normal_session_keeps_delete_account', async () => {
+    await renderSettings()
+
+    expect(within(accountSection()).getByText('Deleting your account removes all of your data.')).toBeTruthy()
+    expect(within(accountSection()).queryByText(DEMO_NOT_DELETABLE)).toBeNull()
+    await openStep()
+    expect(step()).toBeTruthy()
   })
 })
