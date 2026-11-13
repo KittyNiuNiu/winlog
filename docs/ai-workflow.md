@@ -3263,3 +3263,44 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **What I did:** inserted both entries unchanged into `docs/ai-workflow.md` after "Implement #26", where they stood on the old branch, each with a note naming its source commit. The `docs/tasks.md` change was not recovered: `main`'s list is newer and already includes #73 and #74.
 - **How I verified it:** compared `git diff origin/main...developer/zen-bell-yusvf7` with `main`. Neither heading existed in `main`'s log, and the recovered text matches the commits line for line.
 - **Left open:** once this reaches `main` through #93, the branch `developer/zen-bell-yusvf7` holds nothing else that is needed and can be deleted by the product owner.
+
+## 2026-11-13: PM: re-groom #38 (deploy to Render and Neon)
+
+- **Task:** re-groom #38, which was groomed on 2026-11-01, following `docs/pm.md`. Much has been built since, and the product owner now has the Render, Neon (PostgreSQL 18) and OpenRouter accounts.
+  - Read the issue and its 7 comments (from #7, #4, #11, #14, #17, #21 and #46), plus #39, #61 and #92.
+  - Read `docs/process.md`, `docs/task-template.md`, `docs/product-spec.md` (§7.7, §8, §9, §10, §12), `docs/decisions/default-model.md`, `docs/observability.md`, `docs/tasks.md`, `.env.example`, `docker-compose.yml`, `backend/Dockerfile` and `.dockerignore`, `.github/workflows/ci.yml`, and the frontend's `Dockerfile`, `nginx.conf`, `vite.config.ts` and `.nvmrc`.
+  - Read the backend's `settings.py`, `main.py`, `telemetry.py`, `attempt_limits.py`, `db.py`, `demo_seed.py`, `health.py` and `scripts/seed_demo.py`.
+- **What I did:**
+  - Rewrote the issue body with the task template, split into three parts:
+    - A: what the engineer builds and checks without accounts (`render.yaml`, start command, `ops/deployment.md`, local checks);
+    - B: what the product owner does by hand (Neon direct connection string, Blueprint, the two secrets, OpenRouter zero-data-retention setting and key spending limit);
+    - C: what QA checks on the live app, including the real AI calls, which need the product owner's approval and come with a cost estimate.
+  - Corrected the task line to "Task 45 of 47", as `docs/tasks.md` lists it.
+  - Posted the grooming comment: https://github.com/KittyNiuNiu/winlog/issues/38#issuecomment-6865852461
+  - Created follow-up #95 (a time limit for requests when the database stops answering, from #4's comment).
+  - Commented on #61 (6865805888): Compose forwarding now also covers `DEMO_EMAIL` and the attempt-limit variables.
+  - No labels changed.
+- **Decisions taken under the standing rule, recorded in the issue comment:**
+  - `autoDeployTrigger: checksPass` on both services, so production meets §10.2 until #39 replaces it.
+  - Only `DATABASE_URL` and `AI_API_KEY` are `sync: false`. All other values are plain in `render.yaml`, including `DEMO_EMAIL=demo@example.com` and the spec's default limits.
+  - Start sequence: migrations, then the demo reset if `DEMO_EMAIL` is set, then the server. Any failed step stops the start. The port is `PORT`, or 8000 when it is not set. The image gets the reset script but not `scripts/model_comparison/`.
+  - The demo reset keeps tokens and AI usage, as built in #21.
+  - The access log stays off (#74); a local check proves it.
+  - `OTEL_EXPORTER_OTLP_ENDPOINT` is not set in production (#92).
+  - `AI_SUMMARY_MAX_TOKENS` stays at 16000; the live summary confirms it.
+  - Neon's direct connection string, with `sslmode=require`.
+  - Free plans only.
+  - A live check of the demo-login counts per visitor. If the count is shared, a follow-up is filed and the product owner decides.
+  - The static-site build fails when `VITE_API_BASE_URL` is empty.
+  - No end-to-end test against production.
+  - QA deletes its test account.
+  - The task changes no screens.
+- **Recommendation passed to the product owner:** a $5 spending limit on the production OpenRouter key.
+- **How I verified facts:**
+  - Repository facts come from the files above.
+  - render.com could not be reached from this session, and the Neon and OpenRouter pages were not fetched. Render facts (default `PORT` 10000, free instance sleep after 15 minutes, the `autoDeployTrigger` values) and the OpenRouter facts for `anthropic/claude-haiku-5.5` ($0.10 / $0.50 per million tokens, 128k output) come from search results only. The issue says so and asks the engineer to check field names in the current docs.
+  - The QA cost estimate uses the documented 2026-11-09 prices ($0.110 / $0.550): under $0.01 expected, about $0.011 at most for one summary.
+  - No code written, no AI call.
+- **Left open:**
+  - The Neon project's region, needed for `region` in `render.yaml`. The orchestrator asks the product owner; it is not a secret.
+  - The orchestrator's brief said "task 41 of 43", but `docs/tasks.md` lists #38 as task 45 of 47, which the issue now uses.
