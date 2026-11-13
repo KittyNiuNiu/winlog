@@ -1918,3 +1918,17 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - On the laptop, the filters sit 16px below the title instead of 24px because of margin collapse (designer): comment on #36 (6847149004).
   - Month sub-heading style on `/review` (designer): comment on #83 (6847149934).
   - Two `GET /entries` requests in dev under StrictMode (QA); the sidebar's background stops in full-page screenshots, a screenshot artefact (designer): left in this log.
+
+## 2026-11-13: PM: groom #77 (Add the three illustrations from DESIGN.md)
+
+- **Task:** groom #77 (task 34), a draft follow-up from #75 with no status label, following `docs/pm.md`. Checked against `DESIGN.md` ("Colour blocks and illustrations", Colors, The One Action Rule, Do's and Don'ts), `PRODUCT.md`, `product-spec.md` v0.2 (§9 Responsiveness and Design) and `frontend/src/` (`components/EmptyState.tsx` and its 200×160px slot, `components/AuthLayout.tsx`, `pages/LoginPage.tsx`, `RegisterPage.tsx`, `EntriesPage.tsx`, `ReviewPage.tsx`, `review/reviewTexts.ts`, `auth/RouteGuards.tsx`, `routes.tsx`, `index.css` tokens, `design.test.ts`). Read the #75 design note on the illustration slot, and #35, #83, #36 and #32 so nothing they cover is pulled in.
+- **What I did:** rewrote #77 with the task template. Criteria are grouped: the drawings, where they appear, buttons and accessibility, light and dark mode, tests. Out of scope links to #75, #29, #31, #35, #32, #83 and #36. No new follow-up issue was needed. Posted input comments on #35 (keep "Try the demo" secondary and the login form within the first phone screen next to the drawing) and #83 (record the illustration placement in `DESIGN.md`).
+- **Decisions taken under the standing rule (2026-11-12), recorded in the issue:**
+  - The drawings are hand-written inline SVG React components in `frontend/src/components/`, coloured only through the tokens in `index.css`. No image files, no SVG plugin, no new dependency, no asset step; dark mode follows from the tokens.
+  - The review page's no-entries state counts as "a review with no matching entries", so the review drawing shows in both of its empty states. Three drawings for three places.
+  - Login and registration share one drawing, placed in the two pages (not in `AuthLayout`, which also shows "Page not found").
+  - Plum only for lines and small accents (no plum-filled shape larger than 16×16px), which reconciles "Plum: nothing decorative" and the One Action Rule with "flat shapes in plum, peach and the category tints". The review page keeps no filled plum button for #32.
+  - The empty entries list shows its drawing whenever it is empty, including after the last entry is deleted.
+  - No new text on login and registration; the heading and the form's button say what to do next. At 360×640px the "Log in" and "Create account" buttons stay visible without scrolling.
+- **How I verified it:** checked the issue against the definition of done in `docs/pm.md` (four sections, checkable criteria, every out-of-scope line links an issue). Confirmed in `design.test.ts` that colour values outside `index.css` already fail a test, so token-only colours are enforced. Read #77 back from GitHub: the body matches what I sent (plus the automatic footer), the title is unchanged and it still has no labels.
+- **Left open:** what each drawing shows and its exact phone size are for the designer's note.
