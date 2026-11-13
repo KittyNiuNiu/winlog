@@ -2544,3 +2544,32 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Render's `X-Forwarded-For` layout could not be checked from this session (Render's docs were unreachable, and forum notes disagree about Cloudflare in front of Render). The code trusts only the last entry, as the criterion says. On the first deploy, check that demo visitors get separate counts. If the last entry turns out to be a shared edge address, that needs a follow-up.
   - Uvicorn's default access log prints the connection address. That is `127.0.0.1` locally and the proxy's address on Render, never the visitor's, because uvicorn trusts forwarded headers only from `127.0.0.1`. The app itself logs no email, IP or password. Keep this in mind if uvicorn's `--forwarded-allow-ips` is ever widened.
   - After a press on a busy button, focus ends on `body` in the delete step, as for the step's other errors. This is already with #84.
+
+## 2026-11-13: Orchestrator: closed #46 (task 40, login and demo-login attempt limits)
+
+- **Outcome:**
+  - The issue was already groomed (2026-11-01 decisions approved in advance). The designer posted the design note (issue comment 6856286794).
+  - The engineer posted a plan (6856402764) and implemented the issue contract first: 0c37218 (contract), 4694fd3 and 060cc36 (backend, new migration), c6217a0 (frontend). Implementation comment 6857112130.
+  - QA PASS on all 18 criteria (6857401367) and design review PASS (6857498049).
+  - Closed as completed; the last status label `qa-passed` stays. No real AI calls.
+- **Decisions accepted under the 2026-11-12 standing rule:**
+  - Designer:
+    - The message goes in the existing error slots: above the login form, below "Try the demo", and in the delete step.
+    - Error tone.
+    - N is rounded up, never below 1, with the singular "1 minute".
+    - New fallback "Too many attempts. Please try again later." when `Retry-After` is missing.
+    - Nothing is disabled and focus does not move.
+    - The designer flagged that CORS `expose_headers` must include `Retry-After`.
+  - Engineer:
+    - Status 429.
+    - A `kind` column in `login_attempts`.
+    - Window settings capped at 525,600 minutes.
+    - Every demo-login request counts.
+    - A correct deletion password clears the count.
+    - Existing tests extended where the criteria require it: the #21 status set includes 429; table lists include `login_attempts`; the deletion snapshots leave out `login_attempts`, which is checked separately. QA confirmed none of these is weakened.
+- **Where each open point went:**
+  - Count limits of 2^63 or more pass startup but make every login and demo-login return 500 (QA): new issue #89, created under the standing rule.
+  - Render's `X-Forwarded-For` layout is unverified, so demo visitors could share one count (engineer): comment on #38 (6857510740).
+  - Uvicorn's access log can print the `X-Forwarded-For` client address when a request comes from 127.0.0.1 (QA, engineer): comment on #74 (6857512446).
+  - Focus lands on `body` while "Log in" or "Delete my account" is busy (designer): comment on #84 (6857513628).
+  - The sticky sidebar ends early in a full-page screenshot (designer): left in this log as a screenshot artefact.
