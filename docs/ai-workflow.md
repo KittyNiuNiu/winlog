@@ -2892,3 +2892,49 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Checked the duration of the last CI run's "Full system" job (43473921550): about 45 seconds.
   - No code run, and no AI call.
 - **Left open:** none for grooming.
+
+## 2026-11-13: Engineer: implement #37 (add an end-to-end smoke test)
+
+- **Task:** implement #37 against its re-groomed criteria (comment 6860688208), following `docs/software-engineer.md`. The task changes no screens.
+- **What I did:**
+  - Added `frontend/e2e/smoke.spec.ts`, one Playwright test at 1280×800. It runs the flow in `test.step`s:
+    - register with a unique email;
+    - check the exact nudge and the empty state;
+    - capture an entry: "today" from the form's "Date" field, "Achievement", a new unique tag;
+    - check that the nudge is gone on Entries;
+    - review by period and tag;
+    - draft, check the exact mock text, edit and save a summary;
+    - check that `/summaries` has exactly one summary with the edited text;
+    - download the JSON export through the `download` event and parse it;
+    - log out, then open `/` and land on `/login` again.
+
+    The test uses only locators and web-first assertions.
+  - Added `frontend/playwright.e2e.config.ts`:
+    - folder `e2e/`, output in `e2e-results/`;
+    - base URL from `E2E_BASE_URL`, default `http://localhost:8080`;
+    - no `webServer`, no retries;
+    - `retain-on-failure` trace and `only-on-failure` screenshot.
+  - Added `npm run test:e2e`, and `tsconfig.e2e.json` referenced from `tsconfig.json`.
+  - Kept the runners apart: Vitest excludes `e2e/**` and `e2e-results/**`, and ESLint and `.gitignore` ignore `e2e-results`.
+  - No new dependency: `@playwright/test` stays at 1.63.0.
+  - CI "Full system" job:
+    - gets `needs: [contract, backend, frontend]`, with the timeout still 20 minutes;
+    - after the existing checks: Node from `.nvmrc`, `npm ci`, the Chromium install, then `npm run test:e2e`;
+    - uploads `frontend/e2e-results/` on failure, before the existing "Print the service logs" step.
+  - `AGENTS.md` lists the command and both ways to start the system.
+- **Decisions (standing rule, recorded on the issue):**
+  - The test has its own `tsconfig.e2e.json`.
+  - The export file name is checked against the pattern, because the server names it by the UTC date (`app/export.py`). The entry's date inside the file is checked against today exactly.
+- **How I verified it:** with Node 22.23.4 and the second way from the issue (db container, `uvicorn` on :8000 with `.env` from `.env.example` and `AI_PROVIDER=mock`, `vite preview` on :8080):
+  - `npm run test:e2e -- --trace off` passed twice in a row on the same database.
+  - The first run hit the global AI limit: the local dev database had 129 of 100 requests from earlier sessions, and the backend answered 429. I reset it with `docker compose down -v`, as the issue says.
+  - With one expectation broken locally (not committed), `e2e-results/` held `trace.zip`, a screenshot and `error-context.md`.
+  - `npm run lint` passes.
+  - `npm test` (no backend): 1239 tests pass.
+  - `npm run build` passes.
+  - `npm run test:viewport`: 91 passed, 9 skipped.
+  - GitHub Actions run 43478164871 passed. The "Full system" job ran after the other three in 1 min 28 s, and its log shows the end-to-end test passing.
+  - No real AI call.
+- **Left open:**
+  - A long-used local database can reach the global AI limit (100 a day). `docker compose down -v` resets it.
+  - Issue comment: https://github.com/KittyNiuNiu/winlog/issues/37#issuecomment-6860948310
