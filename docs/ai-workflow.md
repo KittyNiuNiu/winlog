@@ -2964,3 +2964,55 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - The engineer's first local run hit 429: the session's local database had already counted 129 of today's 100 global AI requests from earlier sessions. The engineer reset it with `docker compose down -v`, as the issue allows. That removed only throwaway test accounts in this cloud session's local database.
   - The session's local `.env` is an older copy that lacks some variables; QA exported `.env.example` instead (QA).
   - The export file name is checked by pattern, not exact date (QA): accepted, because the criterion gives only the format.
+
+## 2026-11-13: PM: groom #73 (run all unit and integration tests with a single command)
+
+- **Task:** groom #73. It had no status label. The product owner fixed the requirement on 2026-11-11: "Both unit and integration tests exist, run with a single command, and pass." I followed `docs/pm.md`.
+  - Read the issue, its comments from #27 (frontend time zone) and #31 (frontend tests reaching a backend on port 8000), `docs/process.md`, `docs/task-template.md`, `AGENTS.md` (Commands, Testing), `docs/product-spec.md` §9 and §14, `.github/workflows/ci.yml`, `docker-compose.yml` and `.env.example`.
+  - Read `frontend/package.json`, `frontend/vite.config.ts`, `frontend/src/test/setup.ts`, `frontend/src/api/client.ts` and the mocks in the leaking test files.
+- **What I did:**
+  - Rewrote the body with the task template. It has criteria for:
+    - `./test-all.sh` and its three suites;
+    - the summary and exit code;
+    - starting and stopping the test database;
+    - missing `.env` or `node_modules`;
+    - frontend tests that never reach a real server;
+    - the new CI job;
+    - `AGENTS.md` and spec §9.
+  - Posted the grooming comment: https://github.com/KittyNiuNiu/winlog/issues/73#issuecomment-6861197467
+  - No labels changed, no follow-up issues created.
+- **Decisions taken under the standing rule (2026-11-12, re-confirmed 2026-11-13), recorded in the issue:**
+  - Suites: backend unit, backend integration and frontend Vitest. The viewport tests (#36) and the end-to-end test (#37) stay separate.
+  - Form: a bash script, `./test-all.sh`, in the repository root.
+    - No new dependency and no Makefile.
+    - Works with bash 3.2 on macOS, in CI, and in WSL or Git Bash.
+  - The test database is started with `docker compose up -d --wait db`. It is stopped with `docker compose stop db` only if the script started it, also on failure or Ctrl+C. The script never runs `down -v`.
+  - Running and reporting:
+    - every suite runs even if an earlier one fails;
+    - a summary line per suite is printed at the end;
+    - the exit code is 0 only when all suites pass;
+    - a missing `.env` stops the script before any suite.
+  - CI:
+    - A new "Tests" job runs the script.
+    - The Backend and Frontend jobs drop their test steps, so the tests do not run twice.
+    - "Full system" also waits for the new job.
+  - `AGENTS.md`:
+    - Commands: the new command; the separate commands stay.
+    - Testing: one sentence on the script, and a line saying frontend tests never reach a real backend.
+    - Repository layout: lists the script.
+  - Spec §9 Testability adds that one command runs all unit and integration tests, with a §14 change-log line. The issue explicitly allows that edit.
+  - The leaking frontend tests are fixed in this task, in `frontend/src/test/` only:
+    - by default, `fetch` rejects like an unreachable server;
+    - no application code changes;
+    - no test is weakened or removed.
+  - The frontend suite runs through `npm test`, so the Sydney `TZ` from `vite.config.ts` applies (#27).
+  - The task changes no screens.
+- **How I verified it:**
+  - Checked the issue against the definition of done in `docs/pm.md`:
+    - all four sections are filled in;
+    - the criteria can be checked;
+    - every out-of-scope line links an issue (#36, #37, #74).
+  - Confirmed the leak on this branch. A throwaway server on port 8000 answered every request with 401. One `npx vitest run` passed all 1239 tests, but the server logged 78 requests: 50 `/entries`, 15 `/tags`, 5 `/summaries` and 8 others. It came from the root `.env`'s `VITE_API_BASE_URL`, which `vite.config.ts` loads through `envDir: '..'`.
+  - Checked that Docker Compose v5.6.1 supports `docker compose ps --status running -q db`, which can tell whether the db was already running.
+  - No product code written, and no AI call.
+- **Left open:** none for grooming.
