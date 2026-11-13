@@ -138,3 +138,28 @@ describe('texts', () => {
     expect(suggestionNoticeOf(error)).toBe(message)
   })
 })
+
+describe('the 10-tag limit (#43, FR-S2)', () => {
+  it('test_fr_s2_a_suggestion_adds_tags_in_order_only_until_there_are_10', () => {
+    const eight = Array.from({ length: 8 }, (_, index) => `Tag ${index}`)
+    const result = applySuggestion(
+      { values: { category: 'Learning', tags: eight }, marks: NO_MARKS },
+      { category: 'Learning', tags: ['tag 0', 'One', 'Two', 'Three'] },
+    )
+
+    expect(result.values.tags).toEqual([...eight, 'One', 'Two'])
+    expect(result.marks.tags).toEqual(['One', 'Two'])
+    expect(result.addedTags).toBe(true)
+  })
+
+  it('test_fr_s2_a_suggestion_adds_no_tag_to_an_entry_with_10_or_more', () => {
+    const eleven = Array.from({ length: 11 }, (_, index) => `Tag ${index}`)
+    const result = applySuggestion(
+      { values: { category: null, tags: eleven }, marks: NO_MARKS },
+      { category: 'Learning', tags: ['One'] },
+    )
+
+    expect(result.values.tags).toEqual(eleven)
+    expect(result.addedTags).toBe(false)
+  })
+})

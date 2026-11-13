@@ -112,3 +112,26 @@ describe('entries page styles (#29)', () => {
     expect(fs.readFileSync(new URL('../pages/EntriesPage.css', HERE), 'utf8')).not.toMatch(/entries-page__nudge:/)
   })
 })
+
+describe('maximum input sizes (#43 design note)', () => {
+  it('test_fr_e2_counter_8px_under_the_field_messages_4px_under_it_in_the_error_colour_over_the_limit', () => {
+    const counter = rule('../components/TextField.css', '.field__counter')
+    expect(counter).toContain('margin: var(--space-8) 0 0')
+    expect(counter).toContain('font-size: var(--text-body-small-size)')
+    expect(counter).toContain('color: var(--color-muted-plum-grey)')
+    expect(counter).toContain('white-space: nowrap')
+    const over = rule('../components/TextField.css', '.field__counter--over')
+    expect(over).toContain('color: var(--color-error)')
+    expect(over).toContain('font-weight: 600')
+    expect(rule('../components/TextField.css', '.field__counter + .field__messages')).toContain(
+      'margin-top: var(--space-4)',
+    )
+  })
+
+  it('test_fr_e2_suggest_hint_is_a_muted_line_8px_under_the_suggest_row', () => {
+    const hint = rule('EntryForm.css', '.entry-form__suggest-hint')
+    expect(hint).toContain('margin: var(--space-8) 0 0')
+    expect(hint).toContain('font-size: var(--text-body-small-size)')
+    expect(hint).toContain('color: var(--color-muted-plum-grey)')
+  })
+})

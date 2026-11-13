@@ -5,6 +5,7 @@ import {
   NetworkError,
   NoMatchingEntriesError,
   NotFoundError,
+  SummaryInputTooLargeError,
   UnknownError,
   ValidationError,
 } from '../api/index.ts'
@@ -18,6 +19,10 @@ import {
   NOTHING_TO_SUMMARISE_HINT,
   NO_MATCHING_ENTRIES_MESSAGE,
   SUMMARY_GONE_MESSAGE,
+  SUMMARY_INPUT_TOO_LARGE_MESSAGE,
+  SUMMARY_TOO_LONG_TEXT,
+  EMPTY_SUMMARY_TEXT,
+  summaryTextProblem,
   SUMMARY_UNAVAILABLE_MESSAGE,
   USER_SUMMARY_LIMIT_MESSAGE,
   draftAgainLine,
@@ -99,6 +104,7 @@ describe('the filter description (FR-R3)', () => {
 describe('the notices (FR-R3, FR-R5, §7.4, §8)', () => {
   it.each([
     [new NoMatchingEntriesError('server text', 422), NO_MATCHING_ENTRIES_MESSAGE],
+    [new SummaryInputTooLargeError('server text', 422), SUMMARY_INPUT_TOO_LARGE_MESSAGE],
     [new AiUnavailableError('server text', 503), SUMMARY_UNAVAILABLE_MESSAGE],
     [new LimitReachedError('server text', 429, 'user_summaries'), USER_SUMMARY_LIMIT_MESSAGE],
     [new LimitReachedError('server text', 429, 'global'), GLOBAL_LIMIT_MESSAGE],
@@ -121,5 +127,24 @@ describe('the notices (FR-R3, FR-R5, §7.4, §8)', () => {
     expect(SUMMARY_GONE_MESSAGE).toBe("This summary no longer exists, so your changes can't be saved.")
     expect(saveErrorOf(new NetworkError())).toBe(NETWORK_MESSAGE)
     expect(saveErrorOf(new UnknownError('server text', 500, null))).toBe(GENERIC_MESSAGE)
+  })
+})
+
+describe('the maximum sizes (#43)', () => {
+  it('test_fr_r3_too_much_text_notice_says_how_to_narrow_the_filter', () => {
+    expect(SUMMARY_INPUT_TOO_LARGE_MESSAGE).toBe(
+      'This filter covers too much text for one summary. Choose a shorter period, or narrow it down by category or tag.',
+    )
+  })
+
+  it('test_fr_r5_summary_text_problem_is_empty_or_too_long_never_both', () => {
+    expect(summaryTextProblem('')).toBe(EMPTY_SUMMARY_TEXT)
+    expect(summaryTextProblem(' \n ')).toBe(EMPTY_SUMMARY_TEXT)
+    expect(summaryTextProblem('a'.repeat(10000))).toBeNull()
+    // Counted in characters: 10,000 emoji are 20,000 UTF-16 units.
+    expect(summaryTextProblem('🎉'.repeat(10000))).toBeNull()
+    expect(summaryTextProblem('a'.repeat(10001))).toBe(SUMMARY_TOO_LONG_TEXT)
+    expect(summaryTextProblem(' '.repeat(10001))).toBe(EMPTY_SUMMARY_TEXT)
+    expect(SUMMARY_TOO_LONG_TEXT).toBe('Shorten the summary to 10,000 characters, then save.')
   })
 })
