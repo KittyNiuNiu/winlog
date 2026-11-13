@@ -67,6 +67,11 @@ Frontend (run in `frontend/`):
 - Lint: `npm run lint`
 - Tests: `npm test`
 - Build: `npm run build`
+- End-to-end smoke test (one Playwright test of the main user flow at 1280×800, `e2e/`, config `playwright.e2e.config.ts`): `npm run test:e2e`. It starts nothing itself: it runs against a running system at `E2E_BASE_URL` (default `http://localhost:8080`) with `AI_PROVIDER=mock`. First copy `.env.example` to `.env` in the repo root, then start the system in one of two ways:
+  - Full system: `docker compose up --build -d` in the repo root.
+  - Without the app containers (for example in a cloud session): `docker compose up -d db` in the repo root; `uv run alembic upgrade head` and `uv run uvicorn app.main:app --port 8000` in `backend/`; `npm run build` and then `npx vite preview --port 8080 --strictPort` in `frontend/`.
+
+  Each run drafts one summary, which counts against the global daily AI limit (`AI_DAILY_REQUESTS_GLOBAL`); `docker compose down -v` resets a local database. Traces and screenshots of a failed run go to `frontend/e2e-results/`.
 - Viewport tests (Playwright, 360×640 and 1280×800, every API call mocked; builds the app and serves it with `vite preview`; screenshots go to `viewport-screenshots/`; needs Chromium once: `npx playwright install chromium`): `npm run test:viewport`
 
 Full system (repo root): `docker compose up --build`
