@@ -1895,3 +1895,26 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Issue comment: https://github.com/KittyNiuNiu/winlog/issues/31#issuecomment-6846360931
 - **Left open:**
   - About 15 existing tests (`AppShell.test.tsx`, `leavePrompt.test.tsx`, `routes.test.tsx` and others) fail when a backend is running on `localhost:8000`. Not every run fails the same ones, and they fail without this change too. They reach the real API with the test token, get a 401 and are sent to `/login`. With no backend running, all tests pass. This could be a separate issue.
+
+## 2026-11-13: Orchestrator: closed #31 (task 33, review page with filters)
+
+- **Outcome:**
+  - The PM re-groomed it (ae663d7) and the design note was posted (issue comment 6837814048).
+  - The engineer implemented it in 7ec6886 and 5baaef1 (issue comment 6838162064).
+  - QA FAIL 1 (6846138995): dates typed with the keyboard reset in Chrome. Fixed in 9e83746 and f185d30 (6846360931).
+  - QA PASS on the re-check (6847042776), design review PASS (6847137778).
+  - Closed as completed; the last status label `qa-passed` stays. No real AI calls: every run used `AI_PROVIDER=mock`.
+- **Product owner decisions (2026-11-13):**
+  - Accepted the one-line change to the #30 banner test: its detour goes to `/settings` instead of `/review`, and its assertions are unchanged. Recorded by the PM in the issue (d153ed3).
+  - The product owner said afterwards that this question was not severe and should have been decided under the standing rule. From now on, small conflicts between criteria that have a clear recommended fix are decided under the rule and logged.
+  - At the product owner's request, the orchestrator posted on #83 the PM's input comment that the permission system had blocked (6846500021).
+- **Decisions accepted under the 2026-11-12 standing rule:**
+  - PM: category groups with month sub-headings, so FR-R2 and `DESIGN.md` both hold. No filled plum button on the page yet (it is kept for #32). Empty tag values are never sent. Tags can be picked only from `GET /tags`. Filter changes replace the history entry. Previous results stay visible while new ones load. A live total line. New texts.
+  - Designer: category `h2` with a coloured dot and a count. Month `h3` at 15px (a small step away from the Title style; posted on #83). Focus goes to "Achievement" after Clear filters. The phone "Filters" toggle has a count badge. One flexible column on the laptop, leaving room for #32.
+  - Engineer: the tag filter is its own component. `TextField` gains the optional props `describedBy` and `invalid`. Month grouping moves to `components/groupByMonth.ts`. The `useDateDraft` hook fixes typed dates.
+- **Where each open point went:**
+  - Typed dates can still lose digits when the CPU is heavily throttled; partial-year requests while typing (QA): new issue #87, created under the standing rule on QA's recommendation.
+  - 17 to 21 frontend tests fail while a backend runs on localhost:8000, older than #31 (engineer, QA): comment on #73 (6847148338).
+  - On the laptop, the filters sit 16px below the title instead of 24px because of margin collapse (designer): comment on #36 (6847149004).
+  - Month sub-heading style on `/review` (designer): comment on #83 (6847149934).
+  - Two `GET /entries` requests in dev under StrictMode (QA); the sidebar's background stops in full-page screenshots, a screenshot artefact (designer): left in this log.
