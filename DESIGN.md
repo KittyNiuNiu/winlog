@@ -223,8 +223,8 @@ Dates and numbers use tabular figures so columns line up.
 Mobile first, from 360px wide.
 
 - **Phone** (below 48rem): a header with the wordmark and navigation, then one column with 20px side padding. On the capture screen the order is: saved message (when there is one), page title, text field, category, date and "Add tags and result", Save entry, then "Just saved".
-- **Laptop** (48rem and up): a left sidebar (about 232px) with the wordmark, navigation and a "New entry" button that is always within reach. The content area holds the work. On the review screen, the filters and list sit in the middle and the summary panel sits on the right (320–400px). When the window gets narrower, the panel moves below the list.
-- **Lists:** entries are rows grouped by month, with a fixed date column (about 64px), a category label column (about 120px) and the text. Rows are separated by hairlines.
+- **Laptop** (48rem and up): a left sidebar (about 232px) with the wordmark, navigation and a "New entry" button that is always within reach. The content area holds the work. On the review screen, the filters and results sit in the middle. Only from 75rem, the summary panel is a 22.5rem (360px) column 32px to their right. It is sticky 24px from the top of the window, its top is level with the filter area, it is at most the window height minus 48px tall, and it scrolls inside itself on short windows. Below 75rem, the panel sits 40px under the results: at most 40rem wide from 48rem, and at full column width on the phone (#32).
+- **Lists:** entries are rows with a fixed date column (about 64px), a category label column (about 120px) and the text. Rows are separated by hairlines. On the entries page, entries are grouped by month: each month is an `h2` heading in the Title style, with 32px between months and 8px below each heading. On the review page, entries are grouped by category in the order Achievement, Learning, Feedback, Side project, with months inside each category (see Review groups) (#29, #31).
 - **Spacing:** a 4px base, using 4, 8, 12, 16, 20, 24, 32, 40 and 48px. Related items sit close together (8–12px). Separate groups get more space (20–32px). There is always more space above a heading than below it.
 - **Tap targets:** every button and form control is at least 44×44px.
 
@@ -242,7 +242,7 @@ Mostly flat. Depth comes from tonal layers (blush-white ground, peach-wash surfa
 ## Shapes
 
 Soft, rounded and consistent by role, not one radius everywhere:
-- **Pills** (22px radius, fully round ends): category chips and the current navigation item on the phone.
+- **Pills** (22px radius, fully round ends): category chips, the current navigation item on the phone, tag chips (editable and read-only) and the filters count badge.
 - **Buttons** (14–16px).
 - **Fields and panels** (14px).
 - **Small labels and messages** (10–12px).
@@ -256,12 +256,26 @@ Borders are 1px hairlines for structure and 1.5px for interactive controls.
 - **Primary:** plum fill, white text, Figtree 700 at 16–17px, at least 48px tall (54px on the phone's Save entry), with the Action lift shadow. Labels name the action: "Save entry", "Save summary".
 - **Secondary:** white or transparent fill, plum text, 1.5px Field-border outline. Used for "Draft again", "New entry" in the sidebar, "Cancel".
 - **Hover / focus:** hover darkens the fill slightly. Focus shows a visible 2px plum outline with offset. Disabled buttons use muted text and no shadow.
+- **Quiet text action** (#28): no fill and no border, Plum text in Figtree 700 at 15px, at least 44×44px, 4px by 12px padding, 14px radius. On hover it takes the Secondary hover fill; focus shows the global focus outline. Used for "Discard suggestions" and "Suggested: \<category\>", so the suggest button stays the stronger control and Save entry the only filled plum element.
 
 ### Chips (category)
 - **Style:** pill shape, 44px tall, with a 10px dot in the category's dot colour before the label.
 - **Selected:** the category's tint background and text colour, a 1.5px border in the text colour, bold label.
 - **Unselected:** white background, Aubergine ink text, Field-border outline.
 - **In filters:** the same chips, with a check icon on each selected one.
+- **Suggested** (#28): a chip an AI suggestion selected has a dashed border and, after the label, the mark "Suggested" with a 16px Sparkles icon, in the category's text colour, Figtree 600 at 13px. When the user has already chosen another category, the quiet text action "Suggested: \<category\>" with a 16px Sparkles icon sits 8px below the chips instead.
+
+### Tag chips
+- **On the entry form and in the review page's tag filter:** a pill (22px radius) at least 44px tall, with a Peach wash fill, a 1.5px Field border outline and the name in Figtree 600 at 15px in Aubergine ink. It has no dot and no category tint. A 44×44px remove button with a 16px X icon ends the chip and turns Plum on hover. Chips wrap, 8px apart, 12px below the input.
+- **Suggested** (#28): the same chip with a dashed Muted plum-grey border and, between the name and the remove button, the mark "Suggested" with a 16px Sparkles icon, in Figtree 600 at 13px, Muted plum-grey, 8px after the name. The name may wrap; the mark never does.
+- **Read-only, on an entry row** (#29): small pills 8px below the entry text and 8px apart, Figtree 600 at 13px, Muted plum-grey text, Peach wash fill, 1px Hairline border, no remove button. They are not controls.
+- Tag chips never use a category tint, a dot or a plum fill, so a tag never reads as a category (The Tint Stays Small Rule).
+
+### Tag list
+The list of matching tags under a tag input, used by the entry form's tag field and the review page's tag filter. It lies over the content 4px below the input and is as wide as it: Paper white, 1px Hairline border, 14px radius, 8px padding, no shadow. Rows are at least 48px tall with 16px side padding, Body text in Aubergine ink and a 10px radius. The active row has a Peach background with bold On-peach text. At most five rows show; then the list scrolls inside itself.
+
+### Tag filter
+The review page's tag filter (#31) uses the tag field's input, tag list and chips. Its hint "Shows entries with any of the selected tags" sits 4px below the input. Only existing tags can be picked. When the user has no tags, the label is followed by "No tags yet." (15px, Muted plum-grey) in place of the input.
 
 ### Category labels
 A small rounded label (10px radius) in the category tint, Figtree 700 at 13px. Shown on every entry, everywhere.
@@ -270,6 +284,7 @@ A small rounded label (10px radius) in the category tint, Figtree 700 at 13px. S
 - **Style:** white fill, 1.5px Field-border outline, 14px radius, Figtree 16px, a visible label above every field.
 - **Focus:** plum border plus the Focus glow.
 - **Error:** Error-colour border and a message below the field that says what to fix, for example "Write what happened, then save."
+- **Character counter** (#43): it shows under the field from 80% of the limit, as "1,600 / 2,000" (count and limit with thousands separators), read by screen readers as "1,600 of 2,000 characters". It is right-aligned, 8px below the field, 15px, Muted plum-grey, with tabular figures, on one line. Over the limit it turns Error colour and weight 600. It never stops typing. The field's messages sit 4px below it. It is on the entry form's text and "Result" fields, the summary panel's text and the summary page's text.
 
 ### Navigation
 - **Phone:** header with the wordmark on the left and links on the right (Entries, Review, More). The current page sits in a peach pill.
@@ -278,19 +293,56 @@ A small rounded label (10px radius) in the category tint, Figtree 700 at 13px. S
 ### Saved message
 A peach band with a plum check icon and the text "Entry saved." It appears at the top of the capture screen after saving and fades away after a few seconds. This is the app's one authored motion moment. With reduced motion, it appears and disappears without animation.
 
+### Writing nudge
+A lasting state on the entries page, not a message (#30). One paragraph at the top of the content, before the list or the empty state, 24px above them, in the list's column and separate from the message slot. Peach wash fill, 1px Hairline border, 12px radius, 12px by 16px padding, Body text (16px) in Aubergine ink. Text only: no icon, button, link or close button, no plum fill, no error colour and no category tint. Its text: "Did something go well? Even a small win is worth writing down."
+
 ### Entry row
 Date (tabular, bold) | category label | entry text, with "Result: …" below in muted text when there is one. Hairline above. No card, no shadow.
+- **Tags:** read-only tags sit under the text (see Tag chips).
+- **Edit and Delete actions** (#29): 44×44px icon buttons with a 20px icon, always visible, in Muted plum-grey with no fill or border and a 14px radius. On hover the icon turns Plum on a Peach wash fill. Each has an accessible name with the entry's date: "Edit entry from \<date\>", "Delete entry from \<date\>". On the phone they sit at the right end of the category label's line; from 48rem they sit 8px under the label in the 120px column.
+
+### Review groups
+The review page's two heading levels (#31):
+- **Category:** an `h2` in the Title style with a 10px dot in the category's dot colour and the count after it ("3 entries") in Figtree 600 at 15px, Muted plum-grey, 12px above the first month. Category groups are 40px apart.
+- **Month inside a category:** an `h3` in Figtree 700 at 15px, Muted plum-grey, with tabular figures, 20px above each month but the first and 8px below.
+
+### Filters toggle
+On the phone only (#31), a secondary "Filters" button under the page title shows and hides the filter panel. The panel is closed when the page opens, opens 16px below the button, and stays open while a date error shows. When filters are in use, the button carries a count badge: a Peach pill at least 24×24px with On-peach text in Figtree 700 at 13px and tabular figures, read by screen readers as "\<n\> in use". The button text never wraps. From 48rem the filters are always shown and there is no toggle.
+- Filter groups are 20px apart. "Clear filters" (secondary) shows only while filters are in use.
+- The results start 24px below the filters on the phone and 32px from 48rem.
 
 ### Summary panel
 White panel (Peach wash in dark mode) with the title "Summary", one line saying which entries it was drafted from, the editable summary text, then Save summary and Draft again. It always says it is a draft the user can edit. Limits are stated calmly, for example "You can draft 1 more summary today."
+- When a draft arrives, focus goes to the panel's source line (the line saying which entries it was drafted from).
+- 20px padding on the phone, 24px from 48rem. Buttons are stacked at full width at every width.
+
+### Summary row
+A row in the summaries list (#33). It uses the entry row's 64px date column, with the date on two lines in one `time` element: "13 Nov" in Figtree 700 at 15px in Aubergine ink over "2026" in Figtree 600 at 13px in Muted plum-grey. Then the filter line (Figtree 600 at 15px, Aubergine ink) and a preview of the text, cut to two lines with an ellipsis (15px, Muted plum-grey, 4px under the filter line). A Hairline above each row, no category labels, no card, no shadow. Padding is 12px top and bottom (16px from 48rem). The whole row is one link, at least 44px tall. On hover only the filter line turns Plum and underlined; keyboard focus outlines the whole row.
+
+### Summary page actions
+On the phone, "Save summary" (primary) is at full width, with "Copy" and "Delete" (secondary, with their icons) side by side below it, 12px apart. From 48rem the three sit in one row at their own width, with "Delete" at the right end (#33).
+
+### Dialogs
+A native modal dialog, centred, at most 25rem wide and at least 20px from each side on the phone. Paper white, 1px Hairline border, 18px radius, 24px padding, no shadow. The backdrop is Blush white at 80%.
+- **Contents:** the title is an `h2`, the text sits 8px below it and the buttons 24px below the text. The buttons are stacked at full width, 12px apart, on the phone and sit in one row at their own width from 48rem.
+- **Buttons:** both are secondary, so a dialog adds no filled plum. It opens with focus on the safe choice, which comes first, and Escape does the same as the safe choice.
+- **"Discard changes?"** (#27): the text "Your changes haven't been saved." and the buttons "Keep editing" and "Discard".
+- **Delete dialog:** one shared dialog with "Cancel" and the delete button. Its title, text and button label are set per use: "Delete this entry?", "This can't be undone." and "Delete entry" (#29); "Delete this summary?", "This can't be undone. Your entries are not affected." and "Delete summary" (#33).
+- **Deleting and failure:** while deleting, the delete button reads "Deleting…" and neither button nor Escape does anything. After a failure, the error message shows inside the dialog, 16px under the text, and focus moves to the delete button.
+- **In-page confirmation step** (#34): used instead of a dialog when the confirmation holds form fields and would be too long for a dialog on a 360px phone with the keyboard open (account deletion). The step shows in the place of the button that opened it, as a Paper white panel with a 1px Hairline border, 14px radius, 20px padding (24px from 48rem) and no shadow. Its title is in the Title style. Every button in it is secondary, stacked at full width on the phone and in one row from 48rem.
 
 ### Icons
 One consistent outline icon set at 1.5–2px stroke, 16–24px, in the current text colour. The icons are Lucide (`lucide-react`), under the ISC licence; the icons that come from Feather are under the MIT licence. Icons appear only where they help:
 - next to navigation items on the laptop sidebar;
 - the check in the saved message and in selected filter chips;
-- small actions on entries and summaries: edit, delete, copy, download;
+- small actions on entries and summaries: Pencil (Edit) and Trash2 (Delete) on entry rows, X on a tag chip's remove button (a small action on an entry), Copy and Trash2 on the summary page;
+- the settings page: Download on the two download buttons, and Trash2 on "Delete account" and "Delete my account";
 - the AI suggestion and draft buttons, so AI features are recognisable;
 - empty states and messages (information, error).
+
+**Sparkles is the one AI icon:** 20px on "Suggest category and tags" and on the summary panel's draft button, 16px in the "Suggested" marks and in "Suggested: \<category\>".
+
+"Add tags and result" is a secondary button with no icon: a disclosure chevron or plus is not one of the places where icons appear.
 
 Never emoji, and never an icon without a text label or an accessible name.
 
@@ -304,6 +356,13 @@ Illustrations appear in at most three places, where a screen would otherwise fee
 
 They use one style: simple flat shapes in plum, peach and the category tints, with no gradients, no photographs and no stock images. Each one sits next to a sentence and a button that say what to do next.
 
+How the three places are filled (#77):
+- There are three drawings; the login and registration screens share one.
+- The review drawing shows in both of the review page's empty states (no entries at all, and no entries matching the filters). Both count as "a review with no matching entries".
+- Plum is used only for lines and small accents, with no plum-filled shape larger than 16×16px, so the main action stays the only filled plum element.
+- The drawings are inline SVG components in `frontend/src/components/`, coloured only through the tokens.
+- Widths: the login and registration drawing is 120px on the phone and 160px from 48rem; the entries and review drawings are 160px on the phone and 200px from 48rem. All are 5:4.
+
 ## Do's and Don'ts
 
 ### Do:
@@ -311,7 +370,7 @@ They use one style: simple flat shapes in plum, peach and the category tints, wi
 - **Do** give every screen a clear empty, loading and error state, each with one next step.
 - **Do** name buttons by their action and keep the name through the flow: "Save entry" leads to "Entry saved."
 - **Do** show category tints everywhere an entry appears, so entries can be scanned by colour (law of similarity).
-- **Do** group entries by month on the review screen (chunking) and keep the date column fixed.
+- **Do** group entries by category, then by month, on the review screen, and by month on the entries page (chunking), and keep the date column fixed.
 - **Do** mark AI text as a draft and keep it editable; keep AI buttons secondary (selective attention).
 - **Do** use standard controls people already know: selects, buttons, text fields (Jakob's law).
 - **Do** keep every tap target at least 44×44px on the phone (Fitts's law).

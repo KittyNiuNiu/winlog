@@ -2601,3 +2601,28 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Read #83 and #90 back from GitHub; #83 has no labels.
   - No code run and no AI call.
 - **Left open:** none for grooming. The visual questions wait in #90.
+
+## 2026-11-13: Engineer: implement #83 (record the built patterns in DESIGN.md)
+
+- **Task:** #83, docs only. Record the patterns built and design-reviewed in #27–#34, #43 and #77 in `DESIGN.md`, as built, following `docs/software-engineer.md`.
+- **What I did:**
+  - Wrote the text by hand in `DESIGN.md`'s own voice, with no Impeccable. The frontmatter and the `##` headings are unchanged and no token was added; the non-token values (75rem, 22.5rem, 25rem, 40rem, 80%) are in the prose only.
+  - Layout: the Laptop line states the review page's columns from 75rem and the panel below the results under 75rem (#32). The Lists line states both groupings (#29, #31).
+  - Shapes → Pills: adds tag chips (editable and read-only) and the filters count badge.
+  - Components:
+    - Buttons gains the quiet text action. Chips (category) gains the Suggested mark and the "Suggested: \<category\>" action.
+    - New subsections: Tag chips (editable, suggested, read-only), Tag list, Tag filter, Writing nudge, Review groups, Filters toggle, Summary row, Summary page actions, Dialogs (with the in-page confirmation step).
+    - Inputs / Fields gains the character counter. Entry row gains the tags and the Edit and Delete actions. Summary panel gains focus on the source line, its padding and its stacked buttons.
+    - Icons names the icons as built, with Sparkles as the one AI icon and no icon on "Add tags and result".
+    - Colour blocks and illustrations gains how the three places are filled (#77); the existing bullets are unchanged.
+  - Do's: the grouping line now says category, then month, on the review screen, and month on the entries page.
+  - Escaped the placeholders (`\<category\>`, `\<date\>`, `\<n\>`) so Markdown renderers do not drop them as HTML tags.
+- **How I verified it:**
+  - Read every value from the CSS and TSX files the criteria name (TagField, EntryRow, TagFilterField, CategoryChip, EntryForm, SummaryPanel, DiscardDialog, DeleteEntryDialog, SettingsPage, EntriesPage, ReviewPage, SummariesPage, SummaryPage, TextField, inputLimits, Illustrations, EmptyState, Icon) and `index.css` for the token values.
+  - Compared with the design notes and reviews linked from #83.
+  - `git diff` shows no change between the frontmatter's `---` lines and no change to the `##` headings; only `DESIGN.md` and this file changed.
+  - Frontend: `npm run lint` clean, `npm test` 1166 passed, `npm run build` passed. No test reads `DESIGN.md`. No backend change, no AI call.
+- **Differences between code and notes:**
+  - The counter's field is labelled "Result" in the code (the criterion says Result/Impact), so `DESIGN.md` says "Result".
+  - From 48rem to 75rem the review page's filter area starts 16px below the title, not the #31 note's 24px (margin collapse, already in the #31 review). `DESIGN.md` states no value for this gap.
+- **Left open:** the visual questions stay in #90.
