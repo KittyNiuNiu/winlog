@@ -95,20 +95,19 @@ ALLOWED_RESOURCE_KEYS = frozenset(
     }
 )
 
-ALLOWED_ATTRIBUTE_KEYS = frozenset(
-    {
-        "http.request.method",
-        "http.route",
-        "http.response.status_code",
-        "error.type",
-        "winlog.outcome",
-        "winlog.entry_count",
-        "winlog.ai.operation",
-        "winlog.ai.provider",
-        "winlog.ai.outcome",
-        "duration_ms",
-    }
+_ATTRIBUTE_KEYS = (
+    "http.request.method",
+    "http.route",
+    "http.response.status_code",
+    "error.type",
+    "winlog.outcome",
+    "winlog.entry_count",
+    "winlog.ai.operation",
+    "winlog.ai.provider",
+    "winlog.ai.outcome",
+    "duration_ms",
 )
+ALLOWED_ATTRIBUTE_KEYS = frozenset(_ATTRIBUTE_KEYS)
 """The only attribute keys of spans, metrics and log records (and log fields on stdout)."""
 
 # The keys every JSON log line on stdout has, besides the allowlisted fields.
@@ -501,7 +500,7 @@ def _severity(level: int) -> SeverityNumber:
 def log_fields(record: logging.LogRecord) -> dict[str, str | int | float | bool]:
     """A record's allowlisted `extra` fields, plus `error.type` from its exception, if any."""
     present = vars(record)
-    fields = _allowed({key: present[key] for key in ALLOWED_ATTRIBUTE_KEYS if key in present})
+    fields = _allowed({key: present[key] for key in _ATTRIBUTE_KEYS if key in present})
     if record.exc_info and record.exc_info[1] is not None:
         fields["error.type"] = type(record.exc_info[1]).__name__
     return fields

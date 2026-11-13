@@ -295,6 +295,48 @@ jobs:
         working-directory: frontend
         run: npm run test:e2e
 
+      - name: Telemetry reached the local stack
+        # The end-to-end test generated a summary with the mock (#74). Grafana (lgtm service,
+        # no login, 127.0.0.1 only) must show its trace in Tempo, a log record with the same
+        # trace ID in Loki, and the outcome counter in Prometheus. The backend batches traces
+        # and logs (about 5 s) and exports metrics every 10 s, so this retries for up to 90 s.
+        # Then lgtm is stopped, and the backend must still answer GET /health with 200.
+        run: |
+          grafana=http://127.0.0.1:3000/api/datasources/proxy/uid
+          tempo_ok=no; loki_ok=no; prometheus_ok=no; trace_id=
+          for attempt in $(seq 1 45); do
+            if [ -z "$trace_id" ]; then
+              trace_id=$(curl -s -G --max-time 5 "$grafana/tempo/api/search" \
+                --data-urlencode 'q={resource.service.name="winlog-backend" && name="POST /summaries"}' \
+                --data-urlencode 'limit=20' \
+                | python3 -c 'import json, sys; traces = json.load(sys.stdin).get("traces") or []; print(traces[0]["traceID"] if traces else "")' || true)
+              [ -n "$trace_id" ] && tempo_ok=yes
+            fi
+            if [ -n "$trace_id" ] && [ "$loki_ok" = no ]; then
+              lines=$(curl -s -G --max-time 5 "$grafana/loki/loki/api/v1/query_range" \
+                --data-urlencode "query={service_name=\"winlog-backend\"} | trace_id=\"$trace_id\"" \
+                --data-urlencode 'since=1h' \
+                | python3 -c 'import json, sys; print(sum(len(r["values"]) for r in json.load(sys.stdin)["data"]["result"]))' || echo 0)
+              [ "${lines:-0}" -ge 1 ] && loki_ok=yes
+            fi
+            if [ "$prometheus_ok" = no ]; then
+              count=$(curl -s -G --max-time 5 "$grafana/prometheus/api/v1/query" \
+                --data-urlencode 'query=sum(winlog_summary_generate_requests_total{winlog_outcome="created"})' \
+                | python3 -c 'import json, sys; r = json.load(sys.stdin)["data"]["result"]; print(int(float(r[0]["value"][1])) if r else 0)' || echo 0)
+              [ "${count:-0}" -ge 1 ] && prometheus_ok=yes
+            fi
+            [ "$tempo_ok$loki_ok$prometheus_ok" = yesyesyes ] && break
+            sleep 2
+          done
+          echo "Tempo: POST /summaries trace from winlog-backend: $tempo_ok (trace ID: ${trace_id:-none})"
+          echo "Loki: log record with that trace ID: $loki_ok"
+          echo "Prometheus: winlog_summary_generate_requests_total{winlog_outcome=\"created\"} >= 1: $prometheus_ok"
+          [ "$tempo_ok$loki_ok$prometheus_ok" = yesyesyes ] || { echo "::error::The summary's telemetry did not reach Grafana"; exit 1; }
+          docker compose stop lgtm
+          status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://localhost:8000/health || true)
+          echo "GET /health with lgtm stopped -> $status"
+          [ "$status" = "200" ] || { echo "::error::GET /health returned $status after lgtm was stopped"; exit 1; }
+
       - name: Upload the end-to-end test output
         # The trace and the screenshot of a failed test.
         if: failure()
@@ -305,6 +347,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Print the service logs
+        # All services, including lgtm.
         if: failure()
         run: |
           docker compose ps -a
