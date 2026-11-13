@@ -1,0 +1,10 @@
+/* "Page not found" (design note on #36). "Go to your entries" is alone in its line, so it
+   gets the 44px tap-target height, as "Back to summaries" on the summary page: an inline
+   box as wide as its text, the text centred vertically. It stays a plain underlined link
+   in Body 16px regular: no fill, border or padding. */
+
+.not-found__link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap-target);
+}
