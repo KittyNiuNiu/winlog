@@ -14,7 +14,6 @@ import { TextField } from '../components/TextField.tsx'
 import { LAPTOP_QUERY, useMediaQuery } from '../components/useMediaQuery.ts'
 import {
   NO_FILTER,
-  dateOrNull,
   entryQuery,
   filterSearchParams,
   filtersInUse,
@@ -25,6 +24,7 @@ import {
 } from '../review/reviewFilter.ts'
 import { DATE_ORDER_ERROR, NO_ENTRIES_TEXT, NO_MATCH_TEXT, entryCountText } from '../review/reviewTexts.ts'
 import TagFilterField, { type TagsLoad } from '../review/TagFilterField.tsx'
+import { useDateDraft } from '../review/useDateDraft.ts'
 import '../components/categories.css'
 import './ReviewPage.css'
 
@@ -75,6 +75,9 @@ export default function ReviewPage() {
   const id = useId()
   const panelId = `${id}-filters`
   const dateErrorId = `${id}-date-error`
+  // The date inputs show what the user types at once; the filter (the URL) follows (useDateDraft).
+  const [startText, changeStart] = useDateDraft(filter.startDate, (startDate) => updateFilter({ ...filter, startDate }))
+  const [endText, changeEnd] = useDateDraft(filter.endDate, (endDate) => updateFilter({ ...filter, endDate }))
 
   useEffect(() => {
     if (dateError) {
@@ -155,19 +158,19 @@ export default function ReviewPage() {
             id={`${id}-start`}
             label="Start date"
             type="date"
-            value={filter.startDate ?? ''}
+            value={startText}
             invalid={dateError}
             describedBy={dateError ? dateErrorId : undefined}
-            onChange={(event) => updateFilter({ ...filter, startDate: dateOrNull(event.target.value) })}
+            onChange={(event) => changeStart(event.target.value)}
           />
           <TextField
             id={`${id}-end`}
             label="End date"
             type="date"
-            value={filter.endDate ?? ''}
+            value={endText}
             invalid={dateError}
             describedBy={dateError ? dateErrorId : undefined}
-            onChange={(event) => updateFilter({ ...filter, endDate: dateOrNull(event.target.value) })}
+            onChange={(event) => changeEnd(event.target.value)}
           />
         </div>
         <div className="field__messages review-page__date-error" id={dateErrorId} role="alert">
