@@ -2375,3 +2375,32 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
     - Registering through the UI logs in and opens `/`, so "Account created. Please log in." only shows when the automatic login fails (designer). This is expected.
     - The sticky sidebar looks shifted in full-page screenshots (designer): a screenshot artefact.
     - Not checked on real iOS Safari or Android Chrome devices (engineer, QA).
+
+## 2026-11-13: PM: re-groom #35 (Add "Try the demo" to the login page) against DESIGN.md and the current frontend
+
+- **Task:** re-groom #35 (task 39), whose body dated from 2026-11-01, before `DESIGN.md`, #34 and #77, following `docs/pm.md`. It had no status label.
+  - Checked against `DESIGN.md` (Layout, Buttons, Icons, The One Action Rule, The Good Moment Rule, The Sentence Case Rule), `PRODUCT.md`, `product-spec.md` v0.2 (FR-X1 and §7.7, FR-A4, §8, §9, §12) and `openapi.yaml` (`demoLogin`, `DemoLoginResult`, its 404 `not_found`, `deleteAccount` with 409 `DemoAccountNotDeletable`, `logout`).
+  - Checked against the code: `frontend/src/pages/LoginPage.tsx`, `auth/AuthFields.tsx`, `auth/AuthForm.css`, `auth/requestErrors.ts`, `auth/useWakingUpHint.ts`, `auth/RouteGuards.tsx`, `routes.tsx`, `components/AppShell.tsx`, `AuthLayout`, `Button`, `Message`, `Illustrations.css`, `pages/SettingsPage.tsx`, `settings/settingsTexts.ts`, `api/operations.ts`, `api/session.ts`, `api/errors.ts`; and `backend/app/demo.py`, `app/demo_seed.py`, `scripts/seed_demo.py` (`DEMO_EMAIL`; the reset keeps the demo account's tokens).
+  - Used the two input comments on #35 (6847209484 from #77, 6851922938 from #34). Read #21, #25, #26, #34, #36, #38, #40, #46, #77, #83 and #84 so nothing from them is pulled in.
+- **What I did:**
+  - Rewrote #35 with the task template: "Try the demo" on the login page, the demo notice in the app, the settings page, tests and checks.
+  - Out of scope links #21, #25, #38, #46, #84, #36 and #40. No follow-up issue was needed. Added input comments to #46 (6852720673: the "too many attempts" message goes below "Try the demo"), #84 (6852721092: "Try the demo" is another busy button) and #36 (6852721483: the screens #35 adds).
+  - No labels changed.
+- **Decisions taken under the standing rule (2026-11-12, re-confirmed 2026-11-13), recorded in the issue:**
+  - Kept from 2026-11-01: the notice wording and the "Create your own account" link (approved by the product owner in advance), the stored demo flag, "The demo isn't available right now.", the 10-second waking-up hint, replacing "Delete account" for demo sessions.
+  - "Try the demo" is a secondary button below the login form (input from #77); the message slot above the form does not move (input from #34).
+  - Both "Log in" and "Try the demo" are visible at 360×640 without scrolling; the designer sets the phone sizes.
+  - Demo errors and the waking-up hint show directly below "Try the demo", because the slot above the form can be off screen on a phone.
+  - After a demo login the app opens the wanted page or `/`, as "Log in" does, replacing `/login` in the history.
+  - "Try the demo" skips field validation; Enter still submits the login form; the two actions block each other while one runs, and each clears the other's message.
+  - The notice is on every page in the app shell, including "Page not found", cannot be closed (§7.7: "while using the demo"), and is not a live region, so it is not announced on every page.
+  - "Create your own account" uses the same `logout` as "Log out" and opens `/register`, also when logout fails.
+  - For demo sessions, the Account section's sentence is replaced too, by "The demo account can't be deleted."; a 409 from the server in the step shows the same text (input from #34).
+  - Busy label "Opening the demo…"; the designer may adjust wording.
+- **How I verified it:**
+  - Checked the issue against the definition of done in `docs/pm.md`: four sections, checkable criteria, and every out-of-scope line links an issue.
+  - Confirmed in the code that `demoLogin` stores the token with `demo: true`, that its 404 becomes `NotFoundError`, that `deleteAccount` keeps the session on any failure, that `logout` clears the session even when the request fails, that the logged-in "Page not found" uses `AppShell`, and that `Message` is always a live region (so the notice needs a non-live variant).
+  - The contract gives the demo deletion error as 409 `demo_account_not_deletable`; 403 is `wrong_password`. The issue states this, since the orchestrator's brief called it a 403.
+  - Confirmed #21, #25, #26, #34, #75 and #77 are closed. Read #35 back from GitHub: the body matches what I sent (plus the automatic footer), the title is unchanged and it has no labels.
+  - No code run and no AI call.
+- **Left open:** for the designer's note: where "Try the demo" sits and the phone sizes, how the notice looks and where it sits relative to the saved message, how "Create your own account" looks while logging out, and the exact wording.
