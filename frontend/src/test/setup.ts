@@ -14,7 +14,10 @@ beforeEach(() => {
 })
 
 // Vitest globals are off, so React Testing Library cannot register its own cleanup.
+// This hook runs after the test files' own afterEach hooks, so blocking the network again
+// here covers the time between tests too, after a test file ran vi.unstubAllGlobals().
 afterEach(() => {
   cleanup()
   resetViewport()
+  blockNetwork()
 })
