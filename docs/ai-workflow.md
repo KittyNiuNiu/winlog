@@ -2011,3 +2011,30 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - On the phone, the scroll after a draft stops at the page bottom when the panel is the last thing on the page.
   - In dark mode the drafting notice has the same fill as the panel, so only its hairline sets it apart (for the design review).
   - Pre-existing, not caused by #32: below 75rem the review filters sit 16px under the title because the margins collapse, while #31's CSS comment says 24px.
+
+## 2026-11-13: Orchestrator: closed #32 (task 35, summary generation on the review page)
+
+- **Outcome:**
+  - The PM re-groomed it (fa4b983, fe5e73b) and the design note was posted (issue comment 6847975619).
+  - The engineer implemented it in 7785d74, 9af89ce and 1fdfa9c (6848280780).
+  - QA PASS (6848547261) and design review PASS (6848731203).
+  - Closed as completed; the last status label `qa-passed` stays.
+  - No real AI calls: every run used `AI_PROVIDER=mock` or intercepted responses.
+- **Decisions accepted under the 2026-11-12 standing rule.** The orchestrator checked `docs/product-spec.md` FR-R3 to FR-R6 and `DESIGN.md` → Summary panel and Layout; neither names the button or requires a separate summary page.
+  - PM:
+    - An editable summary panel on the review page replaces opening `/summaries/:id` after drafting. This follows `DESIGN.md`, which the product owner chose on 2026-11-11.
+    - The buttons are a secondary "Draft summary" and "Draft again". "Save summary" is the only plum button once a draft is shown, and it saves through `PATCH`.
+    - Disabled hints. The "Discard changes?" dialog asks before "Draft again" and before leaving the page.
+    - Limit notices as in #28.
+    - `DESIGN.md`'s "You can draft 1 more summary today." is not built: the API has no remaining-count and spec §8 does not require one.
+  - Designer: the panel sits beside the list from 75rem, in a sticky 360px column. Below 75rem it sits under the list, at most 40rem wide. Focus goes to the source line after a draft and stays on "Save summary" after saving. The note fixed the exact texts.
+  - Engineer:
+    - `useLeavePrompt` gets an opt-in `allowSamePath` option, so the entry forms are unchanged. The Review link on `/review` with unsaved edits does not ask: it only clears the filters, and the draft stays.
+    - "Draft again" takes focus before the dialog opens.
+    - Save sends the text as typed.
+    - Shared `components/aiTexts.ts` and `components/summaryFilterText.ts`, ready for #33.
+- **Where each open point went:**
+  - The review page's two-column layout, sticky panel and below-list width are not yet in `DESIGN.md`. In dark mode the notice and the text field share the panel's fill, so only their borders separate them; the designer recommends no change (designer, engineer). Both posted as a comment on #83 (6848742807).
+  - Below 75rem the filters also sit 16px under the title, the margin collapse from #31 (engineer, designer): already on #36 (6847149004).
+  - Edited summaries of any length are sent today; the 10,000-character limit belongs to #43 (QA): already on #43 from the PM (6847875035).
+  - On the phone the scroll after a draft stops at the page bottom, so the panel top sits about 55 to 100px below the window top (engineer, QA, designer). An empty-text error shows the focus border until focus leaves, the shared field's "focus wins over error" rule (designer). Both left in this log as expected behaviour.
