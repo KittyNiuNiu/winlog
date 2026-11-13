@@ -2312,3 +2312,25 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - MDN is not reachable from this session (DNS blocked). The `download` attribute and `URL.createObjectURL` / `revokeObjectURL` are documented in the project's TypeScript DOM typings; the issue says the result is checked in Chromium, and that a real-device iOS Safari / Android Chrome check is not possible here.
   - Confirmed #19, #20, #25, #26 and #75 are closed. Read #34 back from GitHub: the body matches what I sent (plus the automatic footer), the title is unchanged and it has no labels.
 - **Left open:** for the designer's note: the page and section layout, how the in-page step is set apart, where messages and the waking-up hint sit, and the exact wording.
+
+## 2026-11-13: Engineer: build the data and account settings page (#34)
+
+- **Task:** implement #34 (task 38) against its acceptance criteria and the design note (issue comment 6852002534), following `docs/software-engineer.md`. Frontend only; no contract, backend or dependency change.
+- **What I did:**
+  - `pages/SettingsPage.tsx` and `SettingsPage.css`: the page title, "Your data" with "Download JSON" and "Download Markdown" (Lucide `Download`), and "Account" with "Delete account" (Lucide `Trash2`), which opens the confirmation step in its place. The step is a flat paper-white panel with its `h3` (focused on open), the warning text, the same two download buttons, "Current password" (the login page's `PasswordField`), `Type "delete" to confirm`, "Cancel" and "Delete my account". Every button is secondary. Buttons are stacked full width on the phone and in a row from 48rem.
+  - Texts in `settings/settingsTexts.ts`, with `isConfirmWord` (trimmed, any case). File saving in `settings/saveFile.ts`: an object URL, a temporary hidden `<a download>`, click, remove, revoke. No new dependency.
+  - `auth/AuthFields.tsx`: `PasswordField` gets optional `label` (default "Password") and `readOnly` props; `onBlur` is optional. Login and registration are unchanged.
+  - `auth/wantedPage.ts`: `accountDeleted` in `LoginPageState`, with `accountDeletedState()` and `cameFromAccountDeletion()`. `auth/requestErrors.ts`: `ACCOUNT_DELETED_MESSAGE`. `pages/LoginPage.tsx`: one notice slot that shows "Account created. Please log in." or "Your account has been deleted.", cleared on submit.
+  - Removed `components/PlaceholderPage.tsx` (no other user).
+- **Decisions taken under the standing rule (2026-11-12, re-confirmed 2026-11-13), recorded in the issue comment:**
+  - The object URL is revoked 1 second after the click (`REVOKE_URL_AFTER_MS`), not in the same task, because some browsers read a blob URL only after the click's task has ended. The link is removed at once.
+  - Cancel unmounts the step, so the fields empty and the password is hidden again without extra state (the designer's watch-out).
+  - A download message shown in the step moves to "Your data" when the step is cancelled, so an error or a running download's waking-up hint is not lost.
+  - With two downloads running at once, the waking-up hint follows the download pair the user pressed last (one slot, as in the design note).
+  - The design note's decisions 1 to 12 are followed as written.
+- **How I verified it:**
+  - `npm run lint`, `npm test` (45 files, 1045 tests, without a backend on :8000) and `npm run build` pass. New tests: `pages/SettingsPage.test.tsx` (29 tests, named after FR-D1, FR-D2 and FR-A2) and `settings/settingsStyles.test.ts` (4 tests). The existing `AppShell`, routes, login page and illustration-place tests pass unchanged. A mutation check (dropping the trim from `isConfirmWord`) makes two tests fail.
+  - Manual check in Chromium (Google Chrome driven by `playwright-core` installed only in the session scratchpad, not in the project) with the backend on `uvicorn`, `AI_PROVIDER=mock`, the `db` container and `npm run dev`; `docker compose up --build` fails in this container (pip TLS). With a new throwaway account and one entry, at 360px and 1280px: both files saved as `winlog-export-2026-11-13.json` / `.md` and both contain the entry; no control under 44px; no sideways scroll with the step open, a download error, the deletion's waking-up hint (deletion delayed 10.5s by the test) and "That password is incorrect." shown; after the wrong password the account still works. Deleting with the right password opened `/login` with "Your account has been deleted.", the stored session was gone, Back stayed on `/login`, and logging in with the old email and password gave "Wrong email or password.". No real AI call.
+- **Left open:**
+  - A real-device check on iOS Safari and Android Chrome is not possible here (as the issue says).
+  - The demo replacement (#35), "too many attempts" (#46), focus while a busy button is disabled (#84) and the in-page step pattern in `DESIGN.md` (#83) stay with their issues.
