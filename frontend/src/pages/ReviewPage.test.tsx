@@ -1039,14 +1039,15 @@ describe('the results (FR-R2)', () => {
     expect(screen.queryByText('September 2026')).toBeNull()
   })
 
-  it('test_fr_r2_no_match_state_with_clear_filters_and_no_illustration', async () => {
+  it('test_fr_r2_no_match_state_with_clear_filters_and_the_review_illustration', async () => {
     listEntries.mockResolvedValue({ entries: [] })
     await renderReview('/review?category=Feedback')
 
     expect(total().textContent).toBe('0 entries')
     const emptyState = document.querySelector('.empty-state') as HTMLElement
     expect(within(emptyState).getByText('No entries match these filters.')).toBeTruthy()
-    expect(emptyState.querySelector('.empty-state__illustration')).toBeNull()
+    // #77: the review drawing in the empty state's illustration slot.
+    expect(emptyState.querySelector('.empty-state__illustration .illustration--review')).not.toBeNull()
     expect(within(emptyState).getByRole('button', { name: 'Clear filters' })).toBeTruthy()
     expect(categoryHeadings()).toEqual([])
   })
@@ -1259,5 +1260,106 @@ describe('phone and laptop (FR-R1)', () => {
 
     expect(screen.queryByRole('button', { name: /^Filters/ })).toBeNull()
     expect(categoriesGroup()).toBeTruthy()
+  })
+})
+
+// §9 Design, #77: the review drawing shows in both empty states and nowhere else.
+describe('the review illustration (§9 Design)', () => {
+  function illustrations(): SVGSVGElement[] {
+    return Array.from(document.querySelectorAll<SVGSVGElement>('svg.illustration'))
+  }
+
+  /** The one drawing on the page: the review drawing, above the empty state's sentence. */
+  function reviewIllustration(text: string): SVGSVGElement {
+    const svgs = illustrations()
+    expect(svgs).toHaveLength(1)
+    const svg = svgs[0]
+    expect(svg.classList.contains('illustration--review')).toBe(true)
+    expect(svg.getAttribute('aria-hidden')).toBe('true')
+    expect(svg.getAttribute('focusable')).toBe('false')
+    expect(svg.parentElement?.classList.contains('empty-state__illustration')).toBe(true)
+    const sentence = within(svg.closest('.empty-state') as HTMLElement).getByText(text)
+    expect(svg.compareDocumentPosition(sentence) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // Still no filled plum button on the review page (#32).
+    expect(document.querySelectorAll('.button--primary')).toHaveLength(0)
+    return svg
+  }
+
+  it('test_design_review_no_match_state_shows_the_review_illustration', async () => {
+    setViewport('laptop')
+    listEntries.mockResolvedValue({ entries: [] })
+    await renderReview('/review?category=Feedback')
+
+    reviewIllustration(NO_MATCH_TEXT)
+    expect(screen.getAllByRole('button', { name: 'Clear filters' }).length).toBeGreaterThan(0)
+  })
+
+  it('test_design_review_no_entries_state_shows_the_review_illustration', async () => {
+    setViewport('laptop')
+    listEntries.mockResolvedValue({ entries: [] })
+    await renderReview()
+
+    const svg = reviewIllustration(NO_ENTRIES_TEXT)
+    const emptyState = svg.closest('.empty-state') as HTMLElement
+    expect(within(emptyState).getByRole('link', { name: 'New entry' }).classList.contains('button--secondary')).toBe(
+      true,
+    )
+  })
+
+  it('test_design_review_no_illustration_with_results', async () => {
+    setViewport('laptop')
+    await renderReview()
+
+    expect(rows()).toHaveLength(6)
+    expect(illustrations()).toEqual([])
+  })
+
+  it('test_design_review_no_illustration_on_first_load_or_after_a_failed_load', async () => {
+    setViewport('laptop')
+    const load = deferred<EntryList>()
+    listEntries.mockReturnValueOnce(load.promise)
+    await renderReview()
+    expect(screen.getByText('Loading entries…')).toBeTruthy()
+    expect(illustrations()).toEqual([])
+
+    await act(async () => {
+      load.reject(new api.NetworkError())
+    })
+    expect(screen.getByText(NETWORK_MESSAGE)).toBeTruthy()
+    expect(illustrations()).toEqual([])
+  })
+
+  it('test_design_review_no_illustration_with_the_date_error', async () => {
+    setViewport('laptop')
+    listEntries.mockResolvedValue({ entries: [] })
+    await renderReview()
+    reviewIllustration(NO_ENTRIES_TEXT)
+
+    await setDate(endDate(), '2026-06-01')
+    await setDate(startDate(), '2026-06-02')
+
+    expect(screen.getByText(DATE_ORDER_ERROR)).toBeTruthy()
+    expect(illustrations()).toEqual([])
+  })
+
+  it('test_design_review_illustration_stays_while_new_results_load', async () => {
+    setViewport('laptop')
+    listEntries.mockResolvedValue({ entries: [] })
+    await renderReview('/review?category=Feedback')
+    const before = reviewIllustration(NO_MATCH_TEXT)
+    const next = deferred<EntryList>()
+    listEntries.mockReturnValueOnce(next.promise)
+
+    await click(chip('Learning'))
+
+    expect(screen.getByText('Loading entries…')).toBeTruthy()
+    // The same drawing, not unmounted or replaced while the new results load (#31).
+    expect(reviewIllustration(NO_MATCH_TEXT)).toBe(before)
+
+    await act(async () => {
+      next.resolve({ entries: [makeEntry('l', '2026-11-01', { category: 'Learning' })] })
+    })
+    expect(rows()).toHaveLength(1)
+    expect(illustrations()).toEqual([])
   })
 })

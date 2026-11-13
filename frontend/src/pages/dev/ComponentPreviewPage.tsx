@@ -6,6 +6,7 @@ import CategoryChip from '../../components/CategoryChip.tsx'
 import CategoryLabel from '../../components/CategoryLabel.tsx'
 import EmptyState from '../../components/EmptyState.tsx'
 import EntryRow from '../../components/EntryRow.tsx'
+import { EntriesIllustration, LoginIllustration, ReviewIllustration } from '../../components/Illustrations.tsx'
 import Message from '../../components/Message.tsx'
 import SavedMessage from '../../components/SavedMessage.tsx'
 import { TextArea, TextField } from '../../components/TextField.tsx'
@@ -270,13 +271,15 @@ export default function ComponentPreviewPage() {
         <Sample caption="Without an illustration">
           <EmptyState action={<Button variant="secondary">New entry</Button>}>{EMPTY_STATE_TEXT}</EmptyState>
         </Sample>
-        <Sample caption="With an illustration placeholder">
-          <EmptyState
-            action={<Button variant="secondary">New entry</Button>}
-            illustration={<div className="preview__illustration" />}
-          >
+        <Sample caption="With an illustration">
+          <EmptyState action={<Button variant="secondary">New entry</Button>} illustration={<EntriesIllustration />}>
             {EMPTY_STATE_TEXT}
           </EmptyState>
+        </Sample>
+        <Sample caption="The three illustrations: login and registration, empty entries list, review" row>
+          <LoginIllustration />
+          <EntriesIllustration />
+          <ReviewIllustration />
         </Sample>
       </Section>
     </main>

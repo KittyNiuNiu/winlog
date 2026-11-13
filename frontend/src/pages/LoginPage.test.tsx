@@ -345,3 +345,46 @@ describe('after a failed automatic login (FR-A1)', () => {
     expect(screen.queryByText('Account created. Please log in.')).toBeNull()
   })
 })
+
+// §9 Design, #77: the login and registration drawing above the heading, below the wordmark.
+describe('the login illustration (§9 Design)', () => {
+  function illustration(): SVGSVGElement {
+    const svgs = document.querySelectorAll<SVGSVGElement>('svg.illustration')
+    expect(svgs).toHaveLength(1)
+    return svgs[0]
+  }
+
+  it('test_design_login_shows_the_login_illustration', () => {
+    renderRoute('/login')
+
+    const svg = illustration()
+    expect(svg.classList.contains('illustration--login')).toBe(true)
+    expect(svg.getAttribute('aria-hidden')).toBe('true')
+    expect(svg.getAttribute('focusable')).toBe('false')
+    // Below the wordmark, inside the page, right before the heading.
+    const heading = screen.getByRole('heading', { level: 1, name: 'Log in' })
+    expect(svg.nextElementSibling).toBe(heading)
+    expect(screen.getByRole('main').contains(svg)).toBe(true)
+    const wordmark = document.querySelector('.wordmark') as HTMLElement
+    expect(wordmark.compareDocumentPosition(svg) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // Nothing new to read or reach: the same heading, button and link as before.
+    expect(screen.getAllByRole('heading').map((element) => element.textContent)).toEqual(['Log in'])
+    expect(screen.getAllByRole('button').map((button) => button.textContent)).toEqual(['Show', 'Log in'])
+  })
+
+  it('test_design_login_illustration_stays_with_the_account_created_notice_and_an_error', async () => {
+    login.mockRejectedValue(new api.InvalidCredentialsError('Wrong email or password.', 401))
+    const { router } = renderRoute('/register')
+    await act(async () => {
+      await router.navigate('/login', { state: { accountCreated: true } })
+    })
+    expect(screen.getByText('Account created. Please log in.')).toBeTruthy()
+    expect(illustration().nextElementSibling?.textContent).toBe('Log in')
+
+    fillIn(EMAIL, 'wrong-password')
+    await submit()
+
+    expect(formAlert().textContent).toBe('Wrong email or password.')
+    expect(illustration().nextElementSibling?.textContent).toBe('Log in')
+  })
+})

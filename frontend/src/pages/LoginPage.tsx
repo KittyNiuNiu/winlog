@@ -11,6 +11,7 @@ import {
 import { useWakingUpHint } from '../auth/useWakingUpHint.ts'
 import { PASSWORD_MISSING, emailProblem } from '../auth/validation.ts'
 import { REGISTER_PATH, cameFromRegistration, wantedPage } from '../auth/wantedPage.ts'
+import { LoginIllustration } from '../components/Illustrations.tsx'
 import '../auth/AuthForm.css'
 
 type Field = 'email' | 'password'
@@ -95,6 +96,7 @@ export default function LoginPage() {
 
   return (
     <section className="auth-page">
+      <LoginIllustration />
       <h1>Log in</h1>
       <FormNotice message={showAccountCreated ? ACCOUNT_CREATED_MESSAGE : null} />
       <FormAlert message={formError} />

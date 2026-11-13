@@ -1,0 +1,92 @@
+/* The three illustrations (#77). Flat shapes, plum only as line work and two small
+   accents, every colour from a token. Phone below 48rem, laptop from it; always 5:4. */
+
+.illustration {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  aspect-ratio: 5 / 4;
+}
+
+.illustration--login {
+  width: 120px;
+  margin-bottom: var(--space-32);
+}
+
+.illustration--entries,
+.illustration--review {
+  width: 160px;
+}
+
+@media (min-width: 48rem) {
+  .illustration--login {
+    width: 160px;
+  }
+
+  .illustration--entries,
+  .illustration--review {
+    width: 200px;
+  }
+}
+
+.illustration__backdrop {
+  fill: var(--color-peach);
+}
+
+.illustration__line {
+  fill: none;
+  stroke: var(--color-plum);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.illustration__shape {
+  stroke: var(--color-plum);
+  stroke-width: 3;
+  stroke-linejoin: round;
+}
+
+.illustration__shape--lilac {
+  fill: var(--color-learning-background);
+}
+
+.illustration__shape--apricot {
+  fill: var(--color-achievement-background);
+}
+
+.illustration__shape--sage {
+  fill: var(--color-side-project-background);
+}
+
+.illustration__shape--rose {
+  fill: var(--color-feedback-background);
+}
+
+/* The star (15×15) and the pencil lead (5×5): the only plum fills. */
+.illustration__accent {
+  fill: var(--color-plum);
+}
+
+.illustration__dot--achievement {
+  fill: var(--color-achievement-dot);
+}
+
+.illustration__dot--learning {
+  fill: var(--color-learning-dot);
+}
+
+.illustration__dot--feedback {
+  fill: var(--color-feedback-dot);
+}
+
+.illustration__dot--side-project {
+  fill: var(--color-side-project-dot);
+}
+
+.illustration__handle {
+  fill: var(--color-feedback-dot);
+  stroke: var(--color-plum);
+  stroke-width: 3;
+  stroke-linejoin: round;
+}

@@ -411,3 +411,38 @@ describe('registration while the request runs (FR-A1)', () => {
     expect(formAlert().textContent).toBe(NETWORK_MESSAGE)
   })
 })
+
+// §9 Design, #77: the same drawing as on the login page, above the heading.
+describe('the login illustration on registration (§9 Design)', () => {
+  function illustration(): SVGSVGElement {
+    const svgs = document.querySelectorAll<SVGSVGElement>('svg.illustration')
+    expect(svgs).toHaveLength(1)
+    return svgs[0]
+  }
+
+  it('test_design_register_shows_the_login_illustration', () => {
+    renderRoute('/register')
+
+    const svg = illustration()
+    expect(svg.classList.contains('illustration--login')).toBe(true)
+    expect(svg.getAttribute('aria-hidden')).toBe('true')
+    expect(svg.getAttribute('focusable')).toBe('false')
+    const heading = screen.getByRole('heading', { level: 1, name: 'Create an account' })
+    expect(svg.nextElementSibling).toBe(heading)
+    expect(screen.getByRole('main').contains(svg)).toBe(true)
+    // Nothing new to read or reach.
+    expect(screen.getAllByRole('heading').map((element) => element.textContent)).toEqual(['Create an account'])
+    expect(screen.getAllByRole('button').map((button) => button.textContent)).toEqual(['Show', 'Create account'])
+  })
+
+  it('test_design_register_illustration_stays_with_an_error', async () => {
+    register.mockRejectedValue(new api.NetworkError())
+    renderRoute('/register')
+    fillIn(EMAIL, PASSWORD)
+
+    await submit()
+
+    expect(formAlert().textContent).toBe(NETWORK_MESSAGE)
+    expect(illustration().nextElementSibling?.textContent).toBe('Create an account')
+  })
+})

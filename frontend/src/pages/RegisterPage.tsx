@@ -6,6 +6,7 @@ import { unexpectedErrorMessage, validationMessages } from '../auth/requestError
 import { useWakingUpHint } from '../auth/useWakingUpHint.ts'
 import { PASSWORD_HINT, PASSWORD_MESSAGES, emailProblem, passwordProblems } from '../auth/validation.ts'
 import { LOGIN_PATH, type LoginPageState } from '../auth/wantedPage.ts'
+import { LoginIllustration } from '../components/Illustrations.tsx'
 import '../auth/AuthForm.css'
 
 type Field = 'email' | 'password'
@@ -109,6 +110,7 @@ export default function RegisterPage() {
 
   return (
     <section className="auth-page">
+      <LoginIllustration />
       <h1>Create an account</h1>
       <FormAlert message={formError} />
       <form className="form" noValidate onSubmit={(event) => void handleSubmit(event)}>

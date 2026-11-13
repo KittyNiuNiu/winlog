@@ -38,14 +38,6 @@
   margin-top: var(--space-16);
 }
 
-.preview__illustration {
-  width: 160px;
-  height: 120px;
-  background: var(--color-peach-wash);
-  border: var(--border-hairline) solid var(--color-hairline);
-  border-radius: var(--radius-panel);
-}
-
 @media (min-width: 48rem) {
   .preview {
     padding: var(--space-40) var(--space-48) var(--space-48);

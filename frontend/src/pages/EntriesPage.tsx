@@ -5,6 +5,7 @@ import { WAKING_UP_MESSAGE, unexpectedErrorMessage } from '../auth/requestErrors
 import { useWakingUpHint } from '../auth/useWakingUpHint.ts'
 import { Button, ButtonLink } from '../components/Button.tsx'
 import EmptyState from '../components/EmptyState.tsx'
+import { EntriesIllustration } from '../components/Illustrations.tsx'
 import EntryRow from '../components/EntryRow.tsx'
 import { groupByMonth } from '../components/groupByMonth.ts'
 import Message from '../components/Message.tsx'
@@ -206,6 +207,7 @@ export default function EntriesPage() {
         {empty && (
           <div ref={emptyRef}>
             <EmptyState
+              illustration={<EntriesIllustration />}
               action={
                 <ButtonLink variant="primary" to="/entries/new">
                   New entry

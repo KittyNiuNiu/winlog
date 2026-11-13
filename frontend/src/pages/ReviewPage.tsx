@@ -7,6 +7,7 @@ import { Button, ButtonLink } from '../components/Button.tsx'
 import { CATEGORIES, categoryClassName } from '../components/categories.ts'
 import CategoryChip from '../components/CategoryChip.tsx'
 import EmptyState from '../components/EmptyState.tsx'
+import { ReviewIllustration } from '../components/Illustrations.tsx'
 import EntryRow from '../components/EntryRow.tsx'
 import { groupByMonth } from '../components/groupByMonth.ts'
 import Message from '../components/Message.tsx'
@@ -256,6 +257,7 @@ export default function ReviewPage() {
         </p>
         {result !== null && result.entries.length === 0 && (
           <EmptyState
+            illustration={<ReviewIllustration />}
             action={
               result.filtered ? (
                 clearButton

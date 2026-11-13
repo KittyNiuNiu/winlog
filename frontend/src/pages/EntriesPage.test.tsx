@@ -788,7 +788,8 @@ describe('empty, loading and error states', () => {
     expect(links[0].classList.contains('button--primary')).toBe(true)
     expect(links[0].closest('.empty-state')).not.toBeNull()
     expect(monthHeadings()).toEqual([])
-    expect(document.querySelector('.empty-state__illustration')).toBeNull()
+    // #77: the entries drawing in the empty state's illustration slot.
+    expect(document.querySelector('.empty-state__illustration .illustration--entries')).not.toBeNull()
   })
 
   it('test_fr_e4_empty_state_button_opens_the_capture_screen', async () => {
@@ -1185,4 +1186,72 @@ describe('the writing nudge (FR-N1)', () => {
       expect(nudge()).toBeNull()
     },
   )
+})
+
+// §9 Design, #77: the entries drawing shows only in the empty state.
+describe('the entries illustration (§9 Design)', () => {
+  function illustrations(): SVGSVGElement[] {
+    return Array.from(document.querySelectorAll<SVGSVGElement>('svg.illustration'))
+  }
+
+  function expectTheEntriesIllustration(): void {
+    const svgs = illustrations()
+    expect(svgs).toHaveLength(1)
+    const svg = svgs[0]
+    expect(svg.classList.contains('illustration--entries')).toBe(true)
+    expect(svg.getAttribute('aria-hidden')).toBe('true')
+    expect(svg.getAttribute('focusable')).toBe('false')
+    // In the slot, above the sentence and the one filled plum "New entry".
+    const emptyState = svg.closest('.empty-state') as HTMLElement
+    expect(svg.parentElement?.classList.contains('empty-state__illustration')).toBe(true)
+    const text = within(emptyState).getByText(EMPTY_TEXT)
+    expect(svg.compareDocumentPosition(text) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(within(emptyState).getByRole('link', { name: 'New entry' }).classList.contains('button--primary')).toBe(
+      true,
+    )
+    expect(primaryButtons()).toHaveLength(1)
+  }
+
+  it('test_design_entries_empty_state_shows_the_entries_illustration', async () => {
+    listEntries.mockResolvedValue({ entries: [] })
+    await renderEntries()
+
+    expectTheEntriesIllustration()
+  })
+
+  it('test_design_entries_illustration_after_deleting_the_last_entry', async () => {
+    listEntries.mockResolvedValue({ entries: [makeEntry('only', '2026-11-10')] })
+    await renderEntries()
+    expect(illustrations()).toEqual([])
+
+    await deleteRow('10 Nov 2026')
+
+    expectTheEntriesIllustration()
+  })
+
+  it('test_design_entries_no_illustration_with_entries', async () => {
+    setViewport('laptop')
+    await renderEntries()
+
+    expect(rows()).toHaveLength(6)
+    expect(illustrations()).toEqual([])
+  })
+
+  it('test_design_entries_no_illustration_while_loading_or_after_a_failed_load', async () => {
+    const load = deferred<{ entries: Entry[] }>()
+    listEntries.mockReturnValueOnce(load.promise)
+    await renderEntries()
+    expect(screen.getByText('Loading entries…')).toBeTruthy()
+    expect(illustrations()).toEqual([])
+
+    await act(async () => {
+      load.reject(new api.NetworkError())
+    })
+    expect(screen.getByRole('alert').textContent).toBe(NETWORK_MESSAGE)
+    expect(illustrations()).toEqual([])
+
+    listEntries.mockResolvedValueOnce({ entries: [] })
+    await click(screen.getByRole('button', { name: 'Try again' }))
+    expectTheEntriesIllustration()
+  })
 })
