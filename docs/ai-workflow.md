@@ -2842,3 +2842,53 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Full-page screenshots draw sticky and fixed elements oddly: the sidebar and the dialog backdrop (designer). This is a screenshot artefact.
   - `register-field-errors` shows no email error for "alex@" (designer). This is expected: the client check in `auth/validation.ts` only requires an "@", and the server validates the rest.
   - Screen reader and larger-text checks: #91. The idle "Draft summary" fill and the demo notice width: #90 (PM).
+
+## 2026-11-13: PM: re-groom #37 (add an end-to-end smoke test)
+
+- **Task:** re-groom #37, labelled `groomed` since 2026-11-01. Its flow predated this batch: #30 (nudge text), #32 (summary panel on `/review`), #33 (summaries list), #34 (settings downloads), #36 (Playwright) and #46 (login limits). Followed `docs/pm.md`.
+  - Read the issue (no comments), `docs/process.md`, `docs/task-template.md`, `DESIGN.md` (navigation, saved message, writing nudge, summary panel) and `docs/product-spec.md` (FR-N1, FR-R1 to FR-R5, FR-D1, §9).
+  - Read the frontend: `RegisterPage`, `EntriesPage`, `NewEntryPage`, `EntryForm`, `TagField`, `ReviewPage`, `SummaryPanel`, `SummariesPage`, `SettingsPage`, `saveFile.ts`, the text files, `AppShell`, `RouteGuards`, `playwright.config.ts`, `viewport/`, `vite.config.ts`, `eslint.config.js` and `tsconfig*.json`.
+  - Read the backend's mock provider (`app/ai/mock.py`), the export contract in `openapi.yaml`, `.env.example`, `docker-compose.yml`, the frontend Dockerfile and nginx config, and `.github/workflows/ci.yml`.
+  - Kept #73 and #74 out.
+- **What I did:**
+  - Rewrote the body with the task template. The flow now uses today's screens and texts:
+    - register, then the exact nudge and the empty state;
+    - "Save entry" with "Entry saved." and "Just saved", then the nudge gone on Entries;
+    - review filtered to today and the new tag;
+    - "Draft summary" with the exact mock text, edited, then "Save summary" and "Summary saved.";
+    - one summary in `/summaries`;
+    - "Download JSON" holding the entry and the edited summary;
+    - "Log out", and `/` then shows `/login`.
+  - Added criteria for:
+    - running it with `E2E_BASE_URL` in two ways (full Compose, or db container + `uvicorn` + `vite preview` on port 8080);
+    - keeping it apart from the viewport tests and Vitest;
+    - type-checking and linting;
+    - CI steps and failure output.
+  - Posted the grooming comment with the decisions: https://github.com/KittyNiuNiu/winlog/issues/37#issuecomment-6860688208
+  - No labels changed, no follow-up issues created.
+- **Decisions taken under the standing rule (2026-11-12, re-confirmed 2026-11-13), recorded in the issue:**
+  - Kept every 2026-11-01 decision the product owner approved in advance.
+  - The summary step follows #32 and #33: draft in the panel, check the exact mock text, edit, save, then find it listed in `/summaries`. It replaces "land on its page".
+  - The nudge is checked as gone on the Entries page, because the capture page keeps the user there after saving.
+  - The JSON export must hold the edited summary text, so it proves the edit was stored.
+  - After "Log out", opening `/` must show `/login` too (FR-A2).
+  - The test takes "today" from the pre-filled "Date" field rather than computing it.
+  - The base URL comes from `E2E_BASE_URL` (default `http://localhost:8080`, already a CORS origin) and the test starts no server. CI uses the full `docker compose up --build -d`. Cloud sessions use the db container + `uvicorn` + `vite preview`. No change to the Dockerfiles, `docker-compose.yml` or `.env.example`.
+  - It runs in the existing "Full system" CI job, which gets `needs: [contract, backend, frontend]`. This avoids a second container build and copied steps. The timeout stays 20 minutes. The existing service-log step runs after the test, and Playwright's output is uploaded on failure.
+  - Reuses #36's `@playwright/test` 1.63.0 with its own config and test folder. No new dependency.
+  - QA checks the full-system way in the GitHub Actions run.
+  - The task changes no screens.
+- **How I verified it:**
+  - Checked the issue against the definition of done in `docs/pm.md`: four sections, checkable criteria, and every out-of-scope line links an issue.
+  - Checked texts and behaviour in the code:
+    - the nudge and empty-state texts (`EntriesPage.tsx`);
+    - "Entry saved." and "Just saved" on `/entries/new` (`NewEntryPage.tsx`);
+    - the panel labels (`summaryDraft.ts`, `summaryEditor.ts`);
+    - the mock summary format (`app/ai/mock.py`);
+    - the export file name and schema (`openapi.yaml`);
+    - "Log out" in the laptop sidebar (`AppShell.tsx`);
+    - `example.com` addresses are accepted (email-validator 2.3.0 does not list `example.com` as special-use).
+  - Checked Playwright 1.63.0 in the installed types and CLI: the `retain-on-failure` and `only-on-failure` modes, `--config`, the `download` event, `suggestedFilename()` from the `download` attribute, and `acceptDownloads` on by default. playwright.dev could not be reached from this session.
+  - Checked the duration of the last CI run's "Full system" job (43473921550): about 45 seconds.
+  - No code run, and no AI call.
+- **Left open:** none for grooming.
