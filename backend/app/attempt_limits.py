@@ -111,7 +111,12 @@ class AttemptLimiter:
         self._clock = clock
 
     @classmethod
-    def from_settings(cls, engine: Engine, settings: Settings) -> "AttemptLimiter":
+    def from_settings(
+        cls,
+        engine: Engine,
+        settings: Settings,
+        clock: Callable[[], dt.datetime] = utc_now,
+    ) -> "AttemptLimiter":
         return cls(
             engine,
             {
@@ -124,6 +129,7 @@ class AttemptLimiter:
                     dt.timedelta(minutes=settings.demo_login_window_minutes),
                 ),
             },
+            clock,
         )
 
     def take_login_attempt(self, email: str) -> None:
