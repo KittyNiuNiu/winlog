@@ -9,19 +9,24 @@ interface MessageProps {
   /** The text. Null or empty hides the message but keeps its live region in the page. */
   children?: ReactNode
   className?: string
+  /**
+   * False for a message that stays on every page, such as the demo notice (#35): no
+   * `role`, so screen readers do not announce it again on each page change.
+   */
+  live?: boolean
 }
 
 /**
- * An information or error message with its icon. The element is a live region that
- * stays in the page (information: role="status", error: role="alert"), so screen readers
- * announce each new text. The text sits directly in it.
+ * An information or error message with its icon. By default the element is a live region
+ * that stays in the page (information: role="status", error: role="alert"), so screen
+ * readers announce each new text. The text sits directly in it.
  */
-export default function Message({ variant, children, className }: MessageProps) {
+export default function Message({ variant, children, className, live = true }: MessageProps) {
   const hasText = children !== null && children !== undefined && children !== false && children !== ''
   return (
     <div
       className={['message', `message--${variant}`, className].filter(Boolean).join(' ')}
-      role={variant === 'error' ? 'alert' : 'status'}
+      role={live ? (variant === 'error' ? 'alert' : 'status') : undefined}
     >
       {hasText && (
         <>

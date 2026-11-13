@@ -135,6 +135,8 @@ def _table_rows(engine: Engine, user_id: uuid.UUID | None = None) -> dict:
         "ai_usage": "user_id",
         "entry_tags": "(SELECT user_id FROM entries WHERE entries.id = entry_tags.entry_id)",
         "ai_usage_global": None,
+        # No user id: SHA-256 hashes of emails and visitor IPs (FR-A4).
+        "login_attempts": None,
     }
     assert set(owner) == APP_TABLES
     snapshot = {}

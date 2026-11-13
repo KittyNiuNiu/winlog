@@ -57,4 +57,5 @@ def test_every_timestamp_is_time_zone_aware(migrated_db: Engine):
         ("entries", "updated_at"),
         ("summaries", "created_at"),
         ("summaries", "updated_at"),
+        ("login_attempts", "window_start"),
     }

@@ -350,7 +350,9 @@ describe('registration while the request runs (FR-A1)', () => {
 
     await submit()
 
-    expect(submitButton().disabled).toBe(true)
+    // Busy: announced as unavailable, but not natively disabled, so it keeps focus (#84).
+    expect(submitButton().getAttribute('aria-disabled')).toBe('true')
+    expect(submitButton().disabled).toBe(false)
     expect(submitButton().textContent).toBe('Creating account…')
     fireEvent.click(submitButton())
     expect(register).toHaveBeenCalledTimes(1)
@@ -409,5 +411,107 @@ describe('registration while the request runs (FR-A1)', () => {
 
     expect(screen.queryByText(WAKING_UP)).toBeNull()
     expect(formAlert().textContent).toBe(NETWORK_MESSAGE)
+  })
+})
+
+// §9 Design, #77: the same drawing as on the login page, above the heading.
+// Keyboard focus after a registration request (#84): a server validation error moves the
+// cursor to the first field with a message, email before password; an email already in use
+// moves it to the email field (#26); any other error leaves focus where it was.
+describe('keyboard focus after a registration request (FR-A1, #84)', () => {
+  it.each([
+    ['email', [{ field: 'email', reason: 'value is not a valid email address' }], emailInput],
+    ['password', [{ field: 'password', reason: 'String should have at most 128 characters' }], passwordInput],
+    [
+      'email before password',
+      [
+        { field: 'password', reason: 'String should have at most 128 characters' },
+        { field: 'email', reason: 'value is not a valid email address' },
+      ],
+      emailInput,
+    ],
+  ])('test_fr_a1_server_validation_moves_cursor_to_first_field (%s)', async (_case, fields, expected) => {
+    register.mockRejectedValue(new api.ValidationError('The request has invalid fields.', 422, fields))
+    renderRoute('/register')
+    fillIn(EMAIL, PASSWORD)
+    submitButton().focus()
+
+    await submit()
+
+    expect(document.activeElement).toBe(expected())
+  })
+
+  it('test_fr_a1_email_already_registered_moves_cursor_to_email', async () => {
+    register.mockRejectedValue(new api.EmailAlreadyRegisteredError('This email is already registered.', 409))
+    renderRoute('/register')
+    fillIn(EMAIL, PASSWORD)
+    submitButton().focus()
+
+    await submit()
+
+    expect(document.activeElement).toBe(emailInput())
+  })
+
+  it.each([
+    ['a network error', new api.NetworkError()],
+    ['an unexpected error', new api.UnknownError('Internal error.', 500, 'internal_error')],
+    ['a validation error naming another field', new api.ValidationError('Invalid.', 422, [{ field: 'body', reason: 'x' }])],
+  ])('test_fr_a1_%s_leaves_focus_on_create_account', async (_case, error) => {
+    let fail: () => void = () => {}
+    register.mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          fail = () => reject(error)
+        }),
+    )
+    renderRoute('/register')
+    fillIn(EMAIL, PASSWORD)
+    submitButton().focus()
+
+    await submit()
+    expect(submitButton().textContent).toBe('Creating account…')
+    // Focusable while busy: a natively disabled button would drop focus in a browser.
+    expect(submitButton().disabled).toBe(false)
+    expect(document.activeElement).toBe(submitButton())
+    await act(async () => {
+      fail()
+    })
+
+    expect(formAlert().textContent).not.toBe('')
+    expect(document.activeElement).toBe(submitButton())
+  })
+})
+
+describe('the login illustration on registration (§9 Design)', () => {
+  function illustration(): SVGSVGElement {
+    const svgs = document.querySelectorAll<SVGSVGElement>('svg.illustration')
+    expect(svgs).toHaveLength(1)
+    return svgs[0]
+  }
+
+  it('test_design_register_shows_the_login_illustration', () => {
+    renderRoute('/register')
+
+    const svg = illustration()
+    expect(svg.classList.contains('illustration--login')).toBe(true)
+    expect(svg.getAttribute('aria-hidden')).toBe('true')
+    expect(svg.getAttribute('focusable')).toBe('false')
+    const heading = screen.getByRole('heading', { level: 1, name: 'Create an account' })
+    expect(svg.nextElementSibling).toBe(heading)
+    expect(screen.getByRole('main').contains(svg)).toBe(true)
+    // Nothing new to read or reach.
+    expect(screen.getAllByRole('heading').map((element) => element.textContent)).toEqual(['Create an account'])
+    expect(screen.getAllByRole('button').map((button) => button.textContent)).toEqual(['Show', 'Create account'])
+  })
+
+  it('test_design_register_illustration_stays_with_an_error', async () => {
+    register.mockRejectedValue(new api.NetworkError())
+    renderRoute('/register')
+    fillIn(EMAIL, PASSWORD)
+
+    await submit()
+
+    expect(formAlert().textContent).toBe(NETWORK_MESSAGE)
+    expect(illustration().nextElementSibling?.textContent).toBe('Create an account')
   })
 })

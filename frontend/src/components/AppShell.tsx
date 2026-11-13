@@ -1,8 +1,10 @@
 import { FileText, ListFilter, NotebookText, Settings, type LucideIcon } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Link, Outlet, matchPath, useLocation, useNavigate } from 'react-router'
-import { logout } from '../api/index.ts'
+import { getSession, logout } from '../api/index.ts'
+import { LOGIN_PATH, REGISTER_PATH } from '../auth/wantedPage.ts'
 import { ButtonLink } from './Button.tsx'
+import DemoNotice from './DemoNotice.tsx'
 import Icon from './Icon.tsx'
 import { LAPTOP_QUERY, useMediaQuery } from './useMediaQuery.ts'
 import Wordmark from './Wordmark.tsx'
@@ -50,7 +52,14 @@ export default function AppShell({ children }: AppShellProps) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const laptop = useMediaQuery(LAPTOP_QUERY)
-  const [loggingOut, setLoggingOut] = useState(false)
+  // Where the running logout leads: /login for "Log out", /register for "Create your own
+  // account" in the demo notice. Null while no logout runs.
+  const [leavingTo, setLeavingTo] = useState<string | null>(null)
+  const loggingOut = leavingTo !== null
+  // Answers a second press before React renders again, so it sends nothing.
+  const leavingRef = useRef(false)
+  // Read on every render, like the route guard, so the notice goes with the session.
+  const demo = getSession()?.demo === true
   // The menu belongs to the page it was opened on, so it is closed on every other page.
   const [menuOpenOn, setMenuOpenOn] = useState<string | null>(null)
   const menuOpen = !laptop && menuOpenOn === pathname
@@ -88,15 +97,19 @@ export default function AppShell({ children }: AppShellProps) {
     setMenuOpenOn(null)
   }
 
-  async function handleLogout() {
+  async function handleLogout(to: string = LOGIN_PATH) {
+    if (leavingRef.current) {
+      return
+    }
+    leavingRef.current = true
     closeMenu()
-    setLoggingOut(true)
+    setLeavingTo(to)
     try {
       await logout()
     } catch {
       // Nothing to show: logout removes the stored token even when the request fails (#25).
     }
-    await navigate('/login', { replace: true })
+    await navigate(to, { replace: true })
   }
 
   function sectionLink(section: Section, className: string, onClick?: () => void) {
@@ -122,8 +135,8 @@ export default function AppShell({ children }: AppShellProps) {
       disabled={loggingOut}
       aria-busy={loggingOut}
     >
-      {loggingOut && <span className="spinner" aria-hidden="true" />}
-      {loggingOut ? 'Logging out…' : 'Log out'}
+      {leavingTo === LOGIN_PATH && <span className="spinner" aria-hidden="true" />}
+      {leavingTo === LOGIN_PATH ? 'Logging out…' : 'Log out'}
     </button>
   )
 
@@ -182,6 +195,13 @@ export default function AppShell({ children }: AppShellProps) {
         )}
       </header>
       <main className="shell__main" id="main" tabIndex={-1}>
+        {demo && (
+          <DemoNotice
+            busy={leavingTo === REGISTER_PATH}
+            inactive={loggingOut}
+            onCreateAccount={() => void handleLogout(REGISTER_PATH)}
+          />
+        )}
         {children ?? <Outlet />}
       </main>
     </div>

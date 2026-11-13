@@ -1,4 +1,5 @@
-# Full system for local development and integration tests.
+# Full system for local development and integration tests, with the local telemetry stack
+# (lgtm: Grafana at http://localhost:3000, see docs/observability.md).
 # Values come from the repository-root .env file (copy .env.example to .env first).
 # The test database is created only when the db volume is new. If the volume already
 # exists, run `docker compose down -v` once (this deletes local data) to get it.
@@ -33,11 +34,28 @@ services:
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?set CORS_ALLOWED_ORIGINS in .env}
       DATABASE_CONNECT_TIMEOUT_SECONDS: ${DATABASE_CONNECT_TIMEOUT_SECONDS:-3}
       AI_PROVIDER: ${AI_PROVIDER:?set AI_PROVIDER in .env}
+      # Traces, metrics and logs go to the lgtm service over OTLP/HTTP (issue #74). There is
+      # deliberately no depends_on on lgtm: the backend works the same while it is down.
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://lgtm:4318
     ports:
       - "${BACKEND_HOST_PORT:-8000}:8000"
     depends_on:
       db:
         condition: service_healthy
+
+  lgtm:
+    # The local telemetry stack (issue #74, docs/observability.md): OpenTelemetry Collector,
+    # Prometheus, Tempo, Loki and Grafana in one image, pinned to an exact version.
+    # Grafana has no login, so both ports are published on 127.0.0.1 only.
+    image: grafana/otel-lgtm:0.39.0
+    ports:
+      # Grafana: http://localhost:3000
+      - "127.0.0.1:${GRAFANA_HOST_PORT:-3000}:3000"
+      # OTLP/HTTP, for a backend running on the host (OTEL_EXPORTER_OTLP_ENDPOINT in .env).
+      - "127.0.0.1:${OTLP_HTTP_HOST_PORT:-4318}:4318"
+    volumes:
+      # Traces, metrics, logs and Grafana's data, kept across restarts.
+      - lgtm-data:/data
 
   frontend:
     # The production build of the React app, served by nginx (see frontend/Dockerfile).
@@ -50,6 +68,7 @@ services:
 
 volumes:
   db-data:
+  lgtm-data:
 
 configs:
   # Runs once, on the first start with an empty volume: creates the test database.

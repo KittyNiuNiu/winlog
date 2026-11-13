@@ -287,3 +287,144 @@ describe('loading the entry (FR-E4, §12)', () => {
     expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
   })
 })
+
+// Keyboard focus on the edit page (#84): it starts in the text field, a failed retry
+// focuses the new "Try again", and neither takes focus from a control the user moved to.
+describe('keyboard focus on the edit page (FR-E4, #84)', () => {
+  function tryAgainButton(): HTMLButtonElement {
+    return screen.getByRole('button', { name: 'Try again' }) as HTMLButtonElement
+  }
+
+  function entriesLink(): HTMLElement {
+    return within(screen.getByRole('navigation', { name: 'Main' })).getByRole('link', { name: 'Entries' })
+  }
+
+  /** Focuses "Try again" and presses it, as a keyboard user does. */
+  async function pressTryAgain() {
+    tryAgainButton().focus()
+    await act(async () => {
+      fireEvent.click(tryAgainButton())
+    })
+  }
+
+  function pendingEntry() {
+    let resolve: (entry: api.Entry) => void = () => {}
+    let reject: (error: unknown) => void = () => {}
+    getEntry.mockImplementationOnce(
+      () =>
+        new Promise((res, rej) => {
+          resolve = res
+          reject = rej
+        }),
+    )
+    return {
+      resolve: async (entry: api.Entry) => act(async () => resolve(entry)),
+      reject: async (error: unknown) => act(async () => reject(error)),
+    }
+  }
+
+  it('test_fr_e4_edit_page_starts_in_text_field', async () => {
+    await renderEdit()
+
+    expect(document.activeElement).toBe(textArea())
+  })
+
+  it('test_fr_e4_edit_page_starts_in_text_field_after_a_successful_retry', async () => {
+    getEntry.mockRejectedValueOnce(new api.NetworkError())
+    await renderEdit()
+
+    await pressTryAgain()
+
+    expect(textArea().value).toBe('Led the incident review')
+    expect(document.activeElement).toBe(textArea())
+  })
+
+  it('test_fr_e4_edit_page_keeps_focus_where_the_user_moved_while_loading', async () => {
+    const load = pendingEntry()
+    await renderEdit()
+    entriesLink().focus()
+
+    await load.resolve(storedEntry())
+
+    expect(textArea().value).toBe('Led the incident review')
+    expect(document.activeElement).toBe(entriesLink())
+  })
+
+  it('test_fr_e4_edit_page_keeps_focus_where_the_user_moved_while_retrying', async () => {
+    getEntry.mockRejectedValueOnce(new api.NetworkError())
+    await renderEdit()
+    const retry = pendingEntry()
+    await pressTryAgain()
+    entriesLink().focus()
+
+    await retry.resolve(storedEntry())
+
+    expect(document.activeElement).toBe(entriesLink())
+  })
+
+  it('test_fr_e4_failed_retry_moves_focus_to_the_new_try_again', async () => {
+    getEntry.mockRejectedValueOnce(new api.NetworkError())
+    await renderEdit()
+    // The first failure moves no focus.
+    expect(document.activeElement).toBe(document.body)
+    const first = tryAgainButton()
+    const retry = pendingEntry()
+
+    await pressTryAgain()
+    // While the retry loads, the loading line shows and the old button is gone.
+    expect(screen.getByText('Loading entry…')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
+    await retry.reject(new api.NetworkError())
+
+    expect(tryAgainButton()).not.toBe(first)
+    expect(document.activeElement).toBe(tryAgainButton())
+  })
+
+  it('test_fr_e4_failed_retry_keeps_focus_where_the_user_moved', async () => {
+    getEntry.mockRejectedValueOnce(new api.NetworkError())
+    await renderEdit()
+    const retry = pendingEntry()
+    await pressTryAgain()
+    entriesLink().focus()
+
+    await retry.reject(new api.NetworkError())
+
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeTruthy()
+    expect(document.activeElement).toBe(entriesLink())
+  })
+
+  it('test_fr_e4_missing_entry_moves_no_focus', async () => {
+    getEntry.mockRejectedValue(new api.NotFoundError('Not found.', 404))
+    await renderEdit()
+
+    expect(screen.getByText("This entry doesn't exist.", { exact: false })).toBeTruthy()
+    expect(document.activeElement).toBe(document.body)
+  })
+
+  it.each([
+    ['the entry was deleted', new api.NotFoundError('Not found.', 404)],
+    ['a network error', new api.NetworkError()],
+  ])('test_fr_e4_busy_save_keeps_focus_and_after_%s_focus_stays', async (_case, error) => {
+    let fail: () => void = () => {}
+    updateEntry.mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          fail = () => reject(error)
+        }),
+    )
+    await renderEdit()
+    saveButton().focus()
+
+    await save()
+    expect(saveButton().textContent).toBe('Saving…')
+    // Focusable while busy: a natively disabled button would drop focus in a browser.
+    expect(saveButton().disabled).toBe(false)
+    expect(document.activeElement).toBe(saveButton())
+    await act(async () => {
+      fail()
+    })
+
+    expect(formError()).not.toBe('')
+    expect(document.activeElement).toBe(saveButton())
+  })
+})

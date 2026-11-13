@@ -13,6 +13,9 @@ function Harness() {
       <button type="button" onClick={saved.show}>
         Save
       </button>
+      <button type="button" onClick={saved.hide}>
+        Hide
+      </button>
     </>
   )
 }
@@ -107,5 +110,19 @@ describe('SavedMessage', () => {
     save()
 
     expect(screen.getByText('Entry saved.')).not.toBe(text)
+  })
+
+  it('is gone at once when hidden, and its old time no longer runs', () => {
+    render(<Harness />)
+    save()
+    advance(1_000)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hide' }))
+
+    expect(screen.getByRole('status').textContent).toBe('')
+    save()
+    advance(SAVED_MESSAGE_MS - 1_000)
+    // Only the new time counts: the message from the first save would be gone by now.
+    expect(screen.getByRole('status').textContent).toBe('Entry saved.')
   })
 })

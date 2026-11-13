@@ -11,6 +11,7 @@ os.environ.setdefault("DATABASE_URL", "postgresql://unit:unit@localhost:5432/uni
 os.environ.setdefault("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
 os.environ.setdefault("AI_PROVIDER", "mock")
 
+from app.attempt_limits import AttemptLimiter, TooManyAttemptsError  # noqa: E402
 from app.health import check_database  # noqa: E402
 from app.main import create_app  # noqa: E402
 from app.settings import Settings  # noqa: E402
@@ -51,7 +52,52 @@ def no_env_file(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("AI_SUGGESTION_TIMEOUT_SECONDS", raising=False)
     monkeypatch.delenv("AI_SUMMARY_TIMEOUT_SECONDS", raising=False)
     monkeypatch.delenv("AI_SUMMARY_MAX_TOKENS", raising=False)
+    monkeypatch.delenv("AI_SUMMARY_MAX_INPUT_CHARACTERS", raising=False)
     monkeypatch.delenv("AI_DAILY_SUGGESTIONS_PER_USER", raising=False)
     monkeypatch.delenv("AI_DAILY_SUMMARIES_PER_USER", raising=False)
     monkeypatch.delenv("AI_DAILY_REQUESTS_GLOBAL", raising=False)
     monkeypatch.delenv("DEMO_EMAIL", raising=False)
+    monkeypatch.delenv("LOGIN_MAX_FAILED_ATTEMPTS", raising=False)
+    monkeypatch.delenv("LOGIN_ATTEMPT_WINDOW_MINUTES", raising=False)
+    monkeypatch.delenv("DEMO_LOGIN_MAX_ATTEMPTS", raising=False)
+    monkeypatch.delenv("DEMO_LOGIN_WINDOW_MINUTES", raising=False)
+    monkeypatch.delenv("OTEL_EXPORTER_OTLP_ENDPOINT", raising=False)
+
+
+class FakeAttempts:
+    """Stands in for the attempt limits (FR-A4), which need PostgreSQL.
+
+    Records each call as (method, key) in `calls`. While `retry_after` is set, every attempt
+    is refused with that many seconds left. The real limits are tested in
+    tests/integration/test_attempt_limits.py.
+    """
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, str]] = []
+        self.retry_after: int | None = None
+
+    def install(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        fake = self
+
+        def take(method: str):
+            def record(_limiter: AttemptLimiter, key: str) -> None:
+                fake.calls.append((method, key))
+                if fake.retry_after is not None:
+                    raise TooManyAttemptsError(fake.retry_after)
+
+            return record
+
+        def clear(_limiter: AttemptLimiter, email: str) -> None:
+            fake.calls.append(("clear_login_attempts", email))
+
+        monkeypatch.setattr(AttemptLimiter, "take_login_attempt", take("take_login_attempt"))
+        monkeypatch.setattr(AttemptLimiter, "take_demo_login", take("take_demo_login"))
+        monkeypatch.setattr(AttemptLimiter, "clear_login_attempts", clear)
+
+
+@pytest.fixture(autouse=True)
+def attempts(monkeypatch: pytest.MonkeyPatch) -> FakeAttempts:
+    """Unit tests have no database, so the attempt limits are replaced by a fake."""
+    fake = FakeAttempts()
+    fake.install(monkeypatch)
+    return fake

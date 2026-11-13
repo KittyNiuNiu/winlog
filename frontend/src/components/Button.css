@@ -54,7 +54,8 @@
   cursor: not-allowed;
 }
 
-/* Busy keeps the normal colours; presses are ignored because the button is disabled. */
+/* Busy keeps the normal colours and the focus outline. It is not natively disabled (it keeps
+   focus, #84): the component ignores presses itself. Keep these rules after the :hover rules. */
 .button--primary[aria-busy='true'] {
   color: var(--color-on-plum);
   background: var(--color-plum);

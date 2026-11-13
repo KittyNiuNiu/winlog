@@ -7,6 +7,8 @@
 # Actions used, each pinned to at least a major version:
 # - actions/checkout@v7: checks out the repository.
 # - actions/setup-node@v7: installs Node from frontend/.nvmrc and caches npm downloads.
+# - actions/upload-artifact@v7: uploads the viewport screenshots of the Frontend job (#36) and,
+#   when the Full system job fails, the end-to-end test's trace and screenshot (#37).
 # - astral-sh/setup-uv@v10.3.3: installs uv and caches uv downloads. setup-uv publishes no
 #   floating major tag (such as v10), so it is pinned to its exact release.
 # Python comes from backend/.python-version: `uv python install` reads that file.
@@ -82,9 +84,6 @@ jobs:
       - name: Check formatting
         run: uv run ruff format --check .
 
-      - name: Unit tests
-        run: uv run pytest tests/unit
-
       - name: Start PostgreSQL
         working-directory: .
         # --wait returns once the db health check passes. The test database is created on start.
@@ -111,10 +110,6 @@ jobs:
           cat "$RUNNER_TEMP/backend.log"
           [ "$status" = "200" ] || { echo "::error::The backend did not start with the .env from .env.example (GET /health: $status)"; exit 1; }
 
-      - name: Integration tests
-        # TEST_DATABASE_URL comes from .env (copied from .env.example).
-        run: uv run pytest tests/integration
-
       - name: Print the database logs
         if: failure()
         working-directory: .
@@ -128,7 +123,7 @@ jobs:
   frontend:
     name: Frontend
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: frontend
@@ -144,6 +139,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install Chromium for the viewport tests
+        # The browser that matches the pinned @playwright/test version, with its system libraries.
+        run: npx playwright install --with-deps chromium
+
       - name: Generated API types match openapi.yaml
         # Regenerates src/api/schema.d.ts from ../openapi.yaml and fails when the committed
         # file is changed or missing, so the frontend types never drift from the contract.
@@ -158,14 +157,81 @@ jobs:
       - name: Lint
         run: npm run lint
 
-      - name: Tests
-        run: npm test
-
       - name: Build
         run: npm run build
 
+      - name: Viewport tests
+        # Playwright at 360×640 and 1280×800 against the built frontend served by vite preview,
+        # with every API call mocked, so no backend is needed (#36).
+        run: npm run test:viewport
+
+      - name: Upload the viewport screenshots
+        # On every run, passed or failed, so people can look at every screen.
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: viewport-screenshots
+          path: frontend/viewport-screenshots/
+          if-no-files-found: warn
+
+  tests:
+    name: Tests
+    # All unit and integration tests with the single command from AGENTS.md (#73): backend unit,
+    # backend integration (with the PostgreSQL test database) and the frontend Vitest suite.
+    # The Backend and Frontend jobs do not run the tests again.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Create .env from .env.example
+        # The integration tests read TEST_DATABASE_URL from it.
+        run: cp .env.example .env
+
+      - name: Check that the AI provider is the mock
+        run: |
+          grep -qx 'AI_PROVIDER=mock' .env || { echo "::error::.env.example must set AI_PROVIDER=mock"; exit 1; }
+          grep -qx 'AI_API_KEY=' .env || { echo "::error::.env.example must leave AI_API_KEY empty"; exit 1; }
+
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          # Same uv version as backend/Dockerfile.
+          version: "0.11.32"
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Install Python from .python-version
+        working-directory: backend
+        run: uv python install
+
+      - name: Install backend dependencies
+        # --locked also fails when uv.lock is out of date with pyproject.toml.
+        working-directory: backend
+        run: uv sync --locked
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: All unit and integration tests
+        # Starts the test database with `docker compose up -d --wait db`, runs every suite, prints
+        # a summary and fails when any suite fails.
+        run: ./test-all.sh
+
+      - name: Print the database logs
+        if: failure()
+        run: docker compose logs --no-color db
+
   full-system:
     name: Full system
+    # Starts only after the other checks pass, so a broken build does not spend the time.
+    needs: [contract, backend, frontend, tests]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -208,7 +274,90 @@ jobs:
             [ "$status" = "200" ] || { echo "::error::GET $path returned $status"; exit 1; }
           done
 
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Chromium for the end-to-end test
+        # The browser that matches the pinned @playwright/test version, with its system libraries.
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: End-to-end test
+        # The main user flow in Chromium against the running system with the mock AI provider
+        # (#37). The base URL is the default, http://localhost:8080 (the frontend container).
+        working-directory: frontend
+        run: npm run test:e2e
+
+      - name: Telemetry reached the local stack
+        # The end-to-end test generated a summary with the mock (#74). Grafana (lgtm service,
+        # no login, 127.0.0.1 only) must show its trace in Tempo, a log record with the same
+        # trace ID in Loki, and the outcome counter in Prometheus. The backend batches traces
+        # and logs (about 5 s) and exports metrics every 10 s, so this retries for up to 90 s.
+        # Then lgtm is stopped, and the backend must still answer GET /health with 200. Last, the
+        # backend container's log must have no uvicorn access log line.
+        run: |
+          grafana=http://127.0.0.1:3000/api/datasources/proxy/uid
+          tempo_ok=no; loki_ok=no; prometheus_ok=no; trace_id=
+          for attempt in $(seq 1 45); do
+            if [ -z "$trace_id" ]; then
+              trace_id=$(curl -s -G --max-time 5 "$grafana/tempo/api/search" \
+                --data-urlencode 'q={resource.service.name="winlog-backend" && name="POST /summaries"}' \
+                --data-urlencode 'limit=20' \
+                | python3 -c 'import json, sys; traces = json.load(sys.stdin).get("traces") or []; print(traces[0]["traceID"] if traces else "")' || true)
+              [ -n "$trace_id" ] && tempo_ok=yes
+            fi
+            if [ -n "$trace_id" ] && [ "$loki_ok" = no ]; then
+              lines=$(curl -s -G --max-time 5 "$grafana/loki/loki/api/v1/query_range" \
+                --data-urlencode "query={service_name=\"winlog-backend\"} | trace_id=\"$trace_id\"" \
+                --data-urlencode 'since=1h' \
+                | python3 -c 'import json, sys; print(sum(len(r["values"]) for r in json.load(sys.stdin)["data"]["result"]))' || echo 0)
+              [ "${lines:-0}" -ge 1 ] && loki_ok=yes
+            fi
+            if [ "$prometheus_ok" = no ]; then
+              count=$(curl -s -G --max-time 5 "$grafana/prometheus/api/v1/query" \
+                --data-urlencode 'query=sum(winlog_summary_generate_requests_total{winlog_outcome="created"})' \
+                | python3 -c 'import json, sys; r = json.load(sys.stdin)["data"]["result"]; print(int(float(r[0]["value"][1])) if r else 0)' || echo 0)
+              [ "${count:-0}" -ge 1 ] && prometheus_ok=yes
+            fi
+            [ "$tempo_ok$loki_ok$prometheus_ok" = yesyesyes ] && break
+            sleep 2
+          done
+          echo "Tempo: POST /summaries trace from winlog-backend: $tempo_ok (trace ID: ${trace_id:-none})"
+          echo "Loki: log record with that trace ID: $loki_ok"
+          echo "Prometheus: winlog_summary_generate_requests_total{winlog_outcome=\"created\"} >= 1: $prometheus_ok"
+          [ "$tempo_ok$loki_ok$prometheus_ok" = yesyesyes ] || { echo "::error::The summary's telemetry did not reach Grafana"; exit 1; }
+          docker compose stop lgtm
+          status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://localhost:8000/health || true)
+          echo "GET /health with lgtm stopped -> $status"
+          [ "$status" = "200" ] || { echo "::error::GET /health returned $status after lgtm was stopped"; exit 1; }
+          # Uvicorn's access log is off in the image too: its `request finished` JSON lines
+          # replace it, and no line has a query string or a client address.
+          docker compose logs --no-color backend > backend.log
+          tail -n 5 backend.log
+          if grep -q 'HTTP/1.1"' backend.log; then
+            echo "::error::The backend container printed uvicorn access log lines"
+            exit 1
+          fi
+          grep -q '"message": "request finished"' backend.log || { echo "::error::No request finished line in the backend log"; exit 1; }
+
+      - name: Upload the end-to-end test output
+        # The trace and the screenshot of a failed test.
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-results
+          path: frontend/e2e-results/
+          if-no-files-found: warn
+
       - name: Print the service logs
+        # All services, including lgtm.
         if: failure()
         run: |
           docker compose ps -a

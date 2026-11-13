@@ -1,5 +1,5 @@
 import react from '@vitejs/plugin-react'
-import { defineConfig } from 'vitest/config'
+import { configDefaults, defineConfig } from 'vitest/config'
 
 // https://vite.dev/config/ and https://vitest.dev/config/
 export default defineConfig({
@@ -10,6 +10,9 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
+    // The Playwright viewport tests (viewport/, #36) run with `npm run test:viewport` and the
+    // end-to-end test (e2e/, #37) with `npm run test:e2e`, not here.
+    exclude: [...configDefaults.exclude, 'viewport/**', 'viewport-dist/**', 'e2e/**', 'e2e-results/**'],
     // A time zone ahead of UTC, so tests notice a local date worked out in UTC (#27: the
     // entry form pre-fills today's date in the user's own time zone). Node reads TZ when
     // the test process starts, so it is set here, not in a test.

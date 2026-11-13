@@ -4,6 +4,7 @@ import { NotFoundError, ValidationError, getEntry, type Entry } from '../api/ind
 import { WAKING_UP_MESSAGE, unexpectedErrorMessage } from '../auth/requestErrors.ts'
 import { useWakingUpHint } from '../auth/useWakingUpHint.ts'
 import { Button } from '../components/Button.tsx'
+import { focusWhenShown } from '../components/focus.ts'
 import Message from '../components/Message.tsx'
 import EntryForm from '../entries/EntryForm.tsx'
 import { entrySavedState } from '../entries/entrySavedNotice.ts'
@@ -81,7 +82,12 @@ export default function EditEntryPage() {
         <div className="entry-page__state">
           <Message variant="error">{current.message}</Message>
           <div>
-            <Button variant="secondary" onClick={() => setAttempt((count) => count + 1)}>
+            <Button
+              variant="secondary"
+              // After a retry fails again, focus goes to the new button, unless the user moved on (#84).
+              ref={attempt > 0 ? focusWhenShown : undefined}
+              onClick={() => setAttempt((count) => count + 1)}
+            >
               Try again
             </Button>
           </div>

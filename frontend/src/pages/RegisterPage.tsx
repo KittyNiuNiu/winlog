@@ -6,6 +6,7 @@ import { unexpectedErrorMessage, validationMessages } from '../auth/requestError
 import { useWakingUpHint } from '../auth/useWakingUpHint.ts'
 import { PASSWORD_HINT, PASSWORD_MESSAGES, emailProblem, passwordProblems } from '../auth/validation.ts'
 import { LOGIN_PATH, type LoginPageState } from '../auth/wantedPage.ts'
+import { LoginIllustration } from '../components/Illustrations.tsx'
 import '../auth/AuthForm.css'
 
 type Field = 'email' | 'password'
@@ -105,10 +106,17 @@ export default function RegisterPage() {
     const { email: emailReasons, password: passwordReasons, form } = validationMessages(error)
     setServerMessages({ email: emailReasons, password: passwordReasons })
     setFormError(form)
+    // The cursor goes to the first field with a message, as the form's own check does (#84).
+    if (emailReasons.length > 0) {
+      emailRef.current?.focus()
+    } else if (passwordReasons.length > 0) {
+      passwordRef.current?.focus()
+    }
   }
 
   return (
     <section className="auth-page">
+      <LoginIllustration />
       <h1>Create an account</h1>
       <FormAlert message={formError} />
       <form className="form" noValidate onSubmit={(event) => void handleSubmit(event)}>

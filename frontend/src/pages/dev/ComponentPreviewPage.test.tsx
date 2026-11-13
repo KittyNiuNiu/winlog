@@ -36,16 +36,18 @@ describe('component preview (development only)', () => {
       button.textContent,
       (button as HTMLButtonElement).disabled,
       button.getAttribute('aria-busy'),
+      button.getAttribute('aria-disabled'),
     ])
+    // Busy buttons are announced as unavailable but not natively disabled, so they keep focus (#84).
     expect(buttons).toEqual(
       expect.arrayContaining([
-        ['Log in', false, 'false'],
-        ['Log in', true, 'false'],
-        ['Logging in…', true, 'true'],
-        ['Save entry', false, 'false'],
-        ['Draft again', false, 'false'],
-        ['Draft again', true, 'false'],
-        ['Drafting…', true, 'true'],
+        ['Log in', false, 'false', null],
+        ['Log in', true, 'false', null],
+        ['Logging in…', false, 'true', 'true'],
+        ['Save entry', false, 'false', null],
+        ['Draft again', false, 'false', null],
+        ['Draft again', true, 'false', null],
+        ['Drafting…', false, 'true', 'true'],
       ]),
     )
   })
@@ -102,6 +104,18 @@ describe('component preview (development only)', () => {
     expect(screen.getByText('週末に家計簿アプリの試作版を作り、友人3人に使ってもらった。')).toBeTruthy()
     expect(screen.getByText('30 Sep').getAttribute('datetime')).toBe('2026-09-30')
     expect(document.body.textContent).not.toMatch(/lorem|ipsum/i)
+  })
+
+  it('shows entry rows with tags, with long tag names, and with Edit and Delete (#29)', () => {
+    renderPreview()
+
+    const tagged = screen.getByText('With tags').closest('figure') as HTMLElement
+    expect(within(tagged).getByRole('list', { name: 'Tags' })).toBeTruthy()
+    const long = screen.getByText('With long tag names').closest('figure') as HTMLElement
+    expect(within(long).getByText('database-transaction-isolation-levels-and-locking')).toBeTruthy()
+    const actions = screen.getByText('With Edit and Delete').closest('figure') as HTMLElement
+    expect(within(actions).getByRole('link', { name: 'Edit entry from 4 Nov 2026' })).toBeTruthy()
+    expect(within(actions).getByRole('button', { name: 'Delete entry from 4 Nov 2026' })).toBeTruthy()
   })
 
   it('shows the empty state with and without an illustration placeholder', () => {

@@ -510,9 +510,11 @@ describe('typed errors', () => {
     ['email_already_registered', 409, 'EmailAlreadyRegisteredError'],
     ['not_found', 404, 'NotFoundError'],
     ['no_matching_entries', 422, 'NoMatchingEntriesError'],
+    ['summary_input_too_large', 422, 'SummaryInputTooLargeError'],
     ['limit_reached', 429, 'LimitReachedError'],
     ['ai_unavailable', 503, 'AiUnavailableError'],
     ['demo_account_not_deletable', 409, 'DemoAccountNotDeletableError'],
+    ['too_many_attempts', 429, 'TooManyAttemptsError'],
   ] as const)('turns "%s" into its own typed error', async (code, status, errorName) => {
     fetchMock.mockResolvedValueOnce(errorResponse(status, code))
     const error = await api.generateSummary(summaryFilter).catch((e: unknown) => e)
@@ -530,9 +532,11 @@ describe('typed errors', () => {
       api.EmailAlreadyRegisteredError,
       api.NotFoundError,
       api.NoMatchingEntriesError,
+      api.SummaryInputTooLargeError,
       api.LimitReachedError,
       api.AiUnavailableError,
       api.DemoAccountNotDeletableError,
+      api.TooManyAttemptsError,
       api.NetworkError,
       api.UnknownError,
     ]
@@ -570,6 +574,39 @@ describe('typed errors', () => {
     fetchMock.mockResolvedValueOnce(errorResponse(429, 'limit_reached', { limit: 'weekly' }))
     const error = await api.suggestCategoryAndTags({ text: 'x' }).catch((e: unknown) => e)
     expect((error as InstanceType<Api['LimitReachedError']>).limit).toBeNull()
+  })
+
+  it.each([
+    ['login', () => api.login({ email: 'alice@example.com', password: 'Wrong-Horse-8' })],
+    ['demo-login', () => api.demoLogin()],
+    ['account deletion', () => api.deleteAccount({ current_password: 'Wrong-Horse-8' })],
+  ])('test_fr_a4_%s_refusal_is_a_too_many_attempts_error_with_retry_after', async (_name, call) => {
+    storeSession({ token: 'stored-token', expiresAt: FUTURE, demo: false })
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse(429, { code: 'too_many_attempts', message: 'Too many attempts.' }, { 'Retry-After': '900' }),
+    )
+    const error = await call().catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(api.TooManyAttemptsError)
+    expect(error).toMatchObject({ status: 429, retryAfterSeconds: 900 })
+    // The user stays logged in (account deletion), and login stores nothing.
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null')).toMatchObject({ token: 'stored-token' })
+  })
+
+  it.each([
+    ['missing', undefined, null],
+    ['empty', '', null],
+    ['a date', 'Wed, 21 Oct 2026 07:28:00 GMT', null],
+    ['a fraction', '1.5', null],
+    ['negative', '-5', null],
+    ['text', 'soon', null],
+    ['zero', '0', 0],
+    ['with spaces', ' 61 ', 61],
+  ])('test_fr_a4_retry_after_%s_is_read_as_%s', async (_name, header, seconds) => {
+    const headers: Record<string, string> = header === undefined ? {} : { 'Retry-After': header }
+    fetchMock.mockResolvedValueOnce(jsonResponse(429, { code: 'too_many_attempts', message: 'x' }, headers))
+    const error = await api.demoLogin().catch((e: unknown) => e)
+    expect(error).toBeInstanceOf(api.TooManyAttemptsError)
+    expect((error as InstanceType<Api['TooManyAttemptsError']>).retryAfterSeconds).toBe(seconds)
   })
 
   it('turns the demo-login "not found" into a not-found error', async () => {

@@ -8,7 +8,7 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 const FETCH_MESSAGE = 'Call the backend through the API client in src/api/, not with fetch.'
 
 export default defineConfig([
-  globalIgnores(['dist']),
+  globalIgnores(['dist', 'viewport-dist', 'viewport-results', 'viewport-screenshots', 'playwright-report', 'e2e-results']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [

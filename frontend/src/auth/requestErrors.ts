@@ -1,11 +1,34 @@
-// The texts the login and registration forms show for errors that no field explains.
+// The texts the login and registration forms show for errors that no field explains, and
+// the notices the login page shows above its form.
 import { NetworkError, type ValidationError } from '../api/index.ts'
 
 export const NETWORK_ERROR_MESSAGE = "Can't reach Winlog. Check your connection and try again."
 export const UNEXPECTED_ERROR_MESSAGE = 'Something went wrong. Please try again.'
 export const WRONG_CREDENTIALS_MESSAGE = 'Wrong email or password.'
 export const ACCOUNT_CREATED_MESSAGE = 'Account created. Please log in.'
+export const ACCOUNT_DELETED_MESSAGE = 'Your account has been deleted.'
 export const WAKING_UP_MESSAGE = 'The server is waking up. This can take up to a minute.'
+
+// "Try the demo" below the login form (FR-X1, design note on #35).
+export const TRY_DEMO_LABEL = 'Try the demo'
+export const OPENING_DEMO_LABEL = 'Opening the demo…'
+export const DEMO_UNAVAILABLE_MESSAGE = "The demo isn't available right now."
+
+// Too many login, demo-login or account deletion attempts (FR-A4, design note on #46).
+export const TOO_MANY_ATTEMPTS_LATER_MESSAGE = 'Too many attempts. Please try again later.'
+
+/**
+ * The one text for a `too_many_attempts` refusal, used by the login form, "Try the demo"
+ * and the delete step. N is the waiting time in minutes, rounded up and never below 1. When
+ * `Retry-After` could not be read (`null`), it asks to try again later.
+ */
+export function tooManyAttemptsMessage(retryAfterSeconds: number | null): string {
+  if (retryAfterSeconds === null) {
+    return TOO_MANY_ATTEMPTS_LATER_MESSAGE
+  }
+  const minutes = Math.max(1, Math.ceil(retryAfterSeconds / 60))
+  return `Too many attempts. Please try again in ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}.`
+}
 
 /** After this long, a running request shows the waking-up hint (product-spec.md §12). */
 export const WAKING_UP_AFTER_MS = 10_000

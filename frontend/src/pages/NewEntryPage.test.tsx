@@ -67,6 +67,8 @@ async function renderNewEntry() {
 beforeEach(() => {
   storeTestSession()
   listTags.mockResolvedValue({ tags: KNOWN_TAGS })
+  // For tests that go to `/`, which loads the list (#29).
+  listEntries.mockResolvedValue({ entries: [] })
   createEntry.mockImplementation(async (body) => entryFrom(body))
   scrollTo = vi.fn()
   window.scrollTo = scrollTo as unknown as typeof window.scrollTo
@@ -534,7 +536,9 @@ describe('saving (FR-E1, §7.2)', () => {
     await save()
 
     expect(saveButton().textContent).toBe('Saving…')
-    expect(saveButton().disabled).toBe(true)
+    // Busy: announced as unavailable, but not natively disabled, so it keeps focus (#84).
+    expect(saveButton().getAttribute('aria-disabled')).toBe('true')
+    expect(saveButton().disabled).toBe(false)
     expect(saveButton().getAttribute('aria-busy')).toBe('true')
     expect(textArea().readOnly).toBe(true)
     expect(dateInput().readOnly).toBe(true)
@@ -655,6 +659,140 @@ describe('saving (FR-E1, §7.2)', () => {
   })
 })
 
+// Keyboard focus while and after saving (#84): the busy "Save entry" keeps focus, a
+// failed save leaves focus where it was, and a server validation error moves the cursor
+// to the first field with a message, as the app's own check does.
+describe('keyboard focus while and after saving (FR-E1, #84)', () => {
+  function entryForm(): HTMLFormElement {
+    return document.querySelector('form.entry-form') as HTMLFormElement
+  }
+
+  function failingSave(error: unknown) {
+    let fail: () => void = () => {}
+    createEntry.mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          fail = () => reject(error)
+        }),
+    )
+    return async () =>
+      act(async () => {
+        fail()
+      })
+  }
+
+  it.each([
+    ['a network error', new api.NetworkError()],
+    ['a server error', new api.UnknownError('Internal error.', 500, 'internal_error')],
+  ])('test_fr_e1_busy_save_keeps_focus_and_after_%s_focus_stays', async (_case, error) => {
+    const fail = failingSave(error)
+    await renderNewEntry()
+    fillRequired()
+    saveButton().focus()
+
+    await save()
+    expect(saveButton().textContent).toBe('Saving…')
+    // Focusable while busy: a natively disabled button would drop focus in a browser.
+    expect(saveButton().disabled).toBe(false)
+    expect(document.activeElement).toBe(saveButton())
+    // A second press and Enter in the form send nothing more.
+    await save()
+    await act(async () => {
+      fireEvent.submit(entryForm())
+    })
+    expect(createEntry).toHaveBeenCalledTimes(1)
+    await fail()
+
+    expect(formError()).not.toBe('')
+    expect(document.activeElement).toBe(saveButton())
+  })
+
+  it('test_fr_e1_failed_save_after_enter_in_a_field_keeps_focus_in_that_field', async () => {
+    const fail = failingSave(new api.NetworkError())
+    await renderNewEntry()
+    fillRequired()
+    dateInput().focus()
+
+    // Enter in the date field submits the form.
+    await act(async () => {
+      fireEvent.submit(entryForm())
+    })
+    expect(saveButton().textContent).toBe('Saving…')
+    expect(document.activeElement).toBe(dateInput())
+    await fail()
+
+    expect(formError()).toBe(NETWORK_MESSAGE)
+    expect(document.activeElement).toBe(dateInput())
+  })
+
+  const SERVER_FIELDS = [
+    ['text', [{ field: 'text', reason: 'x' }], () => textArea(), false],
+    ['category', [{ field: 'category', reason: 'x' }], () => chip('Achievement'), false],
+    ['date', [{ field: 'date', reason: 'x' }], () => dateInput(), false],
+    ['tags', [{ field: 'tags.0', reason: 'x' }], () => tagInput(), true],
+    ['result', [{ field: 'result_impact', reason: 'x' }], () => resultInput(), true],
+    [
+      'text before date',
+      [
+        { field: 'date', reason: 'x' },
+        { field: 'text', reason: 'x' },
+      ],
+      () => textArea(),
+      false,
+    ],
+    [
+      'category before result',
+      [
+        { field: 'result_impact', reason: 'x' },
+        { field: 'category', reason: 'x' },
+      ],
+      () => chip('Achievement'),
+      true,
+    ],
+    [
+      'tags with a field not on the form',
+      [
+        { field: 'body', reason: 'x' },
+        { field: 'tags', reason: 'x' },
+      ],
+      () => tagInput(),
+      true,
+    ],
+  ] as const
+
+  it.each(SERVER_FIELDS)(
+    'test_fr_e1_server_validation_moves_cursor_to_first_field (%s)',
+    async (_case, fields, expected, inFold) => {
+      createEntry.mockRejectedValue(new api.ValidationError('The request has invalid fields.', 422, [...fields]))
+      await renderNewEntry()
+      fillRequired()
+      expect(foldButton().getAttribute('aria-expanded')).toBe('false')
+      saveButton().focus()
+
+      await save()
+
+      // "Add tags and result" opens first when the field is inside it.
+      expect(foldButton().getAttribute('aria-expanded')).toBe(inFold ? 'true' : 'false')
+      expect(document.activeElement).toBe(expected())
+    },
+  )
+
+  it.each([
+    ['a field not on the form', [{ field: 'body', reason: 'Field required' }]],
+    ['no field', []],
+  ])('test_fr_e1_server_validation_naming_%s_leaves_focus_where_it_was', async (_case, fields) => {
+    createEntry.mockRejectedValue(new api.ValidationError('The request has invalid fields.', 422, fields))
+    await renderNewEntry()
+    fillRequired()
+    saveButton().focus()
+
+    await save()
+
+    expect(formError()).toBe(GENERIC_MESSAGE)
+    expect(document.activeElement).toBe(saveButton())
+  })
+})
+
 describe('after saving a new entry (DESIGN.md → Layout, Saved message)', () => {
   it('test_fr_e1_stays_on_the_capture_screen_with_the_saved_message_and_a_reset_form', async () => {
     const { router } = await renderNewEntry()
@@ -729,6 +867,10 @@ describe('after saving a new entry (DESIGN.md → Layout, Saved message)', () =>
     expect(rows[1]?.textContent).toContain('10 Nov')
     expect(rows[1]?.textContent).toContain('Achievement')
     expect(rows[1]?.textContent).toContain('First win')
+    // As #27 built them: no Edit or Delete and no tags (those are the entries page's, #29).
+    for (const row of rows) {
+      expect(row.querySelector('a, button, .entry-row__tags')).toBeNull()
+    }
     // Kept in the page: no list request.
     expect(listEntries).not.toHaveBeenCalled()
   })

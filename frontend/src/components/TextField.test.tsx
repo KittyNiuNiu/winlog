@@ -106,3 +106,125 @@ describe('TextArea', () => {
     expect(area.getAttribute('aria-invalid')).toBe('false')
   })
 })
+
+describe('a hint or message outside the field (#31)', () => {
+  it('links further elements after its own hint and messages', () => {
+    render(
+      <>
+        <TextField id="tags" label="Tags" hint="Own hint." messages={['Own message.']} describedBy="below" />
+        <p id="below">A note under the field.</p>
+      </>,
+    )
+
+    expect(screen.getByLabelText('Tags').getAttribute('aria-describedby')).toBe('tags-hint tags-messages below')
+  })
+
+  it('without a hint of its own, links only the given elements', () => {
+    render(<TextField id="tags" label="Tags" describedBy="below" />)
+
+    const input = screen.getByLabelText('Tags')
+    expect(input.getAttribute('aria-describedby')).toBe('below')
+    expect(input.getAttribute('aria-invalid')).toBe('false')
+    expect(document.getElementById('tags-hint')).toBeNull()
+  })
+
+  it('shows the error state for a message outside it', () => {
+    render(<TextField id="start" label="Start date" type="date" invalid describedBy="dates-error" />)
+
+    const input = screen.getByLabelText('Start date')
+    expect(input.getAttribute('aria-invalid')).toBe('true')
+    expect(input.getAttribute('aria-describedby')).toBe('dates-error')
+    // Its own message region stays empty.
+    expect(document.getElementById('start-messages')?.textContent).toBe('')
+  })
+
+  it('works the same on a text area', () => {
+    render(<TextArea id="entry" label="Entry" invalid describedBy="other" />)
+
+    const area = screen.getByLabelText('Entry')
+    expect(area.getAttribute('aria-invalid')).toBe('true')
+    expect(area.getAttribute('aria-describedby')).toBe('other')
+  })
+})
+
+describe('TextArea with a character limit (#43)', () => {
+  function renderCounted(value: string, extra: { hint?: string; messages?: string[] } = {}) {
+    return render(
+      <TextArea id="entry" label="Entry" value={value} onChange={() => {}} maxCharacters={2000} {...extra} />,
+    )
+  }
+
+  function counter(): HTMLElement | null {
+    return document.getElementById('entry-counter')
+  }
+
+  it('test_fr_e2_no_counter_and_no_link_below_80_percent', () => {
+    renderCounted('a'.repeat(1599), { hint: 'Hint' })
+
+    expect(counter()).toBeNull()
+    expect(document.querySelector('.field__counter')).toBeNull()
+    expect(screen.getByLabelText('Entry').getAttribute('aria-describedby')).toBe('entry-hint')
+  })
+
+  it('test_fr_e2_counter_from_80_percent_is_linked_but_not_live', () => {
+    renderCounted('a'.repeat(1600), { hint: 'Hint' })
+
+    const element = counter() as HTMLElement
+    expect(element.tagName).toBe('P')
+    expect(element.querySelector('[aria-hidden="true"]')?.textContent).toBe('1,600 / 2,000')
+    expect(element.querySelector('.visually-hidden')?.textContent).toBe('1,600 of 2,000 characters')
+    expect(element.className).toBe('field__counter')
+    // Not a live region, and outside the field's role="alert" message area.
+    expect(element.getAttribute('role')).toBeNull()
+    expect(element.getAttribute('aria-live')).toBeNull()
+    expect(element.closest('[role="alert"]')).toBeNull()
+    const area = screen.getByLabelText('Entry')
+    expect(area.getAttribute('aria-describedby')).toBe('entry-hint entry-counter')
+    expect(area.getAttribute('aria-invalid')).toBe('false')
+    expect(area.hasAttribute('maxlength')).toBe(false)
+  })
+
+  it('test_fr_e2_counter_sits_between_the_field_and_its_messages', () => {
+    renderCounted('a'.repeat(2100), { messages: ['Shorten the text to 2,000 characters, then save.'] })
+
+    const area = screen.getByLabelText('Entry')
+    const messages = document.getElementById('entry-messages') as HTMLElement
+    const element = counter() as HTMLElement
+    expect(area.compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(element.compareDocumentPosition(messages) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(area.getAttribute('aria-describedby')).toBe('entry-counter entry-messages')
+  })
+
+  it('test_fr_e2_emoji_at_the_limit_is_not_red', () => {
+    renderCounted('🎉'.repeat(2000))
+
+    expect(counter()?.textContent).toContain('2,000 / 2,000')
+    expect(counter()?.className).toBe('field__counter')
+    expect(screen.getByLabelText('Entry').getAttribute('aria-invalid')).toBe('false')
+  })
+
+  it('test_fr_e2_over_the_limit_the_counter_is_red_and_the_field_invalid', () => {
+    renderCounted('a'.repeat(2105))
+
+    expect(counter()?.textContent).toContain('2,105 / 2,000')
+    expect(counter()?.className).toBe('field__counter field__counter--over')
+    expect(screen.getByLabelText('Entry').getAttribute('aria-invalid')).toBe('true')
+    // Nothing is cut.
+    expect((screen.getByLabelText('Entry') as HTMLTextAreaElement).value).toHaveLength(2105)
+  })
+
+  it('test_fr_e2_counter_style_follows_the_design_note', async () => {
+    const remove = await addStylesheet('components/TextField.css')
+    try {
+      renderCounted('a'.repeat(2105), { messages: ['Shorten the text to 2,000 characters, then save.'] })
+
+      const style = getComputedStyle(counter() as HTMLElement)
+      expect(style.textAlign).toBe('end')
+      expect(style.whiteSpace).toBe('nowrap')
+      expect(style.fontVariantNumeric).toBe('tabular-nums')
+      expect(style.fontWeight).toBe('600')
+    } finally {
+      remove()
+    }
+  })
+})

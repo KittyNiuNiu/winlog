@@ -1592,3 +1592,1638 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - `docker compose up --build` fails in the cloud sandbox because `pip install uv` cannot get through its proxy (QA): left in this log, at the product owner's choice.
   - "Just saved" is kept when the sidebar's "New entry" is clicked on `/entries/new` (QA): within the criteria; left in this log.
   - The laptop column is 697px, not the note's "about 580px" estimate; the 68ch measure is correct (designer): no action.
+
+## 2026-11-12: Re-groom issue #28 (Add AI suggestions to the entry form) against DESIGN.md and #27
+
+- **Task:** re-groom #28 (task 30) following `docs/pm.md`, against `DESIGN.md`, `PRODUCT.md`, `product-spec.md` v0.2, `openapi.yaml` (`POST /suggestions`) and the entry form built in #27, with the open point from #27 in issue comment 6834594935 (suggested tags hidden by the closed fold) as an input.
+- **What I did:** rewrote #28 with the task template: checkable criteria in groups (the button, category, tags, discarding/asking again/saving, failures, phone and laptop, tests). Out of scope links to #13, #16, #35, #43, #83, #84 and #36. No new follow-up issue was needed.
+- **Decisions taken under the standing rule:**
+  - Suggested tags open "Add tags and result" when it is closed, so they can be seen; the cursor does not move. No tag added, no change to the fold. This matches #27, where server errors open the fold.
+  - The button works on both the capture and the edit page, because they share the form.
+  - Tapping any category chip, or applying the "Suggested: <category>" hint, makes the category the user's own; typing a suggested tag's name makes that tag the user's own. "Discard suggestions" keeps the user's own values.
+  - Asking again replaces the earlier suggestions (discard, then apply); a failed second request keeps the earlier ones. Rules apply to the form as it is when the answer arrives. An answer that arrives after Save entry was tapped is dropped.
+  - Suggested values count as unsaved changes for the "Discard changes?" prompt.
+  - The notice also goes when the button is tapped again. A limit error that names no limit shows the "aren't available right now" text. Network and other errors use the shared texts from `auth/requestErrors.ts`.
+  - Keyboard focus returns to the button after the request; the general busy-button fix stays in #84.
+  - No "server is waking up" hint on the button: on an awake server the AI may take up to `AI_SUGGESTION_TIMEOUT_SECONDS` (15), so the hint would be wrong, and Save entry has none.
+- **Question for the product owner (Q1, through the orchestrator):** where the button goes. `DESIGN.md` gives the capture screen's full order with no place for it. Recommended: directly under the text field, above the category chips. Alternatives: after the category chips, or next to "Add tags and result". The criterion is marked "(pending Q1)" with the recommended option.
+- **How I verified it:**
+  - Read `DESIGN.md` (Layout, Buttons, Chips, Icons, Do's and Don'ts), `PRODUCT.md`, the spec (FR-S1 to FR-S3, §7.3, §8), `openapi.yaml` (`/suggestions`, `Suggestion`, `LimitReached`, `AiUnavailable`), `backend/app/suggestions.py`, `backend/app/ai/mock.py` (the mock suggests a category from the text and "Mock tag"), and the #27 code in `frontend/src/entries/`, `frontend/src/pages/` and `frontend/src/api/`.
+  - Read #27's final criteria, design note, QA and design review, and #16, #35, #43, #83 and #84.
+  - The approved "Plum & Peach v2" boards could not be opened from this session (artifact not found), so the criteria rest on `DESIGN.md` only.
+  - Read the updated issue back from GitHub: the body matches, and its labels are unchanged (none).
+- **Left open:**
+  - Q1, above.
+  - #83 does not yet list the "suggested" marks on tag chips and category chips among the patterns to record in `DESIGN.md`; the orchestrator may add that as a comment there.
+
+## 2026-11-12: Product owner answer for #28 (Q1, the suggest button's place)
+
+- **Product owner decision (2026-11-12):** the recommended option. The "Suggest category and tags" button sits directly under the text field, above the category chips, with its notice and "Discard suggestions" next to it.
+- **What I did:** removed "(pending Q1)" from the button-place criterion in #28, which already had the recommended wording, and replaced the pending question under Constraints with the product owner's decision, dated 2026-11-12. No other decision was reopened. Commented on #83 that the "suggested" marks on tag chips and category chips from #28 should be among the patterns it records in `DESIGN.md` (an input for grooming, not a new requirement): https://github.com/KittyNiuNiu/winlog/issues/83#issuecomment-6835004830
+- **How I verified it:** read #28 back from GitHub: the body matches what I sent, all four sections are there, nothing is pending, and its labels are unchanged (none).
+- **Left open:** nothing for #28.
+
+## 2026-11-12: Implement issue #28 (Add AI suggestions to the entry form)
+
+- **Task:** build #28 (task 30) as the software engineer, following `docs/software-engineer.md`, the re-groomed criteria (including the product owner's decision on the button's place), the design note (issue comment 6835082666) and `DESIGN.md`.
+- **What I did:**
+  - `frontend/src/entries/suggestions.ts` (new): the texts, the error-to-notice mapping, and pure rules for applying an answer (discard the earlier suggestions, then fill an empty category and mark it, give a different chosen category the hint, add new tags at the end, ignoring case, and mark them), for "Discard suggestions" and for taking a value over.
+  - `EntryForm.tsx`: the "Suggest category and tags" button (secondary `Button` with `Sparkles`, `busy` "Suggesting…") under the text field, "Discard suggestions" and the info `Message` notice next to it, and the "Suggested: <category>" hint under the chips. Values, marks and the fold are now one state object, so each answer is applied to the form as it is when it arrives. A request counter drops an answer that arrives after Save entry was tapped or after the form is gone. Focus goes back to the button when the request ends, if it had focus and the user has not moved it. Discard moves focus to the button, and the hint moves it to the chip it selected.
+  - `TagField.tsx`: suggested tag chips (dashed muted border, the mark "Sparkles Suggested", ", suggested" for screen readers). `onTagsChange` also reports the typed names, so a typed suggested name becomes the user's own. `tagNames.ts` exports `sameName`.
+  - `CategoryChip` (shared): optional `suggested` prop (dashed border, mark, ", suggested"). `index.css`: a `.visually-hidden` utility. No new dependency.
+- **How I verified it:**
+  - Component tests in `entries/suggestions.test.tsx` (54, named after FR-S1 to FR-S3), rule tests in `entries/suggestionRules.test.ts`, and new tests in `components/CategoryChip.test.tsx` and `entries/entryStyles.test.ts`. Mutation checks: removing the drop on Save entry or the focus return makes the matching tests fail.
+  - Frontend `npm run lint`, `npm test` (28 files, 552 tests) and `npm run build` pass. Backend unchanged; `ruff check`, unit tests (823) and integration tests (882, PostgreSQL in Docker) pass.
+  - Drove the app in headless Chrome (backend with `AI_PROVIDER=mock`; other answers and the 503 intercepted in the browser) at 360px and 1280px, light and dark: no sideways scrolling with a suggested "Side project" chip, the "Suggested: Side project" hint, the notice, "Discard suggestions" wrapped under the button and a long unbroken suggested tag; suggest button 48px tall, Discard, hint and remove buttons at least 44×44px; one primary button; the reset form after saving has no marks and no notice.
+- **Left open:**
+  - Tapping another chip while the category is still marked "Suggested" makes the tapped category the user's own and shows no hint. The criteria only say an existing hint stays.
+  - A limit error naming `user_summaries` shows the "aren't available right now" notice, like a limit error that names no limit.
+  - Focus goes back to the suggest button only when focus was lost (on the page body) or is still on the button. If the user moved into another field while waiting, focus stays there.
+  - An answer is also dropped when Save entry was tapped but saving stopped at the app's own check (for example no category). This follows the criterion's wording ("after Save entry was tapped").
+
+## 2026-11-12: Orchestrator: closed #28 (task 30, AI suggestions on the entry form)
+
+- **Outcome:** PM re-groomed (product owner placed the suggest button under the text field), designer note posted, engineer implemented, QA PASS (issue comment 6835756482), design review PASS (issue comment 6835886320). Closed as completed; the last status label `qa-passed` stays. No real AI calls were made: every run used `AI_PROVIDER=mock` or mocked responses.
+- **Where each open point went:**
+  - Focus returns to the suggest button only if focus was lost or still on it (engineer, QA); edit page starts with focus on the page body (QA, from #27): comment on #84.
+  - Quiet text action, `Sparkles` as the one AI icon, dark-mode secondary hover equal to the page background, dark-mode disabled secondary button looking ready (designer): comment on #83. The "Suggested" marks were already posted on #83 by the PM.
+  - No feedback when a suggestion adds nothing new, and a suggestion silently dropped when Save entry is stopped by the form's own check (designer, engineer, QA): new issue #86, at the product owner's request.
+  - Suggest button shrinks while busy, so "Discard suggestions" shifts on the laptop (designer): left in this log, at the product owner's choice.
+  - Tapping another chip while the category is marked "Suggested" shows no hint; a `user_summaries` limit error shows the general "aren't available right now" notice (engineer): accepted, left in this log, at the product owner's choice.
+  - "Suggested" in sentence case on screen for both chip kinds, "<tag>, suggested" for screen readers (designer): settled in the design note; no action.
+  - Focus drops to the page body while saving (QA): already covered by #84.
+
+## 2026-11-12: Re-groom issue #29 (Build the entries page with edit and delete) against DESIGN.md
+
+- **Task:** re-groom #29 (task 31) following `docs/pm.md`, against `DESIGN.md`, `PRODUCT.md`, `product-spec.md` v0.2, `openapi.yaml` (`GET /entries`, `DELETE /entries/{entryId}`) and the code from #75, #27 and #28, with the open points from #75 (issue comment 6817371534) and #27 (issue comment 6834596168) as inputs.
+- **What I did:** rewrote #29 with the task template: checkable criteria in groups (the page, the list, edit and delete, messages at the top, empty/loading/error states, shared component and preview, tests). Out of scope links to #30, #31, #77, #83, #84 and #36. No new follow-up issue was needed. Commented on #83 that read-only tags on rows, the row's Edit and Delete actions and the delete dialog are patterns to record there (an input, not a requirement): https://github.com/KittyNiuNiu/winlog/issues/83#issuecomment-6836039333
+- **Decisions taken under the standing rule:**
+  - Entries are grouped by month ("November 2026", Title style, `h2`), rows show "10 Nov" in the fixed date column (`DESIGN.md` → Layout: Lists). Replaces the ungrouped list with "2 Nov 2026" from 2026-11-01. Headings come from the date text, in English, with no time-zone shift.
+  - Tags stay on the row (2026-11-01), below the text, read-only, no tint and no plum; the design note derives their look, #83 records it.
+  - "Entry deleted." uses the saved message (`DESIGN.md`: saved peach for success messages); "This entry was already deleted." is an information message; both sit where "Entry saved." sits, in the list's column, one at a time; the page does not scroll.
+  - The delete dialog follows #27's "Discard changes?" dialog: two secondary buttons ("Cancel", "Delete entry"), focus on "Cancel", Escape cancels; locked while the request runs; other errors stay in the dialog with the shared texts and can be retried.
+  - Edit is a link, Delete a button; accessible names "Edit entry from 10 Nov 2026" / "Delete entry from 10 Nov 2026". After a delete, focus moves to the next row's Edit (or the previous row's, or the empty state's button).
+  - The empty state's button is "New entry". `EntryRow` gains only optional props, so #27's "Just saved" is unchanged. The preview page shows the new row variants.
+- **Question for the product owner (Q1, through the orchestrator):** where "New entry" goes on the phone. `DESIGN.md` gives the laptop sidebar one, always within reach, but says nothing for the phone, whose header has only Entries, Review and More. Recommended: a full-width primary button under the page title on the phone, scrolling with the page, hidden in the empty state; no second button in the laptop content. Alternatives: a button fixed at the bottom of the phone screen; or a button next to the title at every width. The three affected criteria are marked "(pending Q1)" with the recommended option.
+- **How I verified it:**
+  - Read `DESIGN.md`, `PRODUCT.md`, the spec (FR-E4, FR-A3, §7.2, §9, §12), `openapi.yaml` (list: not paginated, sort order; delete: 204, 404, 422), and the code in `frontend/src/` (`pages/EntriesPage.tsx`, `pages/EditEntryPage.tsx`, `components/EntryRow.tsx`, `formatDate.ts`, `SavedMessage`, `Message`, `EmptyState`, `entries/DiscardDialog.tsx`, `entrySavedNotice.ts`, `AppShell.tsx`, `api/operations.ts`).
+  - Read #27's and #28's final criteria, #75's criteria, and #30, #31, #77, #83 and #84, so nothing they cover is pulled in.
+  - The approved "Plum & Peach v2" boards could not be opened from this session (artifact not found), so the criteria rest on `DESIGN.md` only.
+  - Read the updated issue back from GitHub: the body matches what I sent, and its labels are unchanged (none).
+- **Left open:** Q1, above.
+
+## 2026-11-12: Product owner answer for #29 (Q1, "New entry" on the phone)
+
+- **Product owner decision (2026-11-12):** option A, the recommended one. On the phone, a full-width primary "New entry" button sits directly under the page title on `/`, scrolls with the page, and is hidden when the list is empty (the empty state has its own button). On the laptop the content has no second button; the sidebar's "New entry" is the way in.
+- **What I did:** removed "(pending Q1)" from the three affected criteria in #29 (the button itself, hidden in the empty state, shown while loading and after a load error) and replaced the pending question under Constraints with the product owner's decision, dated 2026-11-12. No other decision was reopened.
+- **How I verified it:** read #29 back from GitHub: the body matches what I sent, all four sections are there, nothing is pending, and its labels are unchanged (none).
+- **Left open:** nothing for #29.
+
+## 2026-11-12: Orchestrator: new standing rule for the next 15 issues
+
+- **Product owner decision (2026-11-12):** for the 15 issues orchestrated from #29 on (in build order: #29, #30, #31, #77, #32, #33, #43, #34, #35, #46, #36, #37, #73, #74, #38), the orchestrator takes the option recommended by the role that raised a decision, without asking, as long as it benefits the project, keeps to the product's and project's purpose, and does not make the codebase unnecessarily unclear or complicated. Severe or critical decisions for the product or the system still go to the product owner, as do the stop points in `docs/process.md` and real AI calls (`AGENTS.md`).
+- **What I did:** added the rule under "Product decisions" in `docs/process.md`, so the roles see it.
+
+## 2026-11-12: Orchestrator: product owner moves #83 and #84 before #36
+
+- **Product owner decision (2026-11-12):** handle #83 (record the tag chip, tag list, dialog and dropdown patterns in `DESIGN.md`) and #84 (keyboard focus while saving and after server validation errors) before #36 (check every screen on mobile and desktop), so the final screen check covers them. `docs/tasks.md` is unchanged; this is an orchestration order.
+- **Batch order for the 15 issues under the 2026-11-12 standing rule:** #29, #30, #31, #77, #32, #33, #43, #34, #35, #46, #83, #84, #36, #37, #73. #74 and #38 now fall after the batch.
+
+## 2026-11-12: Orchestrator: handoff to a new session (session resources used up)
+
+- **Why:** the cloud session ran out of its allowance, so the batch continues in a new session on the same branch, `claude/affectionate-darwin-pfzdeh`.
+- **Batch (16 issues, product owner, 2026-11-12):** #29, #30, #31, #77, #32, #33, #43, #34, #35, #46, #83, #84, #36, #37, #73, #74. #38 stays out (needs the product owner's accounts). The standing rule for these issues is in `docs/process.md` → Product decisions.
+- **State of #29 (label `designed`):** groomed (product owner: "New entry" under the title on the phone), design note posted (issue comment 6836163864). The engineer's code and tests are pushed in 5f9e7e5, but the engineer did not send its final report before the session ended. Its issue comment and its `docs/ai-workflow.md` entry may be missing, and lint, tests and build are not yet confirmed. Next step: relaunch `software-engineer` on #29 to verify the pushed work, finish anything missing (tests, issue comment, log entry), and report; then QA and the design review.
+- **Pending in the closing entry for #29:** the product owner added #74 to the batch (16 issues).
+
+## 2026-11-12: Implement issue #29 (Build the entries page with edit and delete)
+
+- **Task:** build `/` as the entries list grouped by month, with Edit and Delete on every row (FR-E4), following the re-groomed criteria, the product owner's decision on the phone's "New entry", the design note (issue comment 6836163864) and `DESIGN.md`.
+- **What I did:**
+  - `pages/EntriesPage.tsx` / `.css`: one list request with no filters, API order kept, months as `section` + `h2` + `ul` built from consecutive runs (no sorting); message slot (saved band and information message) above the title in the default `.page` column; phone-only primary "New entry" (hidden in the empty state, not rendered on the laptop); loading with the waking-up hint, load error with "Try again", empty state with a primary "New entry".
+  - `entries/DeleteEntryDialog.tsx` / `.css` (new): "Delete this entry?" as a native modal with two secondary buttons, busy "Deleting…", locked while deleting, errors in the dialog with focus back on "Delete entry". Success shows "Entry deleted."; `not_found` shows "This entry was already deleted.". Focus moves to the next row's Edit, the row above's, or the empty state's button; after Cancel or Escape to the row's Delete.
+  - `components/EntryRow.tsx` / `.css`: optional read-only `tags`, optional `actions` (Pencil link and Trash2 button, 44×44, named "Edit/Delete entry from 10 Nov 2026") and `editRef` / `deleteRef`; unchanged without them. `formatDate.ts`: `formatFullDate`, `formatMonthHeading`. `useSavedMessage`: `hide()`. `entryTexts.ts`: the two delete messages. Preview page: three new row samples.
+  - No new dependency.
+- **Decisions under the standing rule (2026-11-12):** a separate delete dialog instead of a shared confirm dialog (keeps "Discard changes?" untouched); `hide()` added to the shared hook; the old dialog error clears on retry; no page-level handling for an expired login (the API client redirects); `AppShell.test.tsx`'s phone "no New entry" check scoped to the navigation, since the page now has its own button on the phone; `NewEntryPage.test.tsx` gives the mocked list request a value for tests that visit `/`.
+- **How I verified it:**
+  - `pages/EntriesPage.test.tsx` (44 tests named after FR-E4) and new tests in `EntryRow.test.tsx`, `SavedMessage.test.tsx`, `entryStyles.test.ts` and the preview test. Frontend `npm run lint`, `npm test` (29 files, 611 tests) and `npm run build` pass. Backend unchanged: `ruff check`, unit tests (823) and integration tests (882, PostgreSQL in Docker) pass.
+  - Headless Chrome against the dev server with the API intercepted in the browser (no backend, no AI calls), light and dark, at 360, 768 and 1280px: no sideways scrolling with long words, URLs and tag names; band and list edges identical (20–340px at 360, 280–1232px at 1280); phone meta line 26px; one primary button on the phone, none in the laptop content.
+  - Designer's request: scrolled to 2500px and deleted a row in view; the row above kept its viewport position when "Entry deleted." appeared and after it disappeared (Chrome scroll anchoring), at 360 and 1280px.
+  - Issue comment: https://github.com/KittyNiuNiu/winlog/issues/29#issuecomment-6836556639
+- **Left open:** scroll anchoring not checked in Firefox (not available here). After a delete by mouse the focused Edit shows no ring, as `:focus-visible` intends.
+
+## 2026-11-12: Orchestrator: handoff update, #29 is implemented
+
+- The engineer for #29 did report after the handoff: IMPLEMENTED, commits 5f9e7e5 and 9489cd5, issue comment 6836556639. Frontend lint, 611 tests and the build pass; backend unchanged and green. #29 is now labelled `implemented`.
+- **Next step for the new session:** launch `qa-engineer` on #29 (do not relaunch the engineer), then the design review, then close. Open points from the engineer for the closing entry: rows not checked for jumping in Firefox (Chrome only); no visible focus ring on the next row's Edit after a mouse delete (expected `:focus-visible` behaviour); four small choices listed in the issue comment.
+
+## 2026-11-12: Engineer: re-verify #29 in a new session (no code change)
+
+- **Task:** the orchestrator relaunched the engineer on #29 after the handoff, to confirm the work pushed in 5f9e7e5. The first engineer session had already reported meanwhile (entry above, issue comment 6836556639), so this entry adds only what this session checked on top of it.
+- **What I did:** reviewed 5f9e7e5 against every criterion and the design note again, and found no gap. No code change.
+- **How I verified it:**
+  - Frontend `npm run lint` clean, `npm test` 611 passed (29 files), `npm run build` OK. The backend is unchanged.
+  - New in this session: the real app end to end (PostgreSQL in Docker, the real backend with `AI_PROVIDER=mock`, the Vite dev server), not an intercepted API. I drove it in Chrome with Playwright as new users with 18 seeded entries, at 360px and 1280px in light and dark, plus 767 and 768px. Results:
+    - No sideways scroll on `/` or `/dev/components`.
+    - Month order January 2027 → November 2025. Edit and Delete measure 44×44, with one plum fill on the phone and none in the laptop content.
+    - The band and the list share both edges (20–340px, 280–1232px).
+    - Focus: on "Cancel" when the dialog opens, back to Delete after Escape, then to the next Edit after a delete.
+    - With the band appearing and fading during a mid-page delete, the rows in view stay in place (measured per animation frame).
+    - "Entry saved." shows once after a real edit and not after a reload. A real `not_found` (deleted through the API first) shows "This entry was already deleted.". Deleting everything shows the empty state, with focus on its "New entry".
+- **Left open (in addition to the entry above):**
+  - While "Delete entry" is busy, the shared `Button` is disabled, so `document.activeElement` is the page body (inside the open modal) until the request ends. Then focus moves as the criteria ask. This is the same busy-button pattern #84 covers for the entry form.
+  - Deleting the very last row at the bottom of a long page shortens the page, so the browser clamps the scroll position. This is browser behaviour, not the band.
+
+## 2026-11-12: Orchestrator: closed #29 (task 31, entries page with edit and delete)
+
+- **Outcome:** the code from 5f9e7e5 was re-verified by a new engineer session (issue comment 6836600612; first session's comment 6836556639), QA PASS (issue comment 6836831932), design review PASS (issue comment 6836973070). Closed as completed; the last status label `qa-passed` stays. No real AI calls: every run used `AI_PROVIDER=mock`.
+- **Decisions under the 2026-11-12 standing rule:** none new in this run. Where to record the open points follows the roles' framing (below).
+- **Where each open point went:**
+  - Focus on the page body while "Delete entry" is busy (engineer, QA, designer), and after "Try again" fails a second time (designer): comment on #84 (6836983682).
+  - Laptop entry rows at least about 111px tall because Edit and Delete sit under the label (designer): comment on #83 (6836984546).
+  - Deleting the last row at the bottom of a long page shifts the rows above (browser scroll behaviour), scroll stability not checked in Firefox, no focus ring on Edit after a mouse delete (normal browser behaviour) (engineer): left in this log; the roles call them browser behaviour, not defects.
+  - `docker compose up --build` fails in the cloud session because pip in the image cannot verify TLS through the agent proxy; QA and the designer ran PostgreSQL in Docker and the backend with `uv` instead (QA): left in this log as an environment limit, not a code defect.
+  - `GET /entries` fires twice in the dev server under React StrictMode, once in the production build (QA): left in this log; expected React behaviour.
+  - The "Plum & Peach v2" boards still could not be opened from the session (designer): left in this log.
+
+## 2026-11-12: Re-groom issue #30 (Add the writing nudge banner) against DESIGN.md
+
+- **Task:** re-groom #30 (task 32) following `docs/pm.md`. Its body dated from 2026-11-01, before `DESIGN.md` and the entries page from #29 (closed, 5f9e7e5). Checked against `DESIGN.md`, `PRODUCT.md`, `product-spec.md` v0.2 (FR-N1, §7.5), `openapi.yaml` (`GET /entries`, not paginated) and `frontend/src/` (`pages/EntriesPage.tsx`, its message slot, the phone "New entry", `EmptyState`, `Message`, `AppShell`, `entries/localDate.ts`, `vite.config.ts` test time zone).
+- **What I did:** rewrote #30 with the task template. Criteria are grouped: when it shows (calendar-day range in the browser's time zone, boundaries at 6 and 7 days, future dates, DST, only on `/`), what it looks like and says, when it hides (loading, error, after save, edit and delete, no midnight timer), how it works (frontend only, no API change) and tests. Out of scope links to #83 and #36. No new follow-up issue was needed. Commented on #83 that a banner pattern may need recording there (an input, not a requirement): https://github.com/KittyNiuNiu/winlog/issues/83#issuecomment-6837039727
+- **Decisions taken under the standing rule (2026-11-12), recorded in the issue:**
+  - The banner text from 2026-11-01 ("You haven't written anything in the last 7 days. …") is replaced: it is a "you missed a day" message, which `DESIGN.md` and `PRODUCT.md` rule out. The criteria limit what the text may say (an invitation, no gaps, counts or reproach, works for a new user); the design note sets it.
+  - The banner has no button or link (the old "Write an entry" button would be a second filled plum element on the phone, against the One Action Rule). The page's existing "New entry" stays the way to write. Still no close button.
+  - The banner also shows for a new user, next to the unchanged empty state (FR-N1 read literally; no special case).
+  - The banner is separate from the message slot from #29 and can show alongside "Entry saved." and the other messages.
+  - No timer at midnight: the banner is worked out on each render.
+  - Kept from 2026-11-01: the check runs in the frontend on the loaded list; "the last 7 days" are today and the 6 days before, in the user's time zone; future dates do not count.
+- **How I verified it:** checked the issue against the definition of done in `docs/pm.md` (four sections, checkable criteria, every out-of-scope line links an issue). Read #30 back from GitHub: the body matches what I sent (plus the automatic footer), the title is unchanged and it still has no labels. #30 had no comments; #29's comments hold no open point for #30.
+- **Left open:** nothing for #30. The designer's note sets the banner's text, placement and component.
+
+## 2026-11-12: Engineer: implement #30 (writing nudge banner)
+
+- **Task:** implement #30 (task 32, FR-N1, §7.5) following `docs/software-engineer.md`, the design note on the issue (comment 6837086328) and `DESIGN.md`.
+- **What I did:**
+  - `entries/localDate.ts`: `daysBefore` counts calendar days on the `YYYY-MM-DD` date in UTC, so daylight saving cannot shift it. `hasDateInLastSevenDays` checks today and the 6 days before, compares stored dates as text and ignores future dates.
+  - `pages/EntriesPage.tsx` / `.css`: once the list has loaded, a plain `<p class="entries-page__nudge">` shows when no entry is in that range. It is worked out on each render from the loaded list and `localToday()`, with no timer. It is the first element in the content area (below the phone's "New entry", outside the message slot), with no role, live region, link, button or icon. The text is the design note's: "Did something go well? Even a small win is worth writing down." The styles are peach wash, a hairline border, a 12px radius and body text. `max-width: none` and `margin: 0 0 24px` override the global `p` rule.
+  - No new dependency, request, endpoint or component. The backend and `openapi.yaml` are unchanged.
+- **Decision under the 2026-11-12 standing rule:** the CSS check on the banner went into `entries/entryStyles.test.ts`, next to the #29 checks on `EntriesPage.css`, rather than into a new file. This is a test file outside the issue's file list. Recorded in the issue comment.
+- **How I verified it:**
+  - New tests:
+    - `EntriesPage.test.tsx`: 30 `test_fr_n1_*` tests covering every listed case.
+    - `localDate.test.ts`: 3 tests.
+    - `entryStyles.test.ts`: 1 test.
+  - A mutation check with a naive implementation (6 × 24 h, or a UTC "today") fails the daylight-saving and local-date tests.
+  - Frontend `npm run lint` clean, `npm test` 645 passed (29 files), `npm run build` OK.
+  - Backend (unchanged): `ruff check` clean, unit tests 823 passed, integration tests 882 passed (PostgreSQL in Docker).
+  - Real app: PostgreSQL in Docker, `uvicorn` with `AI_PROVIDER=mock`, the Vite dev server, and headless Chrome (playwright-core in the scratchpad, not a project dependency), at 360 and 1280px in light and dark.
+    - The banner and the list share their edges (20–340px and 280–1232px), with 24px below the banner and no sideways scroll.
+    - The phone's "New entry" stays in place.
+    - Primary buttons: phone list 1, phone empty 1, laptop list 0, laptop empty 1.
+    - Dark values are as in the note.
+    - A delete shows the banner at once; "Entry saved." and the banner show together after an edit.
+    - No banner on the other pages.
+  - Issue comment: https://github.com/KittyNiuNiu/winlog/issues/30#issuecomment-6837291960
+- **Left open:** nothing for #30. Recording the banner pattern in `DESIGN.md` is #83.
+
+## 2026-11-12: Orchestrator: closed #30 (task 32, writing nudge banner)
+
+- **Outcome:** PM re-groomed (log entry e4e5d0c), design note posted (issue comment 6837086328), engineer implemented in 06edb70 (issue comment 6837291960), QA PASS (issue comment 6837511824), design review PASS (issue comment 6837604676). Closed as completed; the last status label `qa-passed` stays. No real AI calls: every run used `AI_PROVIDER=mock`.
+- **Decisions accepted under the 2026-11-12 standing rule (orchestrator checked `docs/product-spec.md` FR-N1, which fixes neither the text nor a button):**
+  - PM: the 2026-11-01 banner text ("You haven't written anything in the last 7 days…") is replaced because `DESIGN.md`/`PRODUCT.md` rule out "you missed a day" messages; the banner has no button (One Action Rule) and no close button; a new user sees it next to the empty state; it is independent of the message slot; no midnight timer.
+  - Designer: text "Did something go well? Even a small win is worth writing down."; first in the content area, below the phone's "New entry", list-width, 24px gap; peach wash, hairline border, 12px radius, no icon; plain paragraph, no role or live region; built in `EntriesPage.tsx`/`.css`, not the `Message` component.
+  - Engineer: the banner's CSS check sits in the existing `entries/entryStyles.test.ts`.
+- **Where each open point went:**
+  - The banner uses the same surface as the info message, so the two look alike when shown together (designer): comment on #83 (6837611094).
+  - Text sizes are in pixels, so larger text could not be checked (designer): comment on #36 (6837612043).
+  - Two `GET /entries` in dev under React StrictMode, an empty `role="alert"` slot from #29's closed dialog, the built Docker image not checked because of the pip TLS limit (QA): left in this log; expected behaviour or an environment limit, not defects.
+
+## 2026-11-12: Re-groom issue #31 (Build the review page with filters) against DESIGN.md
+
+- **Task:** re-groom #31 (task 33) following `docs/pm.md`. Its body dated from 2026-11-01, before `DESIGN.md`, #29 and #30. Checked against `DESIGN.md`, `PRODUCT.md`, `product-spec.md` v0.2 (FR-R1, FR-R2, §9, §12), `openapi.yaml` (`GET /entries` filters, `GET /tags`) and `frontend/src/` (`pages/ReviewPage.tsx` placeholder, `pages/EntriesPage.tsx` with its month grouping, `EntryRow`, `CategoryChip`, `EmptyState`, `Message`, `entries/TagField.tsx`, `entries/tagNames.ts`, `useWakingUpHint`, `AppShell`, `routes.tsx`). Inputs: the two comments on #31 (#11: empty `tag` values; #75: category vs. month grouping).
+- **What I did:** rewrote #31 with the task template. Criteria are grouped: page, filters, filters in the URL, results, phone and laptop, tests. Out of scope links to #32 (Generate summary and the summary panel), #77 (illustration in the no-match state), #29 (edit and delete), #83 (recording the new patterns in `DESIGN.md`) and #36 (screen checks). No new follow-up issue was needed.
+- **Decisions taken under the standing rule (2026-11-12), recorded in the issue:**
+  - Category vs. month grouping (#75 open point): categories are the top level (FR-R2), with month sub-headings inside each category (`DESIGN.md`, chunking). Both sources hold, so this is not a contradiction and needs no spec or `DESIGN.md` change; the shared entry row keeps its "10 Nov" date.
+  - No empty or whitespace-only `tag` value is ever sent, and filters not in use are left out of the query (#11 open point).
+  - Only tags from `GET /tags` can be chosen; typed text that matches nothing is not used. Tags from the URL are trimmed, de-duplicated ignoring case and kept even if not in the list. Invalid dates and unknown categories in the URL are ignored.
+  - No filled plum button on the page in this task, so #32's main action is the only one later; "Clear filters", "Try again" and "New entry" are secondary.
+  - Filter changes replace the history entry; the navigation link opens `/review` without filters.
+  - Previous results stay visible while new ones load; only the newest response is shown.
+  - A total line ("12 entries"), announced politely, because results update without a button.
+  - New texts: "No tags yet.", "Tags couldn't be loaded. Reload the page to try again.", "Choose a start date on or before the end date.", and a no-entries state ("No entries yet. Write your first win." with "New entry").
+  - Kept from 2026-11-01: native date inputs, category chips, searchable tag selection with the "any" hint (#2), automatic updates, the start-after-end error, filters in the URL, "Clear filters", fixed category order with counts and empty groups hidden, read-only rows, a collapsible filter panel on the phone.
+- **How I verified it:** checked the issue against the definition of done in `docs/pm.md` (four sections, checkable criteria, every out-of-scope line links an issue). Read #32, #77, #83 and #36 so nothing they cover is pulled in. Checked in the installed `react-router` types that `useSearchParams`'s setter takes navigate options (`{ replace: true }`). Read #31 back from GitHub: the body matches what I sent (plus the automatic footer), the title is unchanged and it still has no labels.
+- **Left open:** an input comment for #83 (record the tag filter field, the phone's collapsible filter panel, and category groups with month sub-headings in `DESIGN.md`) could not be posted from this session (permission denied); passed to the orchestrator. The "Plum & Peach v2" boards still could not be opened (artifact not found).
+
+## 2026-11-12: Engineer: implement #31 (review page with filters)
+
+- **Task:** implement #31 (task 33, FR-R1, FR-R2, §12) following `docs/software-engineer.md`, the design note on the issue (comment 6837814048) and `DESIGN.md`.
+- **What I did:**
+  - `pages/ReviewPage.tsx` / `.css` replace the placeholder:
+    - On the phone, a "Filters" toggle with a count badge and a collapsible panel; on the laptop, the filters are always shown.
+    - Filters: native date inputs, the category filter chips and the tag filter.
+    - "Clear filters", in the filter area and in the no-match state.
+    - Results: an announced total line, then category groups (`h2` with dot and count) with month groups (`h3`), rows from `EntryRow` without actions.
+    - States: loading (previous results stay), waking-up and error with "Try again", no-match and no-entries. All buttons are secondary.
+  - `review/reviewFilter.ts`: the one parsed filter, read from and written to the URL (`useSearchParams`, replace), and the `GET /entries` query with only the filters in use and never an empty tag.
+  - `review/TagFilterField.tsx` / `.css`: only offered tags can be chosen, with the hint under the input. It reuses `TagField.css`, `matchingTags` and `addTagNames`.
+  - `review/reviewTexts.ts`: the page's texts.
+  - Shared, backward-compatible changes:
+    - `TextField`/`TextArea` take optional `describedBy` and `invalid`.
+    - The month grouping moved unchanged from `EntriesPage.tsx` to `components/groupByMonth.ts`.
+  - No new dependency. The backend and `openapi.yaml` are unchanged.
+- **Decisions under the 2026-11-12 standing rule (recorded in the issue comment):**
+  - One line in an existing entries-page test changed. `test_fr_n1_new_entry_in_range_hides_the_banner_next_time_the_page_opens` used `/review` as a detour and counted `listEntries` calls, and the review page now loads entries. The detour is now `/settings`; the assertions are unchanged. This conflicts with the letter of "existing tests for the entries page pass unchanged", so confirmation is asked on the issue.
+  - The tag filter is a separate component rather than options on the entry form's `TagField`, so the entry form's code stays untouched.
+  - Focus fallbacks the note leaves open:
+    - Removing a tag chip without a search field focuses the next chip, else "Achievement".
+    - A search field replaced while it has focus moves focus to "Achievement".
+  - A filter change while the date error shows keeps the phone panel open.
+  - Year `0000` is not a real date. The URL is not rewritten on load.
+- **How I verified it:**
+  - Frontend `npm run lint` clean, `npm test` 744 passed (31 files; 99 new: 66 in `ReviewPage.test.tsx`, 30 in `reviewFilter.test.ts`, 4 in `TextField.test.tsx`), `npm run build` OK.
+  - Backend (unchanged): `ruff check` clean, unit tests 823 passed, integration tests 882 passed (PostgreSQL in Docker).
+  - Real app: PostgreSQL in Docker, `uvicorn` with `AI_PROVIDER=mock`, the Vite dev server, and headless Chrome (playwright-core in the scratchpad, not a project dependency), at 360 and 1280px in light and dark.
+    - No sideways scroll with the panel open, the offered list open or long tag chips.
+    - No control in `main` under 44×44px.
+    - 0 primary buttons in every state.
+    - Requests carry only the filters in use.
+    - The date error is styled as in the note.
+    - "Clear filters" empties the URL and focuses "Achievement".
+  - Issue comment: https://github.com/KittyNiuNiu/winlog/issues/31#issuecomment-6838162064
+- **Left open:**
+  - Confirmation of the one-line test change above.
+  - Two `GET /entries` on the first load in dev under React StrictMode (expected).
+  - Recording the new patterns in `DESIGN.md` is #83.
+
+## 2026-11-13: PM: record the product owner's decision on #31 (test detour)
+
+- **Task:** record the product owner's decision of 2026-11-13 on #31, following `docs/pm.md`.
+- **What I did:**
+  - Added a dated note to the criterion "The existing tests for the entries page, the entry form's tag field and the shared components pass unchanged." It names the one exception: in `test_fr_n1_new_entry_in_range_hides_the_banner_next_time_the_page_opens` (`frontend/src/pages/EntriesPage.test.tsx`), the detour away from `/` now goes to `/settings` instead of `/review`, and its assertions are unchanged.
+  - Recorded the decision under Constraints: `/review` now loads entries, which broke the test's `listEntries` count. Only the detour target changed, so the test is not weakened (engineer's comment 6838162064).
+  - Changed nothing else in the issue and no labels.
+- **How I verified it:** read the issue back through the REST API. It shows both additions and the rest of the body unchanged, apart from one blank line before the `---` footer that GitHub collapsed, which does not change how it renders. The label is still `designed` and the state is open.
+- **Left open:** nothing.
+
+## 2026-11-13: Software engineer: fix the QA FAIL on #31 (typed dates on the review page)
+
+- **Task:** fix the QA FAIL on #31 (comment 6846138995). In Chrome, a date typed key by key into the review page's start or end date never reached the filter. Following `docs/software-engineer.md`.
+- **What I did:**
+  - Found the cause with a jsdom test that records every value written into the date input:
+    - The inputs took their value straight from the URL, which React Router updates in a transition after the input event.
+    - React wrote the old value back in between (`0002-11-01`, `''`, `0002-11-01`), and each write reset Chrome's segment editing.
+  - New `frontend/src/review/useDateDraft.ts`, used for both date inputs in `ReviewPage.tsx`:
+    - The input shows its own value, set in the same event.
+    - The URL stays the one filter that drives the request.
+    - When the filter's date becomes a date the input sent, the input is left as it is. This also holds when several typed dates arrive late.
+    - Any other change replaces what the input shows: "Clear filters", Back, Forward, the nav link.
+  - 5 new tests in `ReviewPage.test.tsx`:
+    - Key-by-key typing for both fields, empty and with a set date. All 4 cases fail on the old code.
+    - Typed dates following "Clear filters" and history.
+  - No other behaviour, text or style changed. No new dependency.
+- **Decisions under the 2026-11-12 standing rule:**
+  - Kept the request per real date while the year is typed (for example `0002-11-01`), because the criteria update results on every complete date.
+  - Did not touch the existing tests that fail while a backend runs on port 8000. They are outside this issue.
+- **How I verified it:**
+  - Frontend: `npm run lint` clean. `npm test` 749 passed (31 files). `npm run build` OK.
+  - Backend (unchanged): `ruff check` clean, unit tests 823 passed, integration tests 882 passed (PostgreSQL in Docker).
+  - Headless Chrome (playwright-core in the scratchpad), keyboard presses only:
+    - Ran on the Vite dev server and on the production build, at 360px and 1280px, with 30 ms and 200 ms between keys. 32 of 32 checks pass on each.
+    - Both fields were typed empty, with a retyped year, and with a whole date retyped over a set one.
+    - Also checked: both fields typed together, the end date typed after a start date, "Clear filters" after typing, and a date from the URL.
+  - Issue comment: https://github.com/KittyNiuNiu/winlog/issues/31#issuecomment-6846360931
+- **Left open:**
+  - About 15 existing tests (`AppShell.test.tsx`, `leavePrompt.test.tsx`, `routes.test.tsx` and others) fail when a backend is running on `localhost:8000`. Not every run fails the same ones, and they fail without this change too. They reach the real API with the test token, get a 401 and are sent to `/login`. With no backend running, all tests pass. This could be a separate issue.
+
+## 2026-11-13: Orchestrator: closed #31 (task 33, review page with filters)
+
+- **Outcome:**
+  - The PM re-groomed it (ae663d7) and the design note was posted (issue comment 6837814048).
+  - The engineer implemented it in 7ec6886 and 5baaef1 (issue comment 6838162064).
+  - QA FAIL 1 (6846138995): dates typed with the keyboard reset in Chrome. Fixed in 9e83746 and f185d30 (6846360931).
+  - QA PASS on the re-check (6847042776), design review PASS (6847137778).
+  - Closed as completed; the last status label `qa-passed` stays. No real AI calls: every run used `AI_PROVIDER=mock`.
+- **Product owner decisions (2026-11-13):**
+  - Accepted the one-line change to the #30 banner test: its detour goes to `/settings` instead of `/review`, and its assertions are unchanged. Recorded by the PM in the issue (d153ed3).
+  - The product owner said afterwards that this question was not severe and should have been decided under the standing rule. From now on, small conflicts between criteria that have a clear recommended fix are decided under the rule and logged.
+  - At the product owner's request, the orchestrator posted on #83 the PM's input comment that the permission system had blocked (6846500021).
+- **Decisions accepted under the 2026-11-12 standing rule:**
+  - PM: category groups with month sub-headings, so FR-R2 and `DESIGN.md` both hold. No filled plum button on the page yet (it is kept for #32). Empty tag values are never sent. Tags can be picked only from `GET /tags`. Filter changes replace the history entry. Previous results stay visible while new ones load. A live total line. New texts.
+  - Designer: category `h2` with a coloured dot and a count. Month `h3` at 15px (a small step away from the Title style; posted on #83). Focus goes to "Achievement" after Clear filters. The phone "Filters" toggle has a count badge. One flexible column on the laptop, leaving room for #32.
+  - Engineer: the tag filter is its own component. `TextField` gains the optional props `describedBy` and `invalid`. Month grouping moves to `components/groupByMonth.ts`. The `useDateDraft` hook fixes typed dates.
+- **Where each open point went:**
+  - Typed dates can still lose digits when the CPU is heavily throttled; partial-year requests while typing (QA): new issue #87, created under the standing rule on QA's recommendation.
+  - 17 to 21 frontend tests fail while a backend runs on localhost:8000, older than #31 (engineer, QA): comment on #73 (6847148338).
+  - On the laptop, the filters sit 16px below the title instead of 24px because of margin collapse (designer): comment on #36 (6847149004).
+  - Month sub-heading style on `/review` (designer): comment on #83 (6847149934).
+  - Two `GET /entries` requests in dev under StrictMode (QA); the sidebar's background stops in full-page screenshots, a screenshot artefact (designer): left in this log.
+
+## 2026-11-13: PM: groom #77 (Add the three illustrations from DESIGN.md)
+
+- **Task:** groom #77 (task 34), a draft follow-up from #75 with no status label, following `docs/pm.md`. Checked against `DESIGN.md` ("Colour blocks and illustrations", Colors, The One Action Rule, Do's and Don'ts), `PRODUCT.md`, `product-spec.md` v0.2 (§9 Responsiveness and Design) and `frontend/src/` (`components/EmptyState.tsx` and its 200×160px slot, `components/AuthLayout.tsx`, `pages/LoginPage.tsx`, `RegisterPage.tsx`, `EntriesPage.tsx`, `ReviewPage.tsx`, `review/reviewTexts.ts`, `auth/RouteGuards.tsx`, `routes.tsx`, `index.css` tokens, `design.test.ts`). Read the #75 design note on the illustration slot, and #35, #83, #36 and #32 so nothing they cover is pulled in.
+- **What I did:** rewrote #77 with the task template. Criteria are grouped: the drawings, where they appear, buttons and accessibility, light and dark mode, tests. Out of scope links to #75, #29, #31, #35, #32, #83 and #36. No new follow-up issue was needed. Posted input comments on #35 (keep "Try the demo" secondary and the login form within the first phone screen next to the drawing) and #83 (record the illustration placement in `DESIGN.md`).
+- **Decisions taken under the standing rule (2026-11-12), recorded in the issue:**
+  - The drawings are hand-written inline SVG React components in `frontend/src/components/`, coloured only through the tokens in `index.css`. No image files, no SVG plugin, no new dependency, no asset step; dark mode follows from the tokens.
+  - The review page's no-entries state counts as "a review with no matching entries", so the review drawing shows in both of its empty states. Three drawings for three places.
+  - Login and registration share one drawing, placed in the two pages (not in `AuthLayout`, which also shows "Page not found").
+  - Plum only for lines and small accents (no plum-filled shape larger than 16×16px), which reconciles "Plum: nothing decorative" and the One Action Rule with "flat shapes in plum, peach and the category tints". The review page keeps no filled plum button for #32.
+  - The empty entries list shows its drawing whenever it is empty, including after the last entry is deleted.
+  - No new text on login and registration; the heading and the form's button say what to do next. At 360×640px the "Log in" and "Create account" buttons stay visible without scrolling.
+- **How I verified it:** checked the issue against the definition of done in `docs/pm.md` (four sections, checkable criteria, every out-of-scope line links an issue). Confirmed in `design.test.ts` that colour values outside `index.css` already fail a test, so token-only colours are enforced. Read #77 back from GitHub: the body matches what I sent (plus the automatic footer), the title is unchanged and it still has no labels.
+- **Left open:** what each drawing shows and its exact phone size are for the designer's note.
+
+## 2026-11-13: Engineer: implement #77 (Add the three illustrations from DESIGN.md)
+
+- **Task:** implement #77 (task 34) against its acceptance criteria and the design note (6847320672), following `docs/software-engineer.md`.
+- **What I did:**
+  - `frontend/src/components/Illustrations.tsx`: three inline SVG components, `LoginIllustration`, `EntriesIllustration` and `ReviewIllustration`, drawn from the note's coordinates (viewBox 0 0 200 160) with a shared backdrop, ground line and pencil. Each renders one `<svg>` with `aria-hidden="true"` and `focusable="false"`, no title, no text.
+  - `frontend/src/components/Illustrations.css`: the colour classes from the note's table, all on tokens (plum, peach, category tints and dots), plum stroke 3 viewBox units; sizes 120px (login) and 160px (empty states) below 48rem, 160px and 200px from it, `aspect-ratio: 5 / 4`, `max-width: 100%`, `display: block`, 32px below the login drawing.
+  - The login drawing sits above the heading in `LoginPage` and `RegisterPage` (not in `AuthLayout`); the entries and review drawings go into the existing `EmptyState` slot. `EmptyState` and `AuthLayout` are unchanged. No text changed.
+  - The development-only preview shows the real entries drawing in its "With an illustration" sample (instead of the grey placeholder) and the three drawings side by side.
+  - Tests: `components/Illustrations.test.tsx` (one decorative svg, no text, image, gradient, filter or animation element, colours only through token classes, plum fills at most 16×16, shared set), `components/illustrationSources.test.ts` (CSS sizes, tokens, no animation; the components are imported only by the four pages and the preview), new `test_design_*` tests in the login, register, entries and review page tests, and `illustrationPlaces.test.tsx` (no drawing on new or edit entry, summaries, summary, settings, or "Page not found" logged in or out).
+- **Decision taken under the standing rule (2026-11-12), recorded in the issue:** two existing assertions asserted the state before #77 and contradicted the criteria that put the drawings in those exact states: `test_fr_e4_empty_state_for_a_user_without_entries` expected no illustration slot, and `test_fr_r2_no_match_state_with_clear_filters_and_no_illustration` expected none in the no-match state. I changed each one assertion to expect the entries or review drawing in the slot (stronger, not weaker) and renamed the review test to `..._and_the_review_illustration`. Every other existing test is unchanged, including `EmptyState.test.tsx`, `design.test.ts` and the preview tests.
+- **How I verified it:** frontend `npm run lint`, `npm test` (34 files, 785 tests, run with no backend on localhost:8000) and `npm run build` pass. Backend unchanged; `ruff check`, unit (823) and integration (882) tests pass. In headless Chrome against the dev server and a backend with `AI_PROVIDER=mock`, at 360×640 and 1280×800, light and dark: the login drawing is 120×96 on the phone and 160×128 on the laptop, left-aligned with the heading, 32px above it; the "Log in" button bottom is at 528px and "Create account" at 577px at 360×640 (the note's numbers); the empty-state drawings are 160×128 and 200×160, centred; the entries "New entry" bottom is at 530px; no sideways scroll; settings and "Page not found" show no drawing. Screenshots checked in both modes.
+- **Left open:** nothing new. The design review checks the screenshots (step 7).
+
+## 2026-11-13: Orchestrator: closed #77 (task 34, the three illustrations)
+
+- **Outcome:**
+  - The PM groomed it (e7e70e6) and the design note was posted (issue comment 6847320672).
+  - The engineer implemented it in 9ef7dc8 (6847518823).
+  - QA PASS on all 21 criteria (6847708038) and design review PASS (6847764204).
+  - Closed as completed; the last status label `qa-passed` stays. No real AI calls were made.
+- **Decisions accepted under the 2026-11-12 standing rule:**
+  - PM: the drawings are inline SVG components coloured only with tokens, with no new dependency. One drawing is shared by login and registration and sits in the pages, not in `AuthLayout`. The review drawing appears in both of its empty states. Plum is used only for lines and accents of 16×16px or less. There is no new text. The buttons fit at 360×640.
+  - Designer: one lilac diary across all three drawings. Sizes per breakpoint. The login drawing is left-aligned with a 32px gap. Drawings are `aria-hidden`.
+  - Engineer, applying the product owner's 2026-11-13 clarification that small conflicts between criteria are decided under the rule: two existing assertions that expected no illustration in the empty states now expect it, which makes them stricter (`test_fr_e4_empty_state_for_a_user_without_entries`, and the review no-match test renamed `..._and_the_review_illustration`). QA confirmed that no other existing test changed.
+- **Where each open point went:**
+  - The `/login` inputs report `outline: none` on focus, so their visible focus indicator is unverified (designer; not caused by #77): comment on #36 (6847771371).
+  - In the dev-only `/dev/components` row, the login drawing keeps its 32px margin (designer); the dev preview caption now reads "With an illustration" (QA); `/login` and `/register` scroll at 360×640 when a notice shows, but the main button stays visible (QA): left in this log, with no user impact.
+
+## 2026-11-13: PM: re-groom #32 (Add summary generation to the review page) against DESIGN.md
+
+- **Task:** re-groom #32 (task 35), whose body dated from 2026-11-01, before `DESIGN.md`, following `docs/pm.md`. Checked against `DESIGN.md` (Layout, Summary panel, Buttons, Saved message, The One Action Rule, Do's and Don'ts), `PRODUCT.md`, `product-spec.md` v0.2 (FR-R3 to FR-R5, §7.4, §8, §9), `openapi.yaml` (`POST /summaries`, `PATCH /summaries/{summaryId}`, the `Error` schema and its `limit`) and `frontend/src/` (`pages/ReviewPage.tsx`, `review/reviewFilter.ts` with `parseFilter`, `entries/suggestions.ts` notices, `api/errors.ts`, `api/operations.ts`, `auth/requestErrors.ts`, `TextArea`, `SavedMessage`, `DiscardDialog`, `useLeavePrompt`, `formatDate.ts`, the #31 test `test_fr_r1_no_primary_button_on_the_*`). Read the #31 design note and #17, #33, #35, #36, #43 and #87 so nothing they cover is pulled in. The issue had no comments.
+- **What I did:** rewrote #32 with the task template. Criteria are grouped: the panel, when drafting is possible, drafting, the draft, when drafting fails, checks, tests. Out of scope links to #17, #15, #13, #18, #33, #43, #35, #87 and #36. No new follow-up issue was needed. Posted input comments on #33 (empty-list wording, a shared filter description, the same editor texts; 6847874769), #43 (the 10,000-character limit also applies to the panel's text field, and the too-much-text notice belongs in the panel; 6847875035) and #36 (add the panel states to the screen list; 6847875290).
+- **Decisions taken under the standing rule (2026-11-12), recorded in the issue:**
+  - The draft is shown, edited and saved in a summary panel on the review page (right of the results on the laptop, below them when narrower and on the phone), as `DESIGN.md` describes, instead of opening `/summaries/:id` (the 2026-11-01 version). `POST /summaries` already saves the summary, so "Save summary" saves edits with `PATCH`; every draft is also listed in Summaries. No contract change.
+  - The button is "Draft summary" (then "Draft again"), and both are secondary. "Save summary" is the page's only plum button once a draft is shown, so #31's no-primary-button test stays true unchanged.
+  - Drafting uses `parseFilter` of the URL. A start date after the end date, and entries still loading or failed to load, also disable the button. The enabled line counts the entries shown.
+  - The draft line comes from the saved summary's own filter, because the filters stay usable while drafting.
+  - Unsaved edits are protected by the existing "Discard changes?" dialog (before "Draft again" and when leaving the page); filter changes never ask. A failed "Draft again" keeps the earlier draft.
+  - Leaving the page during drafting does nothing on the next page; the summary is still saved.
+  - A limit error naming no limit or another limit gets the "couldn't be written" notice, as #28 does. Notices go when a new draft starts or the filter changes.
+  - Not built: `DESIGN.md`'s example "You can draft 1 more summary today." needs a count the API does not provide and the spec does not require. Recorded in the issue's constraints.
+  - Kept from 2026-11-01: a required period, the disabled hints, one request per tap, usable filters while drafting, the progress text and the failure notices.
+- **How I verified it:** checked the issue against the definition of done in `docs/pm.md` (four sections, checkable criteria, every out-of-scope line links an issue). Confirmed in `frontend/src/` that `generateSummary`, `updateSummary` and the typed errors exist, that `GLOBAL_LIMIT_MESSAGE` and `DiscardDialog` can be reused as they are, and that `useLeavePrompt` blocks every navigation except to login, so the issue asks for it to let filter changes through. Read #32 back from GitHub: the body matches what I sent (plus the automatic footer), the title is unchanged and it still has no labels.
+- **Left open:** the panel width, its breakpoint, whether it stays in view on the laptop, focus after a draft arrives and exact wording are for the designer's note.
+
+## 2026-11-13: Engineer: implement #32 (Add summary generation to the review page)
+
+- **Task:** implement #32 (task 35) against its acceptance criteria and the design note (6847975619), following `docs/software-engineer.md`.
+- **What I did:**
+  - `frontend/src/review/SummaryPanel.tsx` and `.css`: the "Summary" panel as the design note describes.
+    - Without a draft it shows "Draft summary" (secondary, `Sparkles`) and its draft line.
+    - With a draft it shows the source line (focus target after a draft), the draft note, the "Summary text" field, "Save summary" (the only primary button), "Draft again" and the message slot.
+    - It sends one request per tap. An answer after leaving `/review` is dropped. "Draft again" uses `DiscardDialog` when there are unsaved edits. `useLeavePrompt` protects unsaved edits when leaving.
+  - `frontend/src/review/summaryDraft.ts`: the texts, the disabled rules in the note's priority order, the request body built from `parseFilter`'s filter, and the drafting and save notices.
+  - `frontend/src/components/summaryFilterText.ts`: the shared filter description for #33.
+  - `frontend/src/pages/ReviewPage.tsx` and `.css`: the filters and results are wrapped in one column and the panel follows it. From 75rem the layout is a two-column grid with a sticky 22.5rem panel; below that the panel sits 40px under the results, at most 40rem wide from 48rem.
+  - `frontend/src/entries/useLeavePrompt.tsx`: an opt-in `allowSamePath` option.
+  - `frontend/src/components/aiTexts.ts`: `GLOBAL_LIMIT_MESSAGE`, re-exported from `entries/suggestions.ts`.
+  - Tests: `pages/ReviewSummary.test.tsx` (55), `review/summaryDraft.test.ts` (15) and `review/summaryStyles.test.ts` (5), named after FR-R3, and FR-R5 for saving.
+  - Commits 7785d74, 9af89ce, 1fdfa9c; issue comment 6848280780.
+- **Decisions taken under the standing rule (2026-11-12, 2026-11-13), recorded in the issue:**
+  - `useLeavePrompt` gets an opt-in `allowSamePath` option instead of a new default, so the entry forms behave exactly as before. On `/review`, the Review navigation link with unsaved edits does not ask: it stays on the page and keeps the draft.
+  - "Draft again" takes focus before the discard dialog opens, because the native dialog returns focus to the element that had it and Safari does not focus clicked buttons. A failed "Draft again" then returns focus there.
+  - "Save summary" sends the text as typed, with only the whitespace check done client-side.
+  - No existing test changed.
+- **How I verified it:**
+  - Frontend: `npm run lint`, `npm test` (37 files, 860 tests, with no backend on localhost:8000, see #73) and `npm run build` pass.
+  - Backend is unchanged: `ruff check`, unit (823) and integration (882) tests pass.
+  - Manual check with `AI_PROVIDER=mock` (no real AI call), using `docker compose up -d db`, `uv run uvicorn` and the dev server in headless Chrome at 1280×800, 1000×800 and 360×740, in light and dark mode:
+    - The mock summary ("Mock summary of …") showed with its source line, and `GET /summaries` listed it.
+    - Saving an edit showed "Summary saved.".
+    - The third draft of the day showed the user-limit notice and kept the earlier draft.
+    - The panel is sticky on the laptop and below the results when narrower. There is no sideways scroll at any width.
+    - Filter changes did not ask. "Draft again" and leaving with unsaved edits asked "Discard changes?".
+- **Left open (also in the issue comment):**
+  - On the phone, the scroll after a draft stops at the page bottom when the panel is the last thing on the page.
+  - In dark mode the drafting notice has the same fill as the panel, so only its hairline sets it apart (for the design review).
+  - Pre-existing, not caused by #32: below 75rem the review filters sit 16px under the title because the margins collapse, while #31's CSS comment says 24px.
+
+## 2026-11-13: Orchestrator: closed #32 (task 35, summary generation on the review page)
+
+- **Outcome:**
+  - The PM re-groomed it (fa4b983, fe5e73b) and the design note was posted (issue comment 6847975619).
+  - The engineer implemented it in 7785d74, 9af89ce and 1fdfa9c (6848280780).
+  - QA PASS (6848547261) and design review PASS (6848731203).
+  - Closed as completed; the last status label `qa-passed` stays.
+  - No real AI calls: every run used `AI_PROVIDER=mock` or intercepted responses.
+- **Decisions accepted under the 2026-11-12 standing rule.** The orchestrator checked `docs/product-spec.md` FR-R3 to FR-R6 and `DESIGN.md` → Summary panel and Layout; neither names the button or requires a separate summary page.
+  - PM:
+    - An editable summary panel on the review page replaces opening `/summaries/:id` after drafting. This follows `DESIGN.md`, which the product owner chose on 2026-11-11.
+    - The buttons are a secondary "Draft summary" and "Draft again". "Save summary" is the only plum button once a draft is shown, and it saves through `PATCH`.
+    - Disabled hints. The "Discard changes?" dialog asks before "Draft again" and before leaving the page.
+    - Limit notices as in #28.
+    - `DESIGN.md`'s "You can draft 1 more summary today." is not built: the API has no remaining-count and spec §8 does not require one.
+  - Designer: the panel sits beside the list from 75rem, in a sticky 360px column. Below 75rem it sits under the list, at most 40rem wide. Focus goes to the source line after a draft and stays on "Save summary" after saving. The note fixed the exact texts.
+  - Engineer:
+    - `useLeavePrompt` gets an opt-in `allowSamePath` option, so the entry forms are unchanged. The Review link on `/review` with unsaved edits does not ask: it only clears the filters, and the draft stays.
+    - "Draft again" takes focus before the dialog opens.
+    - Save sends the text as typed.
+    - Shared `components/aiTexts.ts` and `components/summaryFilterText.ts`, ready for #33.
+- **Where each open point went:**
+  - The review page's two-column layout, sticky panel and below-list width are not yet in `DESIGN.md`. In dark mode the notice and the text field share the panel's fill, so only their borders separate them; the designer recommends no change (designer, engineer). Both posted as a comment on #83 (6848742807).
+  - Below 75rem the filters also sit 16px under the title, the margin collapse from #31 (engineer, designer): already on #36 (6847149004).
+  - Edited summaries of any length are sent today; the 10,000-character limit belongs to #43 (QA): already on #43 from the PM (6847875035).
+  - On the phone the scroll after a draft stops at the page bottom, so the panel top sits about 55 to 100px below the window top (engineer, QA, designer). An empty-text error shows the focus border until focus leaves, the shared field's "focus wins over error" rule (designer). Both left in this log as expected behaviour.
+
+## 2026-11-13: PM: re-groom #33 (Build the saved summaries pages) against DESIGN.md and #32
+
+- **Task:** re-groom #33 (task 36), whose body dated from 2026-11-01, before `DESIGN.md` and #32, following `docs/pm.md`.
+  - Checked against `DESIGN.md` (Lists, Summary panel, Buttons, Saved message, Icons, The One Action Rule, Do's and Don'ts), `PRODUCT.md`, `product-spec.md` v0.2 (FR-R4 to FR-R6, §7.4, §9, §12) and `openapi.yaml` (`GET /summaries`, `GET`/`PATCH`/`DELETE /summaries/{summaryId}`, `SummaryUpdate`, `NotFound`).
+  - Checked against the code in `frontend/src/`:
+    - the #32 panel: `review/SummaryPanel.tsx`, `review/summaryDraft.ts`;
+    - `components/summaryFilterText.ts`, `components/aiTexts.ts`;
+    - from #29: `pages/EntriesPage.tsx`, `entries/DeleteEntryDialog.tsx`, `entries/entryTexts.ts`, `entries/entrySavedNotice.ts`;
+    - `entries/useLeavePrompt.tsx` with `allowSamePath`;
+    - `components/AppShell.tsx` (Summaries is current on both paths);
+    - `pages/EditEntryPage.tsx` (not-found handling);
+    - `formatDate.ts` and `localDate.ts`, and the Vitest time zone (Sydney);
+    - the backend's `summaryId` validation field.
+  - Input: the #32 grooming comment 6847874769. Also read #18, #32 (with its implementation, QA and closing comments), #36, #43, #83 and #84, so nothing from them is pulled in.
+- **What I did:**
+  - Rewrote #33 with the task template. The criteria are grouped: list, summary page, saving, copying, deleting, not found/loading/errors, checks and tests.
+  - Out of scope links to #18, #32, #43 and #36. No follow-up issue was needed: nothing from the earlier version was dropped.
+  - No labels changed.
+- **Decisions taken under the standing rule (2026-11-12, re-confirmed 2026-11-13), recorded in the issue:**
+  - The summary page is always editable, like the #32 panel, with "Save summary" as the one plum button. There is no Edit/Cancel mode. `DESIGN.md` says AI text is always an editable draft, and one pattern is simpler. Unsaved edits are protected by the existing leave prompt.
+  - Copy copies the text currently in the field, including unsaved edits. It is disabled when the field is empty, and a missing Clipboard API counts as a refusal. This replaces "hidden while editing".
+  - Copy and Delete are secondary buttons with the Lucide `Copy` and `Trash2` icons. They are only on the summary page, and the list rows stay plain links.
+  - The list is rows with hairlines, not cards. It shows the creation date (local time), the shared filter description and a two-line text preview, in the API's order.
+  - Texts are shared with #32: "Draft one on the Review page.", "Summary text", "Save summary", "Summary saved.", the empty-text message and the "no longer exists" save notice.
+  - New:
+    - "Go to Review" in the empty state, with no illustration;
+    - "Back to summaries";
+    - "This summary was already deleted." on `not_found`, as #29 does for entries;
+    - the deleted page replaced in the history;
+    - no discard prompt after a delete;
+    - last save wins.
+  - Reuse: the delete dialog gets its texts as props, so the entries page is unchanged. "Summary deleted." uses the `entrySavedNotice.ts` pattern.
+- **How I verified it:**
+  - Checked the issue against the definition of done in `docs/pm.md`: four sections, checkable criteria, and every out-of-scope line links an issue.
+  - Confirmed in the code that every API function, helper and component the issue names exists. `Copy` and `Trash2` are in `lucide-react`.
+  - Checked in the TypeScript DOM typings that `navigator.clipboard` and `writeText` are available only in secure contexts and return a promise. MDN itself is not reachable from this session.
+  - Read #33 back from GitHub: the body matches what I sent (plus the automatic footer), the title is unchanged and it has no labels.
+- **Left open:** for the designer's note:
+  - the row layout and date column;
+  - the page layout and field size;
+  - the order of the actions;
+  - focus after a delete;
+  - the exact wording.
+
+## 2026-11-13: Engineer: implement #33 (Build the saved summaries pages)
+
+- **Task:** implement #33 (task 36) against its acceptance criteria and the design note (6848949580), following `docs/software-engineer.md`.
+- **What I did:**
+  - `frontend/src/pages/SummariesPage.tsx` and `.css`: the summaries list.
+    - Each row is one link: a two-line date ("13 Nov" / "2026", local day of `created_at`), the shared filter line, and a preview cut to 240 characters and clamped to two lines.
+    - The empty state has "Go to Review".
+    - "Summary deleted." or "This summary was already deleted." shows once, with focus on the `h1`.
+    - Loading has the waking-up hint, and a failed load has "Try again".
+  - `frontend/src/pages/SummaryPage.tsx` and `.css`: the summary page.
+    - Back link, source and created lines, and the always editable "Summary text" field with the §7.4 note as its hint.
+    - "Save summary" (the one primary button), "Copy" and "Delete", with the action order per width from the design note.
+    - The message slot, and a hidden status for "Copied".
+    - The delete dialog, the leave prompt, and the not-found, loading and error states.
+  - Shared modules:
+    - `components/summaryEditor.ts`: the texts and helpers shared with the #32 panel. `review/summaryDraft.ts` re-exports them.
+    - `summaries/summaryTexts.ts` and `summaries/summaryDeletedNotice.ts`.
+    - Optional `title`, `text` and `deleteLabel` props on `entries/DeleteEntryDialog.tsx`, defaulting to the entry texts.
+  - Tests:
+    - `pages/SummariesPage.test.tsx` (22);
+    - `pages/SummaryPage.test.tsx` (45);
+    - `summaries/summaryTexts.test.ts` and `summaries/summaryStyles.test.ts` (25 together).
+    - Named after FR-R4, FR-R5 and FR-R6.
+  - Commits 6f3cfcb, f69971e, 25776ac; issue comment 6849396572.
+- **Decisions taken under the standing rule (2026-11-12, 2026-11-13), recorded in the issue:**
+  - The shared texts moved to a new module that `summaryDraft.ts` re-exports, so the #32 panel and its tests are unchanged.
+  - The delete dialog's texts became optional props with the entry texts as defaults, so the entries page and its tests are unchanged.
+  - Save and copy errors share one error message in the slot. A new Copy clears only a copy error.
+  - Focus goes back to "Delete" unconditionally after Cancel or Escape.
+  - A `created_at` that is not a timestamp is shown as it is.
+  - No existing test changed.
+- **How I verified it:**
+  - Frontend: `npm run lint`, `npm test` (41 files, 952 tests, with no backend on localhost:8000, see #73) and `npm run build` pass.
+  - Mutation checks on the key behaviours: `allowLeaving`, the history replace, the focus return and Delete disabled while saving. Each one, when removed, fails a test.
+  - Backend is unchanged: `ruff check`, unit (823) and integration (882) tests pass.
+  - Manual check with `AI_PROVIDER=mock` (no real AI call), using `docker compose up -d db`, `uv run uvicorn`, the dev server and headless Chrome at 360×800 and 1280×800:
+    - The empty state, then a draft from `/review`, which was listed with its filter.
+    - The page showed the mock text.
+    - Save showed "Summary saved." and the text was kept after a reload.
+    - Copy passed the field text with its line breaks to `writeText` and showed "Copied"; when refused, it showed the copy error.
+    - The beforeunload prompt showed with an unsaved edit.
+    - Delete opened the list with "Summary deleted." and focus on the `h1`, and the band was gone after a reload.
+    - Nothing scrolled sideways at 360px, with or without the dialog.
+- **Left open (also in the issue comment):**
+  - For the design review: the `h1` focused after a delete shows the global focus outline.
+  - The real clipboard contents could not be read back in headless Chrome (no system clipboard), so a real-browser copy is left for QA.
+  - No dark mode screenshots were taken; the pages use tokens only.
+
+## 2026-11-13: Orchestrator: closed #33 (task 36, saved summaries pages)
+
+- **Outcome:**
+  - The PM re-groomed it (4c3d6ad) and the design note was posted (issue comment 6848949580).
+  - The engineer implemented it in 6f3cfcb, f69971e and 25776ac (6849396572).
+  - QA PASS (6849697816), including a real clipboard read-back, forced copy refusals and access by another user.
+  - Design review PASS (6849858387), light and dark.
+  - Closed as completed; the last status label `qa-passed` stays. No real AI calls: everything ran on `AI_PROVIDER=mock`.
+- **Decisions accepted under the 2026-11-12 standing rule:**
+  - PM:
+    - `/summaries/:id` is always editable, like the #32 panel. There is no Edit mode, and "Save summary" is the one plum button.
+    - Copy copies the field as it stands, including unsaved edits. When the clipboard is refused or missing, the page says so.
+    - Copy and Delete are secondary buttons.
+    - The list uses hairline rows, and the whole row is a link.
+    - The empty state has "Go to Review" and no illustration.
+    - "This summary was already deleted." when the summary is already gone.
+    - After a delete the history entry is replaced, and the page does not ask about unsaved changes.
+    - The last save wins.
+    - Reuse: `DeleteEntryDialog` with props, the `entrySavedNotice` pattern, and `formatFullDate`.
+  - Designer:
+    - The date sits on two lines in the 64px column.
+    - Layout of the row and the page; the summary page is at most 68ch wide.
+    - Action order per width.
+    - The §7.4 note is the field's hint.
+    - Focus rules: after a delete, focus goes to the list's `h1`.
+    - "Go to Review" is primary.
+    - Copy stays enabled while saving.
+  - Engineer:
+    - Shared `components/summaryEditor.ts`, re-exported from `review/summaryDraft.ts` so #32 is unchanged.
+    - `DeleteEntryDialog` gets optional props.
+    - One error slot for save and copy errors.
+    - A `created_at` that is not a valid date is shown as it is.
+  - Designer, in the review: the `h1` focus outline after a delete is accepted as built. It shows only for keyboard deletes (`:focus-visible`).
+- **Where each open point went:**
+  - The summary row and summary-page action patterns, and the shared delete dialog, are not yet in `DESIGN.md` (designer): comment on #83 (6849868254).
+  - Existing tests fail while a backend runs on :8000 (QA): already on #73 (6847148338).
+  - Left in this log, as expected behaviour with no change needed (designer):
+    - "Copy" widens by about 14px while it says "Copied".
+    - The inline "Back to summaries" link in the not-found message is 19px tall, which is fine for a link inside a sentence.
+    - ISO dates in the mock text can break at a hyphen.
+  - The per-user limit of 2 summaries a day was raised through environment variables only for the live checks (QA, designer): no file was changed.
+
+## 2026-11-13: PM: groom #43 (Enforce maximum input sizes)
+
+- **Task:** groom #43 (task 37), whose body dated from 2026-11-01, following `docs/pm.md`. It had no status label.
+  - Read its seven open-point comments: from #9 (the 9,000-character tag 500, limits at the API boundary), #7 and #20 (login and delete-account password limits in the contract), #11 (filter parameters), #18 (summary edit length), #27 (server tag errors on the entry form) and #32 (counter and too-much-text notice in the summary panel).
+  - Checked against `product-spec.md` v0.2 (§6, §7.2, §7.3, §7.4, §8), `openapi.yaml` (no `maxLength` except `Registration.password`; "no field size limits yet"), `DESIGN.md` (Inputs / Fields, Summary panel, Don'ts) and the code:
+    - backend: `app/entries.py`, `app/tags.py`, `app/text_rules.py`, `app/suggestions.py`, `app/summaries.py`, `app/accounts.py`, `app/ai/adapter.py` (`MAX_SUMMARY_CHARACTERS`), `app/errors.py`, `app/settings.py`, `.env.example`, `app/demo_seed.py`;
+    - frontend: `entries/EntryForm.tsx`, `entries/TagField.tsx`, `entries/tagNames.ts`, `entries/suggestions.ts`, `entries/entryTexts.ts`, `components/TextField.tsx`, `components/summaryEditor.ts`, `review/SummaryPanel.tsx`, `review/summaryDraft.ts`, `review/TagFilterField.tsx`, `auth/validation.ts`, `api/errors.ts`.
+  - Kept #83, #84, #36 and #46 out, and read #58, #61, #72 and #86 so nothing from them is pulled in.
+- **What I did:**
+  - Rewrote #43 with the task template: the limits table, then criteria for the contract, backend, entry form, summary editors, API client, all screens and tests.
+  - Created follow-up #88 (number of filter values, and whole request size). Added input comments to #86 (suggested tags dropped by the 10-tag cap), #61 (the new variable in Docker Compose) and #83 (the counter pattern in `DESIGN.md`).
+  - No labels changed.
+- **Decisions taken under the standing rule (2026-11-12, re-confirmed 2026-11-13), recorded in the issue:**
+  - Counters do not block typing. Past a limit, the counter shows the length in the error colour and the check before saving stops the save, with "Shorten the … to N characters, then save.". This replaces "stops typing", so pastes are never cut, longer legacy data can still be edited, and the count is in code points (HTML `maxlength` counts UTF-16 units).
+  - Tag names and the number of tags are measured as sent, so the contract's `maxLength: 40` and `maxItems: 10` are exact. The form trims first.
+  - Filter tag names (`GET /entries` `tag`, `SummaryFilter.tags`) get the 40-character limit. The number of filter values and the whole request size go to #88, because the spec sets no value.
+  - New error: 422 `summary_input_too_large`, checked after `no_matching_entries` and before the daily limits, so it never counts. Variable: `AI_SUMMARY_MAX_INPUT_CHARACTERS`, default 50000, whole number of 1 or more.
+  - Login and delete-account passwords: `minLength: 1` and `maxLength: 128` in the contract only; the backend already enforces them.
+  - Server tag errors keep #27's "Check your tags, then save." and the fold opening. New form messages: "Tags can be up to 40 characters." and "Up to 10 tags per entry.".
+  - "Suggest category and tags" is disabled while the text is over 2,000 characters. Suggestions add tags only up to 10; the backend drops suggested names over 40 before taking 5.
+  - The too-much-text notice is in the #32 summary panel; the 10,000-character counter is on both summary editors.
+  - No database migration or CHECK constraint.
+- **How I verified it:**
+  - Checked the issue against the definition of done in `docs/pm.md`: four sections, checkable criteria, and every out-of-scope line links an issue.
+  - Measured the demo sample data with the backend's own module: the longest text has 145 characters, the longest Result/Impact 93, at most 2 tags of at most 15 characters, and 3,444 characters for all entries together, so it fits every limit.
+  - Confirmed that CI lints the contract with `npx --yes @redocly/cli@2 lint openapi.yaml` and that `npm run generate:api` regenerates `schema.d.ts`.
+  - Read #43 back from GitHub: the body matches what I sent (plus the automatic footer), the title is unchanged and it has no labels.
+- **Left open:** for the designer's note, the counter's layout and how it is announced to screen readers, and the exact wording of the new messages and the panel notice.
+
+## 2026-11-13: Engineer: implement #43 (Enforce maximum input sizes)
+
+- **Task:** implement #43 (task 37) following `docs/software-engineer.md`, against the groomed criteria and the design note (comment 6850117531). A first engineer session was stopped by a container restart after the contract commit (89f291c) and some uncommitted backend work; this session reviewed that work, kept it and finished the task.
+- **What I did:**
+  - Contract (89f291c, reviewed and kept): `maxLength`/`maxItems` on `EntryInput`, `SuggestionRequest`, `Suggestion.tags`, `SummaryUpdate`, `SummaryFilter.tags` and the `tag` parameter; `minLength: 1`/`maxLength: 128` on `Credentials.password` and `AccountDeletion.current_password`; the `summary_input_too_large` code and example; the rewritten "Size limits" section. `npm run generate:api` gives no diff.
+  - Backend:
+    - Limits checked at the API boundary in code points: `text_rules.at_most`, `MAX_ENTRY_TEXT_CHARACTERS`/`MAX_RESULT_IMPACT_CHARACTERS`/`MAX_TAGS_PER_ENTRY` in `app/entries.py`, `MAX_TAG_NAME_CHARACTERS` on `TagName` (as sent, before cleaning) and `FilterTagName` in `app/tags.py`.
+    - The Result/Impact length is checked before whitespace becomes none.
+    - Edited summary text has its own type, `SummaryText`, with `MAX_SUMMARY_CHARACTERS` from the adapter. Before this it reused `EntryText`, which would have capped edits at 2,000.
+    - `POST /summaries` adds up text, Result/Impact and tag names of the matching entries (`summary_input_characters`). Above `AI_SUMMARY_MAX_INPUT_CHARACTERS` it answers 422 `summary_input_too_large`, after `no_matching_entries` and before the limited AI entry point, so nothing is counted or saved.
+    - Suggestions drop names over 40 characters after cleaning, before taking 5.
+    - `AI_SUMMARY_MAX_INPUT_CHARACTERS` in the settings (strict whole number of 1 or more, shared `_whole_number` helper with the daily limits) and in `.env.example`.
+  - Frontend:
+    - `components/inputLimits.ts`: the field limits, a code-point count and the counter text.
+    - `TextArea` takes `maxCharacters`. The counter shows from 80%, right-aligned under the field and above the messages. It is outside the `role="alert"` area and not live, is linked only while shown, says "x of y characters" to screen readers, and makes the field `aria-invalid` over the limit. There is no `maxlength`.
+    - Entry form: "Shorten the text/result…" checks before saving; the fold opens and the cursor goes to the first problem in form order. The suggest button is disabled over 2,000 characters, with the line "Suggestions work on up to 2,000 characters.".
+    - Tags: `addTagNamesWithin` keeps names over 40 characters, or beyond 10 tags, in the tag input (joined with ", "). It shows "Tags can be up to 40 characters." and/or "Up to 10 tags per entry." while each still applies, and Save stops on them. Suggestions add tags only up to 10.
+    - Summary panel and summary page: the 10,000-character counter, with "Shorten the summary to 10,000 characters, then save.".
+    - `SummaryInputTooLargeError` in `src/api/`, and the panel notice from the design note.
+- **Decisions (standing rule, 2026-11-12/13):**
+  - `generate_summary` reads the limit through a small dependency (`summary_input_limit`), not the `Request`. A unit test that calls the function directly passes it as a keyword.
+  - In the tag input, a comma only comes from names that did not fit (typed and pasted commas already split). So Enter and Save split the input on commas, and each name is checked on its own.
+  - The 10-tag message also shows while the entry has 10 tags and a name is still in the input. The design note says the message goes "once the entry has fewer than 10 tags, or has 10 and the tag input is empty".
+  - The counter's spacing is checked on the CSS text, because jsdom cannot resolve `var()` in margins.
+  - The panel notice uses the design note's wording ("…or narrow it down by category or tag."), which replaces the wording groomed in the criteria (designer decision 6).
+- **How I verified it:**
+  - Backend: `uv run ruff check .` and `ruff format --check` clean. Unit tests: 893 passed. Integration tests: 912 passed (PostgreSQL in Docker). New tests are in `tests/unit/test_input_limits.py` and `tests/integration/test_input_limits.py`. They cover each limit at and one over, with emoji, the 9,000-character tag, long suggested tags, the summary input limit (at and over, no AI call, no count, nothing saved, order of checks, another user's entries), the variable, legacy data (read, list, export, summarise, rejected unchanged, saved shortened), another user, logs and the demo data.
+  - Frontend: `npm run lint`, `npm test` (1,012 passed, with no backend on :8000) and `npm run build` pass. New tests are `components/inputLimits.test.ts` and `entries/entryLimits.test.tsx`, plus additions to the TextField, tag name, suggestion, summary draft, client, style, review panel and summary page tests.
+  - `npx --yes @redocly/cli@2 lint openapi.yaml` is valid, with the same 3 warnings as before.
+  - Manual run with `AI_PROVIDER=mock` (and `AI_SUMMARY_MAX_INPUT_CHARACTERS=1000` to trigger the notice), driving headless Chrome at 360px in light and dark mode. Checked the entry form with the red counter, save message, disabled suggest button with its hint, a long unbroken tag name and both tag messages; the edit page with legacy over-limit data; the summary page with a 10,530-character legacy summary; and the panel with "10,512 / 10,000", its message and the too-much-text notice. Nothing scrolls sideways. No real AI call was made.
+- **Left open:**
+  - A dev-database user (`check-…@example.com`) with sample entries was created by the manual check. It is local data only.
+  - The design review (step 7) still has to look at the screens.
+
+## 2026-11-13: Engineer: fix #43 after design review FAIL 1
+
+- **Task:** fix the one failing point of the first design review on #43 (comment 6851460673). At 1280px the character counter stopped 39–43px short of the field's right edge on /entries/new (text and Result), /entries/:id/edit and /summaries/:id. It also moved about 4px to the right when it turned red.
+- **What I did:**
+  - Cause: `.field__counter` is a `<p>`, so it got the global `p { max-width: var(--measure) }`. That is 68ch, about 654px, while the field is 697px wide.
+  - Fix: `max-width: none` on `.field__counter` in `frontend/src/components/TextField.css`. The counter now spans the field, and `text-align: end` puts its text at the field's right edge. Nothing else changed.
+  - Test: `test_fr_e2_counter_8px_under_the_field_messages_4px_under_it_in_the_error_colour_over_the_limit` in `frontend/src/entries/entryStyles.test.ts` now also checks for `max-width: none` and `text-align: end` on the counter. It also checks that the over-the-limit rule changes no width, margin, padding or alignment. The check reads the CSS text, because jsdom cannot resolve `var()`. Without the fix this test fails.
+- **How I verified it:**
+  - `npm run lint`, `npm test` (1,012 passed, with no backend on :8000) and `npm run build` pass.
+  - Manual check with `AI_PROVIDER=mock`, in headless Chrome at 360 and 1280px, light and dark. I measured the visible counter text's right edge against the field's right edge in the grey (80%+) and red (over the limit) states. I did this on the entry text and Result in /entries/new, on /entries/:id/edit, on /summaries/:id and in the #32 panel on /review. All 40 cases have a gap of 0, for example 977.4 = 977.4 at 1280 and 319.0 in the panel at 360, so the red state no longer shifts. On /summaries/:id the counter now lines up with Delete. `scrollWidth` equals the viewport everywhere. No real AI call was made.
+- **Left open:**
+  - The design review has to check the screens again.
+  - The manual check left a `review43-…@example.com` user in the local dev database. That is local data only.
+
+## 2026-11-13: Orchestrator: closed #43 (task 37, maximum input sizes)
+
+- **Outcome:**
+  - The PM groomed it (d008e08) and the designer posted the design note (issue comment 6850117531).
+  - The engineer implemented it, contract first: 89f291c (contract), 04a675c and 5f3f299 (backend), e937d80, 36ad0c5 and 6082d80 (frontend), comment 6851063286. A container restart stopped the first engineer run after the contract commit; a second run reviewed the unfinished backend work and finished it.
+  - QA PASS (6851287764).
+  - Design review FAIL 1 (6851460673): at 1280px the counter did not reach the field's right edge, because of the global `p` max-width. The engineer fixed it in ba9442c (6851583225).
+  - QA PASS on re-check (6851725342) and design re-review PASS (6851816412).
+  - Closed as completed; the last status label `qa-passed` stays. No real AI calls: every run used `AI_PROVIDER=mock`.
+- **Decisions accepted under the 2026-11-12 standing rule:**
+  - PM:
+    - Counters do not stop typing; over the limit the save is blocked with a message. Lengths are counted in Unicode characters.
+    - Tag names are measured as sent: at most 40 characters, at most 10 tags. The 40-character limit also applies to tag filters.
+    - New 422 `summary_input_too_large`, checked after `no_matching_entries` and before the daily limits. New setting `AI_SUMMARY_MAX_INPUT_CHARACTERS` (default 50000).
+    - Password `minLength`/`maxLength` added to the contract only.
+    - Suggested tags over 40 characters are dropped before the first 5 are taken.
+    - No migration.
+    - Created #88, a follow-up for the number of filter values and request size.
+  - Designer:
+    - The counter sits right-aligned under the field, shows from 80% of the limit, and is not a live region. Over the limit it uses the error colour at weight 600.
+    - A hint line explains the disabled suggest button: "Suggestions work on up to 2,000 characters."
+    - The panel notice is reworded to "…Choose a shorter period, or narrow it down by category or tag."
+    - Both tag messages can show at once.
+  - Engineer:
+    - Edited summaries get their own 10,000-character limit.
+    - Enter and Save split the tag input on commas.
+    - `generate_summary` receives the input limit through a dependency, so one existing unit test passes the extra argument; it is not weakened.
+- **Where each open point went:**
+  - Tags saved before #43 that are over 40 characters cannot be used as a filter, and `Summary.filter` responses carry the request schema's `maxLength` (QA): comment on #88 (6851824397).
+  - uvicorn's access log writes `?tag=<name>` URLs (QA; this predates #43): comment on #74 (6851825546).
+  - The counter pattern for `DESIGN.md` (designer, PM): already on #83 from the PM.
+  - The new setting does not reach the backend container in `docker-compose.yml` (PM): already on #61.
+  - No feedback when the 10-tag limit stops suggested tags (PM): already on #86.
+  - QA and design test users with over-limit rows set by SQL in the local dev database: left in this log.
+
+## 2026-11-13: PM: re-groom #34 (Build the data and account settings page) against DESIGN.md and the current frontend
+
+- **Task:** re-groom #34 (task 38), whose body dated from 2026-11-01, before `DESIGN.md`, #43 and the current frontend, following `docs/pm.md`. It had no status label.
+  - Checked against `DESIGN.md` (Layout, Typography, Buttons, Inputs / Fields, Icons, The One Action Rule, The Sentence Case Rule), `PRODUCT.md`, `product-spec.md` v0.2 (FR-A2, FR-D1, FR-D2, §7.6, §9, §12) and `openapi.yaml` (`exportJson`, `exportMarkdown`, `deleteAccount`, `AccountDeletion` with the 1–128 limits from #43, `ContentDisposition`, `WrongPassword`, `DemoAccountNotDeletable`).
+  - Checked against the code in `frontend/src/`: `pages/SettingsPage.tsx` and `components/PlaceholderPage.tsx` (its only user), `components/AppShell.tsx` (Settings and Log out in the More menu and the sidebar), `components/Button.tsx`, `TextField.tsx`, `Message.tsx`, `entries/DeleteEntryDialog.tsx` and `DiscardDialog.tsx`, `auth/AuthFields.tsx`, `auth/wantedPage.ts`, `auth/requestErrors.ts`, `auth/RouteGuards.tsx`, `pages/LoginPage.tsx`, and `api/operations.ts`, `api/session.ts`, `api/errors.ts`, `api/client.ts`; and `backend/app/accounts.py` for how `current_password` is checked.
+  - Read the comments that point at #34: #19 (download buttons), #20 (the UI), #25 (the product owner's 2026-11-10 decision on when deletion clears the token). Read #35, #36, #46, #72, #83 and #84 so nothing from them is pulled in.
+- **What I did:**
+  - Rewrote #34 with the task template: page, your data, delete account, waking up and layout, checks and tests.
+  - Out of scope links #19, #20, #25, #35, #46, #36, #83 and #84. No follow-up issue was needed. Added input comments to #35 (6851922938: where the demo replacement sits, and the demo error's interim text), #83 (6851923318: the in-page confirmation step) and #84 (6851923673: the busy buttons on the settings page).
+  - No labels changed.
+- **Decisions taken under the standing rule (2026-11-12, re-confirmed 2026-11-13), recorded in the issue:**
+  - Kept from 2026-11-01: the current password (product owner), a typed confirmation word, download buttons inside the step, "Delete my account" disabled until both fields are filled, "That password is incorrect.", staying logged in after any failure, "Your account has been deleted." on `/login`, the server's file name.
+  - The typed word is shown as `Type "delete" to confirm` and accepted in any case, ignoring surrounding spaces (`DESIGN.md`: The Sentence Case Rule).
+  - The confirmation opens as a step in the page, not a modal dialog, because it holds two fields and four buttons on a 360px phone with the keyboard open.
+  - All buttons on the page are secondary, with the Lucide `Download` icon on the download buttons; there is no filled plum button.
+  - Logout is not repeated on the page; it is already in the navigation at both widths.
+  - A `current_password` validation error shows "That password is incorrect.", not the server's text.
+  - Downloads and deletion show the waking-up hint after 10 seconds.
+  - Each download button has its own busy state; deletion disables them all. Failures use the app's network and unexpected texts.
+  - After deletion, `/login` replaces `/settings` in the history, and the next login opens `/`.
+  - The password field from the login page gets a label prop and is reused; `PlaceholderPage` is removed.
+- **How I verified it:**
+  - Checked the issue against the definition of done in `docs/pm.md`: four sections, checkable criteria, and every out-of-scope line links an issue.
+  - Confirmed in the code that every API function, error class, component and helper the issue names exists, that `deleteAccount` clears the session only on success, and that `Download` and `Trash2` are in `lucide-react` 1.72.0. Confirmed that the backend sends the deletion password unchanged to `verify_password` (no trimming).
+  - MDN is not reachable from this session (DNS blocked). The `download` attribute and `URL.createObjectURL` / `revokeObjectURL` are documented in the project's TypeScript DOM typings; the issue says the result is checked in Chromium, and that a real-device iOS Safari / Android Chrome check is not possible here.
+  - Confirmed #19, #20, #25, #26 and #75 are closed. Read #34 back from GitHub: the body matches what I sent (plus the automatic footer), the title is unchanged and it has no labels.
+- **Left open:** for the designer's note: the page and section layout, how the in-page step is set apart, where messages and the waking-up hint sit, and the exact wording.
+
+## 2026-11-13: Engineer: build the data and account settings page (#34)
+
+- **Task:** implement #34 (task 38) against its acceptance criteria and the design note (issue comment 6852002534), following `docs/software-engineer.md`. Frontend only; no contract, backend or dependency change.
+- **What I did:**
+  - `pages/SettingsPage.tsx` and `SettingsPage.css`: the page title, "Your data" with "Download JSON" and "Download Markdown" (Lucide `Download`), and "Account" with "Delete account" (Lucide `Trash2`), which opens the confirmation step in its place. The step is a flat paper-white panel with its `h3` (focused on open), the warning text, the same two download buttons, "Current password" (the login page's `PasswordField`), `Type "delete" to confirm`, "Cancel" and "Delete my account". Every button is secondary. Buttons are stacked full width on the phone and in a row from 48rem.
+  - Texts in `settings/settingsTexts.ts`, with `isConfirmWord` (trimmed, any case). File saving in `settings/saveFile.ts`: an object URL, a temporary hidden `<a download>`, click, remove, revoke. No new dependency.
+  - `auth/AuthFields.tsx`: `PasswordField` gets optional `label` (default "Password") and `readOnly` props; `onBlur` is optional. Login and registration are unchanged.
+  - `auth/wantedPage.ts`: `accountDeleted` in `LoginPageState`, with `accountDeletedState()` and `cameFromAccountDeletion()`. `auth/requestErrors.ts`: `ACCOUNT_DELETED_MESSAGE`. `pages/LoginPage.tsx`: one notice slot that shows "Account created. Please log in." or "Your account has been deleted.", cleared on submit.
+  - Removed `components/PlaceholderPage.tsx` (no other user).
+- **Decisions taken under the standing rule (2026-11-12, re-confirmed 2026-11-13), recorded in the issue comment:**
+  - The object URL is revoked 1 second after the click (`REVOKE_URL_AFTER_MS`), not in the same task, because some browsers read a blob URL only after the click's task has ended. The link is removed at once.
+  - Cancel unmounts the step, so the fields empty and the password is hidden again without extra state (the designer's watch-out).
+  - A download message shown in the step moves to "Your data" when the step is cancelled, so an error or a running download's waking-up hint is not lost.
+  - With two downloads running at once, the waking-up hint follows the download pair the user pressed last (one slot, as in the design note).
+  - The design note's decisions 1 to 12 are followed as written.
+- **How I verified it:**
+  - `npm run lint`, `npm test` (45 files, 1045 tests, without a backend on :8000) and `npm run build` pass. New tests: `pages/SettingsPage.test.tsx` (29 tests, named after FR-D1, FR-D2 and FR-A2) and `settings/settingsStyles.test.ts` (4 tests). The existing `AppShell`, routes, login page and illustration-place tests pass unchanged. A mutation check (dropping the trim from `isConfirmWord`) makes two tests fail.
+  - Manual check in Chromium (Google Chrome driven by `playwright-core` installed only in the session scratchpad, not in the project) with the backend on `uvicorn`, `AI_PROVIDER=mock`, the `db` container and `npm run dev`; `docker compose up --build` fails in this container (pip TLS). With a new throwaway account and one entry, at 360px and 1280px: both files saved as `winlog-export-2026-11-13.json` / `.md` and both contain the entry; no control under 44px; no sideways scroll with the step open, a download error, the deletion's waking-up hint (deletion delayed 10.5s by the test) and "That password is incorrect." shown; after the wrong password the account still works. Deleting with the right password opened `/login` with "Your account has been deleted.", the stored session was gone, Back stayed on `/login`, and logging in with the old email and password gave "Wrong email or password.". No real AI call.
+- **Left open:**
+  - A real-device check on iOS Safari and Android Chrome is not possible here (as the issue says).
+  - The demo replacement (#35), "too many attempts" (#46), focus while a busy button is disabled (#84) and the in-page step pattern in `DESIGN.md` (#83) stay with their issues.
+
+## 2026-11-13: Orchestrator: closed #34 (task 38, data and account settings page)
+
+- **Outcome:**
+  - The PM re-groomed it (1cdd8a5) and posted the design note (issue comment 6852002534).
+  - The engineer implemented it in 0bf909d (6852198027).
+  - QA PASS (6852486082), including real downloads and a real account deletion with throwaway users, all deleted afterwards.
+  - Design review PASS (6852622504).
+  - Closed as completed; the last status label `qa-passed` stays. No real AI calls.
+- **Decisions accepted under the 2026-11-12 standing rule:**
+  - PM:
+    - Kept the product owner's 2026-11-01 choices: the current password is required, plus a typed confirmation word. The downloads sit inside the step. "Delete my account" stays disabled until both fields are filled. The user stays logged in after any failure. "Your account has been deleted." shows on `/login`.
+    - The confirmation label is `Type "delete" to confirm`, in any case, with outer spaces ignored.
+    - The step opens in place on the page, not in a modal. All buttons are secondary, with no logout on the page.
+    - A `current_password` validation error shows "That password is incorrect."
+    - The waking-up hint appears after 10s.
+    - `/login` replaces `/settings` in the history.
+    - Files are saved through an object URL and `<a download>`, with no new dependency.
+    - `PlaceholderPage` is removed.
+  - Designer:
+    - One 68ch column with plain sections.
+    - The step is a flat Paper-white panel that replaces "Delete account". Its heading "Delete your account?" gets focus.
+    - The danger signal comes from the heading, text, label and `Trash2`, with no error-coloured button.
+    - Buttons are stacked below 48rem and in a row above it. "Cancel" comes before "Delete my account".
+    - The step is a `<form>`; there is no Escape key and no focus trap.
+    - One busy state and one message slot per file.
+  - Engineer:
+    - The object URL is revoked 1s after the click.
+    - Cancel unmounts the step, which resets the fields and hides the password again.
+    - A download message shown in the step moves to "Your data" on Cancel.
+- **Where each open point went:**
+  - In dark mode, the disabled button fill matches the Paper-white panel (designer): comment on #83 (6852633278).
+  - Focus falls to the body while "Delete my account" is busy (designer): already on #84 (PM input 6851923673).
+  - The demo account on this page (PM): already on #35 (6851922938).
+  - Left in this log:
+    - The download waking-up hint shares one timer when both downloads run at once (QA). The criteria do not cover this.
+    - A second Back after deletion leaves the app (QA): browser behaviour.
+    - The focus border shows over the error border while the field has focus (QA, designer): the shared field's rule.
+    - Registering through the UI logs in and opens `/`, so "Account created. Please log in." only shows when the automatic login fails (designer). This is expected.
+    - The sticky sidebar looks shifted in full-page screenshots (designer): a screenshot artefact.
+    - Not checked on real iOS Safari or Android Chrome devices (engineer, QA).
+
+## 2026-11-13: PM: re-groom #35 (Add "Try the demo" to the login page) against DESIGN.md and the current frontend
+
+- **Task:** re-groom #35 (task 39), whose body dated from 2026-11-01, before `DESIGN.md`, #34 and #77, following `docs/pm.md`. It had no status label.
+  - Checked against `DESIGN.md` (Layout, Buttons, Icons, The One Action Rule, The Good Moment Rule, The Sentence Case Rule), `PRODUCT.md`, `product-spec.md` v0.2 (FR-X1 and §7.7, FR-A4, §8, §9, §12) and `openapi.yaml` (`demoLogin`, `DemoLoginResult`, its 404 `not_found`, `deleteAccount` with 409 `DemoAccountNotDeletable`, `logout`).
+  - Checked against the code: `frontend/src/pages/LoginPage.tsx`, `auth/AuthFields.tsx`, `auth/AuthForm.css`, `auth/requestErrors.ts`, `auth/useWakingUpHint.ts`, `auth/RouteGuards.tsx`, `routes.tsx`, `components/AppShell.tsx`, `AuthLayout`, `Button`, `Message`, `Illustrations.css`, `pages/SettingsPage.tsx`, `settings/settingsTexts.ts`, `api/operations.ts`, `api/session.ts`, `api/errors.ts`; and `backend/app/demo.py`, `app/demo_seed.py`, `scripts/seed_demo.py` (`DEMO_EMAIL`; the reset keeps the demo account's tokens).
+  - Used the two input comments on #35 (6847209484 from #77, 6851922938 from #34). Read #21, #25, #26, #34, #36, #38, #40, #46, #77, #83 and #84 so nothing from them is pulled in.
+- **What I did:**
+  - Rewrote #35 with the task template: "Try the demo" on the login page, the demo notice in the app, the settings page, tests and checks.
+  - Out of scope links #21, #25, #38, #46, #84, #36 and #40. No follow-up issue was needed. Added input comments to #46 (6852720673: the "too many attempts" message goes below "Try the demo"), #84 (6852721092: "Try the demo" is another busy button) and #36 (6852721483: the screens #35 adds).
+  - No labels changed.
+- **Decisions taken under the standing rule (2026-11-12, re-confirmed 2026-11-13), recorded in the issue:**
+  - Kept from 2026-11-01: the notice wording and the "Create your own account" link (approved by the product owner in advance), the stored demo flag, "The demo isn't available right now.", the 10-second waking-up hint, replacing "Delete account" for demo sessions.
+  - "Try the demo" is a secondary button below the login form (input from #77); the message slot above the form does not move (input from #34).
+  - Both "Log in" and "Try the demo" are visible at 360×640 without scrolling; the designer sets the phone sizes.
+  - Demo errors and the waking-up hint show directly below "Try the demo", because the slot above the form can be off screen on a phone.
+  - After a demo login the app opens the wanted page or `/`, as "Log in" does, replacing `/login` in the history.
+  - "Try the demo" skips field validation; Enter still submits the login form; the two actions block each other while one runs, and each clears the other's message.
+  - The notice is on every page in the app shell, including "Page not found", cannot be closed (§7.7: "while using the demo"), and is not a live region, so it is not announced on every page.
+  - "Create your own account" uses the same `logout` as "Log out" and opens `/register`, also when logout fails.
+  - For demo sessions, the Account section's sentence is replaced too, by "The demo account can't be deleted."; a 409 from the server in the step shows the same text (input from #34).
+  - Busy label "Opening the demo…"; the designer may adjust wording.
+- **How I verified it:**
+  - Checked the issue against the definition of done in `docs/pm.md`: four sections, checkable criteria, and every out-of-scope line links an issue.
+  - Confirmed in the code that `demoLogin` stores the token with `demo: true`, that its 404 becomes `NotFoundError`, that `deleteAccount` keeps the session on any failure, that `logout` clears the session even when the request fails, that the logged-in "Page not found" uses `AppShell`, and that `Message` is always a live region (so the notice needs a non-live variant).
+  - The contract gives the demo deletion error as 409 `demo_account_not_deletable`; 403 is `wrong_password`. The issue states this, since the orchestrator's brief called it a 403.
+  - Confirmed #21, #25, #26, #34, #75 and #77 are closed. Read #35 back from GitHub: the body matches what I sent (plus the automatic footer), the title is unchanged and it has no labels.
+  - No code run and no AI call.
+- **Left open:** for the designer's note: where "Try the demo" sits and the phone sizes, how the notice looks and where it sits relative to the saved message, how "Create your own account" looks while logging out, and the exact wording.
+
+## 2026-11-13: Engineer: add "Try the demo" to the login page (#35)
+
+- **Task:** implement #35 (task 39) against its acceptance criteria and the design note (issue comment 6852863190), following `docs/software-engineer.md`. Frontend only; no contract, backend or dependency change.
+- **What I did:**
+  - `pages/LoginPage.tsx`: a secondary "Try the demo" button (`type="button"`) outside the `<form>`, 16px below "Log in" or its waking-up hint, with its own error and waking-up slots below it. It calls `demoLogin` without checking the fields, shows "Opening the demo…" while busy, and opens the wanted page or `/` with `replace`. One ref blocks a second request: "Log in" is disabled while the demo runs, "Try the demo" while a login runs, and `handleSubmit` ignores Enter meanwhile. Starting a demo clears the messages above the form; starting a login clears the message below "Try the demo". 404 `not_found` shows "The demo isn't available right now."; network and other errors use `unexpectedErrorMessage`.
+  - `auth/AuthFields.tsx`: `SubmitButton` gets an optional `disabled` prop. `auth/requestErrors.ts`: the demo button labels and message. `auth/AuthForm.css`: the demo button and its message slots.
+  - `components/Message.tsx`: a `live` prop (default true); `live={false}` drops the `role`.
+  - `components/DemoNotice.tsx`, `DemoNotice.css`, `demoTexts.ts`: the notice as a non-live info `Message` at 15px with the icon centred on the first line, at most 68ch wide, 20px above the page, and "Create your own account" as a bold underlined 44px-tall link that shows a spinner and "Leaving the demo…" with `aria-disabled` while its logout runs.
+  - `components/AppShell.tsx`: renders the notice first in `<main>` when the stored session has `demo: true` (read on every render, like the route guard), so it is on every shell page including the logged-in "Page not found". The existing logout handling now takes the page to open (`/login` for "Log out", `/register` for the notice link); one logout at a time, and both open their page with `replace`, also when logout fails.
+  - `pages/SettingsPage.tsx`, `settings/settingsTexts.ts`: for demo sessions the Account section is the heading and "The demo account can't be deleted." only; a `DemoAccountNotDeletableError` (409) in the step shows the same sentence.
+- **Decisions taken under the standing rule (2026-11-12, re-confirmed 2026-11-13), recorded in the issue comment:**
+  - Two existing tests had to change, because the issue's own criteria change what they check (the criterion "existing tests keep passing unchanged" cannot hold for them): the #77 illustration test's list of buttons on `/login` now ends with "Try the demo", and the #34 settings test row for the demo error now uses the contract's 409 and expects "The demo account can't be deleted." instead of the general text. No test was removed or weakened.
+  - "Log out" and "Create your own account" block each other while either logout runs, so only one logout request is sent.
+  - "Starting a login" clears the demo message when the login request starts; pressing "Log in" with empty fields (no request) leaves it.
+- **How I verified it:**
+  - `npm run lint`, `npm test` (47 files, 1109 tests, without a backend on :8000) and `npm run build` pass. New tests: `pages/LoginPageDemo.test.tsx` (22), `components/DemoNotice.test.tsx` (37), four in `pages/SettingsPage.test.tsx` and one in `components/Message.test.tsx`, named after FR-X1. Backend `ruff check`, unit (893) and integration (912) tests pass unchanged.
+  - Manual check in Google Chrome (driven by the global Playwright in `/opt/node-tools`, nothing added to the project) with the `db` container, `uvicorn` with `AI_PROVIDER=mock` and `DEMO_EMAIL` set only in the shell environment (not in `.env`), the demo seeded with `scripts.seed_demo`, and `npm run dev`. At 360×640: Log in 480–528px and Try the demo 544–592px, both on the first screen; the notice is 152px tall at 360 and 107px at 1280, 15px text, no role; it is first in `<main>` on `/`, `/entries/new`, `/review`, `/summaries`, `/settings` and "Page not found"; no page scrolls sideways; the link is 44px tall and shows "Leaving the demo…" without underline before `/register` opens; settings shows "The demo account can't be deleted.". With `DEMO_EMAIL` empty, "Try the demo" shows "The demo isn't available right now." 12px below the button. No AI request was made.
+- **Left open:**
+  - Dark mode and real iOS Safari / Android Chrome devices were not checked.
+  - The demo-login limit message (#46), focus while a busy button is disabled (#84), viewport tests (#36) and the README (#40) stay with their issues.
+
+## 2026-11-13: Engineer: fix "Try the demo" after QA FAIL 1 (#35)
+
+- **Task:** fix the one failing criterion from the first QA run on #35 (issue comment 6853627846): with focus in a login field, a mouse press or tap on "Try the demo" first blurred the field; the blur check's field message pushed the button down 30–53px between press and release, so the click was lost (no `POST /auth/demo`, and a field message appeared).
+- **What I did:**
+  - `pages/LoginPage.tsx`: "Try the demo" calls `preventDefault()` on `mousedown`, so a mouse press or tap no longer moves focus out of the field. The field is not blurred, its check does not run, nothing moves, and the click reaches the button. `onClick` still starts the demo, so Enter and Space on the focused button work as before, and "Log in"'s own blur checks are unchanged.
+  - `pages/LoginPageDemo.test.tsx`: nine new FR-X1 tests with `userEvent` (which moves focus like a browser): click from the empty email, invalid email, empty password and filled password field; touch tap from the empty and invalid email field; Enter and Space from the keyboard; and one that leaving a field for another element still shows its message. The six click and tap tests failed before the fix (a field message appeared) and pass with it.
+- **Decision taken under the standing rule, recorded in the issue comment:** prevent the default of `mousedown` instead of skipping the blur check when focus moves to the demo button. A `relatedTarget` check depends on the browser focusing a clicked button, which Safari (macOS and iOS) does not do, so the press would still be lost there. Starting the demo on `pointerdown` would change when a press counts (no way to cancel by sliding off) and need separate keyboard handling. The cost of the chosen fix: a mouse press or tap leaves focus in the field rather than on the button, which keyboard and screen-reader users do not notice, since they activate the button with a click event, not a mouse press.
+- **How I verified it:**
+  - `npm run lint`, `npm test` (47 files, 1118 tests, no backend on :8000) and `npm run build` pass. Backend `ruff check`, unit (893) and integration (912) tests pass, unchanged.
+  - Live check in headless Google Chrome 153 (global Playwright, nothing added to the project), with the `db` container, `uvicorn` with `AI_PROVIDER=mock` and `DEMO_EMAIL` set only in the shell, the demo seeded with `scripts.seed_demo`, and `vite`. At 360×640 with the mouse (empty email, `not-an-email`, empty password), at 1280×800 with the mouse (`not-an-email`), with a touch tap (`hasTouch`, `isMobile`; empty email and `not-an-email`), and from the keyboard (Shift+Tab to the button, Enter): each sent one `POST /auth/demo`, the button moved 0px between press and release, and `/` opened with a demo session. With `/auth/demo` stubbed to fail, a click and a tap from `not-an-email` showed the error below the button, no field message, and kept the typed text. Leaving the email field for the password field and the password field for the heading still showed both field messages. The same script on the code without the fix sent no demo request in every mouse and touch case, with the button moving 31–53px, as QA found.
+  - No AI request was made.
+- **Left open:** real iOS Safari and Android Chrome devices were not checked.
+
+## 2026-11-13: Engineer: fix "Try the demo" after QA FAIL 2 (#35)
+
+- **Task:** fix the failing criterion from the second QA run on #35 (issue comment 6854879345), after the product owner chose one more fix. With focus in the empty email, `not-an-email` or empty password field, a second press while the demo request ran (two clicks 100ms apart, a double-click or two taps) landed on the busy, natively disabled "Try the demo". A disabled button runs no handler, so the `mousedown` `preventDefault()` from 095db31 did not run, the browser moved focus to `body`, and the field's blur check showed a field message (36/36 QA runs). Only one request was sent.
+- **What I did:**
+  - `pages/LoginPage.tsx`: a `demoRunning` ref, set when "Try the demo" starts its request and cleared when the request fails. While it is set, a field's blur check does nothing. On success the page navigates away, so the ref never needs clearing there. The busy button stays natively `disabled`, and the `mousedown` `preventDefault()` stays for the first press, so focus still stays in the field on that press and the button does not move.
+  - `pages/LoginPageDemo.test.tsx`: eleven new FR-X1 `userEvent` tests: a second click on the busy button, a double-click and two touch taps, each from the empty email, `not-an-email` and empty password field; a second press followed by a 404 that shows only "The demo isn't available right now."; and one that, after a failed demo, leaving the field checks it again. The ten second-press tests failed without the fix ("Enter your email address." and the others appeared, as QA found) and pass with it.
+- **Decision taken under the standing rule, recorded in the issue comment:** skip the blur check while a demo request runs, instead of keeping the busy button focusable (`aria-disabled` and ignoring clicks) or wrapping it in an element that prevents `mousedown`. A wrapper does not work across browsers: Firefox and Safari do not dispatch mouse events from a disabled button to its ancestors, and focus still leaves the field. `aria-disabled` would change the shared `Button` component's busy state for every page and the native `disabled` that the criteria and existing tests check ("Try the demo" and "Log in" disabled), and focus while a busy button is disabled is #84's work. The chosen fix does not depend on how any browser handles a press on a disabled control, so it holds in Safari too. Its cost: after a second press, focus is on the page (`body`) rather than in the field, as before the fix; the demo error is still announced (`role="alert"`).
+- **How I verified it:**
+  - `npm run lint`, `npm test` (47 files, 1129 tests, no backend on :8000) and `npm run build` pass. Backend `ruff check`, unit (893) and integration (912) tests pass, unchanged.
+  - Live check in headless Google Chrome (global Playwright, nothing added to the project), with the `db` container, `uvicorn` with `AI_PROVIDER=mock` and `DEMO_EMAIL` set only in the shell, the demo seeded with `scripts.seed_demo`, and `vite`. QA's second-press script (3 fields × two mouse clicks, double-click, two taps × 360×640 and 1280×800 × slow success and 404): 36/36 runs showed no field message at any time, sent one `POST /auth/demo`, opened `/` on success and showed "The demo isn't available right now." on 404. QA's single-press script (4 fields × mouse and tap × both widths × success and 404): 32/32 runs sent one request with no field message, kept the typed text and kept focus in the field. Keyboard Enter and Space pressed twice on the button, at both widths, success and 404: one request, no field message. "Log in"'s own blur checks at both widths: leaving `not-an-email` for the password field, clicking the heading, Tab out of the empty email and "Log in" with empty fields all showed their messages as before, with no request; after a failed double-clicked demo, leaving the email field showed its message again.
+  - No AI request was made.
+- **Left open:** real iOS Safari and Android Chrome devices were not checked. Focus after a press on a disabled busy button stays with #84.
+
+## 2026-11-13: Orchestrator: closed #35 (task 39, "Try the demo" on the login page)
+
+- **Outcome:**
+  - The PM re-groomed it (ad5c4a2) and the design note was posted (issue comment 6852863190).
+  - The engineer implemented it in aaadaeb, adf98a6 and 912e6b3 (6853158770).
+  - QA FAIL 1 (6853627846): a press on "Try the demo" with focus in a login field ran the blur check, moved the button and lost the press. Fixed in 095db31 (6853808197).
+  - QA FAIL 2 (6854879345): a second press on the busy button still showed a field message. Second QA FAIL, so a stop point.
+  - Fixed again in 4dc5e93 (6855665172), then QA PASS (6855977555) and design review PASS (6856222075).
+  - Closed as completed; the last status label `qa-passed` stays. No real AI calls: `AI_PROVIDER=mock`, with `DEMO_EMAIL` set only in the environment.
+- **Product owner decision (2026-11-13), at the second-QA-FAIL stop point:** one more fix (the recommended option), not accepting the edge case or pausing.
+- **Decisions accepted under the 2026-11-12 standing rule:**
+  - PM:
+    - Kept the 2026-11-01 notice wording, link, flag and texts.
+    - "Try the demo" is secondary and sits below the form; both buttons must be visible at 360×640. Demo errors sit below the button.
+    - The page opens the wanted page or `/`, replacing the history entry.
+    - No field checks run for the demo; one request at a time.
+    - The notice shows on every shell page. It is not closable and not a live region.
+    - "Create your own account" logs out, then opens `/register`.
+    - The settings page shows only "The demo account can't be deleted.", and a 409 shows the same text.
+    - Corrected the brief: deletion returns 409 `demo_account_not_deletable`, not 403.
+  - Designer:
+    - The button is full width, outside the `<form>`, 16px below "Log in".
+    - The notice is a non-live info `Message` at 15px, capped at 68ch, first in `<main>` and above "Entry saved.".
+    - The link shows a spinner and "Leaving the demo…".
+    - "Opening the demo…".
+  - Engineer:
+    - Two existing assertions changed because the criteria require it: the #77 login button list now ends with "Try the demo", and the #34 demo row uses 409 with the demo sentence.
+    - One logout runs at a time.
+    - `onMouseDown` preventDefault on the demo button, so focus stays in the field. Chosen over relying on button focus, which Safari does not give.
+    - A `demoRunning` ref suppresses the field blur checks while the demo request runs. The shared `Button` stays natively disabled.
+- **Where each open point went:**
+  - Focus stays in the field after a press, focus ends on `body` after a second press, and the phone keyboard may cover the demo error (engineer, QA, designer): comment on #84 (6856233907).
+  - Notice width at 68ch on the laptop, the link's focus outline, the idle "Draft summary" fill looking close to disabled, and "Create an account" or the demo error partly below the fold at 360×640 (designer): comment on #36 (6856236373).
+  - Demo login rate limit and its "Too many attempts" message: already on #46 (PM input 6852720673).
+  - Not checked on real iOS Safari or Android Chrome devices (engineer, QA): left in this log.
+  - The demo account was seeded in the local dev database and reset with `seed_demo` after the design review: left in this log.
+
+## 2026-11-13: Engineer: limit login and demo-login attempts (#46)
+
+- **Task:** implement #46 (task 36, FR-A4) against its acceptance criteria, its Constraints and the design note (6856286794), following `docs/software-engineer.md`. The plan was posted before editing (6856402764); under the 2026-11-12 standing rule I went ahead, because nothing in it is severe or critical.
+- **What I did:**
+  - Contract first (`openapi.yaml`, 0c37218):
+    - A new `Error.code` value, `too_many_attempts`.
+    - A new 429 response, `TooManyAttempts`, with a `Retry-After` header (whole seconds, at least 1), on `login`, `demoLogin` and `deleteAccount`.
+    - The descriptions explain FR-A4 and the deletion check order.
+    - `frontend/src/api/schema.d.ts` is regenerated.
+  - Backend (4694fd3, 060cc36):
+    - Settings and `.env.example`: `LOGIN_MAX_FAILED_ATTEMPTS=10`, `LOGIN_ATTEMPT_WINDOW_MINUTES=15`, `DEMO_LOGIN_MAX_ATTEMPTS=20` and `DEMO_LOGIN_WINDOW_MINUTES=60`, parsed by the strict `_whole_number` (minimum 1).
+    - New migration `5dcfe6c54d82` (no existing migration touched) and model `LoginAttempt`: table `login_attempts (kind, key_hash, window_start, attempt_count)`, keyed on `(kind, key_hash)`, with an index on `window_start`.
+    - New `app/attempt_limits.py`, `AttemptLimiter`, in the same pattern as `app/ai/limits.py`:
+      - Every attempt takes a slot first, in one `INSERT … ON CONFLICT DO UPDATE … WHERE attempt_count < limit OR window ended … RETURNING` statement, on its own transaction. That transaction commits before argon2 runs.
+      - When the attempt is refused, the window start is read in the same transaction (the row stays locked) to compute `Retry-After`.
+      - Ended windows of both kinds are deleted on every write, with `FOR UPDATE SKIP LOCKED`.
+      - Keys are SHA-256 hashes of the normalised email or of the visitor IP.
+    - Login takes a slot for the email before looking up the user. A correct password clears the email's row.
+    - Account deletion takes a slot for the account's email after the body is validated and before the password is checked. A correct password clears the row.
+    - Demo-login takes a slot for `visitor_ip()` first: the last `X-Forwarded-For` entry, or the connection address when there is no header.
+    - CORS `expose_headers` now includes `Retry-After`.
+  - Frontend (c6217a0), following the design note:
+    - `TooManyAttemptsError` with `retryAfterSeconds`. `errorFromResponse` reads `Retry-After`, accepting only whole seconds; anything else gives `null`.
+    - `tooManyAttemptsMessage()` in `auth/requestErrors.ts` builds the text: N is `ceil(s/60)`, at least 1; "1 minute" is singular; the fallback is "Too many attempts. Please try again later."
+    - The text shows in the login form slot and below "Try the demo" (replacing the interim general error) on `LoginPage`. On `SettingsPage` it goes to the step's error slot, with no field message and no focus move. Nothing is disabled, and there is no countdown.
+  - Tests:
+    - `tests/integration/test_attempt_limits.py` (48 tests, named `test_fr_a4_…`, real PostgreSQL). They cover: the 10th failure allowed and the 11th refused; a correct password refused while blocked, with no password check and no token; unknown emails counted the same way; trimming and lower-casing; a successful login clearing the count; the block ending after the window, measured from the first failure; `Retry-After`; wrong deletion passwords counting; deletion refused while blocked with no password check; the demo limit per IP, with spoofed `X-Forwarded-For` prefixes ignored; counts surviving a restart; 25 parallel logins giving exactly ten 401s; the last slot under a race; parallel logins and deletions sharing the limit; 30 parallel demo-logins giving exactly 20; no deadlock with cleanups running in parallel; old rows deleted per kind; only hashes stored; nothing in the logs.
+    - `tests/unit/test_attempt_limits.py` (82 tests): settings, IP parsing, the contract, CORS and the check order.
+    - Frontend: `auth/requestErrors.test.ts`, client mapping and `Retry-After` parsing, and the three places in `LoginPage.test.tsx`, `LoginPageDemo.test.tsx` and `SettingsPage.test.tsx`.
+- **Decisions taken under the 2026-11-12 standing rule (recorded in the plan on the issue):**
+  - Status 429. None of the three operations had a 429 before, so it is their own status, and it is the HTTP status for `Retry-After`.
+  - A `kind` column next to §10.5's `(key_hash, window_start, attempt_count)`. It keeps the email and IP counters apart and lets the cleanup use each kind's own window. It holds no personal data.
+  - Each window is capped at 525,600 minutes (one year). A longer window would overflow date arithmetic while the app runs, so it stops the app at startup instead. The two attempt counts have no upper bound.
+  - Every demo-login request counts, including a 404 while the demo is off.
+  - A correct deletion password clears the email's count, as a successful login does. This keeps the correct attempt from counting as a failure.
+  - Existing tests changed only where the new criteria require it, and no assertion was weakened:
+    - The #21 set of `deleteAccount` statuses now includes 429.
+    - The table lists in the integration tests now classify `login_attempts`.
+    - The deletion "nothing changed" snapshots leave out `login_attempts`, because wrong passwords are counted there on purpose. The "no row remains" test now checks that table separately.
+    - The #35 demo test's comment for a 429 without the code was updated, and that row still expects the general error.
+    - Unit tests replace the limiter with a recording fake (`tests/unit/conftest.py`), because they have no database.
+- **How I verified it:**
+  - Backend: `ruff check` and `ruff format --check` pass. 975 unit tests and 960 integration tests pass against the `db` container. The parallel tests passed in 4 extra runs.
+  - Frontend: `npm run lint`, `npm test` (48 files, 1166 tests, no backend on :8000) and `npm run build` pass.
+  - Real-browser check in headless Chrome (global Playwright, nothing added to the project), at 390×844 and 1280×800. It ran against `uvicorn` with `AI_PROVIDER=mock` and `DEMO_EMAIL`, `LOGIN_MAX_FAILED_ATTEMPTS=3` and `DEMO_LOGIN_MAX_ATTEMPTS=2` set only in the shell, plus `vite`:
+    - The browser read `Retry-After` (900, 3598 and 896 seconds).
+    - The login slot showed "Too many attempts. Please try again in 15 minutes."
+    - The slot below "Try the demo" showed "… in 60 minutes.", with nothing above the form.
+    - The delete step's slot showed "… in 15 minutes.", with no field message under Current password.
+    - Screenshots were checked.
+  - The test users and attempt rows were removed from the dev database afterwards. No AI request was made.
+- **Left open:**
+  - Render's `X-Forwarded-For` layout could not be checked from this session (Render's docs were unreachable, and forum notes disagree about Cloudflare in front of Render). The code trusts only the last entry, as the criterion says. On the first deploy, check that demo visitors get separate counts. If the last entry turns out to be a shared edge address, that needs a follow-up.
+  - Uvicorn's default access log prints the connection address. That is `127.0.0.1` locally and the proxy's address on Render, never the visitor's, because uvicorn trusts forwarded headers only from `127.0.0.1`. The app itself logs no email, IP or password. Keep this in mind if uvicorn's `--forwarded-allow-ips` is ever widened.
+  - After a press on a busy button, focus ends on `body` in the delete step, as for the step's other errors. This is already with #84.
+
+## 2026-11-13: Orchestrator: closed #46 (task 40, login and demo-login attempt limits)
+
+- **Outcome:**
+  - The issue was already groomed (2026-11-01 decisions approved in advance). The designer posted the design note (issue comment 6856286794).
+  - The engineer posted a plan (6856402764) and implemented the issue contract first: 0c37218 (contract), 4694fd3 and 060cc36 (backend, new migration), c6217a0 (frontend). Implementation comment 6857112130.
+  - QA PASS on all 18 criteria (6857401367) and design review PASS (6857498049).
+  - Closed as completed; the last status label `qa-passed` stays. No real AI calls.
+- **Decisions accepted under the 2026-11-12 standing rule:**
+  - Designer:
+    - The message goes in the existing error slots: above the login form, below "Try the demo", and in the delete step.
+    - Error tone.
+    - N is rounded up, never below 1, with the singular "1 minute".
+    - New fallback "Too many attempts. Please try again later." when `Retry-After` is missing.
+    - Nothing is disabled and focus does not move.
+    - The designer flagged that CORS `expose_headers` must include `Retry-After`.
+  - Engineer:
+    - Status 429.
+    - A `kind` column in `login_attempts`.
+    - Window settings capped at 525,600 minutes.
+    - Every demo-login request counts.
+    - A correct deletion password clears the count.
+    - Existing tests extended where the criteria require it: the #21 status set includes 429; table lists include `login_attempts`; the deletion snapshots leave out `login_attempts`, which is checked separately. QA confirmed none of these is weakened.
+- **Where each open point went:**
+  - Count limits of 2^63 or more pass startup but make every login and demo-login return 500 (QA): new issue #89, created under the standing rule.
+  - Render's `X-Forwarded-For` layout is unverified, so demo visitors could share one count (engineer): comment on #38 (6857510740).
+  - Uvicorn's access log can print the `X-Forwarded-For` client address when a request comes from 127.0.0.1 (QA, engineer): comment on #74 (6857512446).
+  - Focus lands on `body` while "Log in" or "Delete my account" is busy (designer): comment on #84 (6857513628).
+  - The sticky sidebar ends early in a full-page screenshot (designer): left in this log as a screenshot artefact.
+
+## 2026-11-13: PM: groom #83 (record the built patterns in DESIGN.md)
+
+- **Task:** groom #83, a follow-up from #27 with no status label, following `docs/pm.md`.
+  - Read its body and all 14 input comments, from #28, #29, #30, #31, #32, #33, #34, #43 and #77.
+  - Checked against `DESIGN.md`, `PRODUCT.md`, `docs/product-spec.md` (FR-R2, §9 Design), `docs/ux-designer.md`, `docs/process.md` and #78, the earlier docs-only `DESIGN.md` task.
+  - Read the built code: `frontend/src/entries/` (TagField, DiscardDialog, DeleteEntryDialog, EntryForm), `components/` (Button, CategoryChip, EntryRow, Message, TextField, inputLimits, Icon, Illustrations, EmptyState), `review/` (TagFilterField, SummaryPanel) and `pages/` (EntriesPage, ReviewPage, SummariesPage, SummaryPage, SettingsPage).
+  - Kept #84, #36, #86 and #87–#89 out.
+- **What I did:**
+  - Rewrote #83 with the task template. The criteria give each pattern's place in `DESIGN.md` and its values as built, with the file to check them against.
+  - The patterns: tag chips (editable, suggested, read-only), the tag list, the tag filter, the suggested category mark, the quiet text action, Sparkles as the one AI icon, the icons on small actions, entry row actions, dialogs and the in-page confirmation step, the writing nudge, the review page layout, the Filters toggle and its count badge, category groups with month sub-headings, the summary row, the summary page actions, the character counter and the illustration placement.
+  - Widened the title to "record the patterns built in #27–#34, #43 and #77 in DESIGN.md".
+  - Created follow-up #90 for the visual questions.
+  - No labels changed.
+- **Decisions taken under the standing rule (2026-11-12, re-confirmed 2026-11-13), recorded in the issue:**
+  - Docs only; the task does not change screens, so no design note and no design review.
+  - The engineer writes the `DESIGN.md` text by hand, as for #78, from the criteria, the code and the linked design notes and reviews. The designer already authored every pattern in those notes, so the task makes no new design decision. No Impeccable.
+  - The four visual questions go to #90, because each needs a design decision and a token or layout change: the dark-mode secondary hover, the dark-mode disabled fill, the nudge looking like the information message, and the laptop entry row height.
+  - The dark-mode notice and field inside the summary panel: no change, the designer's recommendation from #32.
+  - Both icon readings from #27 are confirmed as built.
+  - The in-page confirmation step is recorded with the dialogs. The review page's `h3` month heading is a second heading level, and the frontmatter is unchanged.
+- **How I verified it:**
+  - Checked the issue against the definition of done in `docs/pm.md`: four sections, checkable criteria, and every out-of-scope line links an issue.
+  - Checked each value in the criteria against the CSS and TSX files named in it.
+  - Confirmed that no test reads `DESIGN.md`; `design.test.ts` reads `index.css`.
+  - Read #83 and #90 back from GitHub; #83 has no labels.
+  - No code run and no AI call.
+- **Left open:** none for grooming. The visual questions wait in #90.
+
+## 2026-11-13: Engineer: implement #83 (record the built patterns in DESIGN.md)
+
+- **Task:** #83, docs only. Record the patterns built and design-reviewed in #27–#34, #43 and #77 in `DESIGN.md`, as built, following `docs/software-engineer.md`.
+- **What I did:**
+  - Wrote the text by hand in `DESIGN.md`'s own voice, with no Impeccable. The frontmatter and the `##` headings are unchanged and no token was added; the non-token values (75rem, 22.5rem, 25rem, 40rem, 80%) are in the prose only.
+  - Layout: the Laptop line states the review page's columns from 75rem and the panel below the results under 75rem (#32). The Lists line states both groupings (#29, #31).
+  - Shapes → Pills: adds tag chips (editable and read-only) and the filters count badge.
+  - Components:
+    - Buttons gains the quiet text action. Chips (category) gains the Suggested mark and the "Suggested: \<category\>" action.
+    - New subsections: Tag chips (editable, suggested, read-only), Tag list, Tag filter, Writing nudge, Review groups, Filters toggle, Summary row, Summary page actions, Dialogs (with the in-page confirmation step).
+    - Inputs / Fields gains the character counter. Entry row gains the tags and the Edit and Delete actions. Summary panel gains focus on the source line, its padding and its stacked buttons.
+    - Icons names the icons as built, with Sparkles as the one AI icon and no icon on "Add tags and result".
+    - Colour blocks and illustrations gains how the three places are filled (#77); the existing bullets are unchanged.
+  - Do's: the grouping line now says category, then month, on the review screen, and month on the entries page.
+  - Escaped the placeholders (`\<category\>`, `\<date\>`, `\<n\>`) so Markdown renderers do not drop them as HTML tags.
+- **How I verified it:**
+  - Read every value from the CSS and TSX files the criteria name (TagField, EntryRow, TagFilterField, CategoryChip, EntryForm, SummaryPanel, DiscardDialog, DeleteEntryDialog, SettingsPage, EntriesPage, ReviewPage, SummariesPage, SummaryPage, TextField, inputLimits, Illustrations, EmptyState, Icon) and `index.css` for the token values.
+  - Compared with the design notes and reviews linked from #83.
+  - `git diff` shows no change between the frontmatter's `---` lines and no change to the `##` headings; only `DESIGN.md` and this file changed.
+  - Frontend: `npm run lint` clean, `npm test` 1166 passed, `npm run build` passed. No test reads `DESIGN.md`. No backend change, no AI call.
+- **Differences between code and notes:**
+  - The counter's field is labelled "Result" in the code (the criterion says Result/Impact), so `DESIGN.md` says "Result".
+  - From 48rem to 75rem the review page's filter area starts 16px below the title, not the #31 note's 24px (margin collapse, already in the #31 review). `DESIGN.md` states no value for this gap.
+- **Left open:** the visual questions stay in #90.
+
+## 2026-11-13: Orchestrator: closed #83 (record the built patterns in DESIGN.md)
+
+- **Outcome:**
+  - The PM groomed it as a docs-only task (4080f31) and created #90 for the four visual questions that would change screens.
+  - The engineer wrote the `DESIGN.md` text by hand in 25948e2 (issue comment 6857772824).
+  - QA PASS (6857870022): every value was checked against the named CSS/TSX files and tokens. The frontmatter and `##` headings are unchanged, no tokens were added and nothing under `frontend/` changed.
+  - The task changes no screens, so there was no design note or design review (`docs/process.md`). Closed as completed; the last status label `implemented` stays.
+- **Decisions accepted under the 2026-11-12 standing rule:**
+  - PM: record what is built and change nothing on screen. The engineer writes the text and the designer has no step. Four visual questions moved to #90: dark-mode secondary hover equal to the page, dark-mode disabled fill equal to Paper-white panels, the writing nudge looking like the info message, and laptop entry rows of at least about 111px. The summary panel's dark-mode notice and field stay as they are, as the designer recommended. The in-page confirmation step is recorded under Dialogs with its rule. The review page's month heading is recorded as a 15px `h3`. The title was widened to match the scope.
+  - Engineer: where a criterion and the code differ, `DESIGN.md` follows the code. The counter label is "Result", and the 16px/24px filter gap is not stated.
+- **Where each open point went:**
+  - At 48–75rem the review filters sit 16px below the title, and the CSS comment in `ReviewPage.css` wrongly says 24px (engineer, QA): already on #36 (6847149004).
+  - The four visual questions: new issue #90 (created by the PM under the standing rule).
+
+## 2026-11-13: PM: groom #84 (keyboard focus on busy buttons, after failures and server validation errors, and on the edit page)
+
+- **Task:** groom #84, a follow-up from #27 with no status label, following `docs/pm.md`.
+  - Read its body and all six input comments, from #28, #29, #34, #35 (two) and #46.
+  - Checked against `DESIGN.md` (Buttons, Inputs / Fields, Dialogs, with the #83 patterns), `PRODUCT.md` → Accessibility ("visible keyboard focus"; `docs/product-spec.md` §9 has no accessibility row) and `docs/process.md`. Also read the earlier criteria in #26–#29 and #32–#35 that say a busy button "is disabled" or "cannot be pressed".
+  - Read the frontend: `components/Button` and its CSS, `EntryForm`, `EditEntryPage`, `EntriesPage`, `DeleteEntryDialog`, `SettingsPage`, `LoginPage`, `RegisterPage`, `AuthFields`, `SummaryPanel`, `SummaryPage`, `ReviewPage`, `SummariesPage`, `AppShell`, `DemoNotice`, and every test that asserts native `disabled` or focus on `body`.
+  - Kept #36, #72, #86 and #87–#90 out.
+- **What I did:**
+  - Rewrote #84 with the task template.
+  - Widened the title to "keep keyboard focus on busy buttons, after failed requests and server validation errors, and on the edit page".
+  - Wrote checkable criteria for:
+    - the busy `Button`;
+    - focus after a request in each place;
+    - "Try the demo";
+    - "Try again" on the five pages that have it;
+    - the edit page's start;
+    - one `DESIGN.md` line;
+    - the tests to change and add.
+  - No follow-up issue was needed. No labels changed.
+- **Decisions taken under the standing rule (2026-11-12, re-confirmed 2026-11-13), recorded in the issue:**
+  - Approach: a busy `Button` uses `aria-disabled="true"` instead of native `disabled` and ignores clicks, Enter, Space and form submission itself. It stays focusable. No per-page focus target.
+  - Scope: every busy `Button`, because they share the component.
+  - `disabled` without `busy` stays native. One rare login case is accepted.
+  - Earlier criteria saying a busy button "is disabled" are read as "cannot be pressed and is announced as unavailable", so no closed issue changes. Their tests change from `.disabled` to `aria-disabled`; this is a change of agreed behaviour, not a weakened test.
+  - After a request, focus stays where it is, except where a criterion moves it.
+  - Server validation moves the cursor to the first field with a problem, on the entry form, login and registration.
+  - "Try the demo" takes focus after a failure, so the phone keyboard closes and the error under it is not covered.
+  - "Try again" takes focus back after a failed retry on `/`, edit, review, summaries and the summary page.
+  - The edit page starts in the text field, as `/entries/new` does, unless the user has moved on.
+  - "Log out" and the demo notice's link are not changed: both leave the page.
+  - The task changes screens (focus outline and focus glow), so it gets a design note and a design review.
+- **How I verified it:**
+  - Checked the issue against the definition of done in `docs/pm.md`: four sections, checkable criteria, and every out-of-scope line links an issue.
+  - Confirmed in `@testing-library/user-event` 14.6.9 (`utils/misc/isDisabled.js`) that only the native `disabled` attribute blocks a press in tests. developer.mozilla.org and www.w3.org could not be reached from this session.
+  - Read #84 back through the REST API: the body matches and there are no labels.
+  - No code run, and no AI call.
+- **Left open:** none for grooming.
+
+## 2026-11-13: Engineer: implement #84 (keyboard focus on busy buttons, after failures and server validation errors, and on the edit page)
+
+- **Task:** implement #84 from its criteria, the design note (comment 6858157565) and `DESIGN.md`, following `docs/software-engineer.md`.
+- **What I did:**
+  - `components/Button.tsx`: while `busy`, the button is not natively `disabled`. It has `aria-disabled="true"` and `aria-busy="true"`, stays focusable, and ignores the click itself; Enter and Space reach it as a click. A busy submit button calls `preventDefault`, so it does not submit its form. `disabled` without `busy` stays native; busy wins when both are set. `Button.css` needed only a comment change: the busy look already comes from the `[aria-busy='true']` rules after `:hover`.
+  - New `components/focus.ts`: "focus this unless the user moved on" (focus on the body, the `main` landmark or the element focused at the start counts as not moved on), and a ref callback for the new "Try again".
+  - Entry form: a server validation error moves the cursor to the first field with a message (text, first category chip, date, tag input, result), opening "Add tags and result" first (`flushSync`); a form-level error leaves focus. The edit page starts in the text field unless focus moved while loading.
+  - Login and registration: a server validation error moves the cursor to email, else password.
+  - "Try the demo": after a failure focus moves to the button with a plain `focus()`, unless the user moved to another control.
+  - "Try again" on `/`, edit, `/review`, `/summaries` and `/summaries/:id`: after a retry fails again, the new button gets focus unless the user moved on. `/review` remembers which request "Try again" started, so a failed filter change after a retry moves nothing.
+  - `DESIGN.md` → Buttons: the "Busy" line, word for word from the design note.
+  - Tests: changed every busy `.disabled === true` assertion the issue lists to `aria-disabled="true"` and not natively disabled, keeping every "second press sends nothing" check. In `test_fr_s1_focus_is_back_on_the_button_after_%s` the simulated blur is gone and focus is checked to stay on the button. Added 73 tests (1166 before, 1239 after): `Button`, entry form (busy save, failed save, server validation for each field and in the fold, form-level), login, registration, delete dialogs, settings, demo, "Try again" on the five pages, the edit page start, and the summary panel and page.
+- **Decisions (standing rule), recorded in the issue comment:**
+  - Removed the suggest refocus effect in `EntryForm.tsx`: it only ran when focus was on the button at the press, and focus now never leaves it.
+  - Kept the refocus in `SummaryPanel.tsx`, `SummaryPage.tsx` and `DeleteEntryDialog.tsx` (comments updated): they also cover a press that leaves focus on the page (Safari does not focus a clicked button) and, in the dialog, Tab to Cancel while deleting; #29 and #33 require focus on the delete button after a failure.
+  - Kept #35's `onMouseDown` `preventDefault` on "Try the demo": the busy button is now focusable, so without it a press would still blur the field and run its check. Kept the `demoRunning` ref with a new purpose: it stays true until focus has moved to "Try the demo" after a failure, so that move runs no field check (design note, "Watch out for" point 2).
+  - The `main` landmark (`tabindex="-1"`, focused by the skip link or a click on page text) does not count as "moved on to another control".
+  - The new `Button` tests have descriptive names like the existing ones: no requirement ID covers the shared component.
+- **How I verified it:**
+  - `npm run lint`, `npm test` (48 files, 1239 tests, no backend on :8000) and `npm run build` pass. Removing the change makes the new focus tests fail.
+  - Headless Chrome (Playwright, system Chrome) at 360 and 1280 wide, light and dark, against Vite on 5173 and the backend on 8000 with `AI_PROVIDER=mock` and a seeded demo (`DEMO_EMAIL` in the environment, `uv run python -m scripts.seed_demo`). Failures were simulated with Playwright routes. 128 of 128 checks passed:
+    - Tab or Enter on a busy button keeps focus with the 2px outline and `progress` cursor; a second press, Enter or Space sends nothing;
+    - no outline after a mouse press, and the normal fill under hover;
+    - each focus move in the criteria, including "Try the demo" with no field message and the "moved on" cases;
+    - no sideways scroll on `/login` at 360.
+  - No backend change and no real AI call.
+- **Left open:** on the edit and summary pages a retry flag stays set if the route id changes while the same page stays mounted (no link does this today); a later failed load then focuses "Try again" only when focus is on the page body.
+
+## 2026-11-13: Orchestrator: closed #84 (keyboard focus on busy buttons, after failures and on the edit page)
+
+- **Outcome:**
+  - The PM re-groomed it (4f0e186) and the design note was posted (issue comment 6858157565).
+  - The engineer implemented it in 1eda50c and 73be856, including the `DESIGN.md` Buttons line (6858694650).
+  - QA PASS (6859162250) and design review PASS (6859625235).
+  - Closed as completed; the last status label `qa-passed` stays. No real AI calls: everything ran on `AI_PROVIDER=mock`.
+- **Decisions accepted under the 2026-11-12 standing rule:**
+  - PM:
+    - A busy shared `Button` uses `aria-disabled` and ignores activation instead of native `disabled`. One change covers every busy button; disabled-but-not-busy stays native.
+    - The earlier criteria "is disabled / cannot be pressed" still hold, so no closed issue changes.
+    - Focus moves to the first field with a server error.
+    - "Try the demo" gets focus after a failure.
+    - The new "Try again" gets focus after a failed retry on five pages.
+    - The edit page starts in the text field.
+    - No focus moves once the user has moved on.
+    - The existing busy-button tests change from native `disabled` to `aria-disabled` and keep every second-press check.
+  - Designer:
+    - A focused busy button shows the normal 2px outline and no extra cue.
+    - Focus wins over the error style.
+    - Plain `focus()` for the moves.
+    - One `DESIGN.md` Buttons line on the busy state.
+  - Engineer:
+    - New `components/focus.ts` helper.
+    - The suggest refocus effect is removed. The refocus in the summary panel, summary page and delete dialog is kept, for Safari and for Tab while busy.
+    - Both #35 demo fixes are kept; `demoRunning` now also covers the focus move after a failure.
+    - The `main` landmark does not count as "moved on".
+    - `/review` remembers which request "Try again" started.
+- **Where each open point went (all left in this log):**
+  - On the edit and summary pages a retry is detected with `attempt > 0`, which would stay set if the route id changed while the page stays mounted. No link does that today (engineer).
+  - The outline is not shown on "Try the demo" after a mouse-started failed demo, which is better than the note expected. An outline that is already shown stays when a keyboard-focused button is then clicked, which is Chromium behaviour (designer).
+  - The shared local database had used today's global AI limit, so QA and the designer raised `AI_DAILY_*` through the environment only, still with the mock provider (QA, designer).
+
+## 2026-11-13: PM: re-groom #36 (check every screen on mobile and desktop)
+
+- **Task:** re-groom #36, labelled `groomed` since 2026-11-01, because that grooming predates `DESIGN.md` (2026-11-11) and most screens of this batch (#29–#35, #43, #46, #77, #83, #84). Followed `docs/pm.md`.
+  - Read the body and its eight input comments (from #26, #27, #30, #31, #77, #32 and #35 twice), `DESIGN.md` (with the #83 patterns and the #84 busy line), `PRODUCT.md`, `docs/product-spec.md` §3 and §9, `docs/process.md`, #37, #83, #84 and #90.
+  - Read the frontend: `routes.tsx`, `RouteGuards`, `AppShell`, `DemoNotice`, `Message`, `TextField.css`, `index.css`, `AuthForm.css`, `EntriesPage`, `NewEntryPage`, `EditEntryPage`, `ReviewPage.css`, `SummaryPanel`, `SummaryPage`, `NotFoundPage`, `inputLimits.ts`, the summary and settings texts, and the Frontend job in `.github/workflows/ci.yml`.
+  - Kept #37, #73, #74 and #87–#89 out.
+- **What I did:**
+  - Rewrote #36 with the task template. Criteria cover the Playwright set-up, the screen and state list as built (including the More menu, the summary panel's three states, the demo notice on four pages, dialogs, the settings step, missing entry and summary, long content), the checks every test makes, quick capture, field focus indicators, and the fixes.
+  - Created #91 (screen-reader check of messages hidden until filled, from #26; screens at a larger text size, from #30).
+  - Added two visual questions to #90 (idle "Draft summary" fill; demo notice width at 1280): https://github.com/KittyNiuNiu/winlog/issues/90#issuecomment-6859768376
+  - No labels changed.
+- **Decisions taken under the standing rule (2026-11-12, re-confirmed 2026-11-13), recorded in the issue:**
+  - Kept every 2026-11-01 decision the product owner approved in advance, except where `DESIGN.md` now differs: "text columns no wider than 960px" becomes `DESIGN.md`'s content area of at most 64rem and text lines of at most 68ch; the capture button is "Save entry".
+  - A link is exempt from 44×44 only when its paragraph or message holds other words; a link alone in its line must be 44px tall. This settles #27's "Back to entries" (exempt) and makes "Go to your entries" on "Page not found" a fix.
+  - In this task as simple fixes: the review page's 24px gap below the title from 48rem and its CSS comment (#31), and the focus outline of "Create your own account" touching the text above (#35).
+  - Text fields' `outline: none` is `DESIGN.md`'s design (plum border and focus glow); a test confirms it on every field in light and dark mode (#77).
+  - No change: "Log out" at 360px is now in the More menu (#26); font sizes are already in rem (#30); the `/login` content below the first screen at 360×640 was accepted by #35's design note.
+  - To #90: idle "Draft summary" fill and the demo notice width. To #91: screen reader and larger text.
+  - Screenshots in light mode only; dark mode is checked for the focus look and the demo link outline.
+  - `@playwright/test` pinned to exactly 1.63.0, matching the pre-installed Chromium 1243 in the cloud session; CI installs its browser with `npx playwright install --with-deps chromium`.
+  - The task changes screens (the fixes), so it gets a design note and a design review.
+- **How I verified it:**
+  - Checked the issue against the definition of done in `docs/pm.md`: four sections, checkable criteria, every out-of-scope line links an issue.
+  - Checked in the code: font sizes are rem tokens (`index.css`); the review filter margin collapses into the title's 16px margin below 75rem (`ReviewPage.css`); "Log out" is in the phone More menu (`AppShell.tsx`); fields show focus with border and glow (`TextField.css`).
+  - Checked the environment: `/opt/pw-browsers` holds Chromium revision 1243, which `playwright-core` 1.63.0's `browsers.json` names (1.65.0, the latest on npm, names 1254); the `--with-deps` install option is in the 1.63.0 CLI; Playwright's licence is Apache-2.0. playwright.dev and the `actions/upload-artifact` releases could not be reached from this session, so the engineer checks the upload action's major version.
+  - Read #36 back through the API: the body is updated and the only label is still `groomed`.
+  - No code run, and no AI call.
+- **Left open:** none for grooming.
+
+## 2026-11-13: Engineer: implement #36 (check every screen on mobile and desktop)
+
+- **Task:** implement #36 against its criteria and the design note (comment 6859920352), following `docs/software-engineer.md`.
+- **What I did:**
+  - Added `@playwright/test`, pinned to exactly 1.63.0 as a dev dependency. It matches the pre-installed Chromium 1243. jsdom cannot measure layout, scroll width or computed focus styles.
+  - Added `frontend/playwright.config.ts` with two projects: phone (360×640) and laptop (1280×800). They test the build served by `vite preview` from `viewport-dist/`, with a fixed `VITE_API_BASE_URL`.
+  - Added `frontend/viewport/`:
+    - a mocked API typed from `src/api/schema.d.ts`;
+    - a fixed clock (2026-11-13) and test data with the long content;
+    - `screens.spec.ts`: 41 screens and states with screenshots and the per-screen checks;
+    - `checks.spec.ts`: quick capture, the login buttons in the first screen, the review gap and panel, the focus look of 15 text fields in light and dark, and the demo link's outline.
+  - Added `npm run test:viewport` (`--trace off`) and listed it in `AGENTS.md`.
+  - Kept the two test runners apart: Vitest excludes `viewport/`, and `tsconfig.viewport.json` type-checks the tests in `tsc -b`.
+  - CI Frontend job: Chromium install, the viewport tests, and `actions/upload-artifact@v7` with `if: always()`.
+  - Fixes:
+    - the review title gets a 24px margin from 48rem, and the filters and sticky panel get no top margin (comments updated);
+    - "Go to your entries" gets a 44px box;
+    - 8px above "Create your own account".
+- **Decisions (standing rule, recorded on the issue):**
+  - Exempt links are the five the criteria name, and only where their paragraph or message holds other words.
+  - The 68ch check measures the width the text's lines take (the content box for text fields) against CSS `68ch` in the element's own font. The full-width nudge box (#30 design) is therefore not counted.
+  - The open tag list covering what is below it is `DESIGN.md`'s Tag list design, not a defect.
+  - `actions/upload-artifact` is v7, the newest major tag (found with `git ls-remote --tags`; the API was not reachable).
+- **How I verified it:** with Node 22.23.4 in `frontend/`:
+  - `npm run lint` passes.
+  - `npm test`: 1239 tests pass.
+  - `npm run build` passes.
+  - `npm run test:viewport`: 91 passed, 9 skipped (one-size states).
+  - With the old CSS put back, the gap test reads 16px and the outline test −4px, so the tests catch the defects.
+  - I looked at the screenshots.
+  - No backend change and no AI call.
+- **Left open:**
+  - The first CI run is the first check of the Playwright browser install and of Node 26.
+  - The chore commit 4302376 does not type-check on its own; it needs `viewport/settings.ts` from the next commit.
+  - Issue comment: https://github.com/KittyNiuNiu/winlog/issues/36#issuecomment-6860266343
+
+## 2026-11-13: Orchestrator: closed #36 (task 41, check every screen on mobile and desktop)
+
+- **Outcome:**
+  - The PM re-groomed it (33a2019); the 2026-11-01 grooming predated `DESIGN.md` and most screens. The design note was posted (issue comment 6859920352).
+  - The engineer implemented it: fixes f5c970d, d62918a and e10ec81; Playwright 1.63.0 in 4302376; the viewport tests in 7b3cb38; CI in 361b7cc (6860266343).
+  - QA PASS (6860452507), with the regression checks done by reverting the fixes. CI run 43473921550 passed, including the viewport tests and the screenshot upload.
+  - Design review PASS (6860575789).
+  - Closed as completed; the last status label `qa-passed` stays. No backend change and no AI calls.
+- **Decisions accepted under the 2026-11-12 standing rule:**
+  - PM:
+    - Kept the product owner's 2026-11-01 decisions, with two changes to follow `DESIGN.md`: "text columns at most 960px" became a content area of at most 64rem with text lines of at most 68ch, and the capture button is "Save entry".
+    - The screen list follows the routes and states as built.
+    - A link is exempt from the 44px rule only inside running text, so "Go to your entries" became a fix.
+    - Fixes in scope: the review gap and its CSS comment, and the demo link's outline.
+    - The `/login` focus look is `DESIGN.md`'s border and glow, now tested.
+    - Font sizes are in rem, so nothing to change.
+    - Light screenshots only; dark mode only where it differs.
+    - Pinned `@playwright/test` 1.63.0 to match the preinstalled Chromium.
+    - New follow-up #91 (screen reader, larger text). Two visual questions added to #90.
+  - Designer:
+    - 24px from the title to the filters from 48rem, built on the title, with no merging margins.
+    - "Go to your entries" is a 44px link box as wide as its text, still a plain underlined link.
+    - 8px above "Create your own account", with the outline unchanged.
+    - Rules for classifying what the tests find.
+  - Engineer:
+    - Only the five named links are exempt.
+    - The 68ch check measures the text lines, not the writing nudge's full-width box.
+    - The open tag list covering the content is documented behaviour.
+    - `actions/upload-artifact@v7`.
+    - CI job timeout raised from 15 to 20 minutes.
+    - `tsconfig.viewport.json`; the test build goes to `viewport-dist/`.
+- **Where each open point went (all left in this log):**
+  - Commit 4302376 does not type-check on its own; the next commit fixes it (engineer).
+  - The test guard lets `localhost` through, and the field focus test uses `focus()` rather than Tab (QA). Neither breaks a criterion.
+  - Full-page screenshots draw sticky and fixed elements oddly: the sidebar and the dialog backdrop (designer). This is a screenshot artefact.
+  - `register-field-errors` shows no email error for "alex@" (designer). This is expected: the client check in `auth/validation.ts` only requires an "@", and the server validates the rest.
+  - Screen reader and larger-text checks: #91. The idle "Draft summary" fill and the demo notice width: #90 (PM).
+
+## 2026-11-13: PM: re-groom #37 (add an end-to-end smoke test)
+
+- **Task:** re-groom #37, labelled `groomed` since 2026-11-01. Its flow predated this batch: #30 (nudge text), #32 (summary panel on `/review`), #33 (summaries list), #34 (settings downloads), #36 (Playwright) and #46 (login limits). Followed `docs/pm.md`.
+  - Read the issue (no comments), `docs/process.md`, `docs/task-template.md`, `DESIGN.md` (navigation, saved message, writing nudge, summary panel) and `docs/product-spec.md` (FR-N1, FR-R1 to FR-R5, FR-D1, §9).
+  - Read the frontend: `RegisterPage`, `EntriesPage`, `NewEntryPage`, `EntryForm`, `TagField`, `ReviewPage`, `SummaryPanel`, `SummariesPage`, `SettingsPage`, `saveFile.ts`, the text files, `AppShell`, `RouteGuards`, `playwright.config.ts`, `viewport/`, `vite.config.ts`, `eslint.config.js` and `tsconfig*.json`.
+  - Read the backend's mock provider (`app/ai/mock.py`), the export contract in `openapi.yaml`, `.env.example`, `docker-compose.yml`, the frontend Dockerfile and nginx config, and `.github/workflows/ci.yml`.
+  - Kept #73 and #74 out.
+- **What I did:**
+  - Rewrote the body with the task template. The flow now uses today's screens and texts:
+    - register, then the exact nudge and the empty state;
+    - "Save entry" with "Entry saved." and "Just saved", then the nudge gone on Entries;
+    - review filtered to today and the new tag;
+    - "Draft summary" with the exact mock text, edited, then "Save summary" and "Summary saved.";
+    - one summary in `/summaries`;
+    - "Download JSON" holding the entry and the edited summary;
+    - "Log out", and `/` then shows `/login`.
+  - Added criteria for:
+    - running it with `E2E_BASE_URL` in two ways (full Compose, or db container + `uvicorn` + `vite preview` on port 8080);
+    - keeping it apart from the viewport tests and Vitest;
+    - type-checking and linting;
+    - CI steps and failure output.
+  - Posted the grooming comment with the decisions: https://github.com/KittyNiuNiu/winlog/issues/37#issuecomment-6860688208
+  - No labels changed, no follow-up issues created.
+- **Decisions taken under the standing rule (2026-11-12, re-confirmed 2026-11-13), recorded in the issue:**
+  - Kept every 2026-11-01 decision the product owner approved in advance.
+  - The summary step follows #32 and #33: draft in the panel, check the exact mock text, edit, save, then find it listed in `/summaries`. It replaces "land on its page".
+  - The nudge is checked as gone on the Entries page, because the capture page keeps the user there after saving.
+  - The JSON export must hold the edited summary text, so it proves the edit was stored.
+  - After "Log out", opening `/` must show `/login` too (FR-A2).
+  - The test takes "today" from the pre-filled "Date" field rather than computing it.
+  - The base URL comes from `E2E_BASE_URL` (default `http://localhost:8080`, already a CORS origin) and the test starts no server. CI uses the full `docker compose up --build -d`. Cloud sessions use the db container + `uvicorn` + `vite preview`. No change to the Dockerfiles, `docker-compose.yml` or `.env.example`.
+  - It runs in the existing "Full system" CI job, which gets `needs: [contract, backend, frontend]`. This avoids a second container build and copied steps. The timeout stays 20 minutes. The existing service-log step runs after the test, and Playwright's output is uploaded on failure.
+  - Reuses #36's `@playwright/test` 1.63.0 with its own config and test folder. No new dependency.
+  - QA checks the full-system way in the GitHub Actions run.
+  - The task changes no screens.
+- **How I verified it:**
+  - Checked the issue against the definition of done in `docs/pm.md`: four sections, checkable criteria, and every out-of-scope line links an issue.
+  - Checked texts and behaviour in the code:
+    - the nudge and empty-state texts (`EntriesPage.tsx`);
+    - "Entry saved." and "Just saved" on `/entries/new` (`NewEntryPage.tsx`);
+    - the panel labels (`summaryDraft.ts`, `summaryEditor.ts`);
+    - the mock summary format (`app/ai/mock.py`);
+    - the export file name and schema (`openapi.yaml`);
+    - "Log out" in the laptop sidebar (`AppShell.tsx`);
+    - `example.com` addresses are accepted (email-validator 2.3.0 does not list `example.com` as special-use).
+  - Checked Playwright 1.63.0 in the installed types and CLI: the `retain-on-failure` and `only-on-failure` modes, `--config`, the `download` event, `suggestedFilename()` from the `download` attribute, and `acceptDownloads` on by default. playwright.dev could not be reached from this session.
+  - Checked the duration of the last CI run's "Full system" job (43473921550): about 45 seconds.
+  - No code run, and no AI call.
+- **Left open:** none for grooming.
+
+## 2026-11-13: Engineer: implement #37 (add an end-to-end smoke test)
+
+- **Task:** implement #37 against its re-groomed criteria (comment 6860688208), following `docs/software-engineer.md`. The task changes no screens.
+- **What I did:**
+  - Added `frontend/e2e/smoke.spec.ts`, one Playwright test at 1280×800. It runs the flow in `test.step`s:
+    - register with a unique email;
+    - check the exact nudge and the empty state;
+    - capture an entry: "today" from the form's "Date" field, "Achievement", a new unique tag;
+    - check that the nudge is gone on Entries;
+    - review by period and tag;
+    - draft, check the exact mock text, edit and save a summary;
+    - check that `/summaries` has exactly one summary with the edited text;
+    - download the JSON export through the `download` event and parse it;
+    - log out, then open `/` and land on `/login` again.
+
+    The test uses only locators and web-first assertions.
+  - Added `frontend/playwright.e2e.config.ts`:
+    - folder `e2e/`, output in `e2e-results/`;
+    - base URL from `E2E_BASE_URL`, default `http://localhost:8080`;
+    - no `webServer`, no retries;
+    - `retain-on-failure` trace and `only-on-failure` screenshot.
+  - Added `npm run test:e2e`, and `tsconfig.e2e.json` referenced from `tsconfig.json`.
+  - Kept the runners apart: Vitest excludes `e2e/**` and `e2e-results/**`, and ESLint and `.gitignore` ignore `e2e-results`.
+  - No new dependency: `@playwright/test` stays at 1.63.0.
+  - CI "Full system" job:
+    - gets `needs: [contract, backend, frontend]`, with the timeout still 20 minutes;
+    - after the existing checks: Node from `.nvmrc`, `npm ci`, the Chromium install, then `npm run test:e2e`;
+    - uploads `frontend/e2e-results/` on failure, before the existing "Print the service logs" step.
+  - `AGENTS.md` lists the command and both ways to start the system.
+- **Decisions (standing rule, recorded on the issue):**
+  - The test has its own `tsconfig.e2e.json`.
+  - The export file name is checked against the pattern, because the server names it by the UTC date (`app/export.py`). The entry's date inside the file is checked against today exactly.
+- **How I verified it:** with Node 22.23.4 and the second way from the issue (db container, `uvicorn` on :8000 with `.env` from `.env.example` and `AI_PROVIDER=mock`, `vite preview` on :8080):
+  - `npm run test:e2e -- --trace off` passed twice in a row on the same database.
+  - The first run hit the global AI limit: the local dev database had 129 of 100 requests from earlier sessions, and the backend answered 429. I reset it with `docker compose down -v`, as the issue says.
+  - With one expectation broken locally (not committed), `e2e-results/` held `trace.zip`, a screenshot and `error-context.md`.
+  - `npm run lint` passes.
+  - `npm test` (no backend): 1239 tests pass.
+  - `npm run build` passes.
+  - `npm run test:viewport`: 91 passed, 9 skipped.
+  - GitHub Actions run 43478164871 passed. The "Full system" job ran after the other three in 1 min 28 s, and its log shows the end-to-end test passing.
+  - No real AI call.
+- **Left open:**
+  - A long-used local database can reach the global AI limit (100 a day). `docker compose down -v` resets it.
+  - Issue comment: https://github.com/KittyNiuNiu/winlog/issues/37#issuecomment-6860948310
+
+## 2026-11-13: Orchestrator: closed #37 (task 42, end-to-end smoke test)
+
+- **Outcome:**
+  - The PM re-groomed it (31169a9, grooming comment 6860688208); the 2026-11-01 flow predated #30, #32 and #34.
+  - The engineer implemented it in 4438ff5, 57101c1 and ab35c26 (issue comment 6860948310).
+  - QA PASS (6861078783): run twice locally on one database, the failure output checked, and CI run 43479127628 for a25dba3 green with "Full system" running the test after the other three jobs.
+  - The task changes no screens, so there was no design note or review.
+  - Closed as completed; the last status label `implemented` stays. No real AI calls: `AI_PROVIDER=mock`.
+- **Decisions accepted under the 2026-11-12 standing rule:**
+  - PM:
+    - Kept every 2026-11-01 decision.
+    - The summary step follows #32/#33: draft in the `/review` panel with the exact mock text, edit, "Save summary", then one summary in `/summaries`.
+    - The nudge is checked on Entries with its #30 text.
+    - The export comes from Playwright's download event and holds the edited summary.
+    - Log out, then `/` redirects to `/login`.
+    - Today is read from the form's Date field.
+    - `E2E_BASE_URL`, no `webServer`. CI runs it against `docker compose up --build -d` in the existing "Full system" job with `needs`; cloud sessions run it against db + uvicorn + `vite preview`.
+    - Reuses #36's Playwright and adds no dependency.
+  - Engineer:
+    - Separate `tsconfig.e2e.json`.
+    - The export file name is checked against the `winlog-export-YYYY-MM-DD.json` pattern, because the server uses the UTC date. The entry date inside the file is checked exactly.
+- **Where each open point went (all left in this log):**
+  - The engineer's first local run hit 429: the session's local database had already counted 129 of today's 100 global AI requests from earlier sessions. The engineer reset it with `docker compose down -v`, as the issue allows. That removed only throwaway test accounts in this cloud session's local database.
+  - The session's local `.env` is an older copy that lacks some variables; QA exported `.env.example` instead (QA).
+  - The export file name is checked by pattern, not exact date (QA): accepted, because the criterion gives only the format.
+
+## 2026-11-13: PM: groom #73 (run all unit and integration tests with a single command)
+
+- **Task:** groom #73. It had no status label. The product owner fixed the requirement on 2026-11-11: "Both unit and integration tests exist, run with a single command, and pass." I followed `docs/pm.md`.
+  - Read the issue, its comments from #27 (frontend time zone) and #31 (frontend tests reaching a backend on port 8000), `docs/process.md`, `docs/task-template.md`, `AGENTS.md` (Commands, Testing), `docs/product-spec.md` §9 and §14, `.github/workflows/ci.yml`, `docker-compose.yml` and `.env.example`.
+  - Read `frontend/package.json`, `frontend/vite.config.ts`, `frontend/src/test/setup.ts`, `frontend/src/api/client.ts` and the mocks in the leaking test files.
+- **What I did:**
+  - Rewrote the body with the task template. It has criteria for:
+    - `./test-all.sh` and its three suites;
+    - the summary and exit code;
+    - starting and stopping the test database;
+    - missing `.env` or `node_modules`;
+    - frontend tests that never reach a real server;
+    - the new CI job;
+    - `AGENTS.md` and spec §9.
+  - Posted the grooming comment: https://github.com/KittyNiuNiu/winlog/issues/73#issuecomment-6861197467
+  - No labels changed, no follow-up issues created.
+- **Decisions taken under the standing rule (2026-11-12, re-confirmed 2026-11-13), recorded in the issue:**
+  - Suites: backend unit, backend integration and frontend Vitest. The viewport tests (#36) and the end-to-end test (#37) stay separate.
+  - Form: a bash script, `./test-all.sh`, in the repository root.
+    - No new dependency and no Makefile.
+    - Works with bash 3.2 on macOS, in CI, and in WSL or Git Bash.
+  - The test database is started with `docker compose up -d --wait db`. It is stopped with `docker compose stop db` only if the script started it, also on failure or Ctrl+C. The script never runs `down -v`.
+  - Running and reporting:
+    - every suite runs even if an earlier one fails;
+    - a summary line per suite is printed at the end;
+    - the exit code is 0 only when all suites pass;
+    - a missing `.env` stops the script before any suite.
+  - CI:
+    - A new "Tests" job runs the script.
+    - The Backend and Frontend jobs drop their test steps, so the tests do not run twice.
+    - "Full system" also waits for the new job.
+  - `AGENTS.md`:
+    - Commands: the new command; the separate commands stay.
+    - Testing: one sentence on the script, and a line saying frontend tests never reach a real backend.
+    - Repository layout: lists the script.
+  - Spec §9 Testability adds that one command runs all unit and integration tests, with a §14 change-log line. The issue explicitly allows that edit.
+  - The leaking frontend tests are fixed in this task, in `frontend/src/test/` only:
+    - by default, `fetch` rejects like an unreachable server;
+    - no application code changes;
+    - no test is weakened or removed.
+  - The frontend suite runs through `npm test`, so the Sydney `TZ` from `vite.config.ts` applies (#27).
+  - The task changes no screens.
+- **How I verified it:**
+  - Checked the issue against the definition of done in `docs/pm.md`:
+    - all four sections are filled in;
+    - the criteria can be checked;
+    - every out-of-scope line links an issue (#36, #37, #74).
+  - Confirmed the leak on this branch. A throwaway server on port 8000 answered every request with 401. One `npx vitest run` passed all 1239 tests, but the server logged 78 requests: 50 `/entries`, 15 `/tags`, 5 `/summaries` and 8 others. It came from the root `.env`'s `VITE_API_BASE_URL`, which `vite.config.ts` loads through `envDir: '..'`.
+  - Checked that Docker Compose v5.6.1 supports `docker compose ps --status running -q db`, which can tell whether the db was already running.
+  - No product code written, and no AI call.
+- **Left open:** none for grooming.
+
+## 2026-11-13: Engineer: implement #73 (run all unit and integration tests with a single command)
+
+- **Task:** implement #73 (groomed, no screen changes), following `docs/software-engineer.md`.
+- **What I did:**
+  - `test-all.sh` (new, mode `100755`, `#!/usr/bin/env bash`, bash 3.2-compatible: indexed arrays only):
+    - finds the repository root from its own location, so it runs from any folder;
+    - stops before any suite, with exit 1, when `.env` is missing and tells the user to copy `.env.example`;
+    - runs backend unit, backend integration and frontend (`npm test`) in that order, each with its existing command in its own folder, and keeps going after a failure;
+    - starts the db with `docker compose up -d --wait db` before the integration tests; if `db` was not running before, stops it with `docker compose stop db` at the end, through a `trap` on EXIT (and INT/TERM, which exit and so run it); never `down -v`, never touches `.env`;
+    - a db that cannot start fails the integration suite with "the test database could not be started"; a missing `frontend/node_modules` fails the frontend suite with "Run 'npm ci' in frontend/ first"; it installs nothing;
+    - prints a summary line per suite and exits 0 only when all pass.
+  - `frontend/src/test/network.ts` (new) and `setup.ts`: `vi.stubGlobal('fetch', unreachableFetch)` before each test and again after each test. The stub rejects with `TypeError('fetch failed')`, like Node's fetch for an unreachable server, so the API client raises its usual `NetworkError`. `vi.stubGlobal` instead of assigning `globalThis.fetch`, because the project's ESLint rule forbids `globalThis.fetch` outside `src/api/`. Tests that install their own stub (`client.test.ts`, `EntriesPage.test.tsx`) are unchanged.
+  - `.github/workflows/ci.yml`: new "Tests" job (checkout, `.env` from `.env.example`, mock-provider check, setup-uv v10.3.3 with uv 0.11.32, `uv python install`, `uv sync --locked`, setup-node from `.nvmrc` with npm cache, `npm ci`, `./test-all.sh`, db logs on failure, 20-minute timeout). Removed "Unit tests" and "Integration tests" from Backend and "Tests" from Frontend. "Full system" now needs `tests` too.
+  - `AGENTS.md` (Repository layout, Commands, Testing) and `docs/product-spec.md` (§9 Testability row, §14 change-log line) as the issue words them.
+- **How I verified it:**
+  - Before the fix, with `python3 -m http.server 8000` in an empty folder, one `npm test` run sent 75 requests to it. After the fix: 0 requests, 1239/1239 tests passed. With nothing on port 8000: 1239 passed.
+  - Real backend on port 8000 (`AI_PROVIDER=mock`): `npm test` passed 3 times in a row (1239 each), and the backend logged no request from them.
+  - `./test-all.sh` with the db stopped first: 975 unit, 960 integration, 1239 frontend passed, exit 0, db stopped again afterwards. Run again at the end on the final commit: same result.
+  - From `frontend/` as `../test-all.sh` with the db already running: all passed, exit 0, db still running. Once more with the real backend on port 8000: all passed, exit 0.
+  - A unit test broken on purpose (not committed): summary "Backend unit tests failed", the other two suites ran and passed, exit 1.
+  - No `.env`: stops before any suite, exit 1. A `docker` that fails (shim on `PATH`) plus no `node_modules`: unit passed, integration and frontend failed with their messages, exit 1.
+  - Ctrl+C (SIGINT to the process group) during the integration tests with the db stopped first: the script printed "interrupted", stopped the db and exited.
+  - Lint: `npm run lint`, `tsc -b`, `uv run ruff check .`, `uv run ruff format --check .` all clean.
+  - CI run 43485192074 on commit 8be7839: all jobs passed (Contract, Backend, Frontend, Tests, Full system). The Tests job log shows 975 unit, 960 integration and 48 frontend test files passing and the summary "All test suites passed."
+  - No real AI call.
+- **Left open:**
+  - The script was checked with this session's bash 5, not with macOS's bash 3.2 itself; it avoids every bash-4 feature the issue lists.
+  - When Docker itself fails, the script still tries `docker compose stop db` at the end and prints "could not stop the db service". Harmless, but a second message.
+
+## 2026-11-13: Orchestrator: closed #73 (task 43, all unit and integration tests with one command)
+
+- **Outcome:**
+  - The PM groomed it (06b0394, grooming comment 6861197467).
+  - The engineer implemented it in 7f4d0b3, 9c421f4, 63dd8f5, bd4348b and 8be7839 (6861978092).
+  - QA PASS (6862795222): every case from the Constraints was run, and GitHub Actions run 43486224280 passed all 5 jobs, including the new Tests job.
+  - The task changes no screens, so there was no design note or review.
+  - Closed as completed; the last status label `implemented` stays. No real AI calls.
+- **Decisions accepted under the 2026-11-12 standing rule:**
+  - PM:
+    - `./test-all.sh` in the repo root runs backend unit, backend integration and frontend `npm test`. Viewport (#36) and e2e (#37) tests stay separate.
+    - Bash 3.2-compatible, with no new dependency.
+    - Starts the db and stops it only if the script started it; never `down -v`.
+    - Every suite runs, a summary is printed, and the exit code is 0 only if all pass.
+    - A new CI "Tests" job replaces the duplicate test steps.
+    - `AGENTS.md` updated, and spec §9 Testability plus a §14 line, as the product owner's issue invited.
+    - The leaking frontend tests are fixed in this task, because the requirement says the tests must pass.
+  - Engineer: the network is blocked in `frontend/src/test/` with `vi.stubGlobal('fetch', …)`, so the ESLint rule against `globalThis.fetch` outside `src/api/` holds. No app code changed and no test was changed or removed.
+- **Where each open point went (all left in this log):**
+  - The script was run with bash 5 only; bash 3.2 compatibility was checked by reading (engineer, QA).
+  - When Docker itself fails, the script prints one extra harmless "could not stop the db service" line (engineer).
+  - QA's "port 5432 taken" test left the db container without its port mapping; QA recreated it with the volume kept, which affected nothing in the repository.
+  - The leaking-tests point from #31 (comment 6847148338) is resolved by this task.
+
+## 2026-11-13: PM: groom #74 (instrument a key user journey with metrics, traces and structured logs)
+
+- **Task:** groom #74, which had no status label, following `docs/pm.md`. The product owner fixed the requirement on 2026-11-11, and decided "locally first, cloud later": the collector, storage and viewer UI run in Docker Compose, and hosted telemetry comes after #39.
+  - Read the issue and both comments: 6851825546 from #43 (the access log writes `?tag=<name>`) and 6857512446 from #46 (the access log can print the `X-Forwarded-For` address).
+  - Read `docs/process.md`, `docs/task-template.md`, `docs/product-spec.md` (§8, §9, §10, §14), `AGENTS.md`, `docker-compose.yml`, `backend/Dockerfile`, `.env.example` and `.github/workflows/ci.yml`.
+  - Read the backend's logging sites (`app/ai/adapter.py`, `app/ai/openai_compatible.py`), `app/main.py`, `app/errors.py`, `app/db.py`, `app/settings.py`, `app/summaries.py` and `app/ai/limits.py`.
+- **What I did:**
+  - Rewrote the issue body with the task template. The product owner's requirement and decision are kept word for word.
+    - The criteria cover the journey's spans, metrics and logs and every endpoint outcome, the generic per-request signals, and the access log.
+    - They also cover the privacy allowlist and its tests, running without a collector, the Compose service, a CI check, and the spec and `AGENTS.md` text.
+  - Posted the grooming comment: https://github.com/KittyNiuNiu/winlog/issues/74#issuecomment-6863038040
+  - Created follow-up #92 (hosted telemetry from the deployed environments, after #39) and linked it under Out of scope.
+  - No labels changed.
+- **Decisions taken under the standing rule (2026-11-12, re-confirmed 2026-11-13), recorded in the issue:**
+  - **Journey:** generating a summary (`POST /summaries`), with the mock AI. Every request also gets a SERVER span, the `http.server.request.duration` metric and a `request finished` JSON log line.
+  - **Spans:** `POST /summaries`, `summary.select_entries`, `ai.limits.reserve`, `ai.summarise`, `summary.save`.
+  - **Metrics:** `http.server.request.duration`, `winlog.summary.generate.requests` (by `winlog.outcome`) and `winlog.ai.request.duration`.
+  - **Logs:** JSON lines on stdout and over OTLP, with `trace_id` and `span_id`.
+  - **Trace ID:** the trace stays in the backend. The frontend is not instrumented, and incoming `traceparent`, `tracestate` and `baggage` headers are ignored. The trace ID is not put in a response header, so there is no API change.
+  - **Tools:** the OpenTelemetry Python SDK, and `grafana/otel-lgtm:0.39.0` as one Compose service. It has a named volume at `/data` and ports bound to `127.0.0.1`. Grafana's Explore view is the UI; there are no new dashboards.
+    - Licences: the SDK, the Collector and Prometheus are Apache-2.0; Grafana, Loki and Tempo are AGPL-3.0. Winlog runs the image unmodified and locally, and does not distribute it, so there is no obligation.
+    - Rejected: Aspire Dashboard (in memory only), Jaeger (traces only), OpenObserve, SigNoz and ClickStack (heavier).
+  - **New Python dependencies:** `opentelemetry-api`, `opentelemetry-sdk` and `opentelemetry-exporter-otlp-proto-http`. HTTP rather than gRPC, which would add `grpcio`. No auto-instrumentation packages, no JSON logging library, no npm change.
+  - **Privacy:** an allowlist enforced in one module, `app/telemetry.py`. Only `app` loggers are exported, and spans use `record_exception=False` and `set_status_on_exception=False`.
+    - Never in telemetry: user ids, emails, IPs, tag names, query strings, AI content or exception messages, nor the existing entry text, summaries, passwords and tokens.
+    - Tested by a marker-string integration test and by unit tests.
+  - **Access log:** uvicorn's access log is off, and the app's `request finished` line replaces it. This settles the #43 and #46 comments.
+  - **Configuration:** one new setting, `OTEL_EXPORTER_OTLP_ENDPOINT`. It is empty by default, which means no export, and Compose sets it for the backend. The metric interval is fixed at 10 seconds.
+  - **Tests:** they use in-memory exporters and never connect to port 4318.
+  - **Spec:** a new §9 Observability row and an updated Reproducibility row, a new §10.2 Observability row, and a §14 line. The exact text is in the issue.
+  - **`AGENTS.md`:** changes to Commands (Full system), Backend conventions (privacy rule, `app/telemetry.py`) and Testing.
+  - **Screens:** none change, so there is no design note.
+- **How I verified facts:**
+  - **PyPI:** OpenTelemetry 1.45.2 (Apache-2.0, Python ≥ 3.10); the instrumentation packages are 0.66b2. The OTLP/HTTP exporter depends on `requests`, `protobuf` and `googleapis-common-protos`; the gRPC exporter needs `grpcio`.
+  - **SDK 1.45.2 sources:**
+    - `LoggingHandler` is deprecated and exports every `extra` field and stack traces.
+    - The logs API is still `_logs`.
+    - `start_as_current_span` records the exception message and stack trace by default, and puts the message in the status description.
+    - An explicit exporter `endpoint` is the full URL including `/v1/<signal>`.
+    - `OTEL_METRIC_EXPORT_INTERVAL` defaults to 60 s.
+  - `app/db.py` already sets `hide_parameters=True`.
+  - **Docker Hub:** `otel-lgtm` 0.39.0 was published on 2026-10-30. It is about 958 MB compressed on amd64.
+  - **Pull in this session:** the pull worked through the proxy in 49 s, and the image is 3.8 GB on disk. In a probe container, which I removed afterwards:
+    - it used about 0.45 GB of RAM when idle;
+    - Grafana answered `/api/datasources` without a login (uids `tempo`, `loki`, `prometheus`);
+    - test OTLP/HTTP JSON signals sent to 4318 came back through Grafana's datasource proxy: the trace by ID from Tempo, a log with `trace_id` from Loki, and the metric as `winlog_summary_generate_requests_total` from Prometheus.
+  - `aspire.dev` and `grafana.com` cannot be reached from this session. The Aspire facts (in memory, nothing kept after a restart) come from search results; the LGTM facts come from the GitHub README and the probe.
+  - No product code written, and no AI call.
+- **Left open:** none for grooming. Two notes for the engineer:
+  - The Prometheus names of the two histograms (`*_seconds`) follow the default translation; only the counter's name was checked in the probe.
+  - The `grafana/otel-lgtm:0.39.0` image stays in this session's Docker cache.
+
+## 2026-11-13: Engineer: implement #74 (instrument a key user journey with metrics, traces and structured logs)
+
+- **Task:** implement #74 (groomed, no screen changes), following `docs/software-engineer.md`. Plan posted on the issue first (comment 6863129733). It needed no product decision, so I went ahead under the standing rule.
+- **What I did:**
+  - Dependencies (`uv add`, `>=1.45.2`, pinned in `uv.lock`): `opentelemetry-api`, `opentelemetry-sdk` and `opentelemetry-exporter-otlp-proto-http`, for the reasons in the issue.
+    - They bring in `requests`, `urllib3`, `certifi`, `charset-normalizer`, `protobuf`, `googleapis-common-protos`, `opentelemetry-proto`, `opentelemetry-exporter-otlp-proto-common` and `opentelemetry-semantic-conventions`. They also bring the 0.66b2 helpers `opentelemetry-exporter-http-transport` and `opentelemetry-exporter-otlp-common`.
+    - No auto-instrumentation and no npm change.
+  - `backend/app/telemetry.py` (new) holds all the setup and the allowlist.
+    - **One `Telemetry` per app:** its own tracer, meter and logger providers, none set as a global provider. They use `shutdown_on_exit=False`, the sampler `ALWAYS_ON` and a hand-built resource (`service.name`, `service.version`, `telemetry.sdk.*`; no detectors).
+    - **Export starts in the lifespan:** the OTLP/HTTP exporters (`<endpoint>/v1/traces|metrics|logs`, 2 s timeout, batch processors, metrics every 10 s) are created only when the app starts, and flushed and shut down when it stops. A MeterProvider takes its readers only at creation, so `start()` builds the meter and its instruments again. So importing `app.main`, or a `TestClient` without its lifespan, never creates an exporter. That is why `./test-all.sh` opens no connection even with the endpoint in `.env`.
+    - **`TelemetryMiddleware`,** the outermost middleware, handles every request:
+      - makes the app's telemetry current through a contextvar, which FastAPI copies into the threadpool;
+      - starts the SERVER span with an empty parent context, so incoming trace headers are ignored;
+      - names it `{METHOD} {route template}` from `scope["route"]`, or the method only when no route matches; a non-standard method becomes `_OTHER`;
+      - gives a 5xx status Error and `error.type`: the class name of an exception, or the status code as text when none reached the middleware (OTel convention);
+      - records `http.server.request.duration` and logs `request finished`.
+    - **`span()`:** `record_exception=False` and `set_status_on_exception=False`. An exception sets status Error with only the class name. Attributes outside the allowlist are dropped.
+    - **`_TelemetryLogHandler`,** put on the `app` logger once:
+      - keeps only allowlisted `extra` fields, in a fixed order;
+      - turns `exc_info` into `error.type` and drops `exc_info` and `stack_info`;
+      - prints one JSON line on stdout, with `trace_id` and `span_id` from the current span;
+      - emits the record to the current app's LoggerProvider.
+    - **`configure_logging()`** also turns uvicorn's access log off: no handlers, `propagate=False`, `disabled=True`. Uvicorn sets up its logging before it imports the app, so this covers the `AGENTS.md` command and the Docker `CMD`, and neither changed.
+  - Journey:
+    - `summaries.py`: `summary.select_entries` and `summary.save`. The five outcomes are counted, set on the SERVER span and logged (`summary generation finished`). The period-order check comes first, so `validation_failed` is not counted.
+    - `ai/limits.py`: `ai.limits.reserve` (`allowed` or `limit_reached`, status Error on a limit).
+    - `ai/adapter.py` `_call`: `ai.{operation}` and `winlog.ai.request.duration`.
+    - The adapter's and the `openai_compatible` module's log lines keep their text and get allowlisted fields.
+  - `app/settings.py`: `OTEL_EXPORTER_OTLP_ENDPOINT`. Empty or blank gives `None`; any other value must start with `http://` or `https://`.
+  - `app/main.py`: `create_app(settings, telemetry=None)`, with the middleware and the lifespan.
+  - `docker-compose.yml`: the `lgtm` service (`grafana/otel-lgtm:0.39.0`, volume `lgtm-data:/data`, ports `127.0.0.1:${GRAFANA_HOST_PORT:-3000}` and `127.0.0.1:${OTLP_HTTP_HOST_PORT:-4318}`), and `OTEL_EXPORTER_OTLP_ENDPOINT: http://lgtm:4318` for the backend, with no `depends_on`.
+  - `.env.example`: the three new variables.
+  - `ci.yml`, Full system job: a new step after the end-to-end test, "Telemetry reached the local stack".
+    - Through Grafana's datasource proxy, with retries for up to 90 s, it needs a `POST /summaries` trace in Tempo, a Loki record with its trace ID, and `winlog_summary_generate_requests_total{winlog_outcome="created"}` of at least 1.
+    - It then stops `lgtm` and needs `GET /health` to return 200.
+    - It also fails if the backend container's log has a uvicorn access line. That last check is mine: it makes the "access log off in the image" criterion visible in CI.
+    - The service logs printed on failure include `lgtm`.
+  - Docs:
+    - `docs/observability.md` (new): Grafana, the signals, the allowlist, `127.0.0.1` without a login, and running on the host.
+    - `docs/product-spec.md` §9, §10.2 and §14, and `AGENTS.md` (Full system, Backend conventions, Testing), word for word as in the issue.
+  - Tests:
+    - `tests/telemetry_capture.py` (new): in-memory span, metric and log exporters.
+    - `tests/unit/test_telemetry.py` (28 tests): route template and no-route naming; `_OTHER`; ignored trace headers; 500 and 503 status Error; span exception without an event; attribute drop; log allowlist with `exc_info` and `stack_info`; JSON line format and IDs; third-party loggers not exported; resource keys; `create_app` three times; the access log after uvicorn's own logging setup; settings; no exporter or socket connection without an endpoint; exporters only on start; and with nothing listening, quick requests and a shutdown within 10 s.
+    - `tests/integration/test_telemetry.py` (10 tests): the journey's spans and their attributes for every outcome, the metrics and their units, logs that share the trace ID (exported and on stdout), and `test_telemetry_contains_no_customer_data_or_credentials`. That test runs every endpoint with markers, including `?tag=`, demo login with `X-Forwarded-For`, a marker AI answer and a crash route with a marker exception message.
+    - `test_settings.py` lists the new setting, and the unit `no_env_file` fixture clears it. No test was weakened or removed.
+- **How I verified it:**
+  - Marker test checked by mutation (not committed): logging the path and query string in `request finished` made it fail.
+  - Host backend against `docker compose up -d db lgtm`, with `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318` and `AI_PROVIDER=mock`. Register, log in, an entry, `GET /entries?tag=…` with `X-Forwarded-For`, and `POST /summaries` with a client `traceparent`. Through Grafana's datasource proxy:
+    - Tempo returned trace `6b90…f18e` with `POST /summaries`, then `summary.select_entries`, `ai.limits.reserve`, `ai.summarise` and `summary.save` with the expected attributes. The resource held only `service.*` and `telemetry.sdk.*`.
+    - Loki returned the AI line, `summary generation finished` and `request finished` for that trace ID.
+    - Prometheus returned `winlog_summary_generate_requests_total{winlog_outcome="created"} 1`, plus `winlog_ai_request_duration_seconds_*` and `http_server_request_duration_seconds_*` with the expected labels. The client's trace ID was not used.
+    - All Loki logs, all 6 Tempo traces, all Prometheus series and the backend's stdout held no marker, token, IP, summary id or client trace ID. Uvicorn printed no access line.
+  - `lgtm` stopped: `/health` 200, a summary 201 in 20 ms, an entry 201. SIGTERM with nothing listening: stopped in 2.3 s. Against a listener that accepts and never answers, SIGINT: stopped in 6.1 s.
+  - `lgtm` started again: the same trace was found by its ID.
+  - The CI step's script, run locally: all three "yes", then lgtm stopped and `/health` 200.
+  - `./test-all.sh` with `.env` copied from `.env.example`, and again with `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318` added: both passed (1003 unit, 970 integration, 1239 frontend). A listener on 4318 logged no connection during either run; I checked that it does log one from a manual `curl`. My own `.env` was restored afterwards.
+  - Lint: `uv run ruff check .`, `uv run ruff format --check .`, `uv lock --check` and `npm run lint` all clean.
+  - CI run 43497466977 on 42dda2c passed every job. In the Full system job's telemetry step, Tempo, Loki and Prometheus said "yes" and `/health` returned 200 with lgtm stopped. The Backend job's start log shows a JSON `request finished` line and no access line.
+  - No real AI call.
+- **Left open:**
+  - The criterion's example `PATCH /entries/{entryId}` names a method that route does not have, because entries are changed with PUT. Tests cover `PUT /entries/{entryId}` (401), and also `PATCH` (405), which still uses the route template.
+  - A 5xx answered without an exception, such as 503 `ai_unavailable`, gets `error.type` set to the status code (`"503"`), as OTel's conventions say. The issue names `error.type` for 5xx but not its value in this case.
+  - Log records written outside a request are printed as JSON but not exported, because no app's telemetry is current then. The app has no such log lines today.
+  - The Compose-only criteria (`docker compose up --build`, the UI in a browser, `docker compose restart lgtm`) could not be run here, because pip TLS fails in this session's image build. They are covered by the CI Full system job and, for the restart, by stopping and starting `lgtm` with the host backend.
+
+## 2026-11-13: Orchestrator: closed #74 (task 44, metrics, traces and structured logs)
+
+- **Outcome:**
+  - The PM groomed it (70fd8aa, grooming comment 6863038040) and created #92 for hosted telemetry after #39.
+  - The engineer posted a plan (6863129733) and implemented it in 0b60656, 5c05109, b01f17a, 42dda2c and 8017f56 (6863841875).
+  - QA PASS on all 29 criteria (6864229782): live through Grafana's datasource proxy, a marker-string privacy sweep, lgtm stopped and restarted. CI run 43499022582 was green, including the Full system telemetry step.
+  - The task changes no screens, so there was no design note or review.
+  - Closed as completed; the last status label `implemented` stays. No real AI calls.
+- **Decisions accepted under the 2026-11-12 standing rule.** The orchestrator checked them against "severe or critical": the AGPL parts run unmodified on local machines only and are not distributed; there is no cost or account (the product owner's 2026-11-11 decision); and privacy is settled by an allowlist that is tested.
+  - PM:
+    - Journey: `POST /summaries` with the mock AI. Five spans, three metrics, and JSON logs carrying `trace_id`/`span_id`.
+    - The trace ID stays in the backend: incoming trace headers are ignored and the contract does not change.
+    - OpenTelemetry Python SDK 1.45.2 (api, sdk, otlp-proto-http exporter; no auto-instrumentation) and one Compose service, `grafana/otel-lgtm:0.39.0`, with a named volume and ports on 127.0.0.1 only.
+    - Privacy allowlist in `app/telemetry.py`: no user ids, emails, IPs, tag names, query strings, ids, user agents, AI content, exception messages or stack traces.
+    - The uvicorn access log is turned off, which settles the #43 and #46 points.
+    - One setting, `OTEL_EXPORTER_OTLP_ENDPOINT` (empty means no export).
+    - Tests use in-memory exporters.
+    - Spec §9, §10.2 and §14, and `AGENTS.md`, updated as written in the issue.
+    - A CI telemetry check.
+  - Engineer:
+    - Exporters exist only during the app lifespan.
+    - The access log is turned off inside the app, so the dev command and Dockerfile are unchanged.
+    - `error.type` is set to the status code for a 5xx without an exception.
+    - An extra CI check for no access log in the backend container.
+    - The criterion's `PATCH /entries/{entryId}` example is covered as PUT, since the route has no PATCH.
+- **Where each open point went:**
+  - `app` logs outside a request are not exported; the `app` logger keeps `propagate`; the span name `_OTHER {route}` for non-standard methods (engineer, QA): comment on #92 (6864242858).
+  - `docker compose up --build`, the browser UI and the containerised backend with lgtm stopped could not run in this session (pip TLS). CI covers them (engineer, QA). Left in this log.
+  - The local dev database holds a reseeded demo account and the QA telemetry in the lgtm volume (QA). Left in this log.
+
+## 2026-11-13: Orchestrator: batch of 16 issues complete
+
+- **Closed (16):** #29, #30, #31, #77, #32, #33, #43, #34, #35, #46, #83, #84, #36, #37, #73, #74.
+- **Stop points reached:**
+  - #31: an existing test change, asked by the orchestrator. The product owner said afterwards it was not severe and small criteria conflicts should be decided under the rule.
+  - #35: second QA FAIL; the product owner chose one more fix.
+- **Other failures fixed on the first retry:** #31 QA FAIL 1 (typed dates), #43 design FAIL 1 (counter alignment), #35 QA FAIL 1 (demo press lost).
+- **Follow-up issues created:** #87, #88, #89, #90, #91, #92.
+- **No real AI calls** were made in the batch.
+- **Left open after the batch:** #38, #39, #40 (build order) and the follow-ups #58, #61, #64, #68, #72, #86, #87–#92.

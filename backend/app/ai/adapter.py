@@ -23,9 +23,12 @@ Data minimisation: `summarise` takes only `SummaryEntry` objects, which hold an 
 category, text, Result/Impact and tag names, and nothing else. User ids, emails and entry ids
 cannot reach a provider through it.
 
+Telemetry (issue #74): every call gets an `ai.{operation}` span and a
+`winlog.ai.request.duration` measurement (app/telemetry.py).
+
 Privacy: the adapter logs only the operation, the provider, the number of entries, the time
-taken and the error type. It never logs entry text, tag names or summary text, and its error
-messages never contain them (`AGENTS.md`).
+taken and the error type, in the message and as allowlisted fields. It never logs entry text,
+tag names or summary text, and its error messages never contain them (`AGENTS.md`).
 """
 
 import datetime as dt
@@ -36,8 +39,10 @@ from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from typing import ClassVar, get_args
 
+from app import telemetry
 from app.entries import Category, Entry
 from app.tags import normalise_tag_name
+from app.telemetry import AIOutcome
 from app.text_rules import has_unstorable_characters, is_blank
 
 logger = logging.getLogger(__name__)
@@ -123,32 +128,59 @@ class AIProvider(ABC):
         """Ask the provider for a summary. The adapter checks the output."""
 
     def _call[T](self, operation: str, entry_count: int | None, call: Callable[[], T]) -> T:
+        # The span, the duration metric and the log fields hold only allowlisted values
+        # (app/telemetry.py): the operation, the provider, the outcome and the entry count.
+        attributes: dict[str, object] = {
+            "winlog.ai.operation": operation,
+            "winlog.ai.provider": self.name,
+        }
+        if entry_count is not None:
+            attributes["winlog.entry_count"] = entry_count
         started = time.monotonic()
-        try:
+        with telemetry.span(f"ai.{operation}", attributes) as span:
             try:
-                result = call()
-            except AIError:
+                try:
+                    result = call()
+                except AIError:
+                    raise
+                except Exception as error:
+                    raise AIProviderError("The AI provider failed.") from error
+            except AIError as error:
+                outcome: AIOutcome = (
+                    "timeout" if isinstance(error, AITimeoutError) else "provider_error"
+                )
+                span.set("winlog.ai.outcome", outcome)
+                telemetry.record_ai_call(operation, self.name, outcome, time.monotonic() - started)
+                logger.warning(
+                    "AI %s with provider %s failed after %d ms%s: %s",
+                    operation,
+                    self.name,
+                    _elapsed_ms(started),
+                    _entry_count(entry_count),
+                    type(error).__name__,
+                    extra={
+                        **attributes,
+                        "winlog.ai.outcome": outcome,
+                        "duration_ms": _elapsed_ms(started),
+                        "error.type": type(error).__name__,
+                    },
+                )
                 raise
-            except Exception as error:
-                raise AIProviderError("The AI provider failed.") from error
-        except AIError as error:
-            logger.warning(
-                "AI %s with provider %s failed after %d ms%s: %s",
+            span.set("winlog.ai.outcome", "success")
+            telemetry.record_ai_call(operation, self.name, "success", time.monotonic() - started)
+            logger.info(
+                "AI %s with provider %s succeeded in %d ms%s",
                 operation,
                 self.name,
                 _elapsed_ms(started),
                 _entry_count(entry_count),
-                type(error).__name__,
+                extra={
+                    **attributes,
+                    "winlog.ai.outcome": "success",
+                    "duration_ms": _elapsed_ms(started),
+                },
             )
-            raise
-        logger.info(
-            "AI %s with provider %s succeeded in %d ms%s",
-            operation,
-            self.name,
-            _elapsed_ms(started),
-            _entry_count(entry_count),
-        )
-        return result
+            return result
 
 
 def check_suggest_input(text: object) -> str:

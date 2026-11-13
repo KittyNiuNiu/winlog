@@ -19,6 +19,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.attempt_limits import AttemptLimiterDependency, visitor_ip
 from app.auth import AuthenticateFirstRoute, CurrentUser, create_token
 from app.db import get_session
 from app.errors import ApiError
@@ -50,11 +51,18 @@ def _demo_not_available() -> ApiError:
     operation_id="demoLogin",
     summary="Log in to the shared demo account.",
     response_model=DemoLoginResult,
-    responses={404: {"description": "No demo account is configured or created."}},
+    responses={
+        404: {"description": "No demo account is configured or created."},
+        429: {"description": "Too many demo-logins from this visitor (FR-A4)."},
+    },
 )
 def demo_login(
-    request: Request, session: Annotated[Session, Depends(get_session)]
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    attempts: AttemptLimiterDependency,
 ) -> DemoLoginResult:
+    # FR-A4: every demo-login request counts for the visitor's IP, before anything else.
+    attempts.take_demo_login(visitor_ip(request))
     settings: Settings = request.app.state.settings
     if settings.demo_email is None:
         raise _demo_not_available()

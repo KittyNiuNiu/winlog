@@ -89,11 +89,17 @@ def _fill(client: TestClient, token: str) -> None:
     assert suggestion.status_code == 200
 
 
+# Wrong passwords are counted in login_attempts on purpose (FR-A4, issue #46), so the
+# before-and-after snapshots leave it out. It holds no user id, only SHA-256 hashes; its
+# rows are tested in test_attempt_limits.py and by the "no row remains" test below.
+SNAPSHOT_TABLES = APP_TABLES - {"login_attempts"}
+
+
 def _snapshot(engine: Engine) -> dict[str, list[tuple]]:
-    """Every row of every application table, so a test can compare before and after."""
+    """Every row of every application table but login_attempts, to compare before and after."""
     with engine.connect() as connection:
         snapshot = {}
-        for table in sorted(APP_TABLES):
+        for table in sorted(SNAPSHOT_TABLES):
             rows = connection.execute(text(f"SELECT * FROM {table}"))
             snapshot[table] = sorted(tuple(str(value) for value in row) for row in rows)
         return snapshot
@@ -202,8 +208,12 @@ def test_fr_d2_no_row_of_the_user_remains_in_any_table(
 
     snapshot = _snapshot(migrated_db)
     assert [row[0] for row in snapshot["users"]] == [str(bob)]
-    for table in APP_TABLES - {"users", "ai_usage_global"}:
+    for table in SNAPSHOT_TABLES - {"users", "ai_usage_global"}:
         assert snapshot[table] == [], table
+    # The correct password cleared the count for Alice's email (FR-A4), and no other
+    # attempt was made.
+    with migrated_db.connect() as connection:
+        assert connection.execute(text("SELECT * FROM login_attempts")).all() == []
     for table, rows in snapshot.items():
         assert not any(str(alice) in row for row in rows), table
 

@@ -17,7 +17,9 @@ acceptance criteria in product-spec.md §7.3 and §8.
 - Suggested tag names are cleaned with #8's rules. A name that matches one of the user's own
   tags, ignoring case, gets that tag's stored spelling (found with `lookup_tags`). Names that
   match each other after cleaning are returned once, and at most `MAX_SUGGESTED_TAGS` are
-  returned, in the order the AI gave them.
+  returned, in the order the AI gave them. Names longer than the tag name limit
+  (`MAX_TAG_NAME_CHARACTERS`) after cleaning are left out before the first five are taken, so
+  every suggested name can be saved (issue #43).
 - Nothing is saved: no entry and no tag. Only the usage counts of #15 change.
 
 Privacy: nothing here is logged. The entry text and the suggested tags never appear in a log
@@ -38,7 +40,7 @@ from app.db import get_session
 from app.entries import Category, EntryText
 from app.errors import ApiError
 from app.models import User
-from app.tags import lookup_tags, match_keys, normalise_tag_name
+from app.tags import MAX_TAG_NAME_CHARACTERS, lookup_tags, match_keys, normalise_tag_name
 
 router = APIRouter(tags=["AI"], route_class=AuthenticateFirstRoute)
 
@@ -70,13 +72,18 @@ def ai_unavailable() -> ApiError:
 def suggested_tag_names(session: Session, user: User, names: Sequence[str]) -> list[str]:
     """The tag names to return for the AI's suggested names.
 
-    Each name is cleaned with #8's rules, and names that are empty after cleaning are left
-    out. A name that matches one of the user's tags, ignoring case as #8 does, gets the
-    tag's stored spelling; other names keep their cleaned spelling. Names that match each
+    Each name is cleaned with #8's rules, and names that are empty or longer than
+    `MAX_TAG_NAME_CHARACTERS` after cleaning are left out (#43). A name that matches one of
+    the user's tags, ignoring case as #8 does, gets the tag's stored spelling; other names
+    keep their cleaned spelling. Names that match each
     other are returned once, first one first, and at most `MAX_SUGGESTED_TAGS` names are
     returned. Reads only the user's own tags and creates nothing.
     """
-    cleaned = [name for name in map(normalise_tag_name, names) if name]
+    cleaned = [
+        name
+        for name in map(normalise_tag_name, names)
+        if name and len(name) <= MAX_TAG_NAME_CHARACTERS
+    ]
     if not cleaned:
         return []
     existing = lookup_tags(session, user, cleaned)

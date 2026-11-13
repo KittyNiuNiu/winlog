@@ -1,0 +1,215 @@
+/* The review page (design notes on #31 and #32). Phone: the title, the "Filters" toggle,
+   the collapsible filter panel 16px below it, then the results 24px below. Laptop: the
+   filters always shown 24px below the title, then the results 32px below. The summary
+   panel (SummaryPanel.css) sits 40px below the results; from 75rem it is a 22.5rem column
+   32px right of the filters and results, and stays in view while the entries scroll. */
+
+.review-page {
+  min-width: 0;
+}
+
+.review-page__main {
+  min-width: 0;
+}
+
+/* "Filters": as wide as its content; the count badge never makes it wrap. */
+.review-page__toggle {
+  white-space: nowrap;
+}
+
+/* The number of filters in use: a peach pill (it counts what the user selected). */
+.review-page__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 0 var(--space-8);
+  font-size: var(--text-label-small-size);
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-on-peach);
+  background: var(--color-peach);
+  border-radius: var(--radius-pill);
+}
+
+/* The filters: 20px between groups. */
+
+.review-page__filters {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-20);
+  min-width: 0;
+  margin-top: var(--space-16);
+}
+
+.review-page__filters[hidden] {
+  display: none;
+}
+
+.review-page__group {
+  min-width: 0;
+}
+
+.review-page__dates {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-12);
+}
+
+.review-page__dates .field__input {
+  min-width: 0;
+}
+
+.review-page__label {
+  margin: 0 0 var(--space-8);
+}
+
+.review-page__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+}
+
+/* The results: the loading line (and the waking-up hint), the total line, then the
+   groups 16px below it. The total line stays in the page while empty, so each new count
+   is announced; empty, it takes no space. */
+
+.review-page__results {
+  min-width: 0;
+  margin-top: var(--space-24);
+}
+
+.review-page__state {
+  margin-bottom: var(--space-12);
+}
+
+.review-page__state > * + * {
+  margin-top: var(--space-12);
+}
+
+.review-page__loading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin: 0;
+  font-size: var(--text-body-small-size);
+  color: var(--color-muted-plum-grey);
+}
+
+.review-page__total {
+  margin: 0;
+  font-size: var(--text-label-size);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-aubergine-ink);
+}
+
+.review-page__groups {
+  margin-top: var(--space-16);
+}
+
+/* A category group: its heading in the Title style with the category's dot and the
+   count; groups are 40px apart, a bigger break than a new month. */
+
+.review-page__category + .review-page__category {
+  margin-top: var(--space-40);
+}
+
+.review-page__category-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--space-8);
+  margin-bottom: var(--space-12);
+  color: var(--color-aubergine-ink);
+}
+
+.review-page__dot {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  background: var(--category-dot);
+  border-radius: 50%;
+}
+
+.review-page__category-count {
+  font-family: var(--font-body);
+  font-size: var(--text-label-size);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-muted-plum-grey);
+}
+
+/* A month inside a category: a quiet label-sized heading, 20px above each but the first. */
+
+.review-page__month + .review-page__month {
+  margin-top: var(--space-20);
+}
+
+.review-page__month h3 {
+  margin-bottom: var(--space-8);
+  font-family: var(--font-body);
+  font-size: var(--text-label-size);
+  font-weight: 700;
+  line-height: 1.5;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-muted-plum-grey);
+}
+
+.review-page__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+@media (min-width: 48rem) {
+  /* The filter area starts 24px below the title at every laptop width (design note on
+     #36). The 24px is the title's own margin and the filter area has none, so the gap
+     does not depend on margins collapsing (they collapse in a block, not in the grid
+     from 75rem). Other pages keep 16px below their title (.page h1 in AppShell.css,
+     which this rule outranks). */
+  .page.review-page > h1 {
+    margin-bottom: var(--space-24);
+  }
+
+  .review-page__filters {
+    margin-top: 0;
+  }
+
+  .review-page__dates {
+    grid-template-columns: repeat(2, minmax(0, 14rem));
+    column-gap: var(--space-16);
+  }
+
+  /* As wide as the two date columns, so the edges line up. */
+  .review-page__tags {
+    max-width: 29rem;
+  }
+
+  .review-page__results {
+    margin-top: var(--space-32);
+  }
+}
+
+@media (min-width: 75rem) {
+  .review-page__layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 22.5rem;
+    column-gap: var(--space-32);
+    align-items: start;
+  }
+
+  /* No top margin, so its top is level with the top of the filter area, 24px below the
+     title. If the window is shorter than the panel, it scrolls inside itself, so Save
+     summary stays within reach. */
+  .review-page__layout > .summary-panel {
+    position: sticky;
+    top: var(--space-24);
+    max-width: none;
+    max-height: calc(100dvh - 2 * var(--space-24));
+    margin-top: 0;
+    overflow-y: auto;
+  }
+}

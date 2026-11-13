@@ -58,8 +58,19 @@ export interface paths {
         put?: never;
         /**
          * Log in with an email address and a password.
-         * @description Covers FR-A2. Needs no authentication. Returns a new token. A wrong
-         *     email and a wrong password get the same `invalid_credentials` error.
+         * @description Covers FR-A2 and FR-A4. Needs no authentication. Returns a new token.
+         *     A wrong email and a wrong password get the same `invalid_credentials`
+         *     error.
+         *
+         *     Failed logins are limited per email (FR-A4, issue #46), counted after
+         *     the email is trimmed and lower-cased, whether or not the account
+         *     exists. After `LOGIN_MAX_FAILED_ATTEMPTS` (default 10) failed attempts
+         *     within `LOGIN_ATTEMPT_WINDOW_MINUTES` (default 15), every login for that
+         *     email gets `too_many_attempts` (429) until that many minutes after the
+         *     first failure of the window, even with the correct password. Wrong
+         *     passwords on account deletion count toward the same limit. While
+         *     blocked, no password is checked and no token is created. A successful
+         *     login clears the email's count.
          */
         post: operations["login"];
         delete?: never;
@@ -85,6 +96,15 @@ export interface paths {
          *     `demo: true` to mark the session as a demo session. The demo account is
          *     shared by every visitor, and so are its data and its AI limits (§8).
          *     Its password is random and never shown, so this is the only way in.
+         *
+         *     Demo-logins are limited per visitor IP address (FR-A4, issue #46): at
+         *     most `DEMO_LOGIN_MAX_ATTEMPTS` (default 20) within
+         *     `DEMO_LOGIN_WINDOW_MINUTES` (default 60), counted from the first one of
+         *     the window. Every request counts. Above the limit the request gets
+         *     `too_many_attempts` (429) and no token is created. The visitor IP is
+         *     the last entry of `X-Forwarded-For`, which the hosting proxy appends;
+         *     entries a client added are ignored. Without that header, the address
+         *     of the direct connection is used.
          */
         post: operations["demoLogin"];
         delete?: never;
@@ -135,6 +155,12 @@ export interface paths {
          *     `demo_account_not_deletable` (409) whatever its body: before the body
          *     is validated and before the password is checked, so a missing, invalid
          *     or wrong password also gets this error. Nothing is deleted.
+         *
+         *     Wrong passwords count toward the failed-login limit of the account's
+         *     email (FR-A4, issue #46; see `login`). While that email is blocked, the
+         *     request gets `too_many_attempts` (429) and the password is not checked.
+         *     The checks run in this order: the token (401), the demo account (409),
+         *     the body (422), the attempt limit (429) and the password (403).
          */
         delete: operations["deleteAccount"];
         options?: never;
@@ -271,9 +297,14 @@ export interface paths {
          * Generate a summary of the entries matching a filter and save it.
          * @description Covers FR-R3 and FR-R4. Entries are selected with the same filter rules
          *     as the entry list. When no entries match, the request returns
-         *     `no_matching_entries`, makes no AI call and saves nothing. Limits are
-         *     checked before the AI is called. The summary is saved together with its
-         *     filter.
+         *     `no_matching_entries`, makes no AI call and saves nothing. When the
+         *     matching entries have more characters than the server's
+         *     `AI_SUMMARY_MAX_INPUT_CHARACTERS` (text, Result/Impact and tag names,
+         *     added up), the request returns `summary_input_too_large`, makes no AI
+         *     call, counts against no daily limit and saves nothing. The checks run in
+         *     this order: request validation, `no_matching_entries`,
+         *     `summary_input_too_large`, then the daily limits, all before the AI is
+         *     called. The summary is saved together with its filter.
          */
         post: operations["generateSummary"];
         delete?: never;
@@ -454,7 +485,7 @@ export interface components {
          *     whitespace-only `result_impact` clears it.
          */
         EntryInput: {
-            /** @description Free text. Empty or whitespace-only text counts as missing. */
+            /** @description Free text, at most 2,000 characters. Empty or whitespace-only text counts as missing. */
             text: string;
             /**
              * Format: date
@@ -462,9 +493,9 @@ export interface components {
              */
             date: string;
             category: components["schemas"]["Category"];
-            /** @description Tag names. Names the user does not have yet are created when the entry is saved. Missing or empty means no tags. */
+            /** @description Tag names, at most 10. Names the user does not have yet are created when the entry is saved. Missing or empty means no tags. */
             tags?: string[];
-            /** @description Optional Result/Impact. */
+            /** @description Optional Result/Impact, at most 500 characters (also when it is only whitespace). */
             result_impact?: string | null;
         };
         Entry: {
@@ -491,12 +522,12 @@ export interface components {
             tags: string[];
         };
         SuggestionRequest: {
-            /** @description The entry text. Empty or whitespace-only text counts as missing. */
+            /** @description The entry text, at most 2,000 characters. Empty or whitespace-only text counts as missing. */
             text: string;
         };
         Suggestion: {
             category: components["schemas"]["Category"];
-            /** @description Suggested tag names. A name matching one of the user's tags uses that tag's spelling. */
+            /** @description Suggested tag names. A name matching one of the user's tags uses that tag's spelling. Names longer than 40 characters are left out, so every suggested name can be saved. */
             tags: string[];
         };
         /** @description The filter a summary is generated from and saved with. */
@@ -513,7 +544,7 @@ export interface components {
             period_end: string;
             /** @description Categories to include. Empty or missing means no restriction. */
             categories?: components["schemas"]["Category"][];
-            /** @description Tag names to include; entries with any of them match. Empty or missing means no restriction. */
+            /** @description Tag names to include; entries with any of them match. Empty or missing means no restriction. Each name has at most 40 characters. */
             tags?: string[];
         };
         Summary: {
@@ -532,7 +563,7 @@ export interface components {
         };
         /** @description Only the text can change. The filter and the entries stay unchanged. */
         SummaryUpdate: {
-            /** @description The new summary text. Empty or whitespace-only text counts as missing. */
+            /** @description The new summary text, at most 10,000 characters. Empty or whitespace-only text counts as missing. */
             text: string;
         };
         ExportFile: {
@@ -549,7 +580,7 @@ export interface components {
              * @description Machine-readable error code.
              * @enum {string}
              */
-            code: "validation_failed" | "not_authenticated" | "invalid_credentials" | "wrong_password" | "demo_account_not_deletable" | "email_already_registered" | "not_found" | "method_not_allowed" | "no_matching_entries" | "limit_reached" | "ai_unavailable" | "database_unreachable" | "internal_error";
+            code: "validation_failed" | "not_authenticated" | "invalid_credentials" | "wrong_password" | "demo_account_not_deletable" | "email_already_registered" | "not_found" | "method_not_allowed" | "no_matching_entries" | "summary_input_too_large" | "limit_reached" | "too_many_attempts" | "ai_unavailable" | "database_unreachable" | "internal_error";
             /** @description Human-readable explanation. */
             message: string;
             /** @description Only for `validation_failed`. Each failing field and why it failed. */
@@ -688,6 +719,22 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
+        /** @description Too many attempts for this email or visitor (`code: too_many_attempts`, FR-A4). No password was checked, no token was created and nothing was changed. */
+        TooManyAttempts: {
+            headers: {
+                "Retry-After": components["headers"]["RetryAfter"];
+                [name: string]: unknown;
+            };
+            content: {
+                /**
+                 * @example {
+                 *       "code": "too_many_attempts",
+                 *       "message": "Too many attempts. Please try again later."
+                 *     }
+                 */
+                "application/json": components["schemas"]["Error"];
+            };
+        };
         /** @description The AI provider failed or timed out (`code: ai_unavailable`, §7.3). Nothing was saved. */
         AiUnavailable: {
             headers: {
@@ -747,6 +794,12 @@ export interface components {
          * @example attachment; filename="winlog-export-2026-11-01.json"
          */
         ContentDisposition: string;
+        /**
+         * @description Whole seconds until the request can be tried again, at least 1
+         *     (FR-A4): until the attempt window ends.
+         * @example 900
+         */
+        RetryAfter: number;
     };
     pathItems: never;
 }
@@ -825,6 +878,7 @@ export interface operations {
             };
             401: components["responses"]["InvalidCredentials"];
             422: components["responses"]["ValidationFailed"];
+            429: components["responses"]["TooManyAttempts"];
             500: components["responses"]["InternalError"];
         };
     };
@@ -865,6 +919,7 @@ export interface operations {
                     "application/json": components["schemas"]["Error"];
                 };
             };
+            429: components["responses"]["TooManyAttempts"];
             500: components["responses"]["InternalError"];
         };
     };
@@ -912,6 +967,7 @@ export interface operations {
             403: components["responses"]["WrongPassword"];
             409: components["responses"]["DemoAccountNotDeletable"];
             422: components["responses"]["ValidationFailed"];
+            429: components["responses"]["TooManyAttempts"];
             500: components["responses"]["InternalError"];
         };
     };
@@ -930,7 +986,7 @@ export interface operations {
                 end_date?: string;
                 /** @description Categories to include, as a repeated parameter (`?category=Achievement&category=Learning`). */
                 category?: components["schemas"]["Category"][];
-                /** @description Tag names to include, as a repeated parameter (`?tag=a&tag=b`), because tag names can contain commas. */
+                /** @description Tag names to include, as a repeated parameter (`?tag=a&tag=b`), because tag names can contain commas. Each name has at most 40 characters. */
                 tag?: string[];
             };
             header?: never;
@@ -1160,8 +1216,11 @@ export interface operations {
             };
             401: components["responses"]["NotAuthenticated"];
             /**
-             * @description Either the request failed validation (`code: validation_failed`), or
-             *     no entries match the filter (`code: no_matching_entries`, §7.4).
+             * @description The request failed validation (`code: validation_failed`), no
+             *     entries match the filter (`code: no_matching_entries`, §7.4), or the
+             *     matching entries are too large to summarise in one request
+             *     (`code: summary_input_too_large`, §7.4): the user should narrow the
+             *     filter.
              */
             422: {
                 headers: {

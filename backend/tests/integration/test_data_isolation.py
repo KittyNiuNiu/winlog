@@ -214,8 +214,9 @@ _USER_ROWS = {
 
 def _user_rows(engine: Engine, user_id: uuid.UUID) -> dict[str, list[str]]:
     """All of one user's rows in every table that holds user data."""
-    # ai_usage_global has no user id; every other application table must be listed above.
-    assert set(_USER_ROWS) == APP_TABLES - {"ai_usage_global"}
+    # ai_usage_global and login_attempts (only SHA-256 hashes, FR-A4) have no user id; every
+    # other application table must be listed above.
+    assert set(_USER_ROWS) == APP_TABLES - {"ai_usage_global", "login_attempts"}
     with engine.connect() as connection:
         return {
             name: sorted(

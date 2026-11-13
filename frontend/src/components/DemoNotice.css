@@ -1,0 +1,40 @@
+/* The demo notice (design note on #35): the information message's look at body-small size,
+   first in the main content area, 20px above the page. On the laptop it is at most 68ch
+   wide (measured at its own 15px), left-aligned. The text line, 8px of space, then the
+   link's 44px box (design note on #36), so the link's focus outline stays clear of the
+   text. The link's box gives the space below it, so the bottom padding is small. */
+
+.message.demo-notice {
+  max-width: var(--measure);
+  margin-bottom: var(--space-20);
+  padding-top: var(--space-12);
+  padding-right: var(--space-16);
+  padding-bottom: var(--space-4);
+  font-size: var(--text-body-small-size);
+  line-height: var(--text-body-line-height);
+}
+
+.demo-notice .message__icon {
+  /* Centred on the first line at 15px: padding + (line height − icon) / 2. */
+  top: calc(var(--space-12) + (var(--text-body-small-size) * 1.5 - 20px) / 2);
+}
+
+.demo-notice__text {
+  max-width: none;
+  margin: 0 0 var(--space-8);
+}
+
+.demo-notice__link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-height: var(--tap-target);
+  font-weight: 700;
+}
+
+/* Leaving the demo: progress, not a link. Same colour and height, so nothing jumps. */
+.demo-notice__link--busy,
+.demo-notice__link--busy:hover {
+  text-decoration: none;
+  cursor: progress;
+}

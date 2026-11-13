@@ -1,0 +1,101 @@
+/* The summary page (design note on #33). One left-aligned column, at most 68ch wide, as
+   the entry pages. Top to bottom: "Back to summaries", the title, the source and creation
+   lines, the text field with its §7.4 hint, the actions, then the message slot. Phone:
+   "Save summary" at full width, "Copy" and "Delete" side by side below it. From 48rem:
+   one row, with "Delete" at the right end. */
+
+.summary-page {
+  max-width: var(--measure);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.summary-page__back {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap-target);
+  margin-bottom: var(--space-8);
+  font-size: var(--text-label-size);
+  font-weight: 600;
+}
+
+/* Which entries the summary is from. */
+.summary-page__source {
+  margin: 0;
+  font-size: var(--text-label-size);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-aubergine-ink);
+  overflow-wrap: anywhere;
+}
+
+.summary-page__created {
+  margin: var(--space-4) 0 0;
+  font-size: var(--text-body-small-size);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-muted-plum-grey);
+}
+
+.summary-page__field {
+  margin-top: var(--space-24);
+}
+
+.summary-page__field .field__input--area {
+  min-height: 16rem;
+  resize: vertical;
+}
+
+.summary-page__actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-12);
+  margin-top: var(--space-16);
+}
+
+.summary-page__actions .button {
+  width: 100%;
+  min-width: 0;
+}
+
+.summary-page__save {
+  grid-column: 1 / -1;
+}
+
+/* The message slot: "Summary saved." or a save or copy error, 12px below the actions. */
+.summary-page__messages > :not(:empty) {
+  margin-top: var(--space-12);
+}
+
+/* Loading and load-failed states, as on the edit entry page. */
+
+.summary-page__loading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  margin: 0;
+  font-size: var(--text-body-small-size);
+  color: var(--color-muted-plum-grey);
+}
+
+.summary-page__state > * + * {
+  margin-top: var(--space-12);
+}
+
+@media (min-width: 48rem) {
+  .summary-page__field .field__input--area {
+    min-height: 22rem;
+  }
+
+  .summary-page__actions {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
+  .summary-page__actions .button {
+    width: auto;
+  }
+
+  .summary-page__delete {
+    margin-left: auto;
+  }
+}

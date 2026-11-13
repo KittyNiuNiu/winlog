@@ -35,6 +35,7 @@ APP_TABLES = {
     "summaries",
     "ai_usage",
     "ai_usage_global",
+    "login_attempts",
 }
 
 
@@ -105,5 +106,6 @@ def migrated_db(engine: Engine, alembic_config: Config) -> Iterator[Engine]:
     command.upgrade(alembic_config, "head")
     yield engine
     with engine.begin() as connection:
-        # ai_usage_global has no user id, so it is not removed with the users.
-        connection.execute(text("TRUNCATE users, ai_usage_global CASCADE"))
+        # ai_usage_global and login_attempts have no user id, so they are not removed with
+        # the users.
+        connection.execute(text("TRUNCATE users, ai_usage_global, login_attempts CASCADE"))

@@ -99,3 +99,68 @@
     width: auto;
   }
 }
+
+/* AI suggestions (design note on #28): the suggest row 12px under the text it reads, the
+   notice 12px under the row, and the hint 8px under the chips it changes. */
+
+.entry-form__suggest {
+  margin-top: var(--space-12);
+}
+
+.entry-form__suggest-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8) var(--space-12);
+}
+
+.entry-form__suggest-button {
+  max-width: 100%;
+}
+
+.entry-form__notice {
+  margin-top: var(--space-12);
+}
+
+/* Under the suggest row while the text is too long for suggestions (design note on #43),
+   in the style of the summary panel's line under a disabled draft button. */
+.entry-form__suggest-hint {
+  margin: var(--space-8) 0 0;
+  font-size: var(--text-body-small-size);
+  color: var(--color-muted-plum-grey);
+}
+
+.entry-form__hint {
+  margin-top: var(--space-8);
+}
+
+/* A quiet text action ("Discard suggestions", "Suggested: <category>"): no fill and no
+   border, so the suggest button stays the stronger control and Save entry the only plum
+   fill. */
+.quiet-action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  max-width: 100%;
+  min-width: var(--tap-target);
+  min-height: var(--tap-target);
+  padding: var(--space-4) var(--space-12);
+  font-family: var(--font-body);
+  font-size: var(--text-label-size);
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: left;
+  color: var(--color-plum);
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-button);
+  cursor: pointer;
+}
+
+.quiet-action:hover {
+  background: var(--color-secondary-hover);
+}
+
+.quiet-action svg {
+  flex: none;
+}

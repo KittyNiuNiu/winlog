@@ -100,3 +100,25 @@
 .tag-chip__remove:hover {
   color: var(--color-plum);
 }
+
+/* A suggested tag (design note on #28): the same chip with a dashed border in muted
+   plum-grey (the field border is too faint to show the dashes), and the mark "Sparkles
+   Suggested" between the label and the remove button. No tint, no dot and no plum fill,
+   so it never reads as a category. The label wraps; the mark never does. */
+
+.tag-chip--suggested {
+  border-style: dashed;
+  border-color: var(--color-muted-plum-grey);
+}
+
+.tag-chip__mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-4);
+  margin-left: var(--space-8);
+  font-size: var(--text-label-small-size);
+  font-weight: 600;
+  color: var(--color-muted-plum-grey);
+  white-space: nowrap;
+}

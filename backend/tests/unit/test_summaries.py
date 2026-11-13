@@ -289,6 +289,7 @@ def test_privacy_ai_unavailable_error_does_not_carry_the_provider_error(user, ma
             user,
             ai,  # type: ignore[arg-type]
             session,
+            max_input_characters=50_000,
         )
 
     assert raised.value.code == "ai_unavailable"

@@ -1,0 +1,47 @@
+/* "Delete this entry?" (design note on #29): the look of "Discard changes?" (#27). A flat
+   paper-white panel, centred, 20px from each side on the phone; the backdrop dims the page
+   towards its own ground colour. The error sits 16px under the text when it shows. */
+
+.delete-dialog {
+  width: min(25rem, 100% - 2 * var(--space-20));
+  max-width: none;
+  padding: var(--space-24);
+  color: var(--color-aubergine-ink);
+  background: var(--color-paper-white);
+  border: var(--border-hairline) solid var(--color-hairline);
+  border-radius: var(--radius-dialog);
+  overflow-wrap: anywhere;
+}
+
+.delete-dialog::backdrop {
+  background: color-mix(in srgb, var(--color-blush-white) 80%, transparent);
+}
+
+.delete-dialog__text {
+  margin: var(--space-8) 0 0;
+}
+
+.delete-dialog__error {
+  margin-top: var(--space-16);
+}
+
+.delete-dialog__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  margin-top: var(--space-24);
+}
+
+.delete-dialog__actions .button {
+  width: 100%;
+}
+
+@media (min-width: 48rem) {
+  .delete-dialog__actions {
+    flex-direction: row;
+  }
+
+  .delete-dialog__actions .button {
+    width: auto;
+  }
+}

@@ -38,6 +38,10 @@ _MISSING_FOR_AI_PROVIDER = "missing_for_ai_provider"
 
 _EMAIL = TypeAdapter(EmailStr)
 
+# The longest attempt window (FR-A4): one year. A longer one would overflow date arithmetic
+# while the app runs, so it stops the app at startup instead.
+MAX_ATTEMPT_WINDOW_MINUTES = 525_600
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -73,6 +77,11 @@ class Settings(BaseSettings):
     # summary. A larger value only raises the cost bound: the adapter rejects any summary over
     # 10,000 characters, and a model that hits this bound gives "AI unavailable".
     ai_summary_max_tokens: int = Field(default=16_000, ge=1, le=100_000)
+    # The most characters the matching entries may have for one summary: each entry's text,
+    # Result/Impact and tag names, added up (product-spec.md §7.4, issue #43). Above it, no
+    # summary is generated and the user is asked to narrow the filter. A cost limit, so it is
+    # a setting. A whole number of 1 or more.
+    ai_summary_max_input_characters: int = 50_000
     # Daily AI limits (product-spec.md §8, issue #15). A day runs from 00:00 to 24:00 UTC.
     # Whole numbers of 0 or more; 0 blocks that kind of request.
     ai_daily_suggestions_per_user: int = 10
@@ -82,6 +91,18 @@ class Settings(BaseSettings):
     # The shared demo account's email (FR-X1, issue #21). Empty or not set turns the demo off.
     # Stored in lower case, as registration stores emails, so it matches the users table.
     demo_email: str | None = None
+    # Login and demo-login attempt limits (FR-A4, issue #46). Whole numbers of 1 or more.
+    # Failed logins per email: after this many within the window, every login for that email
+    # is refused until the window ends. Wrong passwords on account deletion count too.
+    login_max_failed_attempts: int = 10
+    login_attempt_window_minutes: int = 15
+    # Demo-logins per visitor IP address within the window.
+    demo_login_max_attempts: int = 20
+    demo_login_window_minutes: int = 60
+    # The OpenTelemetry collector's OTLP/HTTP base URL (issue #74), such as
+    # http://localhost:4318. Empty or not set turns the export off: nothing is sent anywhere,
+    # and the JSON logs on stdout still carry trace and span IDs (app/telemetry.py).
+    otel_exporter_otlp_endpoint: str | None = None
 
     @field_validator("database_url")
     @classmethod
@@ -114,6 +135,21 @@ class Settings(BaseSettings):
             raise ValueError("must start with http:// or https://")
         return value
 
+    @field_validator("otel_exporter_otlp_endpoint", mode="before")
+    @classmethod
+    def _check_otlp_endpoint(cls, value: object) -> object:
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            raise ValueError("must be a URL starting with http:// or https://, or empty")
+        if not value.strip():
+            # An empty value, as in `OTEL_EXPORTER_OTLP_ENDPOINT=` in .env, turns export off.
+            return None
+        value = value.strip()
+        if not value.startswith(("http://", "https://")):
+            raise ValueError("must start with http:// or https://, or be empty to turn it off")
+        return value
+
     @field_validator(
         "ai_daily_suggestions_per_user",
         "ai_daily_summaries_per_user",
@@ -122,16 +158,22 @@ class Settings(BaseSettings):
     )
     @classmethod
     def _check_daily_limit(cls, value: object) -> int:
-        # Stricter than pydantic's int parsing, which also accepts "1.0", "+5" and "1_000".
-        if isinstance(value, int) and not isinstance(value, bool):
-            number = value
-        elif isinstance(value, str) and value.strip().isascii() and value.strip().isdigit():
-            number = int(value.strip())
-        else:
-            raise ValueError("must be a whole number of 0 or more")
-        if number < 0:
-            raise ValueError("must be a whole number of 0 or more")
-        return number
+        return _whole_number(value, minimum=0)
+
+    @field_validator("ai_summary_max_input_characters", mode="before")
+    @classmethod
+    def _check_summary_input_limit(cls, value: object) -> int:
+        return _whole_number(value, minimum=1)
+
+    @field_validator("login_max_failed_attempts", "demo_login_max_attempts", mode="before")
+    @classmethod
+    def _check_attempt_limit(cls, value: object) -> int:
+        return _whole_number(value, minimum=1)
+
+    @field_validator("login_attempt_window_minutes", "demo_login_window_minutes", mode="before")
+    @classmethod
+    def _check_attempt_window(cls, value: object) -> int:
+        return _whole_number(value, minimum=1, maximum=MAX_ATTEMPT_WINDOW_MINUTES)
 
     @field_validator("demo_email", mode="before")
     @classmethod
@@ -169,6 +211,27 @@ class Settings(BaseSettings):
                     f"'{origin}' must look like https://example.com, without a trailing slash"
                 )
         return value
+
+
+def _whole_number(value: object, *, minimum: int, maximum: int | None = None) -> int:
+    """A whole number of `minimum` or more (and at most `maximum`, if given).
+
+    From code or from an environment variable. Stricter than pydantic's int parsing, which
+    also accepts "1.0", "+5" and "1_000".
+    """
+    if maximum is None:
+        message = f"must be a whole number of {minimum} or more"
+    else:
+        message = f"must be a whole number from {minimum} to {maximum}"
+    if isinstance(value, int) and not isinstance(value, bool):
+        number = value
+    elif isinstance(value, str) and value.strip().isascii() and value.strip().isdigit():
+        number = int(value.strip())
+    else:
+        raise ValueError(message)
+    if number < minimum or (maximum is not None and number > maximum):
+        raise ValueError(message)
+    return number
 
 
 def load_settings() -> Settings:

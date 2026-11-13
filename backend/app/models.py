@@ -33,6 +33,10 @@ TAG_NAME_UNIQUE_INDEX = "uq_tags_user_id_lower_name"
 # Kinds of AI request counted per user and day.
 AI_REQUEST_TYPES = ("suggestion", "summary")
 
+# Kinds of attempt counted in login_attempts (FR-A4): failed logins per email, and
+# demo-logins per visitor IP address.
+ATTEMPT_KINDS = ("login", "demo")
+
 
 def _sql_list(values: tuple[str, ...]) -> str:
     return ", ".join("'" + value.replace("'", "''") + "'" for value in values)
@@ -187,3 +191,26 @@ class AiUsageGlobal(Base):
 
     day: Mapped[dt.date] = mapped_column(Date, primary_key=True)
     request_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+
+
+class LoginAttempt(Base):
+    """Login and demo-login attempts in the current window (FR-A4, issue #46).
+
+    One row per kind and key: `login` counts failed logins per email, `demo` counts
+    demo-logins per visitor IP address. The key is stored only as its SHA-256 hash, so the
+    table holds no readable email or IP. Rows whose window has ended are deleted whenever
+    new attempts are written (app/attempt_limits.py).
+    """
+
+    __tablename__ = "login_attempts"
+    __table_args__ = (
+        CheckConstraint(f"kind IN ({_sql_list(ATTEMPT_KINDS)})", name="kind"),
+        CheckConstraint("attempt_count >= 0", name="attempt_count"),
+        # The cleanup selects rows by the start of their window.
+        Index(None, "window_start"),
+    )
+
+    kind: Mapped[str] = mapped_column(Text, primary_key=True)
+    key_hash: Mapped[str] = mapped_column(Text, primary_key=True)
+    window_start: Mapped[dt.datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    attempt_count: Mapped[int] = mapped_column(Integer, nullable=False)

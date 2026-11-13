@@ -1,0 +1,21 @@
+/* The review page's tag filter (design note on #31). The input, the offered list and the
+   chips come from the entry form's tag field (TagField.css). Differences: the hint sits
+   4px under the input, and without a tag list the label is followed by "No tags yet." or
+   the error message in place of the field. */
+
+.tag-filter__hint {
+  max-width: none;
+}
+
+.tag-filter__label {
+  margin: 0;
+}
+
+.tag-filter__note {
+  margin: var(--space-8) 0 0;
+}
+
+.tag-filter__none {
+  font-size: var(--text-body-small-size);
+  color: var(--color-muted-plum-grey);
+}

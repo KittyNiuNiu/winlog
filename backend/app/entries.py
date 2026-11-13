@@ -17,6 +17,12 @@ Create:
 - Tag names are resolved with `resolve_tags` in the entry's own transaction, so a failed save
   stores neither the entry nor any new tag (§7.3).
 - Saving makes no AI call (§7.2).
+- Maximum sizes (issue #43, product-spec.md §6): text up to `MAX_ENTRY_TEXT_CHARACTERS`,
+  Result/Impact up to `MAX_RESULT_IMPACT_CHARACTERS` (also when it is only whitespace), up to
+  `MAX_TAGS_PER_ENTRY` tags as sent, and tag names as `app.tags.TagName` says. Lengths are
+  Unicode characters. A longer value is the shared validation error naming the field, and
+  nothing is saved. Entries saved before the limits existed can be longer: they are still
+  read and listed as they are, and only a new save is checked.
 
 Read, update and delete (FR-E4, FR-A3):
 
@@ -71,12 +77,18 @@ from app.auth import AuthenticateFirstRoute, CurrentUser
 from app.db import get_session
 from app.errors import ApiError
 from app.tags import FilterTagName, TagName, lookup_tags, resolve_tags
-from app.text_rules import is_blank, reject_unstorable_characters
+from app.text_rules import at_most, is_blank, reject_unstorable_characters
 
 router = APIRouter(tags=["Entries"], route_class=AuthenticateFirstRoute)
 
 # The four categories of openapi.yaml (components.schemas.Category), as in models.CATEGORIES.
 Category = Literal["Achievement", "Learning", "Feedback", "Side project"]
+
+# product-spec.md §6 and openapi.yaml (`EntryInput`): counted in Unicode characters. Fixed rules
+# of the data model, not settings (#43).
+MAX_ENTRY_TEXT_CHARACTERS = 2_000
+MAX_RESULT_IMPACT_CHARACTERS = 500
+MAX_TAGS_PER_ENTRY = 10
 
 # `format: date` in openapi.yaml: an RFC 3339 full-date, YYYY-MM-DD with ASCII digits.
 _FULL_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
@@ -122,8 +134,13 @@ def _blank_to_none(value: str | None) -> str | None:
 
 
 EntryText = Annotated[
-    str, AfterValidator(reject_unstorable_characters), AfterValidator(_require_text)
+    str,
+    AfterValidator(reject_unstorable_characters),
+    AfterValidator(_require_text),
+    AfterValidator(at_most(MAX_ENTRY_TEXT_CHARACTERS, "Text")),
 ]
+"""An entry's text (and a suggestion request's text): required, not only whitespace, storable,
+and at most `MAX_ENTRY_TEXT_CHARACTERS` characters."""
 EntryDate = Annotated[dt.date, BeforeValidator(_require_full_date)]
 EntryId = Annotated[uuid.UUID, BeforeValidator(_require_uuid), Path(alias="entryId")]
 """The `entryId` path parameter (components.parameters.EntryId)."""
@@ -133,9 +150,33 @@ def _reject_unstorable_optional(value: str | None) -> str | None:
     return value if value is None else reject_unstorable_characters(value)
 
 
+_check_result_impact_length = at_most(MAX_RESULT_IMPACT_CHARACTERS, "Result/Impact")
+
+
+def _check_result_impact_length_optional(value: str | None) -> str | None:
+    return value if value is None else _check_result_impact_length(value)
+
+
+# The length is checked before blank text becomes None, so an over-long Result/Impact that is
+# only whitespace is rejected too (#43).
 ResultImpact = Annotated[
-    str | None, AfterValidator(_reject_unstorable_optional), AfterValidator(_blank_to_none)
+    str | None,
+    AfterValidator(_reject_unstorable_optional),
+    AfterValidator(_check_result_impact_length_optional),
+    AfterValidator(_blank_to_none),
 ]
+
+
+def _check_tag_count(tags: list[str]) -> list[str]:
+    # Counted as sent, before names that match each other become one tag (`maxItems: 10`).
+    if len(tags) > MAX_TAGS_PER_ENTRY:
+        raise PydanticCustomError(
+            "too_many_tags", f"An entry can have at most {MAX_TAGS_PER_ENTRY} tags."
+        )
+    return tags
+
+
+EntryTags = Annotated[list[TagName], AfterValidator(_check_tag_count)]
 
 
 class EntryInput(BaseModel):
@@ -147,7 +188,7 @@ class EntryInput(BaseModel):
     text: EntryText
     date: EntryDate
     category: Category
-    tags: list[TagName] = []
+    tags: EntryTags = []
     result_impact: ResultImpact = None
 
 
