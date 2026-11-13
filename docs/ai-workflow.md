@@ -1977,3 +1977,37 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Kept from 2026-11-01: a required period, the disabled hints, one request per tap, usable filters while drafting, the progress text and the failure notices.
 - **How I verified it:** checked the issue against the definition of done in `docs/pm.md` (four sections, checkable criteria, every out-of-scope line links an issue). Confirmed in `frontend/src/` that `generateSummary`, `updateSummary` and the typed errors exist, that `GLOBAL_LIMIT_MESSAGE` and `DiscardDialog` can be reused as they are, and that `useLeavePrompt` blocks every navigation except to login, so the issue asks for it to let filter changes through. Read #32 back from GitHub: the body matches what I sent (plus the automatic footer), the title is unchanged and it still has no labels.
 - **Left open:** the panel width, its breakpoint, whether it stays in view on the laptop, focus after a draft arrives and exact wording are for the designer's note.
+
+## 2026-11-13: Engineer: implement #32 (Add summary generation to the review page)
+
+- **Task:** implement #32 (task 35) against its acceptance criteria and the design note (6847975619), following `docs/software-engineer.md`.
+- **What I did:**
+  - `frontend/src/review/SummaryPanel.tsx` and `.css`: the "Summary" panel as the design note describes.
+    - Without a draft it shows "Draft summary" (secondary, `Sparkles`) and its draft line.
+    - With a draft it shows the source line (focus target after a draft), the draft note, the "Summary text" field, "Save summary" (the only primary button), "Draft again" and the message slot.
+    - It sends one request per tap. An answer after leaving `/review` is dropped. "Draft again" uses `DiscardDialog` when there are unsaved edits. `useLeavePrompt` protects unsaved edits when leaving.
+  - `frontend/src/review/summaryDraft.ts`: the texts, the disabled rules in the note's priority order, the request body built from `parseFilter`'s filter, and the drafting and save notices.
+  - `frontend/src/components/summaryFilterText.ts`: the shared filter description for #33.
+  - `frontend/src/pages/ReviewPage.tsx` and `.css`: the filters and results are wrapped in one column and the panel follows it. From 75rem the layout is a two-column grid with a sticky 22.5rem panel; below that the panel sits 40px under the results, at most 40rem wide from 48rem.
+  - `frontend/src/entries/useLeavePrompt.tsx`: an opt-in `allowSamePath` option.
+  - `frontend/src/components/aiTexts.ts`: `GLOBAL_LIMIT_MESSAGE`, re-exported from `entries/suggestions.ts`.
+  - Tests: `pages/ReviewSummary.test.tsx` (55), `review/summaryDraft.test.ts` (15) and `review/summaryStyles.test.ts` (5), named after FR-R3, and FR-R5 for saving.
+  - Commits 7785d74, 9af89ce, 1fdfa9c; issue comment 6848280780.
+- **Decisions taken under the standing rule (2026-11-12, 2026-11-13), recorded in the issue:**
+  - `useLeavePrompt` gets an opt-in `allowSamePath` option instead of a new default, so the entry forms behave exactly as before. On `/review`, the Review navigation link with unsaved edits does not ask: it stays on the page and keeps the draft.
+  - "Draft again" takes focus before the discard dialog opens, because the native dialog returns focus to the element that had it and Safari does not focus clicked buttons. A failed "Draft again" then returns focus there.
+  - "Save summary" sends the text as typed, with only the whitespace check done client-side.
+  - No existing test changed.
+- **How I verified it:**
+  - Frontend: `npm run lint`, `npm test` (37 files, 860 tests, with no backend on localhost:8000, see #73) and `npm run build` pass.
+  - Backend is unchanged: `ruff check`, unit (823) and integration (882) tests pass.
+  - Manual check with `AI_PROVIDER=mock` (no real AI call), using `docker compose up -d db`, `uv run uvicorn` and the dev server in headless Chrome at 1280×800, 1000×800 and 360×740, in light and dark mode:
+    - The mock summary ("Mock summary of …") showed with its source line, and `GET /summaries` listed it.
+    - Saving an edit showed "Summary saved.".
+    - The third draft of the day showed the user-limit notice and kept the earlier draft.
+    - The panel is sticky on the laptop and below the results when narrower. There is no sideways scroll at any width.
+    - Filter changes did not ask. "Draft again" and leaving with unsaved edits asked "Discard changes?".
+- **Left open (also in the issue comment):**
+  - On the phone, the scroll after a draft stops at the page bottom when the panel is the last thing on the page.
+  - In dark mode the drafting notice has the same fill as the panel, so only its hairline sets it apart (for the design review).
+  - Pre-existing, not caused by #32: below 75rem the review filters sit 16px under the title because the margins collapse, while #31's CSS comment says 24px.
