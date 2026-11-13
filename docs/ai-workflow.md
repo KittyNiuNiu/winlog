@@ -2172,3 +2172,32 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
     - The inline "Back to summaries" link in the not-found message is 19px tall, which is fine for a link inside a sentence.
     - ISO dates in the mock text can break at a hyphen.
   - The per-user limit of 2 summaries a day was raised through environment variables only for the live checks (QA, designer): no file was changed.
+
+## 2026-11-13: PM: groom #43 (Enforce maximum input sizes)
+
+- **Task:** groom #43 (task 37), whose body dated from 2026-11-01, following `docs/pm.md`. It had no status label.
+  - Read its seven open-point comments: from #9 (the 9,000-character tag 500, limits at the API boundary), #7 and #20 (login and delete-account password limits in the contract), #11 (filter parameters), #18 (summary edit length), #27 (server tag errors on the entry form) and #32 (counter and too-much-text notice in the summary panel).
+  - Checked against `product-spec.md` v0.2 (§6, §7.2, §7.3, §7.4, §8), `openapi.yaml` (no `maxLength` except `Registration.password`; "no field size limits yet"), `DESIGN.md` (Inputs / Fields, Summary panel, Don'ts) and the code:
+    - backend: `app/entries.py`, `app/tags.py`, `app/text_rules.py`, `app/suggestions.py`, `app/summaries.py`, `app/accounts.py`, `app/ai/adapter.py` (`MAX_SUMMARY_CHARACTERS`), `app/errors.py`, `app/settings.py`, `.env.example`, `app/demo_seed.py`;
+    - frontend: `entries/EntryForm.tsx`, `entries/TagField.tsx`, `entries/tagNames.ts`, `entries/suggestions.ts`, `entries/entryTexts.ts`, `components/TextField.tsx`, `components/summaryEditor.ts`, `review/SummaryPanel.tsx`, `review/summaryDraft.ts`, `review/TagFilterField.tsx`, `auth/validation.ts`, `api/errors.ts`.
+  - Kept #83, #84, #36 and #46 out, and read #58, #61, #72 and #86 so nothing from them is pulled in.
+- **What I did:**
+  - Rewrote #43 with the task template: the limits table, then criteria for the contract, backend, entry form, summary editors, API client, all screens and tests.
+  - Created follow-up #88 (number of filter values, and whole request size). Added input comments to #86 (suggested tags dropped by the 10-tag cap), #61 (the new variable in Docker Compose) and #83 (the counter pattern in `DESIGN.md`).
+  - No labels changed.
+- **Decisions taken under the standing rule (2026-11-12, re-confirmed 2026-11-13), recorded in the issue:**
+  - Counters do not block typing. Past a limit, the counter shows the length in the error colour and the check before saving stops the save, with "Shorten the … to N characters, then save.". This replaces "stops typing", so pastes are never cut, longer legacy data can still be edited, and the count is in code points (HTML `maxlength` counts UTF-16 units).
+  - Tag names and the number of tags are measured as sent, so the contract's `maxLength: 40` and `maxItems: 10` are exact. The form trims first.
+  - Filter tag names (`GET /entries` `tag`, `SummaryFilter.tags`) get the 40-character limit. The number of filter values and the whole request size go to #88, because the spec sets no value.
+  - New error: 422 `summary_input_too_large`, checked after `no_matching_entries` and before the daily limits, so it never counts. Variable: `AI_SUMMARY_MAX_INPUT_CHARACTERS`, default 50000, whole number of 1 or more.
+  - Login and delete-account passwords: `minLength: 1` and `maxLength: 128` in the contract only; the backend already enforces them.
+  - Server tag errors keep #27's "Check your tags, then save." and the fold opening. New form messages: "Tags can be up to 40 characters." and "Up to 10 tags per entry.".
+  - "Suggest category and tags" is disabled while the text is over 2,000 characters. Suggestions add tags only up to 10; the backend drops suggested names over 40 before taking 5.
+  - The too-much-text notice is in the #32 summary panel; the 10,000-character counter is on both summary editors.
+  - No database migration or CHECK constraint.
+- **How I verified it:**
+  - Checked the issue against the definition of done in `docs/pm.md`: four sections, checkable criteria, and every out-of-scope line links an issue.
+  - Measured the demo sample data with the backend's own module: the longest text has 145 characters, the longest Result/Impact 93, at most 2 tags of at most 15 characters, and 3,444 characters for all entries together, so it fits every limit.
+  - Confirmed that CI lints the contract with `npx --yes @redocly/cli@2 lint openapi.yaml` and that `npm run generate:api` regenerates `schema.d.ts`.
+  - Read #43 back from GitHub: the body matches what I sent (plus the automatic footer), the title is unchanged and it has no labels.
+- **Left open:** for the designer's note, the counter's layout and how it is announced to screen readers, and the exact wording of the new messages and the panel notice.
