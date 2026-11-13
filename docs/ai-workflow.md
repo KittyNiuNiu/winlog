@@ -3069,3 +3069,55 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - When Docker itself fails, the script prints one extra harmless "could not stop the db service" line (engineer).
   - QA's "port 5432 taken" test left the db container without its port mapping; QA recreated it with the volume kept, which affected nothing in the repository.
   - The leaking-tests point from #31 (comment 6847148338) is resolved by this task.
+
+## 2026-11-13: PM: groom #74 (instrument a key user journey with metrics, traces and structured logs)
+
+- **Task:** groom #74, which had no status label, following `docs/pm.md`. The product owner fixed the requirement on 2026-11-11, and decided "locally first, cloud later": the collector, storage and viewer UI run in Docker Compose, and hosted telemetry comes after #39.
+  - Read the issue and both comments: 6851825546 from #43 (the access log writes `?tag=<name>`) and 6857512446 from #46 (the access log can print the `X-Forwarded-For` address).
+  - Read `docs/process.md`, `docs/task-template.md`, `docs/product-spec.md` (§8, §9, §10, §14), `AGENTS.md`, `docker-compose.yml`, `backend/Dockerfile`, `.env.example` and `.github/workflows/ci.yml`.
+  - Read the backend's logging sites (`app/ai/adapter.py`, `app/ai/openai_compatible.py`), `app/main.py`, `app/errors.py`, `app/db.py`, `app/settings.py`, `app/summaries.py` and `app/ai/limits.py`.
+- **What I did:**
+  - Rewrote the issue body with the task template. The product owner's requirement and decision are kept word for word.
+    - The criteria cover the journey's spans, metrics and logs and every endpoint outcome, the generic per-request signals, and the access log.
+    - They also cover the privacy allowlist and its tests, running without a collector, the Compose service, a CI check, and the spec and `AGENTS.md` text.
+  - Posted the grooming comment: https://github.com/KittyNiuNiu/winlog/issues/74#issuecomment-6863038040
+  - Created follow-up #92 (hosted telemetry from the deployed environments, after #39) and linked it under Out of scope.
+  - No labels changed.
+- **Decisions taken under the standing rule (2026-11-12, re-confirmed 2026-11-13), recorded in the issue:**
+  - **Journey:** generating a summary (`POST /summaries`), with the mock AI. Every request also gets a SERVER span, the `http.server.request.duration` metric and a `request finished` JSON log line.
+  - **Spans:** `POST /summaries`, `summary.select_entries`, `ai.limits.reserve`, `ai.summarise`, `summary.save`.
+  - **Metrics:** `http.server.request.duration`, `winlog.summary.generate.requests` (by `winlog.outcome`) and `winlog.ai.request.duration`.
+  - **Logs:** JSON lines on stdout and over OTLP, with `trace_id` and `span_id`.
+  - **Trace ID:** the trace stays in the backend. The frontend is not instrumented, and incoming `traceparent`, `tracestate` and `baggage` headers are ignored. The trace ID is not put in a response header, so there is no API change.
+  - **Tools:** the OpenTelemetry Python SDK, and `grafana/otel-lgtm:0.39.0` as one Compose service. It has a named volume at `/data` and ports bound to `127.0.0.1`. Grafana's Explore view is the UI; there are no new dashboards.
+    - Licences: the SDK, the Collector and Prometheus are Apache-2.0; Grafana, Loki and Tempo are AGPL-3.0. Winlog runs the image unmodified and locally, and does not distribute it, so there is no obligation.
+    - Rejected: Aspire Dashboard (in memory only), Jaeger (traces only), OpenObserve, SigNoz and ClickStack (heavier).
+  - **New Python dependencies:** `opentelemetry-api`, `opentelemetry-sdk` and `opentelemetry-exporter-otlp-proto-http`. HTTP rather than gRPC, which would add `grpcio`. No auto-instrumentation packages, no JSON logging library, no npm change.
+  - **Privacy:** an allowlist enforced in one module, `app/telemetry.py`. Only `app` loggers are exported, and spans use `record_exception=False` and `set_status_on_exception=False`.
+    - Never in telemetry: user ids, emails, IPs, tag names, query strings, AI content or exception messages, nor the existing entry text, summaries, passwords and tokens.
+    - Tested by a marker-string integration test and by unit tests.
+  - **Access log:** uvicorn's access log is off, and the app's `request finished` line replaces it. This settles the #43 and #46 comments.
+  - **Configuration:** one new setting, `OTEL_EXPORTER_OTLP_ENDPOINT`. It is empty by default, which means no export, and Compose sets it for the backend. The metric interval is fixed at 10 seconds.
+  - **Tests:** they use in-memory exporters and never connect to port 4318.
+  - **Spec:** a new §9 Observability row and an updated Reproducibility row, a new §10.2 Observability row, and a §14 line. The exact text is in the issue.
+  - **`AGENTS.md`:** changes to Commands (Full system), Backend conventions (privacy rule, `app/telemetry.py`) and Testing.
+  - **Screens:** none change, so there is no design note.
+- **How I verified facts:**
+  - **PyPI:** OpenTelemetry 1.45.2 (Apache-2.0, Python ≥ 3.10); the instrumentation packages are 0.66b2. The OTLP/HTTP exporter depends on `requests`, `protobuf` and `googleapis-common-protos`; the gRPC exporter needs `grpcio`.
+  - **SDK 1.45.2 sources:**
+    - `LoggingHandler` is deprecated and exports every `extra` field and stack traces.
+    - The logs API is still `_logs`.
+    - `start_as_current_span` records the exception message and stack trace by default, and puts the message in the status description.
+    - An explicit exporter `endpoint` is the full URL including `/v1/<signal>`.
+    - `OTEL_METRIC_EXPORT_INTERVAL` defaults to 60 s.
+  - `app/db.py` already sets `hide_parameters=True`.
+  - **Docker Hub:** `otel-lgtm` 0.39.0 was published on 2026-10-30. It is about 958 MB compressed on amd64.
+  - **Pull in this session:** the pull worked through the proxy in 49 s, and the image is 3.8 GB on disk. In a probe container, which I removed afterwards:
+    - it used about 0.45 GB of RAM when idle;
+    - Grafana answered `/api/datasources` without a login (uids `tempo`, `loki`, `prometheus`);
+    - test OTLP/HTTP JSON signals sent to 4318 came back through Grafana's datasource proxy: the trace by ID from Tempo, a log with `trace_id` from Loki, and the metric as `winlog_summary_generate_requests_total` from Prometheus.
+  - `aspire.dev` and `grafana.com` cannot be reached from this session. The Aspire facts (in memory, nothing kept after a restart) come from search results; the LGTM facts come from the GitHub README and the probe.
+  - No product code written, and no AI call.
+- **Left open:** none for grooming. Two notes for the engineer:
+  - The Prometheus names of the two histograms (`*_seconds`) follow the default translation; only the counter's name was checked in the probe.
+  - The `grafana/otel-lgtm:0.39.0` image stays in this session's Docker cache.
