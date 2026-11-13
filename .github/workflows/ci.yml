@@ -7,7 +7,8 @@
 # Actions used, each pinned to at least a major version:
 # - actions/checkout@v7: checks out the repository.
 # - actions/setup-node@v7: installs Node from frontend/.nvmrc and caches npm downloads.
-# - actions/upload-artifact@v7: uploads the viewport screenshots of the Frontend job (#36).
+# - actions/upload-artifact@v7: uploads the viewport screenshots of the Frontend job (#36) and,
+#   when the Full system job fails, the end-to-end test's trace and screenshot (#37).
 # - astral-sh/setup-uv@v10.3.3: installs uv and caches uv downloads. setup-uv publishes no
 #   floating major tag (such as v10), so it is pinned to its exact release.
 # Python comes from backend/.python-version: `uv python install` reads that file.
@@ -185,6 +186,8 @@ jobs:
 
   full-system:
     name: Full system
+    # Starts only after the other checks pass, so a broken build does not spend the time.
+    needs: [contract, backend, frontend]
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -226,6 +229,36 @@ jobs:
             echo "GET $path -> $status"
             [ "$status" = "200" ] || { echo "::error::GET $path returned $status"; exit 1; }
           done
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: frontend/.nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Chromium for the end-to-end test
+        # The browser that matches the pinned @playwright/test version, with its system libraries.
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: End-to-end test
+        # The main user flow in Chromium against the running system with the mock AI provider
+        # (#37). The base URL is the default, http://localhost:8080 (the frontend container).
+        working-directory: frontend
+        run: npm run test:e2e
+
+      - name: Upload the end-to-end test output
+        # The trace and the screenshot of a failed test.
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-results
+          path: frontend/e2e-results/
+          if-no-files-found: warn
 
       - name: Print the service logs
         if: failure()
