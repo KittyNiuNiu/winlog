@@ -1,0 +1,91 @@
+/* The summary panel (design note on #32). A white panel (Peach wash in dark mode) with a
+   hairline border and no shadow (Flat Rows Rule). Phone: below the results, full column
+   width, 20px padding. From 48rem: 24px padding, at most 40rem wide. From 75rem it sits
+   in the right column of the review page and stays in view (ReviewPage.css). Inside: the
+   title, then the draft (source line, note, text field, Save summary), then the draft
+   button with its line or the progress line, then the message slot. Buttons are stacked
+   full width at every width. */
+
+.summary-panel {
+  min-width: 0;
+  margin-top: var(--space-40);
+  padding: var(--space-20);
+  background: var(--color-paper-white);
+  border: var(--border-hairline) solid var(--color-hairline);
+  border-radius: var(--radius-panel);
+  overflow-wrap: anywhere;
+}
+
+.summary-panel__title {
+  margin: 0;
+  font-size: var(--text-headline-panel-size);
+  line-height: var(--text-headline-line-height);
+  letter-spacing: var(--text-headline-letter-spacing);
+  color: var(--color-aubergine-ink);
+}
+
+.summary-panel__body {
+  margin-top: var(--space-12);
+}
+
+/* Which entries the draft is from. It takes focus when a draft arrives. */
+.summary-panel__source {
+  margin: 0;
+  font-size: var(--text-label-size);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-aubergine-ink);
+  overflow-wrap: anywhere;
+}
+
+.summary-panel__note {
+  margin: var(--space-4) 0 0;
+  font-size: var(--text-body-small-size);
+  color: var(--color-muted-plum-grey);
+}
+
+.summary-panel__field {
+  margin-top: var(--space-16);
+}
+
+.summary-panel__field .field__input--area {
+  min-height: 12rem;
+  resize: vertical;
+}
+
+.summary-panel .button {
+  width: 100%;
+}
+
+.summary-panel__save {
+  margin-top: var(--space-16);
+}
+
+.summary-panel__save + .summary-panel__draft {
+  margin-top: var(--space-12);
+}
+
+/* The draft line (count or hint) and the progress line, in one place under the button.
+   Empty, they take no space; the progress line stays in the page to be announced. */
+.summary-panel__line {
+  margin: 0;
+  font-size: var(--text-body-small-size);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-muted-plum-grey);
+}
+
+.summary-panel__line:not(:empty) {
+  margin-top: var(--space-8);
+}
+
+/* The message slot: a drafting notice, a save error or "Summary saved.", 12px below. */
+.summary-panel__messages > :not(:empty) {
+  margin-top: var(--space-12);
+}
+
+@media (min-width: 48rem) {
+  .summary-panel {
+    max-width: 40rem;
+    padding: var(--space-24);
+  }
+}

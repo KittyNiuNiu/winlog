@@ -1,9 +1,14 @@
-/* The review page (design note on #31). One column at the page's default width, so #32
-   can add the summary panel to the right later. Phone: the title, the "Filters" toggle,
+/* The review page (design notes on #31 and #32). Phone: the title, the "Filters" toggle,
    the collapsible filter panel 16px below it, then the results 24px below. Laptop: the
-   filters always shown 24px below the title, then the results 32px below. */
+   filters always shown 24px below the title, then the results 32px below. The summary
+   panel (SummaryPanel.css) sits 40px below the results; from 75rem it is a 22.5rem column
+   32px right of the filters and results, and stays in view while the entries scroll. */
 
 .review-page {
+  min-width: 0;
+}
+
+.review-page__main {
   min-width: 0;
 }
 
@@ -177,5 +182,25 @@
 
   .review-page__results {
     margin-top: var(--space-32);
+  }
+}
+
+@media (min-width: 75rem) {
+  .review-page__layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 22.5rem;
+    column-gap: var(--space-32);
+    align-items: start;
+  }
+
+  /* Its top is level with the top of the filter area. If the window is shorter than the
+     panel, it scrolls inside itself, so Save summary stays within reach. */
+  .review-page__layout > .summary-panel {
+    position: sticky;
+    top: var(--space-24);
+    max-width: none;
+    max-height: calc(100dvh - 2 * var(--space-24));
+    margin-top: var(--space-8);
+    overflow-y: auto;
   }
 }

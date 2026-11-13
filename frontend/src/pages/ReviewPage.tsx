@@ -24,6 +24,7 @@ import {
   type ReviewFilter,
 } from '../review/reviewFilter.ts'
 import { DATE_ORDER_ERROR, NO_ENTRIES_TEXT, NO_MATCH_TEXT, entryCountText } from '../review/reviewTexts.ts'
+import SummaryPanel from '../review/SummaryPanel.tsx'
 import TagFilterField, { type TagsLoad } from '../review/TagFilterField.tsx'
 import { useDateDraft } from '../review/useDateDraft.ts'
 import '../components/categories.css'
@@ -49,7 +50,8 @@ function groupByCategory(entries: readonly Entry[]): CategoryGroup[] {
 
 // The review page (FR-R1, FR-R2; design note on #31): filters by period, categories and
 // tags, kept in the URL, and the matching entries grouped by category, then by month.
-// Results update by themselves whenever the filter changes.
+// Results update by themselves whenever the filter changes. The summary panel (FR-R3 to
+// FR-R5, #32) drafts a summary of exactly the entries shown.
 export default function ReviewPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const search = searchParams.toString()
@@ -71,6 +73,8 @@ export default function ReviewPage() {
   // While loading, the previous results stay; after a failure, only the loading line shows.
   const result = !dateError && shown?.status === 'loaded' ? shown : null
   const failure = !dateError && !loading && shown?.status === 'failed' ? shown : null
+  // The entries shown for the current filter, or null while they load or after they failed.
+  const entryCount = !loading && result !== null ? result.entries.length : null
   const toggleRef = useRef<HTMLButtonElement>(null)
   const firstChipRef = useRef<HTMLDivElement>(null)
   const id = useId()
@@ -210,98 +214,103 @@ export default function ReviewPage() {
   return (
     <section className="page review-page">
       <h1>Review</h1>
-      {!laptop && (
-        <Button
-          ref={toggleRef}
-          className="review-page__toggle"
-          variant="secondary"
-          aria-expanded={panelShown}
-          aria-controls={panelId}
-          onClick={() => setPanelOpen(dateError ? true : !panelShown)}
-        >
-          Filters
-          {inUse > 0 && ' '}
-          {inUse > 0 && (
-            <span className="review-page__count">
-              {inUse}
-              {/* A whitespace text node: it shows nothing in the badge but separates the words. */}
-              {' '}
-              <span className="visually-hidden">in use</span>
-            </span>
+      <div className="review-page__layout">
+        <div className="review-page__main">
+          {!laptop && (
+            <Button
+              ref={toggleRef}
+              className="review-page__toggle"
+              variant="secondary"
+              aria-expanded={panelShown}
+              aria-controls={panelId}
+              onClick={() => setPanelOpen(dateError ? true : !panelShown)}
+            >
+              Filters
+              {inUse > 0 && ' '}
+              {inUse > 0 && (
+                <span className="review-page__count">
+                  {inUse}
+                  {/* A whitespace text node: it shows nothing in the badge but separates the words. */}
+                  {' '}
+                  <span className="visually-hidden">in use</span>
+                </span>
+              )}
+            </Button>
           )}
-        </Button>
-      )}
-      {filters}
-      <div className="review-page__results">
-        {loading && (
-          <div className="review-page__state">
-            <p className="review-page__loading" role="status">
-              <span className="spinner" aria-hidden="true" />
-              Loading entries…
+          {filters}
+          <div className="review-page__results">
+            {loading && (
+              <div className="review-page__state">
+                <p className="review-page__loading" role="status">
+                  <span className="spinner" aria-hidden="true" />
+                  Loading entries…
+                </p>
+                <Message variant="info">{wakingUp ? WAKING_UP_MESSAGE : null}</Message>
+              </div>
+            )}
+            {failure !== null && (
+              <div className="review-page__state">
+                <Message variant="error">{failure.message}</Message>
+                <div>
+                  <Button variant="secondary" onClick={() => setAttempt((count) => count + 1)}>
+                    Try again
+                  </Button>
+                </div>
+              </div>
+            )}
+            <p className="review-page__total" role="status">
+              {result === null ? '' : entryCountText(result.entries.length)}
             </p>
-            <Message variant="info">{wakingUp ? WAKING_UP_MESSAGE : null}</Message>
+            {result !== null && result.entries.length === 0 && (
+              <EmptyState
+                illustration={<ReviewIllustration />}
+                action={
+                  result.filtered ? (
+                    clearButton
+                  ) : (
+                    <ButtonLink variant="secondary" to="/entries/new">
+                      New entry
+                    </ButtonLink>
+                  )
+                }
+              >
+                {result.filtered ? NO_MATCH_TEXT : NO_ENTRIES_TEXT}
+              </EmptyState>
+            )}
+            {result !== null && result.entries.length > 0 && (
+              <div className="review-page__groups" aria-busy={loading}>
+                {groupByCategory(result.entries).map((group, index) => {
+                  const headingId = `${id}-category-${index}`
+                  return (
+                    <section className="review-page__category" key={group.category} aria-labelledby={headingId}>
+                      <h2 id={headingId} className="review-page__category-heading">
+                        <span className={`review-page__dot ${categoryClassName(group.category)}`} aria-hidden="true" />
+                        <span>{group.category}</span>{' '}
+                        <span className="review-page__category-count">{entryCountText(group.entries.length)}</span>
+                      </h2>
+                      {groupByMonth(group.entries).map((month) => {
+                        const monthId = `${headingId}-${month.key}`
+                        return (
+                          <section className="review-page__month" key={month.key} aria-labelledby={monthId}>
+                            <h3 id={monthId}>{month.heading}</h3>
+                            <ul className="review-page__list">
+                              {month.entries.map((entry) => (
+                                <li key={entry.id}>
+                                  <EntryRow entry={entry} tags={entry.tags} />
+                                </li>
+                              ))}
+                            </ul>
+                          </section>
+                        )
+                      })}
+                    </section>
+                  )
+                })}
+              </div>
+            )}
           </div>
-        )}
-        {failure !== null && (
-          <div className="review-page__state">
-            <Message variant="error">{failure.message}</Message>
-            <div>
-              <Button variant="secondary" onClick={() => setAttempt((count) => count + 1)}>
-                Try again
-              </Button>
-            </div>
-          </div>
-        )}
-        <p className="review-page__total" role="status">
-          {result === null ? '' : entryCountText(result.entries.length)}
-        </p>
-        {result !== null && result.entries.length === 0 && (
-          <EmptyState
-            illustration={<ReviewIllustration />}
-            action={
-              result.filtered ? (
-                clearButton
-              ) : (
-                <ButtonLink variant="secondary" to="/entries/new">
-                  New entry
-                </ButtonLink>
-              )
-            }
-          >
-            {result.filtered ? NO_MATCH_TEXT : NO_ENTRIES_TEXT}
-          </EmptyState>
-        )}
-        {result !== null && result.entries.length > 0 && (
-          <div className="review-page__groups" aria-busy={loading}>
-            {groupByCategory(result.entries).map((group, index) => {
-              const headingId = `${id}-category-${index}`
-              return (
-                <section className="review-page__category" key={group.category} aria-labelledby={headingId}>
-                  <h2 id={headingId} className="review-page__category-heading">
-                    <span className={`review-page__dot ${categoryClassName(group.category)}`} aria-hidden="true" />
-                    <span>{group.category}</span>{' '}
-                    <span className="review-page__category-count">{entryCountText(group.entries.length)}</span>
-                  </h2>
-                  {groupByMonth(group.entries).map((month) => {
-                    const monthId = `${headingId}-${month.key}`
-                    return (
-                      <section className="review-page__month" key={month.key} aria-labelledby={monthId}>
-                        <h3 id={monthId}>{month.heading}</h3>
-                        <ul className="review-page__list">
-                          {month.entries.map((entry) => (
-                            <li key={entry.id}>
-                              <EntryRow entry={entry} tags={entry.tags} />
-                            </li>
-                          ))}
-                        </ul>
-                      </section>
-                    )
-                  })}
-                </section>
-              )
-            })}
-          </div>
-        )}
+        </div>
+        <SummaryPanel filter={filter} entryCount={entryCount} />
       </div>
     </section>
   )

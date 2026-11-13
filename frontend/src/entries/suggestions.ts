@@ -3,6 +3,7 @@
 // failed request. Suggestions fill only what is still empty and never override the user.
 import { AiUnavailableError, LimitReachedError, type Category, type Suggestion } from '../api/index.ts'
 import { unexpectedErrorMessage } from '../auth/requestErrors.ts'
+import { GLOBAL_LIMIT_MESSAGE } from '../components/aiTexts.ts'
 import { addTagNames, sameName } from './tagNames.ts'
 
 export const SUGGEST_LABEL = 'Suggest category and tags'
@@ -19,7 +20,8 @@ export const SUGGESTIONS_UNAVAILABLE_MESSAGE =
   "Suggestions aren't available right now. You can fill in the fields yourself."
 export const USER_SUGGESTION_LIMIT_MESSAGE =
   "You've used today's suggestions. They're available again after midnight UTC."
-export const GLOBAL_LIMIT_MESSAGE = "Winlog has reached today's AI limit for everyone. Try again after midnight UTC."
+// Shared with the summary panel; exported here too, as before (#28).
+export { GLOBAL_LIMIT_MESSAGE }
 
 /** The notice for a failed suggestion request. It never shows the server's message. */
 export function suggestionNoticeOf(error: unknown): string {
