@@ -2739,3 +2739,32 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - On the edit and summary pages a retry is detected with `attempt > 0`, which would stay set if the route id changed while the page stays mounted. No link does that today (engineer).
   - The outline is not shown on "Try the demo" after a mouse-started failed demo, which is better than the note expected. An outline that is already shown stays when a keyboard-focused button is then clicked, which is Chromium behaviour (designer).
   - The shared local database had used today's global AI limit, so QA and the designer raised `AI_DAILY_*` through the environment only, still with the mock provider (QA, designer).
+
+## 2026-11-13: PM: re-groom #36 (check every screen on mobile and desktop)
+
+- **Task:** re-groom #36, labelled `groomed` since 2026-11-01, because that grooming predates `DESIGN.md` (2026-11-11) and most screens of this batch (#29–#35, #43, #46, #77, #83, #84). Followed `docs/pm.md`.
+  - Read the body and its eight input comments (from #26, #27, #30, #31, #77, #32 and #35 twice), `DESIGN.md` (with the #83 patterns and the #84 busy line), `PRODUCT.md`, `docs/product-spec.md` §3 and §9, `docs/process.md`, #37, #83, #84 and #90.
+  - Read the frontend: `routes.tsx`, `RouteGuards`, `AppShell`, `DemoNotice`, `Message`, `TextField.css`, `index.css`, `AuthForm.css`, `EntriesPage`, `NewEntryPage`, `EditEntryPage`, `ReviewPage.css`, `SummaryPanel`, `SummaryPage`, `NotFoundPage`, `inputLimits.ts`, the summary and settings texts, and the Frontend job in `.github/workflows/ci.yml`.
+  - Kept #37, #73, #74 and #87–#89 out.
+- **What I did:**
+  - Rewrote #36 with the task template. Criteria cover the Playwright set-up, the screen and state list as built (including the More menu, the summary panel's three states, the demo notice on four pages, dialogs, the settings step, missing entry and summary, long content), the checks every test makes, quick capture, field focus indicators, and the fixes.
+  - Created #91 (screen-reader check of messages hidden until filled, from #26; screens at a larger text size, from #30).
+  - Added two visual questions to #90 (idle "Draft summary" fill; demo notice width at 1280): https://github.com/KittyNiuNiu/winlog/issues/90#issuecomment-6859768376
+  - No labels changed.
+- **Decisions taken under the standing rule (2026-11-12, re-confirmed 2026-11-13), recorded in the issue:**
+  - Kept every 2026-11-01 decision the product owner approved in advance, except where `DESIGN.md` now differs: "text columns no wider than 960px" becomes `DESIGN.md`'s content area of at most 64rem and text lines of at most 68ch; the capture button is "Save entry".
+  - A link is exempt from 44×44 only when its paragraph or message holds other words; a link alone in its line must be 44px tall. This settles #27's "Back to entries" (exempt) and makes "Go to your entries" on "Page not found" a fix.
+  - In this task as simple fixes: the review page's 24px gap below the title from 48rem and its CSS comment (#31), and the focus outline of "Create your own account" touching the text above (#35).
+  - Text fields' `outline: none` is `DESIGN.md`'s design (plum border and focus glow); a test confirms it on every field in light and dark mode (#77).
+  - No change: "Log out" at 360px is now in the More menu (#26); font sizes are already in rem (#30); the `/login` content below the first screen at 360×640 was accepted by #35's design note.
+  - To #90: idle "Draft summary" fill and the demo notice width. To #91: screen reader and larger text.
+  - Screenshots in light mode only; dark mode is checked for the focus look and the demo link outline.
+  - `@playwright/test` pinned to exactly 1.63.0, matching the pre-installed Chromium 1243 in the cloud session; CI installs its browser with `npx playwright install --with-deps chromium`.
+  - The task changes screens (the fixes), so it gets a design note and a design review.
+- **How I verified it:**
+  - Checked the issue against the definition of done in `docs/pm.md`: four sections, checkable criteria, every out-of-scope line links an issue.
+  - Checked in the code: font sizes are rem tokens (`index.css`); the review filter margin collapses into the title's 16px margin below 75rem (`ReviewPage.css`); "Log out" is in the phone More menu (`AppShell.tsx`); fields show focus with border and glow (`TextField.css`).
+  - Checked the environment: `/opt/pw-browsers` holds Chromium revision 1243, which `playwright-core` 1.63.0's `browsers.json` names (1.65.0, the latest on npm, names 1254); the `--with-deps` install option is in the 1.63.0 CLI; Playwright's licence is Apache-2.0. playwright.dev and the `actions/upload-artifact` releases could not be reached from this session, so the engineer checks the upload action's major version.
+  - Read #36 back through the API: the body is updated and the only label is still `groomed`.
+  - No code run, and no AI call.
+- **Left open:** none for grooming.
