@@ -3045,3 +3045,27 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Left open:**
   - The script was checked with this session's bash 5, not with macOS's bash 3.2 itself; it avoids every bash-4 feature the issue lists.
   - When Docker itself fails, the script still tries `docker compose stop db` at the end and prints "could not stop the db service". Harmless, but a second message.
+
+## 2026-11-13: Orchestrator: closed #73 (task 43, all unit and integration tests with one command)
+
+- **Outcome:**
+  - The PM groomed it (06b0394, grooming comment 6861197467).
+  - The engineer implemented it in 7f4d0b3, 9c421f4, 63dd8f5, bd4348b and 8be7839 (6861978092).
+  - QA PASS (6862795222): every case from the Constraints was run, and GitHub Actions run 43486224280 passed all 5 jobs, including the new Tests job.
+  - The task changes no screens, so there was no design note or review.
+  - Closed as completed; the last status label `implemented` stays. No real AI calls.
+- **Decisions accepted under the 2026-11-12 standing rule:**
+  - PM:
+    - `./test-all.sh` in the repo root runs backend unit, backend integration and frontend `npm test`. Viewport (#36) and e2e (#37) tests stay separate.
+    - Bash 3.2-compatible, with no new dependency.
+    - Starts the db and stops it only if the script started it; never `down -v`.
+    - Every suite runs, a summary is printed, and the exit code is 0 only if all pass.
+    - A new CI "Tests" job replaces the duplicate test steps.
+    - `AGENTS.md` updated, and spec §9 Testability plus a §14 line, as the product owner's issue invited.
+    - The leaking frontend tests are fixed in this task, because the requirement says the tests must pass.
+  - Engineer: the network is blocked in `frontend/src/test/` with `vi.stubGlobal('fetch', …)`, so the ESLint rule against `globalThis.fetch` outside `src/api/` holds. No app code changed and no test was changed or removed.
+- **Where each open point went (all left in this log):**
+  - The script was run with bash 5 only; bash 3.2 compatibility was checked by reading (engineer, QA).
+  - When Docker itself fails, the script prints one extra harmless "could not stop the db service" line (engineer).
+  - QA's "port 5432 taken" test left the db container without its port mapping; QA recreated it with the volume kept, which affected nothing in the repository.
+  - The leaking-tests point from #31 (comment 6847148338) is resolved by this task.
