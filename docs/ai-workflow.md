@@ -2804,3 +2804,41 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - The first CI run is the first check of the Playwright browser install and of Node 26.
   - The chore commit 4302376 does not type-check on its own; it needs `viewport/settings.ts` from the next commit.
   - Issue comment: https://github.com/KittyNiuNiu/winlog/issues/36#issuecomment-6860266343
+
+## 2026-11-13: Orchestrator: closed #36 (task 41, check every screen on mobile and desktop)
+
+- **Outcome:**
+  - The PM re-groomed it (33a2019); the 2026-11-01 grooming predated `DESIGN.md` and most screens. The design note was posted (issue comment 6859920352).
+  - The engineer implemented it: fixes f5c970d, d62918a and e10ec81; Playwright 1.63.0 in 4302376; the viewport tests in 7b3cb38; CI in 361b7cc (6860266343).
+  - QA PASS (6860452507), with the regression checks done by reverting the fixes. CI run 43473921550 passed, including the viewport tests and the screenshot upload.
+  - Design review PASS (6860575789).
+  - Closed as completed; the last status label `qa-passed` stays. No backend change and no AI calls.
+- **Decisions accepted under the 2026-11-12 standing rule:**
+  - PM:
+    - Kept the product owner's 2026-11-01 decisions, with two changes to follow `DESIGN.md`: "text columns at most 960px" became a content area of at most 64rem with text lines of at most 68ch, and the capture button is "Save entry".
+    - The screen list follows the routes and states as built.
+    - A link is exempt from the 44px rule only inside running text, so "Go to your entries" became a fix.
+    - Fixes in scope: the review gap and its CSS comment, and the demo link's outline.
+    - The `/login` focus look is `DESIGN.md`'s border and glow, now tested.
+    - Font sizes are in rem, so nothing to change.
+    - Light screenshots only; dark mode only where it differs.
+    - Pinned `@playwright/test` 1.63.0 to match the preinstalled Chromium.
+    - New follow-up #91 (screen reader, larger text). Two visual questions added to #90.
+  - Designer:
+    - 24px from the title to the filters from 48rem, built on the title, with no merging margins.
+    - "Go to your entries" is a 44px link box as wide as its text, still a plain underlined link.
+    - 8px above "Create your own account", with the outline unchanged.
+    - Rules for classifying what the tests find.
+  - Engineer:
+    - Only the five named links are exempt.
+    - The 68ch check measures the text lines, not the writing nudge's full-width box.
+    - The open tag list covering the content is documented behaviour.
+    - `actions/upload-artifact@v7`.
+    - CI job timeout raised from 15 to 20 minutes.
+    - `tsconfig.viewport.json`; the test build goes to `viewport-dist/`.
+- **Where each open point went (all left in this log):**
+  - Commit 4302376 does not type-check on its own; the next commit fixes it (engineer).
+  - The test guard lets `localhost` through, and the field focus test uses `focus()` rather than Tab (QA). Neither breaks a criterion.
+  - Full-page screenshots draw sticky and fixed elements oddly: the sidebar and the dialog backdrop (designer). This is a screenshot artefact.
+  - `register-field-errors` shows no email error for "alex@" (designer). This is expected: the client check in `auth/validation.ts` only requires an "@", and the server validates the rest.
+  - Screen reader and larger-text checks: #91. The idle "Draft summary" fill and the demo notice width: #90 (PM).
