@@ -2640,3 +2640,41 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Where each open point went:**
   - At 48–75rem the review filters sit 16px below the title, and the CSS comment in `ReviewPage.css` wrongly says 24px (engineer, QA): already on #36 (6847149004).
   - The four visual questions: new issue #90 (created by the PM under the standing rule).
+
+## 2026-11-13: PM: groom #84 (keyboard focus on busy buttons, after failures and server validation errors, and on the edit page)
+
+- **Task:** groom #84, a follow-up from #27 with no status label, following `docs/pm.md`.
+  - Read its body and all six input comments, from #28, #29, #34, #35 (two) and #46.
+  - Checked against `DESIGN.md` (Buttons, Inputs / Fields, Dialogs, with the #83 patterns), `PRODUCT.md` → Accessibility ("visible keyboard focus"; `docs/product-spec.md` §9 has no accessibility row) and `docs/process.md`. Also read the earlier criteria in #26–#29 and #32–#35 that say a busy button "is disabled" or "cannot be pressed".
+  - Read the frontend: `components/Button` and its CSS, `EntryForm`, `EditEntryPage`, `EntriesPage`, `DeleteEntryDialog`, `SettingsPage`, `LoginPage`, `RegisterPage`, `AuthFields`, `SummaryPanel`, `SummaryPage`, `ReviewPage`, `SummariesPage`, `AppShell`, `DemoNotice`, and every test that asserts native `disabled` or focus on `body`.
+  - Kept #36, #72, #86 and #87–#90 out.
+- **What I did:**
+  - Rewrote #84 with the task template.
+  - Widened the title to "keep keyboard focus on busy buttons, after failed requests and server validation errors, and on the edit page".
+  - Wrote checkable criteria for:
+    - the busy `Button`;
+    - focus after a request in each place;
+    - "Try the demo";
+    - "Try again" on the five pages that have it;
+    - the edit page's start;
+    - one `DESIGN.md` line;
+    - the tests to change and add.
+  - No follow-up issue was needed. No labels changed.
+- **Decisions taken under the standing rule (2026-11-12, re-confirmed 2026-11-13), recorded in the issue:**
+  - Approach: a busy `Button` uses `aria-disabled="true"` instead of native `disabled` and ignores clicks, Enter, Space and form submission itself. It stays focusable. No per-page focus target.
+  - Scope: every busy `Button`, because they share the component.
+  - `disabled` without `busy` stays native. One rare login case is accepted.
+  - Earlier criteria saying a busy button "is disabled" are read as "cannot be pressed and is announced as unavailable", so no closed issue changes. Their tests change from `.disabled` to `aria-disabled`; this is a change of agreed behaviour, not a weakened test.
+  - After a request, focus stays where it is, except where a criterion moves it.
+  - Server validation moves the cursor to the first field with a problem, on the entry form, login and registration.
+  - "Try the demo" takes focus after a failure, so the phone keyboard closes and the error under it is not covered.
+  - "Try again" takes focus back after a failed retry on `/`, edit, review, summaries and the summary page.
+  - The edit page starts in the text field, as `/entries/new` does, unless the user has moved on.
+  - "Log out" and the demo notice's link are not changed: both leave the page.
+  - The task changes screens (focus outline and focus glow), so it gets a design note and a design review.
+- **How I verified it:**
+  - Checked the issue against the definition of done in `docs/pm.md`: four sections, checkable criteria, and every out-of-scope line links an issue.
+  - Confirmed in `@testing-library/user-event` 14.6.9 (`utils/misc/isDisabled.js`) that only the native `disabled` attribute blocks a press in tests. developer.mozilla.org and www.w3.org could not be reached from this session.
+  - Read #84 back through the REST API: the body matches and there are no labels.
+  - No code run, and no AI call.
+- **Left open:** none for grooming.
