@@ -2038,3 +2038,47 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Below 75rem the filters also sit 16px under the title, the margin collapse from #31 (engineer, designer): already on #36 (6847149004).
   - Edited summaries of any length are sent today; the 10,000-character limit belongs to #43 (QA): already on #43 from the PM (6847875035).
   - On the phone the scroll after a draft stops at the page bottom, so the panel top sits about 55 to 100px below the window top (engineer, QA, designer). An empty-text error shows the focus border until focus leaves, the shared field's "focus wins over error" rule (designer). Both left in this log as expected behaviour.
+
+## 2026-11-13: PM: re-groom #33 (Build the saved summaries pages) against DESIGN.md and #32
+
+- **Task:** re-groom #33 (task 36), whose body dated from 2026-11-01, before `DESIGN.md` and #32, following `docs/pm.md`.
+  - Checked against `DESIGN.md` (Lists, Summary panel, Buttons, Saved message, Icons, The One Action Rule, Do's and Don'ts), `PRODUCT.md`, `product-spec.md` v0.2 (FR-R4 to FR-R6, §7.4, §9, §12) and `openapi.yaml` (`GET /summaries`, `GET`/`PATCH`/`DELETE /summaries/{summaryId}`, `SummaryUpdate`, `NotFound`).
+  - Checked against the code in `frontend/src/`:
+    - the #32 panel: `review/SummaryPanel.tsx`, `review/summaryDraft.ts`;
+    - `components/summaryFilterText.ts`, `components/aiTexts.ts`;
+    - from #29: `pages/EntriesPage.tsx`, `entries/DeleteEntryDialog.tsx`, `entries/entryTexts.ts`, `entries/entrySavedNotice.ts`;
+    - `entries/useLeavePrompt.tsx` with `allowSamePath`;
+    - `components/AppShell.tsx` (Summaries is current on both paths);
+    - `pages/EditEntryPage.tsx` (not-found handling);
+    - `formatDate.ts` and `localDate.ts`, and the Vitest time zone (Sydney);
+    - the backend's `summaryId` validation field.
+  - Input: the #32 grooming comment 6847874769. Also read #18, #32 (with its implementation, QA and closing comments), #36, #43, #83 and #84, so nothing from them is pulled in.
+- **What I did:**
+  - Rewrote #33 with the task template. The criteria are grouped: list, summary page, saving, copying, deleting, not found/loading/errors, checks and tests.
+  - Out of scope links to #18, #32, #43 and #36. No follow-up issue was needed: nothing from the earlier version was dropped.
+  - No labels changed.
+- **Decisions taken under the standing rule (2026-11-12, re-confirmed 2026-11-13), recorded in the issue:**
+  - The summary page is always editable, like the #32 panel, with "Save summary" as the one plum button. There is no Edit/Cancel mode. `DESIGN.md` says AI text is always an editable draft, and one pattern is simpler. Unsaved edits are protected by the existing leave prompt.
+  - Copy copies the text currently in the field, including unsaved edits. It is disabled when the field is empty, and a missing Clipboard API counts as a refusal. This replaces "hidden while editing".
+  - Copy and Delete are secondary buttons with the Lucide `Copy` and `Trash2` icons. They are only on the summary page, and the list rows stay plain links.
+  - The list is rows with hairlines, not cards. It shows the creation date (local time), the shared filter description and a two-line text preview, in the API's order.
+  - Texts are shared with #32: "Draft one on the Review page.", "Summary text", "Save summary", "Summary saved.", the empty-text message and the "no longer exists" save notice.
+  - New:
+    - "Go to Review" in the empty state, with no illustration;
+    - "Back to summaries";
+    - "This summary was already deleted." on `not_found`, as #29 does for entries;
+    - the deleted page replaced in the history;
+    - no discard prompt after a delete;
+    - last save wins.
+  - Reuse: the delete dialog gets its texts as props, so the entries page is unchanged. "Summary deleted." uses the `entrySavedNotice.ts` pattern.
+- **How I verified it:**
+  - Checked the issue against the definition of done in `docs/pm.md`: four sections, checkable criteria, and every out-of-scope line links an issue.
+  - Confirmed in the code that every API function, helper and component the issue names exists. `Copy` and `Trash2` are in `lucide-react`.
+  - Checked in the TypeScript DOM typings that `navigator.clipboard` and `writeText` are available only in secure contexts and return a promise. MDN itself is not reachable from this session.
+  - Read #33 back from GitHub: the body matches what I sent (plus the automatic footer), the title is unchanged and it has no labels.
+- **Left open:** for the designer's note:
+  - the row layout and date column;
+  - the page layout and field size;
+  - the order of the actions;
+  - focus after a delete;
+  - the exact wording.
