@@ -11,6 +11,9 @@ Name rules:
 - A name that is empty after trimming is invalid. Request models use `TagName`, which turns
   it into the shared validation error naming the field (for example `tags.1`). `TagName` also
   rejects NUL and unpaired surrogates, which the database cannot store (app/text_rules.py).
+- A name has at most `MAX_TAG_NAME_CHARACTERS` characters, measured as sent (issue #43).
+  Cleaning only makes a name shorter, so a stored name is never longer. Filter names
+  (`FilterTagName`) have the same limit.
 
 `resolve_tags` (entry create and update) and `lookup_tags` (suggestions) are the only places
 that turn names into tag records. Both only ever read or create the given user's tags.
@@ -30,7 +33,7 @@ from sqlalchemy.orm import Session
 from app.auth import AuthenticateFirstRoute, CurrentUser
 from app.db import get_session
 from app.models import Entry, EntryTag, Tag, User
-from app.text_rules import reject_unstorable_characters
+from app.text_rules import at_most, reject_unstorable_characters
 
 router = APIRouter(tags=["Tags"], route_class=AuthenticateFirstRoute)
 
@@ -40,8 +43,17 @@ def normalise_tag_name(name: str) -> str:
     return " ".join(name.split())
 
 
+# product-spec.md §6 and openapi.yaml (`maxLength: 40` on tag names): counted in Unicode
+# characters, as sent. A fixed rule of the data model, not a setting.
+MAX_TAG_NAME_CHARACTERS = 40
+
+_check_tag_name_length = at_most(MAX_TAG_NAME_CHARACTERS, "Tag name")
+
+
 def _validate_tag_name(name: str) -> str:
     reject_unstorable_characters(name)
+    # As sent, before cleaning, so the contract's maxLength is exact (#43).
+    _check_tag_name_length(name)
     normalised = normalise_tag_name(name)
     if not normalised:
         raise PydanticCustomError("tag_name_empty", "Tag name must not be empty.")
@@ -49,13 +61,16 @@ def _validate_tag_name(name: str) -> str:
 
 
 TagName = Annotated[str, AfterValidator(_validate_tag_name)]
-"""A tag name in a request model: normalised, and a validation error if it is empty or has a
-character the database cannot store."""
+"""A tag name in a request model: normalised, and a validation error if it is empty, longer
+than `MAX_TAG_NAME_CHARACTERS` as sent, or has a character the database cannot store."""
 
-FilterTagName = Annotated[str, AfterValidator(reject_unstorable_characters)]
+FilterTagName = Annotated[
+    str, AfterValidator(reject_unstorable_characters), AfterValidator(_check_tag_name_length)
+]
 """A tag name to filter by (issue #11): a validation error only if it has a character the
-database cannot store. `lookup_tags` normalises it; a name that no tag has, including one that
-is empty after trimming, matches nothing and is not an error."""
+database cannot store or is longer than `MAX_TAG_NAME_CHARACTERS` as sent (#43).
+`lookup_tags` normalises it; a name that no tag has, including one that is empty after
+trimming, matches nothing and is not an error."""
 
 
 def match_keys(session: Session, names: Sequence[str]) -> dict[str, str]:

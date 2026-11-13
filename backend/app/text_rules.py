@@ -10,9 +10,14 @@ driver and cause a 500:
 
 Request models check every text field with `reject_unstorable_characters`, so such input gets
 the shared validation error naming the field. Messages never contain the submitted text.
+
+Maximum lengths (issue #43): `at_most` builds the check for a field's limit. Lengths are
+counted in Unicode characters (code points), as Python's `len` counts a `str`, so an emoji
+counts as one character, as in the contract and the frontend.
 """
 
 import unicodedata
+from collections.abc import Callable
 
 from pydantic_core import PydanticCustomError
 
@@ -47,3 +52,18 @@ def reject_unstorable_characters(value: str) -> str:
 def is_blank(value: str) -> bool:
     """True if the text is empty or only whitespace, as `pattern: '\\S'` defines it."""
     return all(char in _ECMA_WHITESPACE or unicodedata.category(char) == "Zs" for char in value)
+
+
+def at_most(limit: int, what: str) -> Callable[[str], str]:
+    """Pydantic validator: the text unchanged, or a validation error if it is longer than limit.
+
+    `what` starts the message, for example "Text" gives "Text must be at most 2,000
+    characters.". The message never contains the submitted text.
+    """
+
+    def check(value: str) -> str:
+        if len(value) > limit:
+            raise PydanticCustomError("too_long", f"{what} must be at most {limit:,} characters.")
+        return value
+
+    return check
