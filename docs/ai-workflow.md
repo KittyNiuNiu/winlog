@@ -2768,3 +2768,39 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Read #36 back through the API: the body is updated and the only label is still `groomed`.
   - No code run, and no AI call.
 - **Left open:** none for grooming.
+
+## 2026-11-13: Engineer: implement #36 (check every screen on mobile and desktop)
+
+- **Task:** implement #36 against its criteria and the design note (comment 6859920352), following `docs/software-engineer.md`.
+- **What I did:**
+  - Added `@playwright/test`, pinned to exactly 1.63.0 as a dev dependency. It matches the pre-installed Chromium 1243. jsdom cannot measure layout, scroll width or computed focus styles.
+  - Added `frontend/playwright.config.ts` with two projects: phone (360×640) and laptop (1280×800). They test the build served by `vite preview` from `viewport-dist/`, with a fixed `VITE_API_BASE_URL`.
+  - Added `frontend/viewport/`:
+    - a mocked API typed from `src/api/schema.d.ts`;
+    - a fixed clock (2026-11-13) and test data with the long content;
+    - `screens.spec.ts`: 41 screens and states with screenshots and the per-screen checks;
+    - `checks.spec.ts`: quick capture, the login buttons in the first screen, the review gap and panel, the focus look of 15 text fields in light and dark, and the demo link's outline.
+  - Added `npm run test:viewport` (`--trace off`) and listed it in `AGENTS.md`.
+  - Kept the two test runners apart: Vitest excludes `viewport/`, and `tsconfig.viewport.json` type-checks the tests in `tsc -b`.
+  - CI Frontend job: Chromium install, the viewport tests, and `actions/upload-artifact@v7` with `if: always()`.
+  - Fixes:
+    - the review title gets a 24px margin from 48rem, and the filters and sticky panel get no top margin (comments updated);
+    - "Go to your entries" gets a 44px box;
+    - 8px above "Create your own account".
+- **Decisions (standing rule, recorded on the issue):**
+  - Exempt links are the five the criteria name, and only where their paragraph or message holds other words.
+  - The 68ch check measures the width the text's lines take (the content box for text fields) against CSS `68ch` in the element's own font. The full-width nudge box (#30 design) is therefore not counted.
+  - The open tag list covering what is below it is `DESIGN.md`'s Tag list design, not a defect.
+  - `actions/upload-artifact` is v7, the newest major tag (found with `git ls-remote --tags`; the API was not reachable).
+- **How I verified it:** with Node 22.23.4 in `frontend/`:
+  - `npm run lint` passes.
+  - `npm test`: 1239 tests pass.
+  - `npm run build` passes.
+  - `npm run test:viewport`: 91 passed, 9 skipped (one-size states).
+  - With the old CSS put back, the gap test reads 16px and the outline test −4px, so the tests catch the defects.
+  - I looked at the screenshots.
+  - No backend change and no AI call.
+- **Left open:**
+  - The first CI run is the first check of the Playwright browser install and of Node 26.
+  - The chore commit 4302376 does not type-check on its own; it needs `viewport/settings.ts` from the next commit.
+  - Issue comment: https://github.com/KittyNiuNiu/winlog/issues/36#issuecomment-6860266343
