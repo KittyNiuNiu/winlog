@@ -32,6 +32,7 @@ from fastapi import Depends, Request
 from sqlalchemy import BigInteger, Connection, Engine, literal
 from sqlalchemy.dialects.postgresql import insert
 
+from app import telemetry
 from app.ai.adapter import (
     AIProvider,
     Suggestion,
@@ -61,6 +62,9 @@ _USER_LIMIT_NAMES: dict[RequestType, LimitName] = {
     "suggestion": "user_suggestions",
     "summary": "user_summaries",
 }
+
+# The adapter operation of each request type, as telemetry names it (`winlog.ai.operation`).
+_OPERATIONS: dict[RequestType, str] = {"suggestion": "suggest", "summary": "summarise"}
 
 
 class AILimitReachedError(ApiError):
@@ -139,17 +143,29 @@ class LimitedAI:
         return self._provider.summarise(entries)
 
     def _count_request(self, user_id: uuid.UUID, request_type: RequestType) -> None:
-        """Take one of the day's slots for the user and globally, or raise naming the limit."""
+        """Take one of the day's slots for the user and globally, or raise naming the limit.
+
+        Traced as the `ai.limits.reserve` span (issue #74): `winlog.outcome` is `allowed` or
+        `limit_reached`, and a reached limit gives the span status Error.
+        """
         day = utc_day(self._clock())
-        with self._engine.begin() as connection:
-            # Raising inside the block rolls back, so a reached global cap leaves the user's
-            # count as it was.
-            if not _count_for_user(
-                connection, user_id, day, request_type, self._limits.per_user(request_type)
-            ):
-                raise AILimitReachedError(_USER_LIMIT_NAMES[request_type])
-            if not _count_globally(connection, day, self._limits.global_requests):
-                raise AILimitReachedError("global")
+        with telemetry.span(
+            "ai.limits.reserve", {"winlog.ai.operation": _OPERATIONS[request_type]}
+        ) as span:
+            try:
+                with self._engine.begin() as connection:
+                    # Raising inside the block rolls back, so a reached global cap leaves the
+                    # user's count as it was.
+                    if not _count_for_user(
+                        connection, user_id, day, request_type, self._limits.per_user(request_type)
+                    ):
+                        raise AILimitReachedError(_USER_LIMIT_NAMES[request_type])
+                    if not _count_globally(connection, day, self._limits.global_requests):
+                        raise AILimitReachedError("global")
+            except AILimitReachedError:
+                span.set("winlog.outcome", "limit_reached")
+                raise
+            span.set("winlog.outcome", "allowed")
 
 
 def _count_for_user(

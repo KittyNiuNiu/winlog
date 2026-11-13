@@ -99,6 +99,10 @@ class Settings(BaseSettings):
     # Demo-logins per visitor IP address within the window.
     demo_login_max_attempts: int = 20
     demo_login_window_minutes: int = 60
+    # The OpenTelemetry collector's OTLP/HTTP base URL (issue #74), such as
+    # http://localhost:4318. Empty or not set turns the export off: nothing is sent anywhere,
+    # and the JSON logs on stdout still carry trace and span IDs (app/telemetry.py).
+    otel_exporter_otlp_endpoint: str | None = None
 
     @field_validator("database_url")
     @classmethod
@@ -129,6 +133,21 @@ class Settings(BaseSettings):
     def _check_ai_base_url(cls, value: str | None) -> str | None:
         if value is not None and not value.startswith(("http://", "https://")):
             raise ValueError("must start with http:// or https://")
+        return value
+
+    @field_validator("otel_exporter_otlp_endpoint", mode="before")
+    @classmethod
+    def _check_otlp_endpoint(cls, value: object) -> object:
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            raise ValueError("must be a URL starting with http:// or https://, or empty")
+        if not value.strip():
+            # An empty value, as in `OTEL_EXPORTER_OTLP_ENDPOINT=` in .env, turns export off.
+            return None
+        value = value.strip()
+        if not value.startswith(("http://", "https://")):
+            raise ValueError("must start with http:// or https://, or be empty to turn it off")
         return value
 
     @field_validator(

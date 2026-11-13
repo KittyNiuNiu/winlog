@@ -185,11 +185,15 @@ class OpenAICompatibleProvider(AIProvider):
             # An answer the SDK cannot read, or one without choices or a message.
             raise AIProviderError("The AI provider returned an unreadable answer.") from None
         finally:
+            duration_ms = round((time.monotonic() - started) * 1000)
             logger.info(
                 "AI request to model %s answered with status %s in %d ms",
                 self._model,
                 status if status is not None else "none",
-                round((time.monotonic() - started) * 1000),
+                duration_ms,
+                # Allowlisted fields only (app/telemetry.py): the model id and the status stay
+                # in the message.
+                extra={"winlog.ai.provider": self.name, "duration_ms": duration_ms},
             )
         if finish_reason == "length":
             raise AIProviderError("The AI provider cut off its answer at the output limit.")

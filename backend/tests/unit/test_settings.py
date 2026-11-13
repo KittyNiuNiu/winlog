@@ -29,6 +29,7 @@ def test_settings_variables():
         "login_attempt_window_minutes",
         "demo_login_max_attempts",
         "demo_login_window_minutes",
+        "otel_exporter_otlp_endpoint",
     }
 
 

@@ -55,9 +55,17 @@ List, get, edit and delete (#18, FR-R5, FR-A3):
 - A summary saved before #43 can be longer than 10,000 characters. It is still listed and read
   as it is; only a new edit is checked.
 
-Privacy: nothing here is logged. Entry text and summary text never appear in a log or an
-error message, and the AI error is not chained to the `ai_unavailable` error, so the
-provider's exception (which may repeat entry text) cannot reach a traceback (`AGENTS.md`).
+Telemetry (issue #74): generating a summary is the instrumented key user journey. The request's
+SERVER span gets the child spans `summary.select_entries`, `ai.limits.reserve`, `ai.summarise`
+and `summary.save` (as far as the request gets), and each of the five outcomes (`created`,
+`no_matching_entries`, `summary_input_too_large`, `limit_reached`, `ai_unavailable`) is counted,
+set on the SERVER span and logged (`app.telemetry.summary_generation_finished`). Only the
+outcome and the number of entries are recorded.
+
+Privacy: nothing here is logged except that outcome and number. Entry text and summary text
+never appear in a log or an error message, and the AI error is not chained to the
+`ai_unavailable` error, so the provider's exception (which may repeat entry text) cannot reach a
+traceback (`AGENTS.md`).
 """
 
 import datetime as dt
@@ -72,8 +80,8 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
 
-from app import models
-from app.ai import AIError, LimitedAIDependency, SummaryEntry
+from app import models, telemetry
+from app.ai import AIError, AILimitReachedError, LimitedAIDependency, SummaryEntry
 from app.ai.adapter import MAX_SUMMARY_CHARACTERS
 from app.auth import AuthenticateFirstRoute, CurrentUser
 from app.db import get_session
@@ -263,24 +271,29 @@ def generate_summary(
     max_input_characters: Annotated[int, Depends(summary_input_limit)],
 ) -> Summary:
     # `filter_entries` expects a valid filter: it does not check the period order (#11).
+    # Request validation, like this check, comes before the journey's outcomes are counted.
     if body.period_start > body.period_end:
         raise _period_out_of_order()
-    entries = filter_entries(
-        session,
-        user,
-        EntryFilter(
-            start_date=body.period_start,
-            end_date=body.period_end,
-            categories=body.categories,
-            tags=body.tags,
-        ),
-    )
+    with telemetry.span("summary.select_entries") as span:
+        entries = filter_entries(
+            session,
+            user,
+            EntryFilter(
+                start_date=body.period_start,
+                end_date=body.period_end,
+                categories=body.categories,
+                tags=body.tags,
+            ),
+        )
+        span.set("winlog.entry_count", len(entries))
     if not entries:
         # Before the limited entry point: no AI call, nothing counted, nothing saved (§7.4).
+        telemetry.summary_generation_finished("no_matching_entries", 0)
         raise no_matching_entries()
     summary_entries = [SummaryEntry.from_entry(entry) for entry in entries]
     if summary_input_characters(summary_entries) > max_input_characters:
         # Also before the limited entry point, so it never counts against a daily limit (#43).
+        telemetry.summary_generation_finished("summary_input_too_large", len(entries))
         raise summary_input_too_large()
     categories = _unique(body.categories)
     tag_names = filter_tag_names(session, user, body.tags)
@@ -290,20 +303,26 @@ def generate_summary(
     session.close()
     try:
         text = ai.summarise(user.id, summary_entries)
+    except AILimitReachedError:
+        telemetry.summary_generation_finished("limit_reached", len(entries))
+        raise
     except AIError:
+        telemetry.summary_generation_finished("ai_unavailable", len(entries))
         # `from None`: the provider's exception may repeat entry text, so it must not appear
         # as the cause or context of this error in any traceback. Nothing is saved.
         raise ai_unavailable() from None
-    summary = models.Summary(
-        user_id=user.id,
-        period_start=body.period_start,
-        period_end=body.period_end,
-        filter_categories=categories,
-        filter_tags=tag_names,
-        text=text,
-    )
-    session.add(summary)
-    session.commit()
+    with telemetry.span("summary.save"):
+        summary = models.Summary(
+            user_id=user.id,
+            period_start=body.period_start,
+            period_end=body.period_end,
+            filter_categories=categories,
+            filter_tags=tag_names,
+            text=text,
+        )
+        session.add(summary)
+        session.commit()
+    telemetry.summary_generation_finished("created", len(entries))
     # Committing expires the row, so this reads back the id and the timestamps the database set.
     return _to_api(summary)
 
