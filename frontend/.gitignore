@@ -28,3 +28,6 @@ viewport-dist
 viewport-results
 viewport-screenshots
 playwright-report
+
+# End-to-end test (#37): Playwright's output (traces and screenshots of failed tests)
+e2e-results

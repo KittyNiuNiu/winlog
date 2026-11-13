@@ -12,6 +12,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:viewport": "playwright test --trace off",
+    "test:e2e": "playwright test --config playwright.e2e.config.ts",
     "preview": "vite preview",
     "generate:api": "openapi-typescript ../openapi.yaml --output src/api/schema.d.ts"
   },
