@@ -1945,3 +1945,18 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Decision taken under the standing rule (2026-11-12), recorded in the issue:** two existing assertions asserted the state before #77 and contradicted the criteria that put the drawings in those exact states: `test_fr_e4_empty_state_for_a_user_without_entries` expected no illustration slot, and `test_fr_r2_no_match_state_with_clear_filters_and_no_illustration` expected none in the no-match state. I changed each one assertion to expect the entries or review drawing in the slot (stronger, not weaker) and renamed the review test to `..._and_the_review_illustration`. Every other existing test is unchanged, including `EmptyState.test.tsx`, `design.test.ts` and the preview tests.
 - **How I verified it:** frontend `npm run lint`, `npm test` (34 files, 785 tests, run with no backend on localhost:8000) and `npm run build` pass. Backend unchanged; `ruff check`, unit (823) and integration (882) tests pass. In headless Chrome against the dev server and a backend with `AI_PROVIDER=mock`, at 360×640 and 1280×800, light and dark: the login drawing is 120×96 on the phone and 160×128 on the laptop, left-aligned with the heading, 32px above it; the "Log in" button bottom is at 528px and "Create account" at 577px at 360×640 (the note's numbers); the empty-state drawings are 160×128 and 200×160, centred; the entries "New entry" bottom is at 530px; no sideways scroll; settings and "Page not found" show no drawing. Screenshots checked in both modes.
 - **Left open:** nothing new. The design review checks the screenshots (step 7).
+
+## 2026-11-13: Orchestrator: closed #77 (task 34, the three illustrations)
+
+- **Outcome:**
+  - The PM groomed it (e7e70e6) and the design note was posted (issue comment 6847320672).
+  - The engineer implemented it in 9ef7dc8 (6847518823).
+  - QA PASS on all 21 criteria (6847708038) and design review PASS (6847764204).
+  - Closed as completed; the last status label `qa-passed` stays. No real AI calls were made.
+- **Decisions accepted under the 2026-11-12 standing rule:**
+  - PM: the drawings are inline SVG components coloured only with tokens, with no new dependency. One drawing is shared by login and registration and sits in the pages, not in `AuthLayout`. The review drawing appears in both of its empty states. Plum is used only for lines and accents of 16×16px or less. There is no new text. The buttons fit at 360×640.
+  - Designer: one lilac diary across all three drawings. Sizes per breakpoint. The login drawing is left-aligned with a 32px gap. Drawings are `aria-hidden`.
+  - Engineer, applying the product owner's 2026-11-13 clarification that small conflicts between criteria are decided under the rule: two existing assertions that expected no illustration in the empty states now expect it, which makes them stricter (`test_fr_e4_empty_state_for_a_user_without_entries`, and the review no-match test renamed `..._and_the_review_illustration`). QA confirmed that no other existing test changed.
+- **Where each open point went:**
+  - The `/login` inputs report `outline: none` on focus, so their visible focus indicator is unverified (designer; not caused by #77): comment on #36 (6847771371).
+  - In the dev-only `/dev/components` row, the login drawing keeps its 32px margin (designer); the dev preview caption now reads "With an illustration" (QA); `/login` and `/register` scroll at 360×640 when a notice shows, but the main button stays visible (QA): left in this log, with no user impact.
