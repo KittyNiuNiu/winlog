@@ -7,6 +7,7 @@
 # Actions used, each pinned to at least a major version:
 # - actions/checkout@v7: checks out the repository.
 # - actions/setup-node@v7: installs Node from frontend/.nvmrc and caches npm downloads.
+# - actions/upload-artifact@v7: uploads the viewport screenshots of the Frontend job (#36).
 # - astral-sh/setup-uv@v10.3.3: installs uv and caches uv downloads. setup-uv publishes no
 #   floating major tag (such as v10), so it is pinned to its exact release.
 # Python comes from backend/.python-version: `uv python install` reads that file.
@@ -128,7 +129,7 @@ jobs:
   frontend:
     name: Frontend
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: frontend
@@ -143,6 +144,10 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Install Chromium for the viewport tests
+        # The browser that matches the pinned @playwright/test version, with its system libraries.
+        run: npx playwright install --with-deps chromium
 
       - name: Generated API types match openapi.yaml
         # Regenerates src/api/schema.d.ts from ../openapi.yaml and fails when the committed
@@ -163,6 +168,20 @@ jobs:
 
       - name: Build
         run: npm run build
+
+      - name: Viewport tests
+        # Playwright at 360×640 and 1280×800 against the built frontend served by vite preview,
+        # with every API call mocked, so no backend is needed (#36).
+        run: npm run test:viewport
+
+      - name: Upload the viewport screenshots
+        # On every run, passed or failed, so people can look at every screen.
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: viewport-screenshots
+          path: frontend/viewport-screenshots/
+          if-no-files-found: warn
 
   full-system:
     name: Full system

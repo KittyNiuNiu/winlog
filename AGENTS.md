@@ -67,6 +67,7 @@ Frontend (run in `frontend/`):
 - Lint: `npm run lint`
 - Tests: `npm test`
 - Build: `npm run build`
+- Viewport tests (Playwright, 360×640 and 1280×800, every API call mocked; builds the app and serves it with `vite preview`; screenshots go to `viewport-screenshots/`; needs Chromium once: `npx playwright install chromium`): `npm run test:viewport`
 
 Full system (repo root): `docker compose up --build`
 
