@@ -111,7 +111,8 @@ export async function send<Data>(
 
   const { response } = result
   if (!response.ok) {
-    const error = errorFromResponse(response.status, result.error)
+    // Retry-After is readable cross-origin because the backend exposes it (CORS, #46).
+    const error = errorFromResponse(response.status, result.error, response.headers.get('Retry-After'))
     if (error instanceof NotAuthenticatedError && redirectOnNotAuthenticated) {
       clearSession()
       loginRedirect()

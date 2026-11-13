@@ -14,6 +14,22 @@ export const TRY_DEMO_LABEL = 'Try the demo'
 export const OPENING_DEMO_LABEL = 'Opening the demo…'
 export const DEMO_UNAVAILABLE_MESSAGE = "The demo isn't available right now."
 
+// Too many login, demo-login or account deletion attempts (FR-A4, design note on #46).
+export const TOO_MANY_ATTEMPTS_LATER_MESSAGE = 'Too many attempts. Please try again later.'
+
+/**
+ * The one text for a `too_many_attempts` refusal, used by the login form, "Try the demo"
+ * and the delete step. N is the waiting time in minutes, rounded up and never below 1. When
+ * `Retry-After` could not be read (`null`), it asks to try again later.
+ */
+export function tooManyAttemptsMessage(retryAfterSeconds: number | null): string {
+  if (retryAfterSeconds === null) {
+    return TOO_MANY_ATTEMPTS_LATER_MESSAGE
+  }
+  const minutes = Math.max(1, Math.ceil(retryAfterSeconds / 60))
+  return `Too many attempts. Please try again in ${minutes} ${minutes === 1 ? 'minute' : 'minutes'}.`
+}
+
 /** After this long, a running request shows the waking-up hint (product-spec.md §12). */
 export const WAKING_UP_AFTER_MS = 10_000
 

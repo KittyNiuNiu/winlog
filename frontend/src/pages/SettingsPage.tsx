@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router'
 import {
   DemoAccountNotDeletableError,
   NotAuthenticatedError,
+  TooManyAttemptsError,
   ValidationError,
   WrongPasswordError,
   deleteAccount,
@@ -13,7 +14,7 @@ import {
   type DownloadedFile,
 } from '../api/index.ts'
 import { PasswordField } from '../auth/AuthFields.tsx'
-import { WAKING_UP_MESSAGE, unexpectedErrorMessage } from '../auth/requestErrors.ts'
+import { WAKING_UP_MESSAGE, tooManyAttemptsMessage, unexpectedErrorMessage } from '../auth/requestErrors.ts'
 import { useWakingUpHint } from '../auth/useWakingUpHint.ts'
 import { LOGIN_PATH, accountDeletedState } from '../auth/wantedPage.ts'
 import { Button } from '../components/Button.tsx'
@@ -85,6 +86,11 @@ function deleteErrorMessage(error: unknown): string | null {
   // 409 `demo_account_not_deletable`, for example from a session without the demo flag.
   if (error instanceof DemoAccountNotDeletableError) {
     return DEMO_ACCOUNT_TEXT
+  }
+  // 429 `too_many_attempts` (FR-A4): the password was not checked, so this is no wrong
+  // password and no field message.
+  if (error instanceof TooManyAttemptsError) {
+    return tooManyAttemptsMessage(error.retryAfterSeconds)
   }
   return unexpectedErrorMessage(error)
 }

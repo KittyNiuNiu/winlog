@@ -1,6 +1,13 @@
 import { useRef, useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
-import { InvalidCredentialsError, NotFoundError, ValidationError, demoLogin, login } from '../api/index.ts'
+import {
+  InvalidCredentialsError,
+  NotFoundError,
+  TooManyAttemptsError,
+  ValidationError,
+  demoLogin,
+  login,
+} from '../api/index.ts'
 import { EmailField, FormAlert, FormNotice, PasswordField, SubmitButton } from '../auth/AuthFields.tsx'
 import {
   ACCOUNT_CREATED_MESSAGE,
@@ -10,6 +17,7 @@ import {
   TRY_DEMO_LABEL,
   WAKING_UP_MESSAGE,
   WRONG_CREDENTIALS_MESSAGE,
+  tooManyAttemptsMessage,
   unexpectedErrorMessage,
   validationMessages,
 } from '../auth/requestErrors.ts'
@@ -22,6 +30,19 @@ import Message from '../components/Message.tsx'
 import '../auth/AuthForm.css'
 
 type Field = 'email' | 'password'
+
+/** The message below "Try the demo" for a failed demo login. The server's text is never shown. */
+function demoErrorMessage(error: unknown): string {
+  // `not_found`: the demo is turned off or not seeded.
+  if (error instanceof NotFoundError) {
+    return DEMO_UNAVAILABLE_MESSAGE
+  }
+  // FR-A4: too many demo logins from this visitor.
+  if (error instanceof TooManyAttemptsError) {
+    return tooManyAttemptsMessage(error.retryAfterSeconds)
+  }
+  return unexpectedErrorMessage(error)
+}
 
 /** The information message above the form for the state the page was opened with, or null. */
 function noticeFor(state: unknown): string | null {
@@ -111,6 +132,9 @@ export default function LoginPage() {
       setPending(false)
       if (error instanceof InvalidCredentialsError) {
         setFormError(WRONG_CREDENTIALS_MESSAGE)
+      } else if (error instanceof TooManyAttemptsError) {
+        // FR-A4: too many failed logins for this email.
+        setFormError(tooManyAttemptsMessage(error.retryAfterSeconds))
       } else if (error instanceof ValidationError) {
         showValidationError(error)
       } else {
@@ -139,8 +163,7 @@ export default function LoginPage() {
       requestRunning.current = false
       demoRunning.current = false
       setDemoPending(false)
-      // `not_found`: the demo is turned off or not seeded. The server's text is never shown.
-      setDemoError(error instanceof NotFoundError ? DEMO_UNAVAILABLE_MESSAGE : unexpectedErrorMessage(error))
+      setDemoError(demoErrorMessage(error))
       return
     }
     await navigate(wantedPage(location.state), { replace: true })

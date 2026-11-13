@@ -7,6 +7,7 @@ import {
   DemoAccountNotDeletableError,
   NetworkError,
   NotAuthenticatedError,
+  TooManyAttemptsError,
   UnknownError,
   ValidationError,
   WrongPasswordError,
@@ -739,6 +740,59 @@ describe('the confirmation step (FR-D2)', () => {
     await submitDeletion()
     expect(deleteAccount).toHaveBeenCalledTimes(2)
     expect(router.state.location.pathname).toBe('/login')
+  })
+
+  it.each([
+    [900, 'Too many attempts. Please try again in 15 minutes.'],
+    [30, 'Too many attempts. Please try again in 1 minute.'],
+    [null, 'Too many attempts. Please try again later.'],
+  ])('test_fr_a4_refused_deletion_with_retry_after_%s_shows_its_message_in_the_step', async (seconds, message) => {
+    deleteAccount.mockRejectedValueOnce(new TooManyAttemptsError('server text', 429, seconds))
+    deleteAccount.mockImplementationOnce(deleteClearingSession)
+    const { router } = await renderSettings()
+    await openStep()
+    await fillStep()
+    await submitDeletion()
+
+    // In the step's error slot below the buttons, announced, in the error tone.
+    // The step's last message slot is the one below Cancel and Delete my account.
+    const slots = step().querySelectorAll<HTMLElement>('.settings-page__messages')
+    const messages = slots[slots.length - 1]
+    expect(messages.previousElementSibling?.contains(deleteMyAccountButton())).toBe(true)
+    expect(messageTexts(messages)).toEqual([message])
+    expect(messageTexts(step())).toEqual([message])
+    expect(within(messages).getAllByRole('alert').some((alert) => alert.textContent === message)).toBe(true)
+    expect(screen.queryByText('server text')).toBeNull()
+    // The password was not checked: no wrong-password message and no focus move to the field.
+    expect(messagesOf(passwordInput())).toEqual([])
+    expect(screen.queryByText(WRONG_PASSWORD)).toBeNull()
+    expect(passwordInput().getAttribute('aria-invalid')).toBe('false')
+    expect(document.activeElement).not.toBe(passwordInput())
+    // Nothing is lost or disabled; the user stays logged in on this page.
+    expect(passwordInput().value).toBe(PASSWORD)
+    expect(confirmInput().value).toBe('delete')
+    expect(deleteMyAccountButton().disabled).toBe(false)
+    expect(api.getSession()).not.toBeNull()
+    expect(router.state.location.pathname).toBe('/settings')
+
+    // The message goes when the next attempt starts.
+    await submitDeletion()
+    expect(deleteAccount).toHaveBeenCalledTimes(2)
+    expect(router.state.location.pathname).toBe('/login')
+  })
+
+  it('test_fr_a4_cancel_clears_the_too_many_attempts_message', async () => {
+    deleteAccount.mockRejectedValueOnce(new TooManyAttemptsError('server text', 429, 900))
+    await renderSettings()
+    await openStep()
+    await fillStep()
+    await submitDeletion()
+    expect(screen.getByText('Too many attempts. Please try again in 15 minutes.')).toBeTruthy()
+
+    await click(cancelButton())
+
+    expect(queryStep()).toBeNull()
+    expect(screen.queryByText(/Too many attempts/)).toBeNull()
   })
 
   it('test_fr_d2_an_expired_login_while_deleting_opens_the_login_page', async () => {

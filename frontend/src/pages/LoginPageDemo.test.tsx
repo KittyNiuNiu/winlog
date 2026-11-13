@@ -519,8 +519,24 @@ describe('"Try the demo" errors (FR-X1)', () => {
     ['the demo turned off (404 not_found)', new api.NotFoundError('server text', 404), DEMO_UNAVAILABLE],
     ['a network error', new api.NetworkError(), NETWORK_MESSAGE],
     ['a server error', new api.UnknownError('server text', 500, 'internal_error'), GENERIC_MESSAGE],
-    // A refused demo login (FR-A4, its own message comes in #46).
+    // A 429 without the contract's `too_many_attempts` code (FR-A4, #46) is not the refusal.
     ['a status the contract does not list', new api.UnknownError('server text', 429, null), GENERIC_MESSAGE],
+    // FR-A4 (#46): too many demo logins from this visitor.
+    [
+      'a refused demo login (429 too_many_attempts)',
+      new api.TooManyAttemptsError('server text', 429, 3600),
+      'Too many attempts. Please try again in 60 minutes.',
+    ],
+    [
+      'a refused demo login with 1 minute left',
+      new api.TooManyAttemptsError('server text', 429, 45),
+      'Too many attempts. Please try again in 1 minute.',
+    ],
+    [
+      'a refused demo login without a readable Retry-After',
+      new api.TooManyAttemptsError('server text', 429, null),
+      'Too many attempts. Please try again later.',
+    ],
     ['a response that is not the contract', new api.UnknownError('server text', 502, null), GENERIC_MESSAGE],
   ])('test_fr_x1_%s_shows_its_message_below_try_demo', async (_name, error, message) => {
     demoLogin.mockRejectedValue(error)
@@ -541,6 +557,22 @@ describe('"Try the demo" errors (FR-X1)', () => {
     expect(api.getSession()).toBeNull()
     expect(emailInput().value).toBe(EMAIL)
     expect(passwordInput().value).toBe(PASSWORD)
+  })
+})
+
+describe('too many demo logins (FR-A4)', () => {
+  it('test_fr_a4_refused_demo_login_shows_the_message_below_try_demo_not_the_interim_text', async () => {
+    demoLogin.mockRejectedValue(new api.TooManyAttemptsError('server text', 429, 1800))
+    renderRoute('/login')
+
+    await pressDemo()
+
+    expect(demoMessageTexts()).toEqual(['Too many attempts. Please try again in 30 minutes.'])
+    expect(screen.queryByText(GENERIC_MESSAGE)).toBeNull()
+    expect(messagesAboveForm()).toEqual([])
+    // Both buttons stay pressable.
+    expect(demoButton().disabled).toBe(false)
+    expect(loginButton().disabled).toBe(false)
   })
 })
 

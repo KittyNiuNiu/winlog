@@ -219,6 +219,52 @@ describe('login errors (FR-A2)', () => {
   })
 })
 
+describe('too many login attempts (FR-A4)', () => {
+  it.each([
+    [900, 'Too many attempts. Please try again in 15 minutes.'],
+    [61, 'Too many attempts. Please try again in 2 minutes.'],
+    [60, 'Too many attempts. Please try again in 1 minute.'],
+    [null, 'Too many attempts. Please try again later.'],
+  ])('test_fr_a4_refused_login_with_retry_after_%s_shows_its_message_above_the_form', async (seconds, message) => {
+    login.mockRejectedValue(new api.TooManyAttemptsError('server text', 429, seconds))
+    const { router } = renderRoute('/login')
+    fillIn(EMAIL, PASSWORD)
+
+    await submit()
+
+    // In the form message slot, the place of "Wrong email or password.", announced.
+    const alert = formAlert()
+    expect(alert.textContent).toBe(message)
+    expect(alert.getAttribute('role')).toBe('alert')
+    expect(screen.getAllByText(message)).toHaveLength(1)
+    expect(screen.queryByText('server text')).toBeNull()
+    expect(screen.queryByText('Wrong email or password.')).toBeNull()
+    expect(screen.queryByText(GENERIC_MESSAGE)).toBeNull()
+    // Nothing is disabled and nothing typed is lost, so the user can try again later.
+    expect(messagesOf(emailInput())).toEqual([])
+    expect(messagesOf(passwordInput())).toEqual([])
+    expect(emailInput().value).toBe(EMAIL)
+    expect(passwordInput().value).toBe(PASSWORD)
+    expect(submitButton().disabled).toBe(false)
+    expect(router.state.location.pathname).toBe('/login')
+    expect(api.getSession()).toBeNull()
+  })
+
+  it('test_fr_a4_pressing_log_in_again_shows_the_refreshed_wait', async () => {
+    login.mockRejectedValueOnce(new api.TooManyAttemptsError('server text', 429, 900))
+    login.mockRejectedValueOnce(new api.TooManyAttemptsError('server text', 429, 300))
+    renderRoute('/login')
+    fillIn(EMAIL, PASSWORD)
+
+    await submit()
+    expect(formAlert().textContent).toBe('Too many attempts. Please try again in 15 minutes.')
+
+    await submit()
+    expect(login).toHaveBeenCalledTimes(2)
+    expect(formAlert().textContent).toBe('Too many attempts. Please try again in 5 minutes.')
+  })
+})
+
 describe('where login leads (FR-A2)', () => {
   it('test_fr_a2_login_opens_entries_by_default', async () => {
     login.mockImplementation(loginStoringSession)

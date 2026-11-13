@@ -91,6 +91,22 @@ export class LimitReachedError extends ApiError {
   }
 }
 
+/**
+ * `too_many_attempts`: too many failed logins for the email, or too many demo-logins from
+ * this visitor (FR-A4, #46). Login, demo-login and account deletion return it. No password
+ * was checked and nothing was changed.
+ */
+export class TooManyAttemptsError extends ApiError {
+  override readonly name = 'TooManyAttemptsError'
+  /** Whole seconds until the user can try again (`Retry-After`), or null if it was unreadable. */
+  readonly retryAfterSeconds: number | null
+
+  constructor(message: string, status: number, retryAfterSeconds: number | null) {
+    super(message, status)
+    this.retryAfterSeconds = retryAfterSeconds
+  }
+}
+
 /** `ai_unavailable`: the AI provider failed or timed out. Nothing was saved. */
 export class AiUnavailableError extends ApiError {
   override readonly name = 'AiUnavailableError'
@@ -149,8 +165,23 @@ function fieldErrors(fields: unknown): FieldError[] {
   )
 }
 
-/** Turns an error response (status and parsed body) into its typed error. */
-export function errorFromResponse(status: number, body: unknown): ApiError {
+/**
+ * The seconds in a `Retry-After` header, or null when it is missing or not a whole number of
+ * seconds (the header may also hold a date, which the API never sends).
+ */
+export function retryAfterSeconds(value: string | null): number | null {
+  if (value === null || !/^\d+$/.test(value.trim())) {
+    return null
+  }
+  const seconds = Number(value.trim())
+  return Number.isSafeInteger(seconds) ? seconds : null
+}
+
+/**
+ * Turns an error response (status, parsed body and its `Retry-After` header, if any) into its
+ * typed error.
+ */
+export function errorFromResponse(status: number, body: unknown, retryAfter: string | null = null): ApiError {
   if (!isErrorBody(body)) {
     return new UnknownError(`The server answered with an unexpected response (HTTP ${status}).`, status, null)
   }
@@ -178,6 +209,8 @@ export function errorFromResponse(status: number, body: unknown): ApiError {
         status,
         typeof body.limit === 'string' && LIMIT_NAMES.includes(body.limit) ? body.limit : null,
       )
+    case 'too_many_attempts':
+      return new TooManyAttemptsError(message, status, retryAfterSeconds(retryAfter))
     case 'ai_unavailable':
       return new AiUnavailableError(message, status)
     case 'demo_account_not_deletable':
