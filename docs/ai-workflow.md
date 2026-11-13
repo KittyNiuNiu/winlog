@@ -2678,3 +2678,31 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Read #84 back through the REST API: the body matches and there are no labels.
   - No code run, and no AI call.
 - **Left open:** none for grooming.
+
+## 2026-11-13: Engineer: implement #84 (keyboard focus on busy buttons, after failures and server validation errors, and on the edit page)
+
+- **Task:** implement #84 from its criteria, the design note (comment 6858157565) and `DESIGN.md`, following `docs/software-engineer.md`.
+- **What I did:**
+  - `components/Button.tsx`: while `busy`, the button is not natively `disabled`. It has `aria-disabled="true"` and `aria-busy="true"`, stays focusable, and ignores the click itself; Enter and Space reach it as a click. A busy submit button calls `preventDefault`, so it does not submit its form. `disabled` without `busy` stays native; busy wins when both are set. `Button.css` needed only a comment change: the busy look already comes from the `[aria-busy='true']` rules after `:hover`.
+  - New `components/focus.ts`: "focus this unless the user moved on" (focus on the body, the `main` landmark or the element focused at the start counts as not moved on), and a ref callback for the new "Try again".
+  - Entry form: a server validation error moves the cursor to the first field with a message (text, first category chip, date, tag input, result), opening "Add tags and result" first (`flushSync`); a form-level error leaves focus. The edit page starts in the text field unless focus moved while loading.
+  - Login and registration: a server validation error moves the cursor to email, else password.
+  - "Try the demo": after a failure focus moves to the button with a plain `focus()`, unless the user moved to another control.
+  - "Try again" on `/`, edit, `/review`, `/summaries` and `/summaries/:id`: after a retry fails again, the new button gets focus unless the user moved on. `/review` remembers which request "Try again" started, so a failed filter change after a retry moves nothing.
+  - `DESIGN.md` → Buttons: the "Busy" line, word for word from the design note.
+  - Tests: changed every busy `.disabled === true` assertion the issue lists to `aria-disabled="true"` and not natively disabled, keeping every "second press sends nothing" check. In `test_fr_s1_focus_is_back_on_the_button_after_%s` the simulated blur is gone and focus is checked to stay on the button. Added 68 tests: `Button`, entry form (busy save, failed save, server validation for each field and in the fold, form-level), login, registration, delete dialogs, settings, demo, "Try again" on the five pages, the edit page start, and the summary panel and page.
+- **Decisions (standing rule), recorded in the issue comment:**
+  - Removed the suggest refocus effect in `EntryForm.tsx`: it only ran when focus was on the button at the press, and focus now never leaves it.
+  - Kept the refocus in `SummaryPanel.tsx`, `SummaryPage.tsx` and `DeleteEntryDialog.tsx` (comments updated): they also cover a press that leaves focus on the page (Safari does not focus a clicked button) and, in the dialog, Tab to Cancel while deleting; #29 and #33 require focus on the delete button after a failure.
+  - Kept #35's `onMouseDown` `preventDefault` on "Try the demo": the busy button is now focusable, so without it a press would still blur the field and run its check. Kept the `demoRunning` ref with a new purpose: it stays true until focus has moved to "Try the demo" after a failure, so that move runs no field check (design note, "Watch out for" point 2).
+  - The `main` landmark (`tabindex="-1"`, focused by the skip link or a click on page text) does not count as "moved on to another control".
+  - The new `Button` tests have descriptive names like the existing ones: no requirement ID covers the shared component.
+- **How I verified it:**
+  - `npm run lint`, `npm test` (48 files, 1239 tests, no backend on :8000) and `npm run build` pass. Removing the change makes the new focus tests fail.
+  - Headless Chrome (Playwright, system Chrome) at 360 and 1280 wide, light and dark, against Vite on 5173 and the backend on 8000 with `AI_PROVIDER=mock` and a seeded demo (`DEMO_EMAIL` in the environment, `uv run python -m scripts.seed_demo`). Failures were simulated with Playwright routes. 128 of 128 checks passed:
+    - Tab or Enter on a busy button keeps focus with the 2px outline and `progress` cursor; a second press, Enter or Space sends nothing;
+    - no outline after a mouse press, and the normal fill under hover;
+    - each focus move in the criteria, including "Try the demo" with no field message and the "moved on" cases;
+    - no sideways scroll on `/login` at 360.
+  - No backend change and no real AI call.
+- **Left open:** on the edit and summary pages a retry flag stays set if the route id changes while the same page stays mounted (no link does this today); a later failed load then focuses "Try again" only when focus is on the page body.
