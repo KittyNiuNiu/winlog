@@ -3,7 +3,7 @@ import { useState, type ClipboardEvent, type KeyboardEvent, type ReactNode, type
 import Icon from '../components/Icon.tsx'
 import { TextField } from '../components/TextField.tsx'
 import { SUGGESTED_MARK } from './suggestions.ts'
-import { addTagNames, matchingTags } from './tagNames.ts'
+import { addTagNamesWithin, joinTagNames, matchingTags, type TagLimitProblems } from './tagNames.ts'
 import './TagField.css'
 
 interface TagFieldProps {
@@ -23,6 +23,8 @@ interface TagFieldProps {
   /** The new tags, and the names the user typed or chose (none when a tag was removed). */
   onTagsChange: (tags: string[], typed: readonly string[]) => void
   onInputChange: (input: string) => void
+  /** Names were not added because they broke a tag limit (#43); they stay in the input. */
+  onTagLimit?: (problems: TagLimitProblems) => void
 }
 
 export const TAGS_HINT = 'Optional. Press Enter or type a comma to add a tag.'
@@ -30,7 +32,9 @@ export const TAGS_HINT = 'Optional. Press Enter or type a comma to add a tag.'
 /**
  * The tag field: a combobox that offers the user's existing tags whose names contain the
  * typed text, and the added tags as chips with a remove button. Enter or a comma adds the
- * typed text; choosing an offered tag adds it with its stored spelling.
+ * typed text; choosing an offered tag adds it with its stored spelling. Names over 40
+ * characters, or beyond 10 tags, are not added (#43): they stay in the input, joined with
+ * ", ", and `onTagLimit` says which limit they broke.
  */
 export default function TagField({
   id,
@@ -43,6 +47,7 @@ export default function TagField({
   inputRef,
   onTagsChange,
   onInputChange,
+  onTagLimit,
 }: TagFieldProps) {
   const [listOpen, setListOpen] = useState(false)
   const [highlight, setHighlight] = useState(-1)
@@ -57,9 +62,18 @@ export default function TagField({
     setHighlight(-1)
   }
 
+  /** Adds the names that fit and reports the others. Returns the names that did not fit. */
+  function addWithin(names: readonly string[]): string[] {
+    const result = addTagNamesWithin(tags, names)
+    onTagsChange(result.tags, names)
+    if (result.rejected.length > 0) {
+      onTagLimit?.(result.problems)
+    }
+    return result.rejected
+  }
+
   function add(names: readonly string[]) {
-    onTagsChange(addTagNames(tags, names), names)
-    onInputChange('')
+    onInputChange(joinTagNames(addWithin(names)))
     closeList()
   }
 
@@ -76,9 +90,9 @@ export default function TagField({
     // A typed comma ends a tag; what follows it stays in the input.
     const parts = value.split(',')
     const rest = parts.pop() ?? ''
-    onTagsChange(addTagNames(tags, parts), parts)
-    onInputChange(rest)
-    setListOpen(rest.trim() !== '')
+    const rejected = addWithin(parts)
+    onInputChange(rejected.length === 0 ? rest : joinTagNames(rest.trim() === '' ? rejected : [...rejected, rest]))
+    setListOpen(rejected.length === 0 && rest.trim() !== '')
   }
 
   function handlePaste(event: ClipboardEvent<HTMLInputElement>) {
@@ -121,7 +135,8 @@ export default function TagField({
           return
         }
         const chosen = active >= 0 ? suggestions[active] : undefined
-        add([chosen ?? input])
+        // A comma in the input only comes from names that did not fit, joined with ", ".
+        add(chosen === undefined ? input.split(',') : [chosen])
         return
       }
       case 'Escape':

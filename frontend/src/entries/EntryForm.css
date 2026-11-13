@@ -122,6 +122,14 @@
   margin-top: var(--space-12);
 }
 
+/* Under the suggest row while the text is too long for suggestions (design note on #43),
+   in the style of the summary panel's line under a disabled draft button. */
+.entry-form__suggest-hint {
+  margin: var(--space-8) 0 0;
+  font-size: var(--text-body-small-size);
+  color: var(--color-muted-plum-grey);
+}
+
 .entry-form__hint {
   margin-top: var(--space-8);
 }

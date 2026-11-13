@@ -1,7 +1,13 @@
 // The summary panel on the review page (FR-R3 to FR-R5, #32 and its design note): its
 // texts, when drafting is possible, the request for the filter shown, and the notice for a
 // failed draft. The server's own message is never shown.
-import { AiUnavailableError, LimitReachedError, NoMatchingEntriesError, type SummaryFilter } from '../api/index.ts'
+import {
+  AiUnavailableError,
+  LimitReachedError,
+  NoMatchingEntriesError,
+  SummaryInputTooLargeError,
+  type SummaryFilter,
+} from '../api/index.ts'
 import { unexpectedErrorMessage } from '../auth/requestErrors.ts'
 import { GLOBAL_LIMIT_MESSAGE } from '../components/aiTexts.ts'
 import { startAfterEnd, type ReviewFilter } from './reviewFilter.ts'
@@ -14,8 +20,10 @@ export {
   SUMMARY_FIELD_LABEL,
   SUMMARY_GONE_MESSAGE,
   SUMMARY_SAVED_TEXT,
+  SUMMARY_TOO_LONG_TEXT,
   saveErrorOf,
   sourceLine,
+  summaryTextProblem,
 } from '../components/summaryEditor.ts'
 
 export const SUMMARY_TITLE = 'Summary'
@@ -31,6 +39,9 @@ export const DATE_ORDER_HINT = 'Choose a start date on or before the end date to
 export const NOTHING_TO_SUMMARISE_HINT = "No entries match these filters, so there's nothing to summarise."
 
 export const NO_MATCHING_ENTRIES_MESSAGE = 'No entries match these filters, so no summary was created.'
+/** `summary_input_too_large` (#43 and its design note). */
+export const SUMMARY_INPUT_TOO_LARGE_MESSAGE =
+  'This filter covers too much text for one summary. Choose a shorter period, or narrow it down by category or tag.'
 export const SUMMARY_UNAVAILABLE_MESSAGE = "The summary couldn't be written right now. Please try again later."
 export const USER_SUMMARY_LIMIT_MESSAGE = "You've used today's summaries. They're available again after midnight UTC."
 
@@ -101,6 +112,9 @@ export function summaryRequest(filter: ReviewFilter): SummaryFilter | null {
 export function draftNoticeOf(error: unknown): string {
   if (error instanceof NoMatchingEntriesError) {
     return NO_MATCHING_ENTRIES_MESSAGE
+  }
+  if (error instanceof SummaryInputTooLargeError) {
+    return SUMMARY_INPUT_TOO_LARGE_MESSAGE
   }
   if (error instanceof LimitReachedError) {
     if (error.limit === 'user_summaries') {

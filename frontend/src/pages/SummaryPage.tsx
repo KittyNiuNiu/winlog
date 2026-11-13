@@ -16,14 +16,15 @@ import { Button } from '../components/Button.tsx'
 import Icon from '../components/Icon.tsx'
 import Message from '../components/Message.tsx'
 import SavedMessage from '../components/SavedMessage.tsx'
+import { SUMMARY_TEXT_MAX_CHARACTERS } from '../components/inputLimits.ts'
 import {
-  EMPTY_SUMMARY_TEXT,
   SAVE_SUMMARY_LABEL,
   SAVING_LABEL,
   SUMMARY_FIELD_LABEL,
   SUMMARY_SAVED_TEXT,
   saveErrorOf,
   sourceLine,
+  summaryTextProblem,
 } from '../components/summaryEditor.ts'
 import { summaryFilterText } from '../components/summaryFilterText.ts'
 import { TextArea } from '../components/TextField.tsx'
@@ -102,8 +103,8 @@ function SummaryEditor({ summary }: { summary: Summary }) {
   const [text, setText] = useState(summary.text)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<SlotError | null>(null)
-  /** Whether Save found the text empty; the message shows while it still is. */
-  const [emptyChecked, setEmptyChecked] = useState(false)
+  /** Whether Save found the text empty or too long; the message shows while it still is. */
+  const [textChecked, setTextChecked] = useState(false)
   const [copied, setCopied] = useState(false)
   const [confirm, setConfirm] = useState<Confirm | null>(null)
   const [focusRequest, setFocusRequest] = useState<{ target: FocusTarget } | null>(null)
@@ -160,8 +161,8 @@ function SummaryEditor({ summary }: { summary: Summary }) {
     }
     setError(null)
     saved.hide()
-    if (blank) {
-      setEmptyChecked(true)
+    if (summaryTextProblem(text) !== null) {
+      setTextChecked(true)
       textRef.current?.focus()
       return
     }
@@ -274,7 +275,7 @@ function SummaryEditor({ summary }: { summary: Summary }) {
     }
   }
 
-  const emptyShown = emptyChecked && blank
+  const textProblem = textChecked ? summaryTextProblem(text) : null
 
   return (
     <>
@@ -288,7 +289,8 @@ function SummaryEditor({ summary }: { summary: Summary }) {
           ref={textRef}
           value={text}
           readOnly={saving}
-          messages={emptyShown ? [EMPTY_SUMMARY_TEXT] : []}
+          maxCharacters={SUMMARY_TEXT_MAX_CHARACTERS}
+          messages={textProblem === null ? [] : [textProblem]}
           onChange={(event) => {
             if (!savingRef.current) {
               setText(event.target.value)

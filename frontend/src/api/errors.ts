@@ -71,6 +71,14 @@ export class NoMatchingEntriesError extends ApiError {
   override readonly name = 'NoMatchingEntriesError'
 }
 
+/**
+ * `summary_input_too_large`: the matching entries have too much text for one summary, so
+ * nothing was generated and nothing counted (#43). The user should narrow the filter.
+ */
+export class SummaryInputTooLargeError extends ApiError {
+  override readonly name = 'SummaryInputTooLargeError'
+}
+
 /** `limit_reached`: a daily AI limit is reached. */
 export class LimitReachedError extends ApiError {
   override readonly name = 'LimitReachedError'
@@ -162,6 +170,8 @@ export function errorFromResponse(status: number, body: unknown): ApiError {
       return new NotFoundError(message, status)
     case 'no_matching_entries':
       return new NoMatchingEntriesError(message, status)
+    case 'summary_input_too_large':
+      return new SummaryInputTooLargeError(message, status)
     case 'limit_reached':
       return new LimitReachedError(
         message,

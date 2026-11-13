@@ -4,7 +4,7 @@
 import { AiUnavailableError, LimitReachedError, type Category, type Suggestion } from '../api/index.ts'
 import { unexpectedErrorMessage } from '../auth/requestErrors.ts'
 import { GLOBAL_LIMIT_MESSAGE } from '../components/aiTexts.ts'
-import { addTagNames, sameName } from './tagNames.ts'
+import { addTagNamesWithin, sameName } from './tagNames.ts'
 
 export const SUGGEST_LABEL = 'Suggest category and tags'
 export const SUGGESTING_LABEL = 'Suggesting…'
@@ -101,7 +101,8 @@ export function applySuggestion<V extends Suggestible>(
   } else if (category !== suggestion.category) {
     marks.hint = suggestion.category
   }
-  const tags = addTagNames(values.tags, suggestion.tags)
+  // Only until the entry has 10 tags (#43); the rest are not added.
+  const { tags } = addTagNamesWithin(values.tags, suggestion.tags)
   marks.tags = tags.slice(values.tags.length)
   return { values: { ...values, category, tags }, marks, addedTags: marks.tags.length > 0 }
 }

@@ -2,6 +2,7 @@ import { Sparkles } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
 import { NotAuthenticatedError, generateSummary, updateSummary, type Summary } from '../api/index.ts'
 import { Button } from '../components/Button.tsx'
+import { SUMMARY_TEXT_MAX_CHARACTERS } from '../components/inputLimits.ts'
 import Icon from '../components/Icon.tsx'
 import Message from '../components/Message.tsx'
 import SavedMessage from '../components/SavedMessage.tsx'
@@ -17,7 +18,6 @@ import {
   DRAFT_AGAIN_LABEL,
   DRAFT_LABEL,
   DRAFT_NOTE,
-  EMPTY_SUMMARY_TEXT,
   SAVE_SUMMARY_LABEL,
   SAVING_LABEL,
   SUMMARY_FIELD_LABEL,
@@ -30,6 +30,7 @@ import {
   saveErrorOf,
   sourceLine,
   summaryRequest,
+  summaryTextProblem,
 } from './summaryDraft.ts'
 import './SummaryPanel.css'
 
@@ -67,8 +68,8 @@ export default function SummaryPanel({ filter, entryCount }: SummaryPanelProps) 
   const [saving, setSaving] = useState(false)
   const [notice, setNotice] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
-  /** Whether Save found the text empty; the message shows while it still is. */
-  const [emptyChecked, setEmptyChecked] = useState(false)
+  /** Whether Save found the text empty or too long; the message shows while it still is. */
+  const [textChecked, setTextChecked] = useState(false)
   const [confirmingAgain, setConfirmingAgain] = useState(false)
   const [focusRequest, setFocusRequest] = useState<{ target: FocusTarget } | null>(null)
   const saved = useSavedMessage()
@@ -170,7 +171,7 @@ export default function SummaryPanel({ filter, entryCount }: SummaryPanelProps) 
     setDrafting(false)
     setDraft(summary)
     setText(summary.text)
-    setEmptyChecked(false)
+    setTextChecked(false)
     setFocusRequest({ target: 'source' })
   }
 
@@ -210,8 +211,8 @@ export default function SummaryPanel({ filter, entryCount }: SummaryPanelProps) 
     setSaveError(null)
     setNotice(null)
     saved.hide()
-    if (text.trim() === '') {
-      setEmptyChecked(true)
+    if (summaryTextProblem(text) !== null) {
+      setTextChecked(true)
       textRef.current?.focus()
       return
     }
@@ -243,7 +244,7 @@ export default function SummaryPanel({ filter, entryCount }: SummaryPanelProps) 
     setFocusRequest({ target: 'save' })
   }
 
-  const emptyShown = emptyChecked && text.trim() === ''
+  const textProblem = textChecked ? summaryTextProblem(text) : null
 
   return (
     <>
@@ -265,7 +266,8 @@ export default function SummaryPanel({ filter, entryCount }: SummaryPanelProps) 
                   ref={textRef}
                   value={text}
                   readOnly={saving || drafting}
-                  messages={emptyShown ? [EMPTY_SUMMARY_TEXT] : []}
+                  maxCharacters={SUMMARY_TEXT_MAX_CHARACTERS}
+                  messages={textProblem === null ? [] : [textProblem]}
                   onChange={(event) => {
                     if (!savingRef.current && !draftingRef.current) {
                       setText(event.target.value)

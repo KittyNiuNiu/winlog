@@ -65,11 +65,31 @@
   box-shadow: var(--shadow-focus-glow);
 }
 
+.field__counter {
+  margin: var(--space-8) 0 0;
+  font-size: var(--text-body-small-size);
+  font-weight: 400;
+  line-height: var(--text-body-line-height);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-muted-plum-grey);
+  text-align: end;
+  white-space: nowrap;
+}
+
+.field__counter--over {
+  font-weight: 600;
+  color: var(--color-error);
+}
+
 .field__messages {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
   margin-top: var(--space-8);
+}
+
+.field__counter + .field__messages {
+  margin-top: var(--space-4);
 }
 
 .field__messages:empty {

@@ -1,5 +1,6 @@
 import { Sparkles } from 'lucide-react'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { flushSync } from 'react-dom'
 import {
   NotAuthenticatedError,
   NotFoundError,
@@ -17,6 +18,7 @@ import { Button } from '../components/Button.tsx'
 import { CATEGORIES } from '../components/categories.ts'
 import CategoryChip from '../components/CategoryChip.tsx'
 import Icon from '../components/Icon.tsx'
+import { ENTRY_TEXT_MAX_CHARACTERS, RESULT_MAX_CHARACTERS, overLimit } from '../components/inputLimits.ts'
 import Message from '../components/Message.tsx'
 import { TextArea, TextField } from '../components/TextField.tsx'
 import { LAPTOP_QUERY, useMediaQuery } from '../components/useMediaQuery.ts'
@@ -25,8 +27,13 @@ import {
   DATE_PROBLEM,
   ENTRY_GONE_MESSAGE,
   RESULT_PROBLEM,
+  RESULT_TOO_LONG,
+  SUGGEST_LIMIT_HINT,
   TAGS_PROBLEM,
+  TAG_TOO_LONG,
   TEXT_PROBLEM,
+  TEXT_TOO_LONG,
+  TOO_MANY_TAGS,
 } from './entryTexts.ts'
 import { isCompleteDate, localToday } from './localDate.ts'
 import {
@@ -44,7 +51,13 @@ import {
   type Marks,
 } from './suggestions.ts'
 import TagField from './TagField.tsx'
-import { addTagNames } from './tagNames.ts'
+import {
+  NO_TAG_PROBLEMS,
+  addTagNamesWithin,
+  joinTagNames,
+  tagLimitProblems,
+  type TagLimitProblems,
+} from './tagNames.ts'
 import { useLeavePrompt } from './useLeavePrompt.tsx'
 import './EntryForm.css'
 
@@ -103,10 +116,14 @@ function sameValues(a: FormValues, b: FormValues): boolean {
   )
 }
 
-/** The fields the app checks before saving, in the order they appear on the form (§7.2). */
-function problemsOf(values: FormValues): Field[] {
+/**
+ * The fields the app checks before saving, in the order they appear on the form (§7.2):
+ * required fields, and the maximum sizes (#43). The tag limits depend on the tag input
+ * too, so the caller passes them.
+ */
+function problemsOf(values: FormValues, tagProblems: TagLimitProblems = NO_TAG_PROBLEMS): Field[] {
   const problems: Field[] = []
-  if (values.text.trim() === '') {
+  if (values.text.trim() === '' || overLimit(values.text, ENTRY_TEXT_MAX_CHARACTERS)) {
     problems.push('text')
   }
   if (values.category === null) {
@@ -115,7 +132,24 @@ function problemsOf(values: FormValues): Field[] {
   if (!isCompleteDate(values.date)) {
     problems.push('date')
   }
+  if (tagProblems.tooLong || tagProblems.tooMany) {
+    problems.push('tags')
+  }
+  if (overLimit(values.result, RESULT_MAX_CHARACTERS)) {
+    problems.push('result')
+  }
   return problems
+}
+
+/** The message of the app's own check for a field (text and result have two kinds). */
+function checkMessage(field: Field, values: FormValues): string {
+  if (field === 'text' && values.text.trim() !== '') {
+    return TEXT_TOO_LONG
+  }
+  if (field === 'result') {
+    return RESULT_TOO_LONG
+  }
+  return FIELD_PROBLEMS[field]
 }
 
 /** The form field a server validation error names, or null for one not on the form. */
@@ -162,6 +196,11 @@ export default function EntryForm({ entry, knownTags, onSaved, onCancel }: Entry
   const { values, marks, foldOpen } = form
   const [tagInput, setTagInput] = useState('')
   const [checked, setChecked] = useState(false)
+  /**
+   * The tag limits an add or a save broke (#43). Each message shows while its limit is
+   * still broken, and goes for good once it is not.
+   */
+  const [tagAlerts, setTagAlerts] = useState<TagLimitProblems>(NO_TAG_PROBLEMS)
   const [serverProblems, setServerProblems] = useState<Partial<Record<Field, true>>>({})
   const [formError, setFormError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -178,6 +217,7 @@ export default function EntryForm({ entry, knownTags, onSaved, onCancel }: Entry
   const categoryRef = useRef<HTMLDivElement>(null)
   const dateRef = useRef<HTMLInputElement>(null)
   const tagInputRef = useRef<HTMLInputElement>(null)
+  const resultRef = useRef<HTMLTextAreaElement>(null)
   const suggestRef = useRef<HTMLButtonElement>(null)
 
   const dirty = !sameValues(values, initial) || tagInput !== ''
@@ -211,9 +251,43 @@ export default function EntryForm({ entry, knownTags, onSaved, onCancel }: Entry
   }, [suggesting])
 
   const clientProblems = checked ? problemsOf(values) : []
+  const textTooLong = overLimit(values.text, ENTRY_TEXT_MAX_CHARACTERS)
+
+  // A tag message goes once its limit is no longer broken (adjusted while rendering, as
+  // React suggests), so it does not come back without a new add or save.
+  const tagState = tagLimitProblems(values.tags, tagInput)
+  const shownTagAlerts: TagLimitProblems = {
+    tooLong: tagAlerts.tooLong && tagState.tooLong,
+    tooMany: tagAlerts.tooMany && tagState.tooMany,
+  }
+  if (shownTagAlerts.tooLong !== tagAlerts.tooLong || shownTagAlerts.tooMany !== tagAlerts.tooMany) {
+    setTagAlerts(shownTagAlerts)
+  }
 
   function messagesFor(field: Field): string[] {
-    return clientProblems.includes(field) || serverProblems[field] === true ? [FIELD_PROBLEMS[field]] : []
+    if (clientProblems.includes(field)) {
+      return [checkMessage(field, values)]
+    }
+    return serverProblems[field] === true ? [FIELD_PROBLEMS[field]] : []
+  }
+
+  function tagMessages(): string[] {
+    const messages = serverProblems.tags === true ? [TAGS_PROBLEM] : []
+    if (shownTagAlerts.tooLong) {
+      messages.push(TAG_TOO_LONG)
+    }
+    if (shownTagAlerts.tooMany) {
+      messages.push(TOO_MANY_TAGS)
+    }
+    return messages
+  }
+
+  /** An add in the tag field broke a tag limit: its message shows (#43). */
+  function showTagLimit(problems: TagLimitProblems) {
+    setTagAlerts((current) => ({
+      tooLong: current.tooLong || problems.tooLong,
+      tooMany: current.tooMany || problems.tooMany,
+    }))
   }
 
   function change<K extends 'text' | 'date' | 'result'>(field: K, value: FormValues[K]) {
@@ -258,7 +332,7 @@ export default function EntryForm({ entry, knownTags, onSaved, onCancel }: Entry
   }
 
   async function handleSuggest() {
-    if (suggestingRef.current || savingRef.current || values.text.trim() === '') {
+    if (suggestingRef.current || savingRef.current || values.text.trim() === '' || textTooLong) {
       return
     }
     requestRef.current += 1
@@ -330,6 +404,10 @@ export default function EntryForm({ entry, knownTags, onSaved, onCancel }: Entry
       categoryRef.current?.querySelector('button')?.focus()
     } else if (field === 'date') {
       dateRef.current?.focus()
+    } else if (field === 'tags') {
+      tagInputRef.current?.focus()
+    } else {
+      resultRef.current?.focus()
     }
   }
 
@@ -359,19 +437,30 @@ export default function EntryForm({ entry, knownTags, onSaved, onCancel }: Entry
     // A suggestion answer after this changes nothing, and the notice goes.
     dropSuggestionRequest()
     setNotice(null)
-    // Text still in the tag input becomes a tag, so nothing typed is lost.
-    const toSave: FormValues = { ...values, tags: addTagNames(values.tags, [tagInput]) }
+    // Text still in the tag input becomes a tag, so nothing typed is lost. Names that break
+    // a tag limit (#43) stay in the input. A comma in it only comes from such names.
+    const typed = tagInput.split(',')
+    const added = addTagNamesWithin(values.tags, typed)
+    const toSave: FormValues = { ...values, tags: added.tags }
+    const inputLeft = joinTagNames(added.rejected)
     if (tagInput !== '') {
       setForm((current) => ({
         ...current,
         values: toSave,
-        marks: marksAfterTagChange(current.marks, toSave.tags, [tagInput]),
+        marks: marksAfterTagChange(current.marks, toSave.tags, typed),
       }))
-      setTagInput('')
+      setTagInput(inputLeft)
     }
+    const tagProblems = tagLimitProblems(toSave.tags, inputLeft)
+    setTagAlerts(tagProblems)
     setChecked(true)
-    const [firstProblem] = problemsOf(toSave)
+    const problems = problemsOf(toSave, tagProblems)
+    const [firstProblem] = problems
     if (firstProblem !== undefined) {
+      if (problems.includes('tags') || problems.includes('result')) {
+        // Opened at once, so the cursor can go into a field inside the fold.
+        flushSync(() => setForm((current) => ({ ...current, foldOpen: true })))
+      }
       focusField(firstProblem)
       return
     }
@@ -419,6 +508,7 @@ export default function EntryForm({ entry, knownTags, onSaved, onCancel }: Entry
           ref={textRef}
           value={values.text}
           readOnly={saving}
+          maxCharacters={ENTRY_TEXT_MAX_CHARACTERS}
           messages={messagesFor('text')}
           onChange={(event) => change('text', event.target.value)}
         />
@@ -429,9 +519,10 @@ export default function EntryForm({ entry, knownTags, onSaved, onCancel }: Entry
               variant="secondary"
               className="entry-form__suggest-button"
               ref={suggestRef}
-              disabled={values.text.trim() === '' || saving}
+              disabled={values.text.trim() === '' || textTooLong || saving}
               busy={suggesting}
               busyLabel={SUGGESTING_LABEL}
+              aria-describedby={textTooLong ? 'entry-suggest-hint' : undefined}
               onClick={() => void handleSuggest()}
             >
               <Icon icon={Sparkles} size={20} />
@@ -443,6 +534,11 @@ export default function EntryForm({ entry, knownTags, onSaved, onCancel }: Entry
               </button>
             )}
           </div>
+          {textTooLong && (
+            <p className="entry-form__suggest-hint" id="entry-suggest-hint">
+              {SUGGEST_LIMIT_HINT}
+            </p>
+          )}
           <Message variant="info" className="entry-form__notice">
             {notice}
           </Message>
@@ -521,10 +617,11 @@ export default function EntryForm({ entry, knownTags, onSaved, onCancel }: Entry
               suggested={marks.tags}
               input={tagInput}
               knownTags={knownTags}
-              messages={messagesFor('tags')}
+              messages={tagMessages()}
               readOnly={saving}
               inputRef={tagInputRef}
               onTagsChange={changeTags}
+              onTagLimit={showTagLimit}
               onInputChange={(input) => {
                 if (!savingRef.current) {
                   setTagInput(input)
@@ -536,8 +633,10 @@ export default function EntryForm({ entry, knownTags, onSaved, onCancel }: Entry
                 id="entry-result"
                 label="Result"
                 hint={RESULT_HINT}
+                ref={resultRef}
                 value={values.result}
                 readOnly={saving}
+                maxCharacters={RESULT_MAX_CHARACTERS}
                 messages={messagesFor('result')}
                 onChange={(event) => change('result', event.target.value)}
               />
