@@ -12,14 +12,30 @@ interface DeleteEntryDialogProps {
   /** Close the dialog and keep the entry. Also Escape. */
   onCancel: () => void
   onDelete: () => void
+  /** The question. The entries page's by default; the summary page has its own (#33). */
+  title?: string
+  /** The text under the question. */
+  text?: string
+  /** The delete button's label. */
+  deleteLabel?: string
 }
 
 /**
  * "Delete this entry?" (FR-E4): a native modal dialog with two secondary buttons, as
  * "Discard changes?" (#27), so it adds no filled plum. It opens on "Cancel". After a failed
  * attempt the error shows inside and focus goes to "Delete entry", ready to try again.
+ * The summary page (#33) uses it with its own title, text and button label.
  */
-export default function DeleteEntryDialog({ open, busy, error, onCancel, onDelete }: DeleteEntryDialogProps) {
+export default function DeleteEntryDialog({
+  open,
+  busy,
+  error,
+  onCancel,
+  onDelete,
+  title = 'Delete this entry?',
+  text = "This can't be undone.",
+  deleteLabel = 'Delete entry',
+}: DeleteEntryDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const cancelRef = useRef<HTMLButtonElement>(null)
   const deleteRef = useRef<HTMLButtonElement>(null)
@@ -75,9 +91,9 @@ export default function DeleteEntryDialog({ open, busy, error, onCancel, onDelet
       onKeyDown={handleKeyDown}
       onCancel={handleCancel}
     >
-      <h2 id={titleId}>Delete this entry?</h2>
+      <h2 id={titleId}>{title}</h2>
       <p className="delete-dialog__text" id={textId}>
-        This can&apos;t be undone.
+        {text}
       </p>
       <Message className="delete-dialog__error" variant="error">
         {error}
@@ -87,7 +103,7 @@ export default function DeleteEntryDialog({ open, busy, error, onCancel, onDelet
           Cancel
         </Button>
         <Button ref={deleteRef} variant="secondary" busy={busy} busyLabel="Deleting…" onClick={onDelete}>
-          Delete entry
+          {deleteLabel}
         </Button>
       </div>
     </dialog>

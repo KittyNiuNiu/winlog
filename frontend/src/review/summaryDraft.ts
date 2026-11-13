@@ -1,30 +1,30 @@
 // The summary panel on the review page (FR-R3 to FR-R5, #32 and its design note): its
 // texts, when drafting is possible, the request for the filter shown, and the notice for a
 // failed draft. The server's own message is never shown.
-import {
-  AiUnavailableError,
-  LimitReachedError,
-  NoMatchingEntriesError,
-  NotFoundError,
-  type SummaryFilter,
-} from '../api/index.ts'
+import { AiUnavailableError, LimitReachedError, NoMatchingEntriesError, type SummaryFilter } from '../api/index.ts'
 import { unexpectedErrorMessage } from '../auth/requestErrors.ts'
 import { GLOBAL_LIMIT_MESSAGE } from '../components/aiTexts.ts'
 import { startAfterEnd, type ReviewFilter } from './reviewFilter.ts'
+
+// The texts and helpers for editing a saved summary are shared with the summary page (#33).
+export {
+  EMPTY_SUMMARY_TEXT,
+  SAVE_SUMMARY_LABEL,
+  SAVING_LABEL,
+  SUMMARY_FIELD_LABEL,
+  SUMMARY_GONE_MESSAGE,
+  SUMMARY_SAVED_TEXT,
+  saveErrorOf,
+  sourceLine,
+} from '../components/summaryEditor.ts'
 
 export const SUMMARY_TITLE = 'Summary'
 export const DRAFT_LABEL = 'Draft summary'
 export const DRAFT_AGAIN_LABEL = 'Draft again'
 export const DRAFTING_LABEL = 'Drafting…'
-export const SAVE_SUMMARY_LABEL = 'Save summary'
-export const SAVING_LABEL = 'Saving…'
-export const SUMMARY_FIELD_LABEL = 'Summary text'
 
 export const DRAFTING_TEXT = 'Writing your summary… This can take up to a minute.'
 export const DRAFT_NOTE = 'This draft is saved in Summaries. Edit it as you like, then save your changes.'
-export const SUMMARY_SAVED_TEXT = 'Summary saved.'
-export const EMPTY_SUMMARY_TEXT = 'Write your summary, then save.'
-export const SUMMARY_GONE_MESSAGE = "This summary no longer exists, so your changes can't be saved."
 
 export const NEED_DATES_HINT = 'Choose a start and end date to draft a summary.'
 export const DATE_ORDER_HINT = 'Choose a start date on or before the end date to draft a summary.'
@@ -46,11 +46,6 @@ export function draftLine(count: number): string {
 /** The line under "Draft again", which keeps the draft shown in Summaries. */
 export function draftAgainLine(count: number): string {
   return `Draft a new summary of the ${entriesShown(count)}. This draft stays in Summaries.`
-}
-
-/** The panel's source line: which entries the draft is from. */
-export function sourceLine(filterText: string): string {
-  return `Entries from ${filterText}`
 }
 
 /** Whether "Draft summary" and "Draft again" can be used for the filter shown. */
@@ -121,9 +116,4 @@ export function draftNoticeOf(error: unknown): string {
     return SUMMARY_UNAVAILABLE_MESSAGE
   }
   return unexpectedErrorMessage(error)
-}
-
-/** The message for a failed save. */
-export function saveErrorOf(error: unknown): string {
-  return error instanceof NotFoundError ? SUMMARY_GONE_MESSAGE : unexpectedErrorMessage(error)
 }
