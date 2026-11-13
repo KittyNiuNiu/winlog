@@ -300,7 +300,8 @@ jobs:
         # no login, 127.0.0.1 only) must show its trace in Tempo, a log record with the same
         # trace ID in Loki, and the outcome counter in Prometheus. The backend batches traces
         # and logs (about 5 s) and exports metrics every 10 s, so this retries for up to 90 s.
-        # Then lgtm is stopped, and the backend must still answer GET /health with 200.
+        # Then lgtm is stopped, and the backend must still answer GET /health with 200. Last, the
+        # backend container's log must have no uvicorn access log line.
         run: |
           grafana=http://127.0.0.1:3000/api/datasources/proxy/uid
           tempo_ok=no; loki_ok=no; prometheus_ok=no; trace_id=
@@ -336,6 +337,15 @@ jobs:
           status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://localhost:8000/health || true)
           echo "GET /health with lgtm stopped -> $status"
           [ "$status" = "200" ] || { echo "::error::GET /health returned $status after lgtm was stopped"; exit 1; }
+          # Uvicorn's access log is off in the image too: its `request finished` JSON lines
+          # replace it, and no line has a query string or a client address.
+          docker compose logs --no-color backend > backend.log
+          tail -n 5 backend.log
+          if grep -q 'HTTP/1.1"' backend.log; then
+            echo "::error::The backend container printed uvicorn access log lines"
+            exit 1
+          fi
+          grep -q '"message": "request finished"' backend.log || { echo "::error::No request finished line in the backend log"; exit 1; }
 
       - name: Upload the end-to-end test output
         # The trace and the screenshot of a failed test.
