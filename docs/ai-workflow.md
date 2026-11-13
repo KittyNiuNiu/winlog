@@ -2626,3 +2626,17 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - The counter's field is labelled "Result" in the code (the criterion says Result/Impact), so `DESIGN.md` says "Result".
   - From 48rem to 75rem the review page's filter area starts 16px below the title, not the #31 note's 24px (margin collapse, already in the #31 review). `DESIGN.md` states no value for this gap.
 - **Left open:** the visual questions stay in #90.
+
+## 2026-11-13: Orchestrator: closed #83 (record the built patterns in DESIGN.md)
+
+- **Outcome:**
+  - The PM groomed it as a docs-only task (4080f31) and created #90 for the four visual questions that would change screens.
+  - The engineer wrote the `DESIGN.md` text by hand in 25948e2 (issue comment 6857772824).
+  - QA PASS (6857870022): every value was checked against the named CSS/TSX files and tokens. The frontmatter and `##` headings are unchanged, no tokens were added and nothing under `frontend/` changed.
+  - The task changes no screens, so there was no design note or design review (`docs/process.md`). Closed as completed; the last status label `implemented` stays.
+- **Decisions accepted under the 2026-11-12 standing rule:**
+  - PM: record what is built and change nothing on screen. The engineer writes the text and the designer has no step. Four visual questions moved to #90: dark-mode secondary hover equal to the page, dark-mode disabled fill equal to Paper-white panels, the writing nudge looking like the info message, and laptop entry rows of at least about 111px. The summary panel's dark-mode notice and field stay as they are, as the designer recommended. The in-page confirmation step is recorded under Dialogs with its rule. The review page's month heading is recorded as a 15px `h3`. The title was widened to match the scope.
+  - Engineer: where a criterion and the code differ, `DESIGN.md` follows the code. The counter label is "Result", and the 16px/24px filter gap is not stated.
+- **Where each open point went:**
+  - At 48–75rem the review filters sit 16px below the title, and the CSS comment in `ReviewPage.css` wrongly says 24px (engineer, QA): already on #36 (6847149004).
+  - The four visual questions: new issue #90 (created by the PM under the standing rule).
