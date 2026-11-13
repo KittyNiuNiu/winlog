@@ -2130,3 +2130,45 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - For the design review: the `h1` focused after a delete shows the global focus outline.
   - The real clipboard contents could not be read back in headless Chrome (no system clipboard), so a real-browser copy is left for QA.
   - No dark mode screenshots were taken; the pages use tokens only.
+
+## 2026-11-13: Orchestrator: closed #33 (task 36, saved summaries pages)
+
+- **Outcome:**
+  - The PM re-groomed it (4c3d6ad) and the design note was posted (issue comment 6848949580).
+  - The engineer implemented it in 6f3cfcb, f69971e and 25776ac (6849396572).
+  - QA PASS (6849697816), including a real clipboard read-back, forced copy refusals and access by another user.
+  - Design review PASS (6849858387), light and dark.
+  - Closed as completed; the last status label `qa-passed` stays. No real AI calls: everything ran on `AI_PROVIDER=mock`.
+- **Decisions accepted under the 2026-11-12 standing rule:**
+  - PM:
+    - `/summaries/:id` is always editable, like the #32 panel. There is no Edit mode, and "Save summary" is the one plum button.
+    - Copy copies the field as it stands, including unsaved edits. When the clipboard is refused or missing, the page says so.
+    - Copy and Delete are secondary buttons.
+    - The list uses hairline rows, and the whole row is a link.
+    - The empty state has "Go to Review" and no illustration.
+    - "This summary was already deleted." when the summary is already gone.
+    - After a delete the history entry is replaced, and the page does not ask about unsaved changes.
+    - The last save wins.
+    - Reuse: `DeleteEntryDialog` with props, the `entrySavedNotice` pattern, and `formatFullDate`.
+  - Designer:
+    - The date sits on two lines in the 64px column.
+    - Layout of the row and the page; the summary page is at most 68ch wide.
+    - Action order per width.
+    - The §7.4 note is the field's hint.
+    - Focus rules: after a delete, focus goes to the list's `h1`.
+    - "Go to Review" is primary.
+    - Copy stays enabled while saving.
+  - Engineer:
+    - Shared `components/summaryEditor.ts`, re-exported from `review/summaryDraft.ts` so #32 is unchanged.
+    - `DeleteEntryDialog` gets optional props.
+    - One error slot for save and copy errors.
+    - A `created_at` that is not a valid date is shown as it is.
+  - Designer, in the review: the `h1` focus outline after a delete is accepted as built. It shows only for keyboard deletes (`:focus-visible`).
+- **Where each open point went:**
+  - The summary row and summary-page action patterns, and the shared delete dialog, are not yet in `DESIGN.md` (designer): comment on #83 (6849868254).
+  - Existing tests fail while a backend runs on :8000 (QA): already on #73 (6847148338).
+  - Left in this log, as expected behaviour with no change needed (designer):
+    - "Copy" widens by about 14px while it says "Copied".
+    - The inline "Back to summaries" link in the not-found message is 19px tall, which is fine for a link inside a sentence.
+    - ISO dates in the mock text can break at a hyphen.
+  - The per-user limit of 2 summaries a day was raised through environment variables only for the live checks (QA, designer): no file was changed.
