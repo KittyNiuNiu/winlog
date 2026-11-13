@@ -300,3 +300,17 @@ def test_deploy_port_is_documented_in_env_example():
 
     # Empty by default: the start script then uses 8000, as Docker Compose expects.
     assert "\nPORT=\n" in env_example
+
+
+# --- ops/deployment.md ---------------------------------------------------------------------
+
+
+def test_deploy_guide_lists_every_render_variable_and_no_secret():
+    guide = (ROOT / "ops" / "deployment.md").read_text(encoding="utf-8")
+    keys = {var["key"] for service in BLUEPRINT["services"] for var in service["envVars"]}
+    assert [key for key in sorted(keys) if f"| `{key}` |" not in guide] == []
+    # The only connection string is the placeholder pattern, never a real one.
+    assert "postgresql://<user>:<password>@" in guide
+    assert "npm run test:e2e" in guide and "sslmode=require" in guide
+    for secret_prefix in ("sk-or-", "npg_"):
+        assert secret_prefix not in guide
