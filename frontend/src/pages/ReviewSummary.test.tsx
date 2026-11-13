@@ -10,6 +10,7 @@ import {
   NoMatchingEntriesError,
   NotAuthenticatedError,
   NotFoundError,
+  SummaryInputTooLargeError,
   UnknownError,
   type Entry,
   type Summary,
@@ -902,5 +903,81 @@ describe('when drafting fails (FR-R3, §7.4, §8)', () => {
 
     expect(router.state.location.pathname).toBe('/login')
     expect(openDialog()).toBeNull()
+  })
+})
+
+describe('maximum sizes in the panel (#43, FR-R3, FR-R5)', () => {
+  const TOO_MUCH =
+    'This filter covers too much text for one summary. Choose a shorter period, or narrow it down by category or tag.'
+
+  function counter(): HTMLElement | null {
+    return document.getElementById(`${field().id}-counter`)
+  }
+
+  it('test_fr_r5_panel_counter_from_8000_characters_and_red_over_10000', async () => {
+    await renderWithDraft()
+
+    await type(field(), 'a'.repeat(7999))
+    expect(counter()).toBeNull()
+    await type(field(), 'a'.repeat(8000))
+    expect(counter()?.textContent).toContain('8,000 / 10,000')
+    expect(counter()?.classList.contains('field__counter--over')).toBe(false)
+    await type(field(), 'a'.repeat(10512))
+    expect(counter()?.textContent).toContain('10,512 / 10,000')
+    expect(counter()?.textContent).toContain('10,512 of 10,000 characters')
+    expect(counter()?.classList.contains('field__counter--over')).toBe(true)
+    expect(field().getAttribute('aria-invalid')).toBe('true')
+  })
+
+  it('test_fr_r5_a_draft_of_8000_or_more_characters_shows_the_counter_at_once', async () => {
+    await renderWithDraft(makeSummary(PERIOD, 's'.repeat(9000)))
+
+    expect(counter()?.textContent).toContain('9,000 / 10,000')
+    expect(document.activeElement).toBe(sourceLine())
+  })
+
+  it('test_fr_r5_save_over_10000_characters_sends_nothing', async () => {
+    await renderWithDraft()
+    await type(field(), 'a'.repeat(10001))
+
+    await click(saveButton())
+
+    expect(updateSummary).not.toHaveBeenCalled()
+    expect(within(panel()).getByText('Shorten the summary to 10,000 characters, then save.')).toBeTruthy()
+    expect(document.activeElement).toBe(field())
+
+    await type(field(), 'a'.repeat(10000))
+    expect(within(panel()).queryByText('Shorten the summary to 10,000 characters, then save.')).toBeNull()
+    await click(saveButton())
+    expect(updateSummary).toHaveBeenCalledWith(SUMMARY_ID, { text: 'a'.repeat(10000) })
+  })
+
+  it('test_fr_r5_empty_and_too_long_messages_never_show_together', async () => {
+    await renderWithDraft()
+    await type(field(), '')
+    await click(saveButton())
+    expect(within(panel()).getByText('Write your summary, then save.')).toBeTruthy()
+
+    await type(field(), 'a'.repeat(10001))
+    expect(within(panel()).queryByText('Write your summary, then save.')).toBeNull()
+    expect(within(panel()).getByText('Shorten the summary to 10,000 characters, then save.')).toBeTruthy()
+  })
+
+  it('test_fr_r3_too_much_text_shows_its_notice_and_keeps_the_draft', async () => {
+    await renderWithDraft()
+    generateSummary.mockRejectedValue(new SummaryInputTooLargeError('server text', 422))
+    draftButton().focus()
+
+    await click(draftButton())
+
+    expect(infoNotice()).toBe(TOO_MUCH)
+    expect(screen.queryByText('server text')).toBeNull()
+    expect(field().value).toBe(DRAFT_TEXT)
+    expect(draftButton().disabled).toBe(false)
+    expect(document.activeElement).toBe(draftButton())
+
+    // It goes when the filter changes.
+    await click(chip('Feedback'))
+    expect(infoNotice()).toBe('')
   })
 })

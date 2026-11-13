@@ -846,3 +846,54 @@ describe('not found, loading and errors (FR-R5, §12)', () => {
     expect(router.state.location.state).toEqual({ from: SUMMARY_PATH })
   })
 })
+
+describe('maximum size of the summary text (#43, FR-R5)', () => {
+  function counter(): HTMLElement | null {
+    return document.getElementById(`${field().id}-counter`)
+  }
+
+  it('test_fr_r5_counter_from_8000_characters', async () => {
+    getSummary.mockResolvedValue(makeSummary({ text: 's'.repeat(7999) }))
+    await renderPage()
+    expect(counter()).toBeNull()
+
+    await type(field(), 's'.repeat(8000))
+    expect(counter()?.textContent).toContain('8,000 / 10,000')
+    expect(field().getAttribute('aria-invalid')).toBe('false')
+  })
+
+  it('test_fr_r5_save_over_10000_characters_sends_nothing', async () => {
+    getSummary.mockResolvedValue(makeSummary())
+    await renderPage()
+    await type(field(), 'a'.repeat(10001))
+
+    await click(saveButton())
+
+    expect(updateSummary).not.toHaveBeenCalled()
+    expect(screen.getByText('Shorten the summary to 10,000 characters, then save.')).toBeTruthy()
+    expect(document.activeElement).toBe(field())
+  })
+
+  it('test_fr_r5_summary_saved_before_the_limit_shows_the_over_limit_counter_copies_whole_and_saves_shortened', async () => {
+    const long = 's'.repeat(12000)
+    getSummary.mockResolvedValue(makeSummary({ text: long }))
+    updateSummary.mockImplementation(async (_id, body) => makeSummary({ text: body.text }))
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    await renderPage()
+
+    expect(counter()?.textContent).toContain('12,000 / 10,000')
+    expect(counter()?.classList.contains('field__counter--over')).toBe(true)
+    expect(field().getAttribute('aria-invalid')).toBe('true')
+
+    await click(copyButton())
+    expect(writeText).toHaveBeenCalledWith(long)
+
+    await click(saveButton())
+    expect(updateSummary).not.toHaveBeenCalled()
+
+    await type(field(), 's'.repeat(10000))
+    await click(saveButton())
+    expect(updateSummary).toHaveBeenCalledWith(SUMMARY_ID, { text: 's'.repeat(10000) })
+  })
+})
