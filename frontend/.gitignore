@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Viewport tests (#36): the test build, Playwright's output and the screenshots
+viewport-dist
+viewport-results
+viewport-screenshots
+playwright-report
