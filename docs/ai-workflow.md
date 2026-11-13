@@ -2284,3 +2284,31 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - The new setting does not reach the backend container in `docker-compose.yml` (PM): already on #61.
   - No feedback when the 10-tag limit stops suggested tags (PM): already on #86.
   - QA and design test users with over-limit rows set by SQL in the local dev database: left in this log.
+
+## 2026-11-13: PM: re-groom #34 (Build the data and account settings page) against DESIGN.md and the current frontend
+
+- **Task:** re-groom #34 (task 38), whose body dated from 2026-11-01, before `DESIGN.md`, #43 and the current frontend, following `docs/pm.md`. It had no status label.
+  - Checked against `DESIGN.md` (Layout, Typography, Buttons, Inputs / Fields, Icons, The One Action Rule, The Sentence Case Rule), `PRODUCT.md`, `product-spec.md` v0.2 (FR-A2, FR-D1, FR-D2, §7.6, §9, §12) and `openapi.yaml` (`exportJson`, `exportMarkdown`, `deleteAccount`, `AccountDeletion` with the 1–128 limits from #43, `ContentDisposition`, `WrongPassword`, `DemoAccountNotDeletable`).
+  - Checked against the code in `frontend/src/`: `pages/SettingsPage.tsx` and `components/PlaceholderPage.tsx` (its only user), `components/AppShell.tsx` (Settings and Log out in the More menu and the sidebar), `components/Button.tsx`, `TextField.tsx`, `Message.tsx`, `entries/DeleteEntryDialog.tsx` and `DiscardDialog.tsx`, `auth/AuthFields.tsx`, `auth/wantedPage.ts`, `auth/requestErrors.ts`, `auth/RouteGuards.tsx`, `pages/LoginPage.tsx`, and `api/operations.ts`, `api/session.ts`, `api/errors.ts`, `api/client.ts`; and `backend/app/accounts.py` for how `current_password` is checked.
+  - Read the comments that point at #34: #19 (download buttons), #20 (the UI), #25 (the product owner's 2026-11-10 decision on when deletion clears the token). Read #35, #36, #46, #72, #83 and #84 so nothing from them is pulled in.
+- **What I did:**
+  - Rewrote #34 with the task template: page, your data, delete account, waking up and layout, checks and tests.
+  - Out of scope links #19, #20, #25, #35, #46, #36, #83 and #84. No follow-up issue was needed. Added input comments to #35 (6851922938: where the demo replacement sits, and the demo error's interim text), #83 (6851923318: the in-page confirmation step) and #84 (6851923673: the busy buttons on the settings page).
+  - No labels changed.
+- **Decisions taken under the standing rule (2026-11-12, re-confirmed 2026-11-13), recorded in the issue:**
+  - Kept from 2026-11-01: the current password (product owner), a typed confirmation word, download buttons inside the step, "Delete my account" disabled until both fields are filled, "That password is incorrect.", staying logged in after any failure, "Your account has been deleted." on `/login`, the server's file name.
+  - The typed word is shown as `Type "delete" to confirm` and accepted in any case, ignoring surrounding spaces (`DESIGN.md`: The Sentence Case Rule).
+  - The confirmation opens as a step in the page, not a modal dialog, because it holds two fields and four buttons on a 360px phone with the keyboard open.
+  - All buttons on the page are secondary, with the Lucide `Download` icon on the download buttons; there is no filled plum button.
+  - Logout is not repeated on the page; it is already in the navigation at both widths.
+  - A `current_password` validation error shows "That password is incorrect.", not the server's text.
+  - Downloads and deletion show the waking-up hint after 10 seconds.
+  - Each download button has its own busy state; deletion disables them all. Failures use the app's network and unexpected texts.
+  - After deletion, `/login` replaces `/settings` in the history, and the next login opens `/`.
+  - The password field from the login page gets a label prop and is reused; `PlaceholderPage` is removed.
+- **How I verified it:**
+  - Checked the issue against the definition of done in `docs/pm.md`: four sections, checkable criteria, and every out-of-scope line links an issue.
+  - Confirmed in the code that every API function, error class, component and helper the issue names exists, that `deleteAccount` clears the session only on success, and that `Download` and `Trash2` are in `lucide-react` 1.72.0. Confirmed that the backend sends the deletion password unchanged to `verify_password` (no trimming).
+  - MDN is not reachable from this session (DNS blocked). The `download` attribute and `URL.createObjectURL` / `revokeObjectURL` are documented in the project's TypeScript DOM typings; the issue says the result is checked in Chromium, and that a real-device iOS Safari / Android Chrome check is not possible here.
+  - Confirmed #19, #20, #25, #26 and #75 are closed. Read #34 back from GitHub: the body matches what I sent (plus the automatic footer), the title is unchanged and it has no labels.
+- **Left open:** for the designer's note: the page and section layout, how the in-page step is set apart, where messages and the waking-up hint sit, and the exact wording.
