@@ -4,17 +4,26 @@ import { InvalidCredentialsError, ValidationError, login } from '../api/index.ts
 import { EmailField, FormAlert, FormNotice, PasswordField, SubmitButton } from '../auth/AuthFields.tsx'
 import {
   ACCOUNT_CREATED_MESSAGE,
+  ACCOUNT_DELETED_MESSAGE,
   WRONG_CREDENTIALS_MESSAGE,
   unexpectedErrorMessage,
   validationMessages,
 } from '../auth/requestErrors.ts'
 import { useWakingUpHint } from '../auth/useWakingUpHint.ts'
 import { PASSWORD_MISSING, emailProblem } from '../auth/validation.ts'
-import { REGISTER_PATH, cameFromRegistration, wantedPage } from '../auth/wantedPage.ts'
+import { REGISTER_PATH, cameFromAccountDeletion, cameFromRegistration, wantedPage } from '../auth/wantedPage.ts'
 import { LoginIllustration } from '../components/Illustrations.tsx'
 import '../auth/AuthForm.css'
 
 type Field = 'email' | 'password'
+
+/** The information message above the form for the state the page was opened with, or null. */
+function noticeFor(state: unknown): string | null {
+  if (cameFromRegistration(state)) {
+    return ACCOUNT_CREATED_MESSAGE
+  }
+  return cameFromAccountDeletion(state) ? ACCOUNT_DELETED_MESSAGE : null
+}
 
 // FR-A2: log in. Login checks no password rule; it only needs both fields filled in.
 export default function LoginPage() {
@@ -28,7 +37,8 @@ export default function LoginPage() {
   const [checked, setChecked] = useState<Record<Field, boolean>>({ email: false, password: false })
   const [serverMessages, setServerMessages] = useState<Record<Field, string[]>>({ email: [], password: [] })
   const [formError, setFormError] = useState<string | null>(null)
-  const [showAccountCreated, setShowAccountCreated] = useState(() => cameFromRegistration(location.state))
+  // "Account created" after a failed automatic login, "account deleted" after FR-D2.
+  const [notice, setNotice] = useState<string | null>(() => noticeFor(location.state))
   const [pending, setPending] = useState(false)
   const wakingUp = useWakingUpHint(pending)
 
@@ -70,7 +80,7 @@ export default function LoginPage() {
 
     setFormError(null)
     setServerMessages({ email: [], password: [] })
-    setShowAccountCreated(false)
+    setNotice(null)
     setPending(true)
     try {
       await login({ email, password })
@@ -98,7 +108,7 @@ export default function LoginPage() {
     <section className="auth-page">
       <LoginIllustration />
       <h1>Log in</h1>
-      <FormNotice message={showAccountCreated ? ACCOUNT_CREATED_MESSAGE : null} />
+      <FormNotice message={notice} />
       <FormAlert message={formError} />
       <form className="form" noValidate onSubmit={(event) => void handleSubmit(event)}>
         <EmailField

@@ -1,5 +1,6 @@
 // What the login page receives in the history state: the page a logged-out visitor wanted,
-// and whether they come from a registration whose automatic login failed.
+// whether they come from a registration whose automatic login failed, and whether their
+// account was just deleted.
 import type { Location } from 'react-router'
 
 export interface LoginPageState {
@@ -7,6 +8,8 @@ export interface LoginPageState {
   from?: string
   /** True after a registration whose automatic login failed. */
   accountCreated?: boolean
+  /** True right after the user deleted their account (FR-D2). */
+  accountDeleted?: boolean
 }
 
 export const LOGIN_PATH = '/login'
@@ -45,4 +48,14 @@ export function wantedPage(state: unknown): string {
 /** True when the login page was opened after a registration whose automatic login failed. */
 export function cameFromRegistration(state: unknown): boolean {
   return typeof state === 'object' && state !== null && (state as Record<string, unknown>).accountCreated === true
+}
+
+/** The login page state after a successful account deletion: no remembered page. */
+export function accountDeletedState(): LoginPageState {
+  return { accountDeleted: true }
+}
+
+/** True when the login page was opened right after the user deleted their account. */
+export function cameFromAccountDeletion(state: unknown): boolean {
+  return typeof state === 'object' && state !== null && (state as Record<string, unknown>).accountDeleted === true
 }

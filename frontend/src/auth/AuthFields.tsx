@@ -13,7 +13,7 @@ interface InputFieldProps {
   id: string
   value: string
   onChange: (value: string) => void
-  onBlur: () => void
+  onBlur?: () => void
   messages: ReactNode[]
   inputRef?: Ref<HTMLInputElement>
 }
@@ -41,15 +41,35 @@ export function EmailField({ id, value, onChange, onBlur, messages, inputRef }: 
 interface PasswordFieldProps extends InputFieldProps {
   autoComplete: 'new-password' | 'current-password'
   hint?: string
+  /** The visible label. Login and registration use the default, "Password". */
+  label?: string
+  /** True while a request runs: the value cannot change, the Show/Hide toggle still works. */
+  readOnly?: boolean
 }
 
-export function PasswordField({ id, value, onChange, onBlur, messages, inputRef, autoComplete, hint }: PasswordFieldProps) {
+/**
+ * A password field with its Show/Hide toggle. The toggle state lives here, so a caller that
+ * must hide the password again (for example after Cancel) remounts the field.
+ */
+export function PasswordField({
+  id,
+  value,
+  onChange,
+  onBlur,
+  messages,
+  inputRef,
+  autoComplete,
+  hint,
+  label = 'Password',
+  readOnly,
+}: PasswordFieldProps) {
   const [visible, setVisible] = useState(false)
   return (
     <TextField
       id={id}
-      label="Password"
+      label={label}
       hint={hint}
+      readOnly={readOnly}
       messages={messages}
       ref={inputRef}
       name="password"

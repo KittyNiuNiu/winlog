@@ -1,0 +1,96 @@
+/* The settings page (design note on #34). One left-aligned column, at most 68ch wide, as
+   the summary page. Two plain sections, "Your data" and "Account", 40px apart. Only the
+   confirmation step is set apart: a flat paper-white panel with a hairline border, in the
+   place of "Delete account". Buttons are full width and stacked on the phone, and sit in
+   one row with auto widths from 48rem. Every button is secondary. */
+
+.settings-page {
+  max-width: var(--measure);
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.settings-page__section {
+  margin-top: var(--space-24);
+}
+
+.settings-page__section + .settings-page__section {
+  margin-top: var(--space-40);
+}
+
+.settings-page__text {
+  margin: var(--space-8) 0 var(--space-16);
+}
+
+.settings-page__buttons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+.settings-page__buttons .button {
+  width: 100%;
+  min-width: 0;
+}
+
+/* The message slots: an error, then the waking-up hint, 12px apart and 12px below the
+   buttons, only while they have text. */
+.settings-page__messages > :not(:empty) {
+  margin-top: var(--space-12);
+}
+
+/* The confirmation step. */
+
+.settings-page__step {
+  min-width: 0;
+  padding: var(--space-20);
+  background: var(--color-paper-white);
+  border: var(--border-hairline) solid var(--color-hairline);
+  border-radius: var(--radius-panel);
+  overflow-wrap: anywhere;
+}
+
+.settings-page__step-title {
+  font-size: var(--text-title-size);
+  line-height: var(--text-title-line-height);
+}
+
+.settings-page__step-text {
+  margin: var(--space-12) 0 0;
+}
+
+.settings-page__step-title + .settings-page__step-text {
+  margin-top: var(--space-8);
+}
+
+.settings-page__step-text + .settings-page__buttons {
+  margin-top: var(--space-12);
+}
+
+.settings-page__form {
+  min-width: 0;
+  margin-top: var(--space-24);
+}
+
+.settings-page__form .field + .field {
+  margin-top: var(--space-20);
+}
+
+.settings-page__step-actions {
+  margin-top: var(--space-24);
+}
+
+@media (min-width: 48rem) {
+  .settings-page__buttons {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .settings-page__buttons .button {
+    width: auto;
+  }
+
+  .settings-page__step {
+    padding: var(--space-24);
+  }
+}

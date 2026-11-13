@@ -1,10 +1,12 @@
-// The texts the login and registration forms show for errors that no field explains.
+// The texts the login and registration forms show for errors that no field explains, and
+// the notices the login page shows above its form.
 import { NetworkError, type ValidationError } from '../api/index.ts'
 
 export const NETWORK_ERROR_MESSAGE = "Can't reach Winlog. Check your connection and try again."
 export const UNEXPECTED_ERROR_MESSAGE = 'Something went wrong. Please try again.'
 export const WRONG_CREDENTIALS_MESSAGE = 'Wrong email or password.'
 export const ACCOUNT_CREATED_MESSAGE = 'Account created. Please log in.'
+export const ACCOUNT_DELETED_MESSAGE = 'Your account has been deleted.'
 export const WAKING_UP_MESSAGE = 'The server is waking up. This can take up to a minute.'
 
 /** After this long, a running request shows the waking-up hint (product-spec.md §12). */
