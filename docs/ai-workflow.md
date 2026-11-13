@@ -2249,3 +2249,38 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Left open:**
   - The design review has to check the screens again.
   - The manual check left a `review43-…@example.com` user in the local dev database. That is local data only.
+
+## 2026-11-13: Orchestrator: closed #43 (task 37, maximum input sizes)
+
+- **Outcome:**
+  - The PM groomed it (d008e08) and the designer posted the design note (issue comment 6850117531).
+  - The engineer implemented it, contract first: 89f291c (contract), 04a675c and 5f3f299 (backend), e937d80, 36ad0c5 and 6082d80 (frontend), comment 6851063286. A container restart stopped the first engineer run after the contract commit; a second run reviewed the unfinished backend work and finished it.
+  - QA PASS (6851287764).
+  - Design review FAIL 1 (6851460673): at 1280px the counter did not reach the field's right edge, because of the global `p` max-width. The engineer fixed it in ba9442c (6851583225).
+  - QA PASS on re-check (6851725342) and design re-review PASS (6851816412).
+  - Closed as completed; the last status label `qa-passed` stays. No real AI calls: every run used `AI_PROVIDER=mock`.
+- **Decisions accepted under the 2026-11-12 standing rule:**
+  - PM:
+    - Counters do not stop typing; over the limit the save is blocked with a message. Lengths are counted in Unicode characters.
+    - Tag names are measured as sent: at most 40 characters, at most 10 tags. The 40-character limit also applies to tag filters.
+    - New 422 `summary_input_too_large`, checked after `no_matching_entries` and before the daily limits. New setting `AI_SUMMARY_MAX_INPUT_CHARACTERS` (default 50000).
+    - Password `minLength`/`maxLength` added to the contract only.
+    - Suggested tags over 40 characters are dropped before the first 5 are taken.
+    - No migration.
+    - Created #88, a follow-up for the number of filter values and request size.
+  - Designer:
+    - The counter sits right-aligned under the field, shows from 80% of the limit, and is not a live region. Over the limit it uses the error colour at weight 600.
+    - A hint line explains the disabled suggest button: "Suggestions work on up to 2,000 characters."
+    - The panel notice is reworded to "…Choose a shorter period, or narrow it down by category or tag."
+    - Both tag messages can show at once.
+  - Engineer:
+    - Edited summaries get their own 10,000-character limit.
+    - Enter and Save split the tag input on commas.
+    - `generate_summary` receives the input limit through a dependency, so one existing unit test passes the extra argument; it is not weakened.
+- **Where each open point went:**
+  - Tags saved before #43 that are over 40 characters cannot be used as a filter, and `Summary.filter` responses carry the request schema's `maxLength` (QA): comment on #88 (6851824397).
+  - uvicorn's access log writes `?tag=<name>` URLs (QA; this predates #43): comment on #74 (6851825546).
+  - The counter pattern for `DESIGN.md` (designer, PM): already on #83 from the PM.
+  - The new setting does not reach the backend container in `docker-compose.yml` (PM): already on #61.
+  - No feedback when the 10-tag limit stops suggested tags (PM): already on #86.
+  - QA and design test users with over-limit rows set by SQL in the local dev database: left in this log.
