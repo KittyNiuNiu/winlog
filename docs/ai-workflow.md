@@ -2235,3 +2235,17 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Left open:**
   - A dev-database user (`check-…@example.com`) with sample entries was created by the manual check. It is local data only.
   - The design review (step 7) still has to look at the screens.
+
+## 2026-11-13: Engineer: fix #43 after design review FAIL 1
+
+- **Task:** fix the one failing point of the first design review on #43 (comment 6851460673). At 1280px the character counter stopped 39–43px short of the field's right edge on /entries/new (text and Result), /entries/:id/edit and /summaries/:id. It also moved about 4px to the right when it turned red.
+- **What I did:**
+  - Cause: `.field__counter` is a `<p>`, so it got the global `p { max-width: var(--measure) }`. That is 68ch, about 654px, while the field is 697px wide.
+  - Fix: `max-width: none` on `.field__counter` in `frontend/src/components/TextField.css`. The counter now spans the field, and `text-align: end` puts its text at the field's right edge. Nothing else changed.
+  - Test: `test_fr_e2_counter_8px_under_the_field_messages_4px_under_it_in_the_error_colour_over_the_limit` in `frontend/src/entries/entryStyles.test.ts` now also checks for `max-width: none` and `text-align: end` on the counter. It also checks that the over-the-limit rule changes no width, margin, padding or alignment. The check reads the CSS text, because jsdom cannot resolve `var()`. Without the fix this test fails.
+- **How I verified it:**
+  - `npm run lint`, `npm test` (1,012 passed, with no backend on :8000) and `npm run build` pass.
+  - Manual check with `AI_PROVIDER=mock`, in headless Chrome at 360 and 1280px, light and dark. I measured the visible counter text's right edge against the field's right edge in the grey (80%+) and red (over the limit) states. I did this on the entry text and Result in /entries/new, on /entries/:id/edit, on /summaries/:id and in the #32 panel on /review. All 40 cases have a gap of 0, for example 977.4 = 977.4 at 1280 and 319.0 in the panel at 360, so the red state no longer shifts. On /summaries/:id the counter now lines up with Delete. `scrollWidth` equals the viewport everywhere. No real AI call was made.
+- **Left open:**
+  - The design review has to check the screens again.
+  - The manual check left a `review43-…@example.com` user in the local dev database. That is local data only.
