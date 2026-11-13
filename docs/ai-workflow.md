@@ -3186,3 +3186,44 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - A 5xx answered without an exception, such as 503 `ai_unavailable`, gets `error.type` set to the status code (`"503"`), as OTel's conventions say. The issue names `error.type` for 5xx but not its value in this case.
   - Log records written outside a request are printed as JSON but not exported, because no app's telemetry is current then. The app has no such log lines today.
   - The Compose-only criteria (`docker compose up --build`, the UI in a browser, `docker compose restart lgtm`) could not be run here, because pip TLS fails in this session's image build. They are covered by the CI Full system job and, for the restart, by stopping and starting `lgtm` with the host backend.
+
+## 2026-11-13: Orchestrator: closed #74 (task 44, metrics, traces and structured logs)
+
+- **Outcome:**
+  - The PM groomed it (70fd8aa, grooming comment 6863038040) and created #92 for hosted telemetry after #39.
+  - The engineer posted a plan (6863129733) and implemented it in 0b60656, 5c05109, b01f17a, 42dda2c and 8017f56 (6863841875).
+  - QA PASS on all 29 criteria (6864229782): live through Grafana's datasource proxy, a marker-string privacy sweep, lgtm stopped and restarted. CI run 43499022582 was green, including the Full system telemetry step.
+  - The task changes no screens, so there was no design note or review.
+  - Closed as completed; the last status label `implemented` stays. No real AI calls.
+- **Decisions accepted under the 2026-11-12 standing rule.** The orchestrator checked them against "severe or critical": the AGPL parts run unmodified on local machines only and are not distributed; there is no cost or account (the product owner's 2026-11-11 decision); and privacy is settled by an allowlist that is tested.
+  - PM:
+    - Journey: `POST /summaries` with the mock AI. Five spans, three metrics, and JSON logs carrying `trace_id`/`span_id`.
+    - The trace ID stays in the backend: incoming trace headers are ignored and the contract does not change.
+    - OpenTelemetry Python SDK 1.45.2 (api, sdk, otlp-proto-http exporter; no auto-instrumentation) and one Compose service, `grafana/otel-lgtm:0.39.0`, with a named volume and ports on 127.0.0.1 only.
+    - Privacy allowlist in `app/telemetry.py`: no user ids, emails, IPs, tag names, query strings, ids, user agents, AI content, exception messages or stack traces.
+    - The uvicorn access log is turned off, which settles the #43 and #46 points.
+    - One setting, `OTEL_EXPORTER_OTLP_ENDPOINT` (empty means no export).
+    - Tests use in-memory exporters.
+    - Spec §9, §10.2 and §14, and `AGENTS.md`, updated as written in the issue.
+    - A CI telemetry check.
+  - Engineer:
+    - Exporters exist only during the app lifespan.
+    - The access log is turned off inside the app, so the dev command and Dockerfile are unchanged.
+    - `error.type` is set to the status code for a 5xx without an exception.
+    - An extra CI check for no access log in the backend container.
+    - The criterion's `PATCH /entries/{entryId}` example is covered as PUT, since the route has no PATCH.
+- **Where each open point went:**
+  - `app` logs outside a request are not exported; the `app` logger keeps `propagate`; the span name `_OTHER {route}` for non-standard methods (engineer, QA): comment on #92 (6864242858).
+  - `docker compose up --build`, the browser UI and the containerised backend with lgtm stopped could not run in this session (pip TLS). CI covers them (engineer, QA). Left in this log.
+  - The local dev database holds a reseeded demo account and the QA telemetry in the lgtm volume (QA). Left in this log.
+
+## 2026-11-13: Orchestrator: batch of 16 issues complete
+
+- **Closed (16):** #29, #30, #31, #77, #32, #33, #43, #34, #35, #46, #83, #84, #36, #37, #73, #74.
+- **Stop points reached:**
+  - #31: an existing test change, asked by the orchestrator. The product owner said afterwards it was not severe and small criteria conflicts should be decided under the rule.
+  - #35: second QA FAIL; the product owner chose one more fix.
+- **Other failures fixed on the first retry:** #31 QA FAIL 1 (typed dates), #43 design FAIL 1 (counter alignment), #35 QA FAIL 1 (demo press lost).
+- **Follow-up issues created:** #87, #88, #89, #90, #91, #92.
+- **No real AI calls** were made in the batch.
+- **Left open after the batch:** #38, #39, #40 (build order) and the follow-ups #58, #61, #64, #68, #72, #86, #87–#92.
