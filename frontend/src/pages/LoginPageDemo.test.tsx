@@ -1,4 +1,5 @@
 import { act, fireEvent, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as api from '../api/index.ts'
 import { saveSession } from '../api/session.ts'
@@ -205,6 +206,92 @@ describe('"Try the demo" on the login page (FR-X1)', () => {
 
     expect(input().form).toBe(form())
     expect(login).toHaveBeenCalledWith({ email: EMAIL, password: PASSWORD })
+    expect(demoLogin).not.toHaveBeenCalled()
+  })
+})
+
+// QA FAIL 1 on #35: in a real browser, pressing "Try the demo" while a field had focus
+// first blurred the field. Its blur check showed a field message that pushed the button
+// down between press and release, so the click was lost. userEvent moves focus like a
+// browser does (fireEvent.click does not), so these tests cover that path.
+describe('"Try the demo" pressed while a field has focus (FR-X1)', () => {
+  it.each([
+    ['empty_email_field', emailInput, ''],
+    ['invalid_email_field', emailInput, 'not-an-email'],
+    ['empty_password_field', passwordInput, ''],
+    ['filled_password_field', passwordInput, 'typed-password'],
+  ])('test_fr_x1_clicking_try_demo_from_%s_runs_no_field_check', async (_name, input, typed) => {
+    demoLogin.mockReturnValue(new Promise(() => {}))
+    const user = userEvent.setup()
+    renderRoute('/login')
+    await user.click(input())
+    if (typed !== '') {
+      await user.type(input(), typed)
+    }
+    expect(document.activeElement).toBe(input())
+
+    await user.click(demoButton())
+
+    expect(demoLogin).toHaveBeenCalledTimes(1)
+    expect(login).not.toHaveBeenCalled()
+    expect(fieldMessages(emailInput())).toEqual([])
+    expect(fieldMessages(passwordInput())).toEqual([])
+    expect(input().value).toBe(typed)
+    // The press does not move focus, so the field is never blurred.
+    expect(document.activeElement).toBe(input())
+  })
+
+  it.each([
+    ['empty_email_field', emailInput, ''],
+    ['invalid_email_field', emailInput, 'not-an-email'],
+  ])('test_fr_x1_tapping_try_demo_from_%s_runs_no_field_check', async (_name, input, typed) => {
+    demoLogin.mockReturnValue(new Promise(() => {}))
+    const user = userEvent.setup()
+    renderRoute('/login')
+    await user.click(input())
+    if (typed !== '') {
+      await user.type(input(), typed)
+    }
+
+    await user.pointer([{ keys: '[TouchA]', target: demoButton() }])
+
+    expect(demoLogin).toHaveBeenCalledTimes(1)
+    expect(fieldMessages(emailInput())).toEqual([])
+    expect(fieldMessages(passwordInput())).toEqual([])
+    expect(input().value).toBe(typed)
+  })
+
+  it.each([
+    ['enter', '{Enter}'],
+    ['space', ' '],
+  ])('test_fr_x1_try_demo_from_the_keyboard_with_%s_runs_no_field_check', async (_name, key) => {
+    demoLogin.mockReturnValue(new Promise(() => {}))
+    const user = userEvent.setup()
+    renderRoute('/login')
+    // Reach "Try the demo" from the registration link below it, so no field is blurred.
+    screen.getByRole('link', { name: 'Create an account' }).focus()
+    await user.tab({ shift: true })
+    expect(document.activeElement).toBe(demoButton())
+
+    await user.keyboard(key)
+
+    expect(demoLogin).toHaveBeenCalledTimes(1)
+    expect(fieldMessages(emailInput())).toEqual([])
+    expect(fieldMessages(passwordInput())).toEqual([])
+  })
+
+  it('test_fr_x1_leaving_a_field_for_another_element_still_checks_it', async () => {
+    const user = userEvent.setup()
+    renderRoute('/login')
+
+    // "Log in"'s own blur checks are unchanged: leaving the email field checks it.
+    await user.click(emailInput())
+    await user.type(emailInput(), 'not-an-email')
+    await user.click(passwordInput())
+    expect(fieldMessages(emailInput())).toEqual(['Enter an email address with an @, such as name@example.com.'])
+
+    await user.click(screen.getByRole('heading', { level: 1, name: 'Log in' }))
+    expect(fieldMessages(passwordInput())).toEqual(['Enter your password.'])
     expect(demoLogin).not.toHaveBeenCalled()
   })
 })

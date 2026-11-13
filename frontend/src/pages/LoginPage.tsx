@@ -183,6 +183,10 @@ export default function LoginPage() {
         busy={demoPending}
         busyLabel={OPENING_DEMO_LABEL}
         disabled={pending}
+        // A mouse press or tap must not move focus: leaving a field would run its blur
+        // check, and the field message it shows pushes this button down between press
+        // and release, so the click is lost (QA on #35). Keyboard use is unaffected.
+        onMouseDown={(event) => event.preventDefault()}
         onClick={() => void handleDemo()}
       >
         {TRY_DEMO_LABEL}
