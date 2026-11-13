@@ -487,7 +487,9 @@ describe('deleting an entry (FR-E4)', () => {
     expect(deleteEntry).toHaveBeenCalledWith('nov1')
     const busy = dialogButton('Deleting…')
     expect(busy.getAttribute('aria-busy')).toBe('true')
-    expect(busy.disabled).toBe(true)
+    // Busy: announced as unavailable, but not natively disabled, so it keeps focus (#84).
+    expect(busy.getAttribute('aria-disabled')).toBe('true')
+    expect(busy.disabled).toBe(false)
     expect(busy.querySelector('.spinner')).not.toBeNull()
     // Cancel and Escape do nothing while it runs.
     await click(dialogButton('Cancel'))

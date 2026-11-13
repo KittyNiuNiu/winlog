@@ -55,7 +55,9 @@ export default function DeleteEntryDialog({
     }
   }, [open])
 
-  // The busy button was disabled, so focus left it: put it back for the retry.
+  // After a failure, focus is on the delete button for the retry. The busy button keeps
+  // focus (#84); this covers Tab to Cancel while deleting, or a press that left focus on the
+  // dialog (Safari does not focus a clicked button).
   useEffect(() => {
     if (!busy && error !== null) {
       deleteRef.current?.focus()

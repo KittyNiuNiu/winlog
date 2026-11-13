@@ -120,7 +120,8 @@ export default function SummaryPanel({ filter, entryCount }: SummaryPanelProps) 
       }
       return
     }
-    // A busy button is disabled and may lose focus. Bring it back, unless the user moved on.
+    // The busy button keeps focus (#84). This covers a press that left focus on the page,
+    // for example in Safari, which does not focus a clicked button. Unless the user moved on.
     const element = focusRequest.target === 'save' ? saveRef.current : draftButtonRef.current
     const active = document.activeElement
     if (element !== null && (active === null || active === document.body || active === element)) {

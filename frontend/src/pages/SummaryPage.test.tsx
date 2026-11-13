@@ -314,7 +314,9 @@ describe('saving (FR-R5)', () => {
     expect(updateSummary).toHaveBeenCalledWith(SUMMARY_ID, { text: '  My own words.\nSecond line.  ' })
     // While saving: Saving…, the field read-only, Delete disabled, Copy still usable.
     expect(saveButton().textContent).toBe('Saving…')
-    expect(saveButton().disabled).toBe(true)
+    // Busy: announced as unavailable, but not natively disabled, so it keeps focus (#84).
+    expect(saveButton().getAttribute('aria-disabled')).toBe('true')
+    expect(saveButton().disabled).toBe(false)
     expect(field().readOnly).toBe(true)
     expect(deleteButton().disabled).toBe(true)
     expect(copyButton().disabled).toBe(false)
@@ -642,7 +644,9 @@ describe('deleting (FR-R5)', () => {
     await click(dialogButton('Delete summary'))
 
     const busy = dialogButton(/^Deleting…$/)
-    expect(busy.disabled).toBe(true)
+    // Busy: announced as unavailable, but not natively disabled, so it keeps focus (#84).
+    expect(busy.getAttribute('aria-disabled')).toBe('true')
+    expect(busy.disabled).toBe(false)
     await click(busy)
     await click(dialogButton('Cancel'))
     await act(async () => {

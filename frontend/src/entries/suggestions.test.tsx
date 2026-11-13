@@ -258,7 +258,9 @@ describe('the suggest button (FR-S1)', () => {
 
     const button = suggestButton()
     expect(button.textContent).toBe('Suggesting…')
-    expect(button.disabled).toBe(true)
+    // Busy: announced as unavailable, but not natively disabled, so it keeps focus (#84).
+    expect(button.getAttribute('aria-disabled')).toBe('true')
+    expect(button.disabled).toBe(false)
     expect(button.getAttribute('aria-busy')).toBe('true')
     expect(button.className).toContain('button--secondary')
     expect(button.querySelector('.spinner')).not.toBeNull()
@@ -292,9 +294,9 @@ describe('the suggest button (FR-S1)', () => {
     suggestButton().focus()
 
     await tapSuggest()
-    // A browser drops focus from a button that becomes disabled.
-    suggestButton().blur()
-    expect(document.activeElement).toBe(document.body)
+    // The busy button keeps focus throughout (#84): it never drops to the page body.
+    expect(suggestButton().textContent).toBe('Suggesting…')
+    expect(document.activeElement).toBe(suggestButton())
 
     await finish(answer)
 

@@ -327,7 +327,9 @@ describe('"Try the demo" pressed twice while a field has focus (FR-X1)', () => {
     await focusField(user, input, typed)
 
     await user.click(demoButton())
-    expect(demoButton().disabled).toBe(true)
+    // Busy: announced as unavailable, but not natively disabled, so it keeps focus (#84).
+    expect(demoButton().getAttribute('aria-disabled')).toBe('true')
+    expect(demoButton().disabled).toBe(false)
     await user.click(demoButton())
 
     expect(demoLogin).toHaveBeenCalledTimes(1)
@@ -407,7 +409,9 @@ describe('"Try the demo" while a request runs (FR-X1)', () => {
     expect(demoButton().textContent).toBe('Opening the demo…')
     expect(demoButton().querySelector('.spinner')).toBeTruthy()
     expect(demoButton().getAttribute('aria-busy')).toBe('true')
-    expect(demoButton().disabled).toBe(true)
+    // Busy: announced as unavailable, but not natively disabled, so it keeps focus (#84).
+    expect(demoButton().getAttribute('aria-disabled')).toBe('true')
+    expect(demoButton().disabled).toBe(false)
     await pressDemo()
     expect(demoLogin).toHaveBeenCalledTimes(1)
   })

@@ -382,7 +382,9 @@ describe('downloads (FR-D1)', () => {
     await click(button(dataSection(), 'Download JSON'))
 
     const busy = button(dataSection(), 'Downloading…')
-    expect(busy.disabled).toBe(true)
+    // Busy: announced as unavailable, but not natively disabled, so it keeps focus (#84).
+    expect(busy.getAttribute('aria-disabled')).toBe('true')
+    expect(busy.disabled).toBe(false)
     expect(busy.getAttribute('aria-busy')).toBe('true')
     expect(busy.querySelector('.spinner')).not.toBeNull()
     await click(busy)
@@ -397,7 +399,8 @@ describe('downloads (FR-D1)', () => {
 
     // With the step open, both copies of "Download JSON" are busy.
     await openStep()
-    expect(button(step(), 'Downloading…').disabled).toBe(true)
+    expect(button(step(), 'Downloading…').getAttribute('aria-disabled')).toBe('true')
+    expect(button(step(), 'Downloading…').disabled).toBe(false)
     await click(button(step(), 'Downloading…'))
     expect(exportJson).toHaveBeenCalledTimes(1)
 
@@ -623,7 +626,9 @@ describe('the confirmation step (FR-D2)', () => {
     const busy = deleteMyAccountButton()
     expect(busy.textContent).toBe('Deleting…')
     expect(busy.querySelector('.spinner')).not.toBeNull()
-    expect(busy.disabled).toBe(true)
+    // Busy: announced as unavailable, but not natively disabled, so it keeps focus (#84).
+    expect(busy.getAttribute('aria-disabled')).toBe('true')
+    expect(busy.disabled).toBe(false)
     expect(passwordInput().readOnly).toBe(true)
     expect(confirmInput().readOnly).toBe(true)
     expect(cancelButton().disabled).toBe(true)

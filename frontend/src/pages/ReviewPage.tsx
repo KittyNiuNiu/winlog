@@ -4,6 +4,7 @@ import { listEntries, listTags, type Category, type Entry } from '../api/index.t
 import { WAKING_UP_MESSAGE, unexpectedErrorMessage } from '../auth/requestErrors.ts'
 import { useWakingUpHint } from '../auth/useWakingUpHint.ts'
 import { Button, ButtonLink } from '../components/Button.tsx'
+import { focusWhenShown } from '../components/focus.ts'
 import { CATEGORIES, categoryClassName } from '../components/categories.ts'
 import CategoryChip from '../components/CategoryChip.tsx'
 import EmptyState from '../components/EmptyState.tsx'
@@ -65,6 +66,8 @@ export default function ReviewPage() {
   // The phone panel is open while the date error shows; the laptop has no panel.
   const panelShown = laptop || panelOpen || dateError
   const [attempt, setAttempt] = useState(0)
+  // The request a "Try again" started, so only its failure moves focus (#84).
+  const [retried, setRetried] = useState<string | null>(null)
   const [shown, setShown] = useState<Shown | null>(null)
   const [tags, setTags] = useState<TagsLoad>({ status: 'loading' })
   const request = `${queryKey}#${attempt}`
@@ -252,7 +255,16 @@ export default function ReviewPage() {
               <div className="review-page__state">
                 <Message variant="error">{failure.message}</Message>
                 <div>
-                  <Button variant="secondary" onClick={() => setAttempt((count) => count + 1)}>
+                  <Button
+                    variant="secondary"
+                    // After a retry fails again, focus goes to the new button, unless the user
+                    // moved on, for example to a filter (#84).
+                    ref={failure.request === retried ? focusWhenShown : undefined}
+                    onClick={() => {
+                      setRetried(`${queryKey}#${attempt + 1}`)
+                      setAttempt((count) => count + 1)
+                    }}
+                  >
                     Try again
                   </Button>
                 </div>

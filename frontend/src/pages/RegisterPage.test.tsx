@@ -350,7 +350,9 @@ describe('registration while the request runs (FR-A1)', () => {
 
     await submit()
 
-    expect(submitButton().disabled).toBe(true)
+    // Busy: announced as unavailable, but not natively disabled, so it keeps focus (#84).
+    expect(submitButton().getAttribute('aria-disabled')).toBe('true')
+    expect(submitButton().disabled).toBe(false)
     expect(submitButton().textContent).toBe('Creating account…')
     fireEvent.click(submitButton())
     expect(register).toHaveBeenCalledTimes(1)

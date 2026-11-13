@@ -25,6 +25,7 @@ import { useWakingUpHint } from '../auth/useWakingUpHint.ts'
 import { PASSWORD_MISSING, emailProblem } from '../auth/validation.ts'
 import { REGISTER_PATH, cameFromAccountDeletion, cameFromRegistration, wantedPage } from '../auth/wantedPage.ts'
 import { Button } from '../components/Button.tsx'
+import { focusUnlessMovedOn } from '../components/focus.ts'
 import { LoginIllustration } from '../components/Illustrations.tsx'
 import Message from '../components/Message.tsx'
 import '../auth/AuthForm.css'
@@ -75,10 +76,11 @@ export default function LoginPage() {
   const demoWakingUp = useWakingUpHint(demoPending)
   // Answers a second press before React renders again, so it sends nothing.
   const requestRunning = useRef(false)
-  // True from a press on "Try the demo" until its request fails. Leaving a field then
-  // checks nothing: a second press lands on the busy (disabled) button, which runs no
-  // handler, so the browser moves focus to the page and the field is blurred (QA on #35).
+  // True from a press on "Try the demo" until focus has moved after a failure. Leaving a
+  // field then checks nothing: the demo needs no field, and moving focus to "Try the demo"
+  // after a failure blurs the field the user was in (#84).
   const demoRunning = useRef(false)
+  const demoRef = useRef<HTMLButtonElement>(null)
 
   const emailError = emailProblem(email)
   const passwordError = password === '' ? PASSWORD_MISSING : null
@@ -156,14 +158,20 @@ export default function LoginPage() {
     requestRunning.current = true
     demoRunning.current = true
     setDemoPending(true)
+    // Where focus was at the press: a field after a mouse press or tap, or the button.
+    const focusedAtPress = document.activeElement
     try {
       // Stores the token with the demo flag (#25).
       await demoLogin()
     } catch (error) {
       requestRunning.current = false
-      demoRunning.current = false
       setDemoPending(false)
       setDemoError(demoErrorMessage(error))
+      // Focus goes to "Try the demo", so on a phone the keyboard closes and the error under
+      // the button shows, unless the user moved to another control meanwhile (#84). The
+      // field it leaves runs no check, because `demoRunning` is still true.
+      focusUnlessMovedOn(demoRef.current, { stayed: focusedAtPress })
+      demoRunning.current = false
       return
     }
     await navigate(wantedPage(location.state), { replace: true })
@@ -173,6 +181,12 @@ export default function LoginPage() {
     const { email: emailReasons, password: passwordReasons, form } = validationMessages(error)
     setServerMessages({ email: emailReasons, password: passwordReasons })
     setFormError(form)
+    // The cursor goes to the first field with a message, as the form's own check does (#84).
+    if (emailReasons.length > 0) {
+      emailRef.current?.focus()
+    } else if (passwordReasons.length > 0) {
+      passwordRef.current?.focus()
+    }
   }
 
   return (
@@ -215,10 +229,11 @@ export default function LoginPage() {
         busy={demoPending}
         busyLabel={OPENING_DEMO_LABEL}
         disabled={pending}
+        ref={demoRef}
         // A mouse press or tap must not move focus: leaving a field would run its blur
         // check, and the field message it shows pushes this button down between press
-        // and release, so the click is lost (QA on #35). Keyboard use is unaffected. The
-        // busy button is disabled and runs no handler, so `demoRunning` covers later presses.
+        // and release, so the click is lost (QA on #35). Keyboard use is unaffected. A
+        // second press while busy also leaves focus where it is (#84).
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => void handleDemo()}
       >

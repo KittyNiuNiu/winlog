@@ -106,6 +106,12 @@ export default function RegisterPage() {
     const { email: emailReasons, password: passwordReasons, form } = validationMessages(error)
     setServerMessages({ email: emailReasons, password: passwordReasons })
     setFormError(form)
+    // The cursor goes to the first field with a message, as the form's own check does (#84).
+    if (emailReasons.length > 0) {
+      emailRef.current?.focus()
+    } else if (passwordReasons.length > 0) {
+      passwordRef.current?.focus()
+    }
   }
 
   return (

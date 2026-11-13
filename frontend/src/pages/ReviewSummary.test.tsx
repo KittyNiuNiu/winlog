@@ -375,7 +375,9 @@ describe('drafting (FR-R3)', () => {
     await click(draftButton())
 
     expect(generateSummary).toHaveBeenCalledTimes(1)
-    expect(draftButton().disabled).toBe(true)
+    // Busy: announced as unavailable, but not natively disabled, so it keeps focus (#84).
+    expect(draftButton().getAttribute('aria-disabled')).toBe('true')
+    expect(draftButton().disabled).toBe(false)
     expect(draftButton().textContent).toBe('Drafting…')
     expect(progress().textContent).toBe(PROGRESS)
     // The progress line replaces the count line.
@@ -521,7 +523,9 @@ describe('the draft (FR-R3, FR-R5)', () => {
     expect(updateSummary).toHaveBeenCalledWith(SUMMARY_ID, { text: 'My own words.\nSecond line.' })
     // While saving: Save summary busy, Draft again disabled, the text read-only.
     expect(saveButton().textContent).toBe('Saving…')
-    expect(saveButton().disabled).toBe(true)
+    // Busy: announced as unavailable, but not natively disabled, so it keeps focus (#84).
+    expect(saveButton().getAttribute('aria-disabled')).toBe('true')
+    expect(saveButton().disabled).toBe(false)
     expect(draftButton().disabled).toBe(true)
     expect(field().readOnly).toBe(true)
     await click(saveButton())

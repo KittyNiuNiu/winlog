@@ -536,7 +536,9 @@ describe('saving (FR-E1, §7.2)', () => {
     await save()
 
     expect(saveButton().textContent).toBe('Saving…')
-    expect(saveButton().disabled).toBe(true)
+    // Busy: announced as unavailable, but not natively disabled, so it keeps focus (#84).
+    expect(saveButton().getAttribute('aria-disabled')).toBe('true')
+    expect(saveButton().disabled).toBe(false)
     expect(saveButton().getAttribute('aria-busy')).toBe('true')
     expect(textArea().readOnly).toBe(true)
     expect(dateInput().readOnly).toBe(true)

@@ -16,6 +16,7 @@ import {
 import { UNEXPECTED_ERROR_MESSAGE, unexpectedErrorMessage } from '../auth/requestErrors.ts'
 import { Button } from '../components/Button.tsx'
 import { CATEGORIES } from '../components/categories.ts'
+import { focusUnlessMovedOn } from '../components/focus.ts'
 import CategoryChip from '../components/CategoryChip.tsx'
 import Icon from '../components/Icon.tsx'
 import { ENTRY_TEXT_MAX_CHARACTERS, RESULT_MAX_CHARACTERS, overLimit } from '../components/inputLimits.ts'
@@ -79,7 +80,7 @@ interface FormState {
   foldOpen: boolean
 }
 
-/** Each field's message, for the app's own check and for a server error on it. */
+/** Each field's message, for the app's own check and for a server error on it, in form order. */
 const FIELD_PROBLEMS: Record<Field, string> = {
   text: TEXT_PROBLEM,
   category: CATEGORY_PROBLEM,
@@ -210,8 +211,6 @@ export default function EntryForm({ entry, knownTags, onSaved, onCancel }: Entry
   const suggestingRef = useRef(false)
   /** Counts suggestion requests; an answer whose number is no longer current is dropped. */
   const requestRef = useRef(0)
-  /** Whether focus goes back to the suggest button when the running request ends. */
-  const refocusRef = useRef(false)
 
   const textRef = useRef<HTMLTextAreaElement>(null)
   const categoryRef = useRef<HTMLDivElement>(null)
@@ -227,6 +226,10 @@ export default function EntryForm({ entry, knownTags, onSaved, onCancel }: Entry
     if (isNew) {
       // Without scrolling, so the "Entry saved." band at the top stays in view.
       textRef.current?.focus({ preventScroll: true })
+    } else {
+      // The edit page starts in the text field too, unless the user moved to another
+      // control while the entry loaded (#84).
+      focusUnlessMovedOn(textRef.current, { preventScroll: true })
     }
   }, [isNew])
 
@@ -237,18 +240,6 @@ export default function EntryForm({ entry, knownTags, onSaved, onCancel }: Entry
       requests.current += 1
     }
   }, [])
-
-  useEffect(() => {
-    if (suggesting || !refocusRef.current) {
-      return
-    }
-    refocusRef.current = false
-    // A disabled button loses focus. Bring it back, unless the user has moved on.
-    const active = document.activeElement
-    if (active === null || active === document.body || active === suggestRef.current) {
-      suggestRef.current?.focus()
-    }
-  }, [suggesting])
 
   const clientProblems = checked ? problemsOf(values) : []
   const textTooLong = overLimit(values.text, ENTRY_TEXT_MAX_CHARACTERS)
@@ -327,7 +318,6 @@ export default function EntryForm({ entry, knownTags, onSaved, onCancel }: Entry
   function dropSuggestionRequest() {
     requestRef.current += 1
     suggestingRef.current = false
-    refocusRef.current = false
     setSuggesting(false)
   }
 
@@ -338,7 +328,7 @@ export default function EntryForm({ entry, knownTags, onSaved, onCancel }: Entry
     requestRef.current += 1
     const request = requestRef.current
     suggestingRef.current = true
-    refocusRef.current = document.activeElement === suggestRef.current
+    // The busy button keeps focus (#84), so focus stays where the user has it.
     setSuggesting(true)
     setNotice(null)
     let suggestion: Suggestion
@@ -422,11 +412,20 @@ export default function EntryForm({ entry, knownTags, onSaved, onCancel }: Entry
         problems[formField] = true
       }
     }
-    setServerProblems(problems)
-    if (problems.tags === true || problems.result === true) {
-      setForm((current) => ({ ...current, foldOpen: true }))
-    }
     setFormError(other ? UNEXPECTED_ERROR_MESSAGE : null)
+    // The cursor goes to the first field with a message, as the app's own check does (#84).
+    // A message only about something not on the form leaves focus where it is.
+    const firstProblem = (Object.keys(FIELD_PROBLEMS) as Field[]).find((field) => problems[field] === true)
+    // Opened at once, so the cursor can go into a field inside the fold.
+    flushSync(() => {
+      setServerProblems(problems)
+      if (problems.tags === true || problems.result === true) {
+        setForm((current) => ({ ...current, foldOpen: true }))
+      }
+    })
+    if (firstProblem !== undefined) {
+      focusField(firstProblem)
+    }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {

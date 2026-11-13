@@ -317,7 +317,9 @@ describe('login while the request runs (FR-A2)', () => {
 
     await submit()
 
-    expect(submitButton().disabled).toBe(true)
+    // Busy: announced as unavailable, but not natively disabled, so it keeps focus (#84).
+    expect(submitButton().getAttribute('aria-disabled')).toBe('true')
+    expect(submitButton().disabled).toBe(false)
     expect(submitButton().textContent).toBe('Logging in…')
     expect(submitButton().getAttribute('aria-busy')).toBe('true')
     fireEvent.click(submitButton())
@@ -345,7 +347,9 @@ describe('login while the request runs (FR-A2)', () => {
       vi.advanceTimersByTime(1)
     })
     expect(screen.getByText(WAKING_UP).closest('[role="status"]')).toBeTruthy()
-    expect(submitButton().disabled).toBe(true)
+    // Busy: announced as unavailable, but not natively disabled, so it keeps focus (#84).
+    expect(submitButton().getAttribute('aria-disabled')).toBe('true')
+    expect(submitButton().disabled).toBe(false)
 
     await act(async () => {
       finish()

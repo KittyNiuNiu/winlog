@@ -36,16 +36,18 @@ describe('component preview (development only)', () => {
       button.textContent,
       (button as HTMLButtonElement).disabled,
       button.getAttribute('aria-busy'),
+      button.getAttribute('aria-disabled'),
     ])
+    // Busy buttons are announced as unavailable but not natively disabled, so they keep focus (#84).
     expect(buttons).toEqual(
       expect.arrayContaining([
-        ['Log in', false, 'false'],
-        ['Log in', true, 'false'],
-        ['Logging in…', true, 'true'],
-        ['Save entry', false, 'false'],
-        ['Draft again', false, 'false'],
-        ['Draft again', true, 'false'],
-        ['Drafting…', true, 'true'],
+        ['Log in', false, 'false', null],
+        ['Log in', true, 'false', null],
+        ['Logging in…', false, 'true', 'true'],
+        ['Save entry', false, 'false', null],
+        ['Draft again', false, 'false', null],
+        ['Draft again', true, 'false', null],
+        ['Drafting…', false, 'true', 'true'],
       ]),
     )
   })

@@ -4,6 +4,7 @@ import { listSummaries, type Summary } from '../api/index.ts'
 import { WAKING_UP_MESSAGE, unexpectedErrorMessage } from '../auth/requestErrors.ts'
 import { useWakingUpHint } from '../auth/useWakingUpHint.ts'
 import { Button, ButtonLink } from '../components/Button.tsx'
+import { focusWhenShown } from '../components/focus.ts'
 import EmptyState from '../components/EmptyState.tsx'
 import Message from '../components/Message.tsx'
 import SavedMessage from '../components/SavedMessage.tsx'
@@ -127,7 +128,12 @@ export default function SummariesPage() {
           <div className="summaries-page__state">
             <Message variant="error">{current.message}</Message>
             <div>
-              <Button variant="secondary" onClick={() => setAttempt((count) => count + 1)}>
+              <Button
+                variant="secondary"
+                // After a retry fails again, focus goes to the new button, unless the user moved on (#84).
+                ref={attempt > 0 ? focusWhenShown : undefined}
+                onClick={() => setAttempt((count) => count + 1)}
+              >
                 Try again
               </Button>
             </div>

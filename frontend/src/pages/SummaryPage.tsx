@@ -13,6 +13,7 @@ import {
 import { WAKING_UP_MESSAGE, unexpectedErrorMessage } from '../auth/requestErrors.ts'
 import { useWakingUpHint } from '../auth/useWakingUpHint.ts'
 import { Button } from '../components/Button.tsx'
+import { focusWhenShown } from '../components/focus.ts'
 import Icon from '../components/Icon.tsx'
 import Message from '../components/Message.tsx'
 import SavedMessage from '../components/SavedMessage.tsx'
@@ -146,8 +147,8 @@ function SummaryEditor({ summary }: { summary: Summary }) {
       deleteRef.current?.focus()
       return
     }
-    // The busy button was disabled and may have lost focus. Bring it back, unless the user
-    // moved on.
+    // The busy button keeps focus (#84). This covers a press that left focus on the page,
+    // for example in Safari, which does not focus a clicked button. Unless the user moved on.
     const element = saveRef.current
     const active = document.activeElement
     if (element !== null && (active === null || active === document.body || active === element)) {
@@ -405,7 +406,12 @@ export default function SummaryPage() {
         <div className="summary-page__state">
           <Message variant="error">{current.message}</Message>
           <div>
-            <Button variant="secondary" onClick={() => setAttempt((count) => count + 1)}>
+            <Button
+              variant="secondary"
+              // After a retry fails again, focus goes to the new button, unless the user moved on (#84).
+              ref={attempt > 0 ? focusWhenShown : undefined}
+              onClick={() => setAttempt((count) => count + 1)}
+            >
               Try again
             </Button>
           </div>

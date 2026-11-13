@@ -4,6 +4,7 @@ import { NotFoundError, deleteEntry, listEntries, type Entry } from '../api/inde
 import { WAKING_UP_MESSAGE, unexpectedErrorMessage } from '../auth/requestErrors.ts'
 import { useWakingUpHint } from '../auth/useWakingUpHint.ts'
 import { Button, ButtonLink } from '../components/Button.tsx'
+import { focusWhenShown } from '../components/focus.ts'
 import EmptyState from '../components/EmptyState.tsx'
 import { EntriesIllustration } from '../components/Illustrations.tsx'
 import EntryRow from '../components/EntryRow.tsx'
@@ -198,7 +199,12 @@ export default function EntriesPage() {
           <div className="entries-page__state">
             <Message variant="error">{current.message}</Message>
             <div>
-              <Button variant="secondary" onClick={() => setAttempt((count) => count + 1)}>
+              <Button
+                variant="secondary"
+                // After a retry fails again, focus goes to the new button, unless the user moved on (#84).
+                ref={attempt > 0 ? focusWhenShown : undefined}
+                onClick={() => setAttempt((count) => count + 1)}
+              >
                 Try again
               </Button>
             </div>
