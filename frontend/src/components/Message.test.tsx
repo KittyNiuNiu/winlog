@@ -25,6 +25,21 @@ describe('Message', () => {
     expect(icon?.getAttribute('class')).toMatch(/lucide-circle-(alert|exclamation-point)/)
   })
 
+  it('not live: no role, so it is not announced again (the demo notice, #35)', () => {
+    const { container } = render(
+      <Message variant="info" live={false}>
+        Shown on every page.
+      </Message>,
+    )
+
+    const message = container.firstElementChild as HTMLElement
+    expect(message.getAttribute('role')).toBeNull()
+    expect(screen.queryByRole('status')).toBeNull()
+    expect(message.textContent).toBe('Shown on every page.')
+    expect(message.classList.contains('message--info')).toBe(true)
+    expect(message.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true')
+  })
+
   it.each([null, ''])('without text (%j), keeps an empty live region in the page', (text) => {
     render(<Message variant="error">{text}</Message>)
 
