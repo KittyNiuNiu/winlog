@@ -1855,3 +1855,13 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Confirmation of the one-line test change above.
   - Two `GET /entries` on the first load in dev under React StrictMode (expected).
   - Recording the new patterns in `DESIGN.md` is #83.
+
+## 2026-11-13: PM: record the product owner's decision on #31 (test detour)
+
+- **Task:** record the product owner's decision of 2026-11-13 on #31, following `docs/pm.md`.
+- **What I did:**
+  - Added a dated note to the criterion "The existing tests for the entries page, the entry form's tag field and the shared components pass unchanged." It names the one exception: in `test_fr_n1_new_entry_in_range_hides_the_banner_next_time_the_page_opens` (`frontend/src/pages/EntriesPage.test.tsx`), the detour away from `/` now goes to `/settings` instead of `/review`, and its assertions are unchanged.
+  - Recorded the decision under Constraints: `/review` now loads entries, which broke the test's `listEntries` count. Only the detour target changed, so the test is not weakened (engineer's comment 6838162064).
+  - Changed nothing else in the issue and no labels.
+- **How I verified it:** read the issue back through the REST API. It shows both additions and the rest of the body unchanged, apart from one blank line before the `---` footer that GitHub collapsed, which does not change how it renders. The label is still `designed` and the state is open.
+- **Left open:** nothing.
