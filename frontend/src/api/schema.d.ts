@@ -271,9 +271,14 @@ export interface paths {
          * Generate a summary of the entries matching a filter and save it.
          * @description Covers FR-R3 and FR-R4. Entries are selected with the same filter rules
          *     as the entry list. When no entries match, the request returns
-         *     `no_matching_entries`, makes no AI call and saves nothing. Limits are
-         *     checked before the AI is called. The summary is saved together with its
-         *     filter.
+         *     `no_matching_entries`, makes no AI call and saves nothing. When the
+         *     matching entries have more characters than the server's
+         *     `AI_SUMMARY_MAX_INPUT_CHARACTERS` (text, Result/Impact and tag names,
+         *     added up), the request returns `summary_input_too_large`, makes no AI
+         *     call, counts against no daily limit and saves nothing. The checks run in
+         *     this order: request validation, `no_matching_entries`,
+         *     `summary_input_too_large`, then the daily limits, all before the AI is
+         *     called. The summary is saved together with its filter.
          */
         post: operations["generateSummary"];
         delete?: never;
@@ -454,7 +459,7 @@ export interface components {
          *     whitespace-only `result_impact` clears it.
          */
         EntryInput: {
-            /** @description Free text. Empty or whitespace-only text counts as missing. */
+            /** @description Free text, at most 2,000 characters. Empty or whitespace-only text counts as missing. */
             text: string;
             /**
              * Format: date
@@ -462,9 +467,9 @@ export interface components {
              */
             date: string;
             category: components["schemas"]["Category"];
-            /** @description Tag names. Names the user does not have yet are created when the entry is saved. Missing or empty means no tags. */
+            /** @description Tag names, at most 10. Names the user does not have yet are created when the entry is saved. Missing or empty means no tags. */
             tags?: string[];
-            /** @description Optional Result/Impact. */
+            /** @description Optional Result/Impact, at most 500 characters (also when it is only whitespace). */
             result_impact?: string | null;
         };
         Entry: {
@@ -491,12 +496,12 @@ export interface components {
             tags: string[];
         };
         SuggestionRequest: {
-            /** @description The entry text. Empty or whitespace-only text counts as missing. */
+            /** @description The entry text, at most 2,000 characters. Empty or whitespace-only text counts as missing. */
             text: string;
         };
         Suggestion: {
             category: components["schemas"]["Category"];
-            /** @description Suggested tag names. A name matching one of the user's tags uses that tag's spelling. */
+            /** @description Suggested tag names. A name matching one of the user's tags uses that tag's spelling. Names longer than 40 characters are left out, so every suggested name can be saved. */
             tags: string[];
         };
         /** @description The filter a summary is generated from and saved with. */
@@ -513,7 +518,7 @@ export interface components {
             period_end: string;
             /** @description Categories to include. Empty or missing means no restriction. */
             categories?: components["schemas"]["Category"][];
-            /** @description Tag names to include; entries with any of them match. Empty or missing means no restriction. */
+            /** @description Tag names to include; entries with any of them match. Empty or missing means no restriction. Each name has at most 40 characters. */
             tags?: string[];
         };
         Summary: {
@@ -532,7 +537,7 @@ export interface components {
         };
         /** @description Only the text can change. The filter and the entries stay unchanged. */
         SummaryUpdate: {
-            /** @description The new summary text. Empty or whitespace-only text counts as missing. */
+            /** @description The new summary text, at most 10,000 characters. Empty or whitespace-only text counts as missing. */
             text: string;
         };
         ExportFile: {
@@ -549,7 +554,7 @@ export interface components {
              * @description Machine-readable error code.
              * @enum {string}
              */
-            code: "validation_failed" | "not_authenticated" | "invalid_credentials" | "wrong_password" | "demo_account_not_deletable" | "email_already_registered" | "not_found" | "method_not_allowed" | "no_matching_entries" | "limit_reached" | "ai_unavailable" | "database_unreachable" | "internal_error";
+            code: "validation_failed" | "not_authenticated" | "invalid_credentials" | "wrong_password" | "demo_account_not_deletable" | "email_already_registered" | "not_found" | "method_not_allowed" | "no_matching_entries" | "summary_input_too_large" | "limit_reached" | "ai_unavailable" | "database_unreachable" | "internal_error";
             /** @description Human-readable explanation. */
             message: string;
             /** @description Only for `validation_failed`. Each failing field and why it failed. */
@@ -930,7 +935,7 @@ export interface operations {
                 end_date?: string;
                 /** @description Categories to include, as a repeated parameter (`?category=Achievement&category=Learning`). */
                 category?: components["schemas"]["Category"][];
-                /** @description Tag names to include, as a repeated parameter (`?tag=a&tag=b`), because tag names can contain commas. */
+                /** @description Tag names to include, as a repeated parameter (`?tag=a&tag=b`), because tag names can contain commas. Each name has at most 40 characters. */
                 tag?: string[];
             };
             header?: never;
@@ -1160,8 +1165,11 @@ export interface operations {
             };
             401: components["responses"]["NotAuthenticated"];
             /**
-             * @description Either the request failed validation (`code: validation_failed`), or
-             *     no entries match the filter (`code: no_matching_entries`, §7.4).
+             * @description The request failed validation (`code: validation_failed`), no
+             *     entries match the filter (`code: no_matching_entries`, §7.4), or the
+             *     matching entries are too large to summarise in one request
+             *     (`code: summary_input_too_large`, §7.4): the user should narrow the
+             *     filter.
              */
             422: {
                 headers: {

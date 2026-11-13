@@ -69,7 +69,34 @@ info:
 
     ## Size limits
 
-    There are no field size limits yet. Issue #43 adds them.
+    Lengths are counted in Unicode characters (code points), not bytes or
+    UTF-16 units: an emoji counts as one character. A value exactly at its limit
+    is accepted; one character or item more is the `validation_failed` error
+    naming the field, and nothing is saved.
+
+    - Entry text (`EntryInput.text`): 1 to 2,000 characters.
+    - Result/Impact (`EntryInput.result_impact`): up to 500 characters, even
+      when it is only whitespace.
+    - Tag names (`EntryInput.tags`): 1 to 40 characters each, measured as sent,
+      and up to 10 tags per entry.
+    - Suggestion text (`SuggestionRequest.text`): 1 to 2,000 characters, as
+      entry text.
+    - Edited summary text (`SummaryUpdate.text`): 1 to 10,000 characters.
+    - Tag names in a filter (the `tag` parameter of `listEntries` and
+      `SummaryFilter.tags`): up to 40 characters each.
+    - Login and delete-account passwords (`Credentials.password`,
+      `AccountDeletion.current_password`): 1 to 128 characters.
+    - Summary input: the text, Result/Impact and tag names of all entries that
+      match a summary's filter, added up, may have at most the number of
+      characters set by the server's `AI_SUMMARY_MAX_INPUT_CHARACTERS`
+      environment variable (default 50,000). Above it, `generateSummary`
+      returns 422 `summary_input_too_large`, makes no AI call, counts against
+      no daily limit and saves nothing.
+
+    Data saved before these limits existed can be longer. It can still be read,
+    listed, exported and summarised, so response schemas (`Entry`, `Summary`)
+    set no maximum length. Saving such a value again unchanged is the
+    validation error; saving it within the limits works.
 
     ## Errors
 
@@ -312,13 +339,14 @@ paths:
         - name: tag
           in: query
           required: false
-          description: Tag names to include, as a repeated parameter (`?tag=a&tag=b`), because tag names can contain commas.
+          description: Tag names to include, as a repeated parameter (`?tag=a&tag=b`), because tag names can contain commas. Each name has at most 40 characters.
           style: form
           explode: true
           schema:
             type: array
             items:
               type: string
+              maxLength: 40
       responses:
         '200':
           description: The matching entries.
@@ -513,9 +541,14 @@ paths:
       description: |
         Covers FR-R3 and FR-R4. Entries are selected with the same filter rules
         as the entry list. When no entries match, the request returns
-        `no_matching_entries`, makes no AI call and saves nothing. Limits are
-        checked before the AI is called. The summary is saved together with its
-        filter.
+        `no_matching_entries`, makes no AI call and saves nothing. When the
+        matching entries have more characters than the server's
+        `AI_SUMMARY_MAX_INPUT_CHARACTERS` (text, Result/Impact and tag names,
+        added up), the request returns `summary_input_too_large`, makes no AI
+        call, counts against no daily limit and saves nothing. The checks run in
+        this order: request validation, `no_matching_entries`,
+        `summary_input_too_large`, then the daily limits, all before the AI is
+        called. The summary is saved together with its filter.
       requestBody:
         required: true
         content:
@@ -533,8 +566,11 @@ paths:
           $ref: '#/components/responses/NotAuthenticated'
         '422':
           description: |
-            Either the request failed validation (`code: validation_failed`), or
-            no entries match the filter (`code: no_matching_entries`, §7.4).
+            The request failed validation (`code: validation_failed`), no
+            entries match the filter (`code: no_matching_entries`, §7.4), or the
+            matching entries are too large to summarise in one request
+            (`code: summary_input_too_large`, §7.4): the user should narrow the
+            filter.
           content:
             application/json:
               schema:
@@ -544,6 +580,8 @@ paths:
                   $ref: '#/components/examples/ValidationFailed'
                 noMatchingEntries:
                   $ref: '#/components/examples/NoMatchingEntries'
+                summaryInputTooLarge:
+                  $ref: '#/components/examples/SummaryInputTooLarge'
         '429':
           $ref: '#/components/responses/LimitReached'
         '500':
@@ -777,6 +815,8 @@ components:
         password:
           type: string
           format: password
+          minLength: 1
+          maxLength: 128
           description: The password exactly as typed. Login checks no strength rule.
 
     User:
@@ -829,6 +869,8 @@ components:
         current_password:
           type: string
           format: password
+          minLength: 1
+          maxLength: 128
           description: The user's current password (issue #20).
 
     EntryInput:
@@ -842,7 +884,8 @@ components:
         text:
           type: string
           pattern: '\S'
-          description: Free text. Empty or whitespace-only text counts as missing.
+          maxLength: 2000
+          description: Free text, at most 2,000 characters. Empty or whitespace-only text counts as missing.
         date:
           type: string
           format: date
@@ -851,14 +894,19 @@ components:
           $ref: '#/components/schemas/Category'
         tags:
           type: array
-          description: Tag names. Names the user does not have yet are created when the entry is saved. Missing or empty means no tags.
+          description: Tag names, at most 10. Names the user does not have yet are created when the entry is saved. Missing or empty means no tags.
+          maxItems: 10
           items:
             type: string
+            minLength: 1
+            maxLength: 40
+            description: A tag name of 1 to 40 characters, measured as sent. It must not be empty after trimming.
         result_impact:
           type:
             - string
             - 'null'
-          description: Optional Result/Impact.
+          maxLength: 500
+          description: Optional Result/Impact, at most 500 characters (also when it is only whitespace).
 
     Entry:
       type: object
@@ -917,7 +965,8 @@ components:
         text:
           type: string
           pattern: '\S'
-          description: The entry text. Empty or whitespace-only text counts as missing.
+          maxLength: 2000
+          description: The entry text, at most 2,000 characters. Empty or whitespace-only text counts as missing.
 
     Suggestion:
       type: object
@@ -927,10 +976,11 @@ components:
           $ref: '#/components/schemas/Category'
         tags:
           type: array
-          description: Suggested tag names. A name matching one of the user's tags uses that tag's spelling.
+          description: Suggested tag names. A name matching one of the user's tags uses that tag's spelling. Names longer than 40 characters are left out, so every suggested name can be saved.
           maxItems: 5
           items:
             type: string
+            maxLength: 40
 
     SummaryFilter:
       type: object
@@ -952,9 +1002,10 @@ components:
             $ref: '#/components/schemas/Category'
         tags:
           type: array
-          description: Tag names to include; entries with any of them match. Empty or missing means no restriction.
+          description: Tag names to include; entries with any of them match. Empty or missing means no restriction. Each name has at most 40 characters.
           items:
             type: string
+            maxLength: 40
 
     Summary:
       type: object
@@ -992,7 +1043,8 @@ components:
         text:
           type: string
           pattern: '\S'
-          description: The new summary text. Empty or whitespace-only text counts as missing.
+          maxLength: 10000
+          description: The new summary text, at most 10,000 characters. Empty or whitespace-only text counts as missing.
 
     ExportFile:
       type: object
@@ -1031,6 +1083,7 @@ components:
             - not_found
             - method_not_allowed
             - no_matching_entries
+            - summary_input_too_large
             - limit_reached
             - ai_unavailable
             - database_unreachable
@@ -1076,6 +1129,11 @@ components:
       value:
         code: no_matching_entries
         message: No entries match this filter, so no summary was generated.
+    SummaryInputTooLarge:
+      summary: The matching entries are too large for one summary
+      value:
+        code: summary_input_too_large
+        message: The matching entries are too large to summarise in one request. Narrow the filter.
 
   responses:
     ValidationFailed:
