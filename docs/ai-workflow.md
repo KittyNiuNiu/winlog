@@ -1865,3 +1865,33 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Changed nothing else in the issue and no labels.
 - **How I verified it:** read the issue back through the REST API. It shows both additions and the rest of the body unchanged, apart from one blank line before the `---` footer that GitHub collapsed, which does not change how it renders. The label is still `designed` and the state is open.
 - **Left open:** nothing.
+
+## 2026-11-13: Software engineer: fix the QA FAIL on #31 (typed dates on the review page)
+
+- **Task:** fix the QA FAIL on #31 (comment 6846138995). In Chrome, a date typed key by key into the review page's start or end date never reached the filter. Following `docs/software-engineer.md`.
+- **What I did:**
+  - Found the cause with a jsdom test that records every value written into the date input:
+    - The inputs took their value straight from the URL, which React Router updates in a transition after the input event.
+    - React wrote the old value back in between (`0002-11-01`, `''`, `0002-11-01`), and each write reset Chrome's segment editing.
+  - New `frontend/src/review/useDateDraft.ts`, used for both date inputs in `ReviewPage.tsx`:
+    - The input shows its own value, set in the same event.
+    - The URL stays the one filter that drives the request.
+    - When the filter's date becomes a date the input sent, the input is left as it is. This also holds when several typed dates arrive late.
+    - Any other change replaces what the input shows: "Clear filters", Back, Forward, the nav link.
+  - 5 new tests in `ReviewPage.test.tsx`:
+    - Key-by-key typing for both fields, empty and with a set date. All 4 cases fail on the old code.
+    - Typed dates following "Clear filters" and history.
+  - No other behaviour, text or style changed. No new dependency.
+- **Decisions under the 2026-11-12 standing rule:**
+  - Kept the request per real date while the year is typed (for example `0002-11-01`), because the criteria update results on every complete date.
+  - Did not touch the existing tests that fail while a backend runs on port 8000. They are outside this issue.
+- **How I verified it:**
+  - Frontend: `npm run lint` clean. `npm test` 749 passed (31 files). `npm run build` OK.
+  - Backend (unchanged): `ruff check` clean, unit tests 823 passed, integration tests 882 passed (PostgreSQL in Docker).
+  - Headless Chrome (playwright-core in the scratchpad), keyboard presses only:
+    - Ran on the Vite dev server and on the production build, at 360px and 1280px, with 30 ms and 200 ms between keys. 32 of 32 checks pass on each.
+    - Both fields were typed empty, with a retyped year, and with a whole date retyped over a set one.
+    - Also checked: both fields typed together, the end date typed after a start date, "Clear filters" after typing, and a date from the URL.
+  - Issue comment: https://github.com/KittyNiuNiu/winlog/issues/31#issuecomment-6846360931
+- **Left open:**
+  - About 15 existing tests (`AppShell.test.tsx`, `leavePrompt.test.tsx`, `routes.test.tsx` and others) fail when a backend is running on `localhost:8000`. Not every run fails the same ones, and they fail without this change too. They reach the real API with the test token, get a 401 and are sent to `/login`. With no backend running, all tests pass. This could be a separate issue.
