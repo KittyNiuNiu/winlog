@@ -3263,3 +3263,70 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **What I did:** inserted both entries unchanged into `docs/ai-workflow.md` after "Implement #26", where they stood on the old branch, each with a note naming its source commit. The `docs/tasks.md` change was not recovered: `main`'s list is newer and already includes #73 and #74.
 - **How I verified it:** compared `git diff origin/main...developer/zen-bell-yusvf7` with `main`. Neither heading existed in `main`'s log, and the recovered text matches the commits line for line.
 - **Left open:** once this reaches `main` through #93, the branch `developer/zen-bell-yusvf7` holds nothing else that is needed and can be deleted by the product owner.
+
+## 2026-11-13: PM: re-groom #38 (deploy to Render and Neon)
+
+- **Task:** re-groom #38, which was groomed on 2026-11-01, following `docs/pm.md`. Much has been built since, and the product owner now has the Render, Neon (PostgreSQL 18) and OpenRouter accounts.
+  - Read the issue and its 7 comments (from #7, #4, #11, #14, #17, #21 and #46), plus #39, #61 and #92.
+  - Read `docs/process.md`, `docs/task-template.md`, `docs/product-spec.md` (§7.7, §8, §9, §10, §12), `docs/decisions/default-model.md`, `docs/observability.md`, `docs/tasks.md`, `.env.example`, `docker-compose.yml`, `backend/Dockerfile` and `.dockerignore`, `.github/workflows/ci.yml`, and the frontend's `Dockerfile`, `nginx.conf`, `vite.config.ts` and `.nvmrc`.
+  - Read the backend's `settings.py`, `main.py`, `telemetry.py`, `attempt_limits.py`, `db.py`, `demo_seed.py`, `health.py` and `scripts/seed_demo.py`.
+- **What I did:**
+  - Rewrote the issue body with the task template, split into three parts:
+    - A: what the engineer builds and checks without accounts (`render.yaml`, start command, `ops/deployment.md`, local checks);
+    - B: what the product owner does by hand (Neon direct connection string, Blueprint, the two secrets, OpenRouter zero-data-retention setting and key spending limit);
+    - C: what QA checks on the live app, including the real AI calls, which need the product owner's approval and come with a cost estimate.
+  - Corrected the task line to "Task 45 of 47", as `docs/tasks.md` lists it.
+  - Posted the grooming comment: https://github.com/KittyNiuNiu/winlog/issues/38#issuecomment-6865852461
+  - Created follow-up #95 (a time limit for requests when the database stops answering, from #4's comment).
+  - Commented on #61 (6865805888): Compose forwarding now also covers `DEMO_EMAIL` and the attempt-limit variables.
+  - No labels changed.
+- **Decisions taken under the standing rule, recorded in the issue comment:**
+  - `autoDeployTrigger: checksPass` on both services, so production meets §10.2 until #39 replaces it.
+  - Only `DATABASE_URL` and `AI_API_KEY` are `sync: false`. All other values are plain in `render.yaml`, including `DEMO_EMAIL=demo@example.com` and the spec's default limits.
+  - Start sequence: migrations, then the demo reset if `DEMO_EMAIL` is set, then the server. Any failed step stops the start. The port is `PORT`, or 8000 when it is not set. The image gets the reset script but not `scripts/model_comparison/`.
+  - The demo reset keeps tokens and AI usage, as built in #21.
+  - The access log stays off (#74); a local check proves it.
+  - `OTEL_EXPORTER_OTLP_ENDPOINT` is not set in production (#92).
+  - `AI_SUMMARY_MAX_TOKENS` stays at 16000; the live summary confirms it.
+  - Neon's direct connection string, with `sslmode=require`.
+  - Free plans only.
+  - A live check of the demo-login counts per visitor. If the count is shared, a follow-up is filed and the product owner decides.
+  - The static-site build fails when `VITE_API_BASE_URL` is empty.
+  - No end-to-end test against production.
+  - QA deletes its test account.
+  - The task changes no screens.
+- **Recommendation passed to the product owner:** a $5 spending limit on the production OpenRouter key.
+- **How I verified facts:**
+  - Repository facts come from the files above.
+  - render.com could not be reached from this session, and the Neon and OpenRouter pages were not fetched. Render facts (default `PORT` 10000, free instance sleep after 15 minutes, the `autoDeployTrigger` values) and the OpenRouter facts for `anthropic/claude-haiku-5.5` ($0.10 / $0.50 per million tokens, 128k output) come from search results only. The issue says so and asks the engineer to check field names in the current docs.
+  - The QA cost estimate uses the documented 2026-11-09 prices ($0.110 / $0.550): under $0.01 expected, about $0.011 at most for one summary.
+  - No code written, no AI call.
+- **Left open:**
+  - The Neon project's region, needed for `region` in `render.yaml`. The orchestrator asks the product owner; it is not a secret.
+  - The orchestrator's brief said "task 41 of 43", but `docs/tasks.md` lists #38 as task 45 of 47, which the issue now uses.
+
+## 2026-11-13: Engineer: implement #38 section A (deploy to Render and Neon)
+
+- **Task:** implement section A of #38 (what the engineer builds and checks without accounts), following `docs/software-engineer.md`. No screens change. Plan posted on the issue first (comment 6866482669); it needed no product decision, cost or account, so I went ahead. Inputs: the re-grooming comment 6865852461 and the product owner's answers (Neon in Frankfurt, AWS eu-central-1, so Render region `frankfurt`; $5 spending limit on the production OpenRouter key, set by the product owner).
+- **What I did:**
+  - `backend/start.sh` (new), the image's `CMD`: `set -eu`; `alembic upgrade head`; the demo reset (`python -m scripts.seed_demo`) only when `DEMO_EMAIL` is set and not empty; then `exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}"`, with no `--access-log` and no `--log-config`. A failed step exits non-zero before the server starts. It prints fixed `start:` lines; the reset's stdout is dropped because its summary line names the demo email (log allowlist), its errors still reach stderr.
+  - `backend/Dockerfile`: copies `scripts/__init__.py`, `scripts/seed_demo.py` and `start.sh`; `CMD ["sh", "/app/start.sh"]`. `backend/.dockerignore` also excludes `scripts/model_comparison/`. Docker Compose sets neither `PORT` nor `DEMO_EMAIL`, so it still migrates and serves on 8000; `docker-compose.yml` is unchanged.
+  - `render.yaml` (new): backend `winlog-api` (web, `runtime: docker`, `./backend/Dockerfile`, context `./backend`, `plan: free`, `region: frankfurt`, `healthCheckPath: /health`); static site `winlog-app` (web, `runtime: static`, build command that fails with "VITE_API_BASE_URL is required" when the value is empty, then `npm ci` and `npm run build` in `frontend/`, publishes `./frontend/dist`, `NODE_VERSION=26.13.0`, rewrite `/*` to `/index.html`). Both: `branch: main`, `autoDeployTrigger: checksPass`. Only `DATABASE_URL` and `AI_API_KEY` are `sync: false`; every other value from the issue is plain. The two URLs are written in the file as `https://winlog-app.onrender.com` and `https://winlog-api.onrender.com`, because `CORS_ALLOWED_ORIGINS` is required at start and the static build refuses an empty URL, so leaving them to the dashboard would fail both first deploys. `ops/deployment.md` covers a suffixed host.
+  - `.env.example`: a `PORT=` entry (optional, default 8000, set by Render, read only by the start script).
+  - `ops/deployment.md` (new): start order and what a failed start looks like; Neon direct string with `sslmode=require`; OpenRouter ZDR account setting, logging off, production-only key with $5 limit; Blueprint creation and the two secrets; the URLs; redeploy; demo reset by restart; a table of every variable of both services; model switch with the free `check` command; free-plan limits and cold start; no `npm run test:e2e` against production.
+  - `backend/tests/unit/test_deployment.py` (new, 19 tests): the Blueprint's services, fields, secrets, plain values, URLs and forbidden variables; the backend values load as valid `Settings`; the static build command run with stand-in `npm`/`node` (succeeds with a URL, fails clearly without one); `start.sh` run with stand-in `alembic`/`python`/`uvicorn` (order, `PORT`, skip without `DEMO_EMAIL`, stop on a failing step, no email printed); Dockerfile and `.dockerignore` contents; `PORT` in `.env.example`; the guide lists every Render variable.
+- **Deviation to note:** Render's Blueprint schema has no `plan` and no `region` for static sites (they are free and served from Render's CDN, and the schema allows no extra keys). So `plan: free` and `region: frankfurt` are on the backend only. Validating with `region` added to the static site gives schema errors.
+- **How I verified it:**
+  - render.com, neon.com and openrouter.ai could not be reached from this session. I validated `render.yaml` with `jsonschema` against a copy of Render's published Blueprint JSON schema (`$id` `https://render.com/schema/render.yaml.json`) found on GitHub: 0 errors. A Render-owned repository's `render.yaml` uses `autoDeployTrigger: checksPass` the same way.
+  - `docker build backend` fails in this session at the image's `pip install uv` (TLS through the session proxy), so I ran `backend/start.sh` on the host with `uv run --no-sync sh start.sh` against the local PostgreSQL, `AI_PROVIDER=mock`:
+    - `PORT=10000 DEMO_EMAIL=demo@example.com`: printed migrations, reset, server start on 10000 in that order; `GET /health` 200 `{"status":"ok","database":"ok"}`; demo-login then `GET /entries` returned the 26 sample entries.
+    - `GET /entries?tag=marker` (with and without a token): 0 log lines contain `marker`.
+    - No `PORT`, no `DEMO_EMAIL`: "skipping the demo reset", `/health` 200 on 8000, demo-login 404.
+    - `DATABASE_URL` to a closed port and to an unresolvable host: exit 1 after the migration line, no server; the URL's password does not appear in the output.
+  - Frontend: a clean clone (no `.env`) ran the static site's exact `buildCommand` from `render.yaml`: with `VITE_API_BASE_URL` unset or empty it stops with "VITE_API_BASE_URL is required" (exit 1); with `https://example.onrender.com` it builds and the built JavaScript contains that URL. The local Node is 22.23.4, not 26.13.0; Render uses `NODE_VERSION`.
+  - `./test-all.sh`: backend unit 1022 passed, backend integration 970 passed, frontend 1239 passed. `uv run ruff check .`, `uv run ruff format --check .` and `npm run lint` clean.
+  - CI run 43520171264 on commit 3dd5dbe: all five jobs passed, including Full system (which builds the image with `start.sh`, checks `/health`, the migrations and the e2e test) and the access-log check. The earlier run on a40966c (docs only, before this task) had failed once in "Telemetry reached the local stack".
+- **Left open:**
+  - Section B (product owner) and section C (QA on the live app).
+  - The two hosts are a prediction: if Render adds a suffix to a taken name, the product owner sets the real value in the dashboard to unblock and a small follow-up commit puts it into `render.yaml` (`ops/deployment.md`).
+  - Free-plan figures and console wording in `ops/deployment.md` are from memory, as the guide says.

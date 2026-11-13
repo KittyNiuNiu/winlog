@@ -8,3 +8,6 @@
 **/.pytest_cache/
 **/.ruff_cache/
 tests/
+# The model comparison (issue #14) and its results are not needed at runtime. The Dockerfile
+# copies only the demo reset script from scripts/.
+scripts/model_comparison/
