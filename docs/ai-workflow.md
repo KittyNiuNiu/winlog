@@ -2573,3 +2573,31 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Uvicorn's access log can print the `X-Forwarded-For` client address when a request comes from 127.0.0.1 (QA, engineer): comment on #74 (6857512446).
   - Focus lands on `body` while "Log in" or "Delete my account" is busy (designer): comment on #84 (6857513628).
   - The sticky sidebar ends early in a full-page screenshot (designer): left in this log as a screenshot artefact.
+
+## 2026-11-13: PM: groom #83 (record the built patterns in DESIGN.md)
+
+- **Task:** groom #83, a follow-up from #27 with no status label, following `docs/pm.md`.
+  - Read its body and all 14 input comments, from #28, #29, #30, #31, #32, #33, #34, #43 and #77.
+  - Checked against `DESIGN.md`, `PRODUCT.md`, `docs/product-spec.md` (FR-R2, §9 Design), `docs/ux-designer.md`, `docs/process.md` and #78, the earlier docs-only `DESIGN.md` task.
+  - Read the built code: `frontend/src/entries/` (TagField, DiscardDialog, DeleteEntryDialog, EntryForm), `components/` (Button, CategoryChip, EntryRow, Message, TextField, inputLimits, Icon, Illustrations, EmptyState), `review/` (TagFilterField, SummaryPanel) and `pages/` (EntriesPage, ReviewPage, SummariesPage, SummaryPage, SettingsPage).
+  - Kept #84, #36, #86 and #87–#89 out.
+- **What I did:**
+  - Rewrote #83 with the task template. The criteria give each pattern's place in `DESIGN.md` and its values as built, with the file to check them against.
+  - The patterns: tag chips (editable, suggested, read-only), the tag list, the tag filter, the suggested category mark, the quiet text action, Sparkles as the one AI icon, the icons on small actions, entry row actions, dialogs and the in-page confirmation step, the writing nudge, the review page layout, the Filters toggle and its count badge, category groups with month sub-headings, the summary row, the summary page actions, the character counter and the illustration placement.
+  - Widened the title to "record the patterns built in #27–#34, #43 and #77 in DESIGN.md".
+  - Created follow-up #90 for the visual questions.
+  - No labels changed.
+- **Decisions taken under the standing rule (2026-11-12, re-confirmed 2026-11-13), recorded in the issue:**
+  - Docs only; the task does not change screens, so no design note and no design review.
+  - The engineer writes the `DESIGN.md` text by hand, as for #78, from the criteria, the code and the linked design notes and reviews. The designer already authored every pattern in those notes, so the task makes no new design decision. No Impeccable.
+  - The four visual questions go to #90, because each needs a design decision and a token or layout change: the dark-mode secondary hover, the dark-mode disabled fill, the nudge looking like the information message, and the laptop entry row height.
+  - The dark-mode notice and field inside the summary panel: no change, the designer's recommendation from #32.
+  - Both icon readings from #27 are confirmed as built.
+  - The in-page confirmation step is recorded with the dialogs. The review page's `h3` month heading is a second heading level, and the frontmatter is unchanged.
+- **How I verified it:**
+  - Checked the issue against the definition of done in `docs/pm.md`: four sections, checkable criteria, and every out-of-scope line links an issue.
+  - Checked each value in the criteria against the CSS and TSX files named in it.
+  - Confirmed that no test reads `DESIGN.md`; `design.test.ts` reads `index.css`.
+  - Read #83 and #90 back from GitHub; #83 has no labels.
+  - No code run and no AI call.
+- **Left open:** none for grooming. The visual questions wait in #90.
