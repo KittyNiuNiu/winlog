@@ -3121,3 +3121,68 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Left open:** none for grooming. Two notes for the engineer:
   - The Prometheus names of the two histograms (`*_seconds`) follow the default translation; only the counter's name was checked in the probe.
   - The `grafana/otel-lgtm:0.39.0` image stays in this session's Docker cache.
+
+## 2026-11-13: Engineer: implement #74 (instrument a key user journey with metrics, traces and structured logs)
+
+- **Task:** implement #74 (groomed, no screen changes), following `docs/software-engineer.md`. Plan posted on the issue first (comment 6863129733). It needed no product decision, so I went ahead under the standing rule.
+- **What I did:**
+  - Dependencies (`uv add`, `>=1.45.2`, pinned in `uv.lock`): `opentelemetry-api`, `opentelemetry-sdk` and `opentelemetry-exporter-otlp-proto-http`, for the reasons in the issue.
+    - They bring in `requests`, `urllib3`, `certifi`, `charset-normalizer`, `protobuf`, `googleapis-common-protos`, `opentelemetry-proto`, `opentelemetry-exporter-otlp-proto-common` and `opentelemetry-semantic-conventions`. They also bring the 0.66b2 helpers `opentelemetry-exporter-http-transport` and `opentelemetry-exporter-otlp-common`.
+    - No auto-instrumentation and no npm change.
+  - `backend/app/telemetry.py` (new) holds all the setup and the allowlist.
+    - **One `Telemetry` per app:** its own tracer, meter and logger providers, none set as a global provider. They use `shutdown_on_exit=False`, the sampler `ALWAYS_ON` and a hand-built resource (`service.name`, `service.version`, `telemetry.sdk.*`; no detectors).
+    - **Export starts in the lifespan:** the OTLP/HTTP exporters (`<endpoint>/v1/traces|metrics|logs`, 2 s timeout, batch processors, metrics every 10 s) are created only when the app starts, and flushed and shut down when it stops. A MeterProvider takes its readers only at creation, so `start()` builds the meter and its instruments again. So importing `app.main`, or a `TestClient` without its lifespan, never creates an exporter. That is why `./test-all.sh` opens no connection even with the endpoint in `.env`.
+    - **`TelemetryMiddleware`,** the outermost middleware, handles every request:
+      - makes the app's telemetry current through a contextvar, which FastAPI copies into the threadpool;
+      - starts the SERVER span with an empty parent context, so incoming trace headers are ignored;
+      - names it `{METHOD} {route template}` from `scope["route"]`, or the method only when no route matches; a non-standard method becomes `_OTHER`;
+      - gives a 5xx status Error and `error.type`: the class name of an exception, or the status code as text when none reached the middleware (OTel convention);
+      - records `http.server.request.duration` and logs `request finished`.
+    - **`span()`:** `record_exception=False` and `set_status_on_exception=False`. An exception sets status Error with only the class name. Attributes outside the allowlist are dropped.
+    - **`_TelemetryLogHandler`,** put on the `app` logger once:
+      - keeps only allowlisted `extra` fields, in a fixed order;
+      - turns `exc_info` into `error.type` and drops `exc_info` and `stack_info`;
+      - prints one JSON line on stdout, with `trace_id` and `span_id` from the current span;
+      - emits the record to the current app's LoggerProvider.
+    - **`configure_logging()`** also turns uvicorn's access log off: no handlers, `propagate=False`, `disabled=True`. Uvicorn sets up its logging before it imports the app, so this covers the `AGENTS.md` command and the Docker `CMD`, and neither changed.
+  - Journey:
+    - `summaries.py`: `summary.select_entries` and `summary.save`. The five outcomes are counted, set on the SERVER span and logged (`summary generation finished`). The period-order check comes first, so `validation_failed` is not counted.
+    - `ai/limits.py`: `ai.limits.reserve` (`allowed` or `limit_reached`, status Error on a limit).
+    - `ai/adapter.py` `_call`: `ai.{operation}` and `winlog.ai.request.duration`.
+    - The adapter's and the `openai_compatible` module's log lines keep their text and get allowlisted fields.
+  - `app/settings.py`: `OTEL_EXPORTER_OTLP_ENDPOINT`. Empty or blank gives `None`; any other value must start with `http://` or `https://`.
+  - `app/main.py`: `create_app(settings, telemetry=None)`, with the middleware and the lifespan.
+  - `docker-compose.yml`: the `lgtm` service (`grafana/otel-lgtm:0.39.0`, volume `lgtm-data:/data`, ports `127.0.0.1:${GRAFANA_HOST_PORT:-3000}` and `127.0.0.1:${OTLP_HTTP_HOST_PORT:-4318}`), and `OTEL_EXPORTER_OTLP_ENDPOINT: http://lgtm:4318` for the backend, with no `depends_on`.
+  - `.env.example`: the three new variables.
+  - `ci.yml`, Full system job: a new step after the end-to-end test, "Telemetry reached the local stack".
+    - Through Grafana's datasource proxy, with retries for up to 90 s, it needs a `POST /summaries` trace in Tempo, a Loki record with its trace ID, and `winlog_summary_generate_requests_total{winlog_outcome="created"}` of at least 1.
+    - It then stops `lgtm` and needs `GET /health` to return 200.
+    - It also fails if the backend container's log has a uvicorn access line. That last check is mine: it makes the "access log off in the image" criterion visible in CI.
+    - The service logs printed on failure include `lgtm`.
+  - Docs:
+    - `docs/observability.md` (new): Grafana, the signals, the allowlist, `127.0.0.1` without a login, and running on the host.
+    - `docs/product-spec.md` §9, §10.2 and §14, and `AGENTS.md` (Full system, Backend conventions, Testing), word for word as in the issue.
+  - Tests:
+    - `tests/telemetry_capture.py` (new): in-memory span, metric and log exporters.
+    - `tests/unit/test_telemetry.py` (29 tests): route template and no-route naming; `_OTHER`; ignored trace headers; 500 and 503 status Error; span exception without an event; attribute drop; log allowlist with `exc_info` and `stack_info`; JSON line format and IDs; third-party loggers not exported; resource keys; `create_app` three times; the access log after uvicorn's own logging setup; settings; no exporter or socket connection without an endpoint; exporters only on start; and with nothing listening, quick requests and a shutdown within 10 s.
+    - `tests/integration/test_telemetry.py` (10 tests): the journey's spans and their attributes for every outcome, the metrics and their units, logs that share the trace ID (exported and on stdout), and `test_telemetry_contains_no_customer_data_or_credentials`. That test runs every endpoint with markers, including `?tag=`, demo login with `X-Forwarded-For`, a marker AI answer and a crash route with a marker exception message.
+    - `test_settings.py` lists the new setting, and the unit `no_env_file` fixture clears it. No test was weakened or removed.
+- **How I verified it:**
+  - Marker test checked by mutation (not committed): logging the path and query string in `request finished` made it fail.
+  - Host backend against `docker compose up -d db lgtm`, with `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318` and `AI_PROVIDER=mock`. Register, log in, an entry, `GET /entries?tag=…` with `X-Forwarded-For`, and `POST /summaries` with a client `traceparent`. Through Grafana's datasource proxy:
+    - Tempo returned trace `6b90…f18e` with `POST /summaries`, then `summary.select_entries`, `ai.limits.reserve`, `ai.summarise` and `summary.save` with the expected attributes. The resource held only `service.*` and `telemetry.sdk.*`.
+    - Loki returned the AI line, `summary generation finished` and `request finished` for that trace ID.
+    - Prometheus returned `winlog_summary_generate_requests_total{winlog_outcome="created"} 1`, plus `winlog_ai_request_duration_seconds_*` and `http_server_request_duration_seconds_*` with the expected labels. The client's trace ID was not used.
+    - All Loki logs, all 6 Tempo traces, all Prometheus series and the backend's stdout held no marker, token, IP, summary id or client trace ID. Uvicorn printed no access line.
+  - `lgtm` stopped: `/health` 200, a summary 201 in 20 ms, an entry 201. SIGTERM with nothing listening: stopped in 2.3 s. Against a listener that accepts and never answers, SIGINT: stopped in 6.1 s.
+  - `lgtm` started again: the same trace was found by its ID.
+  - The CI step's script, run locally: all three "yes", then lgtm stopped and `/health` 200.
+  - `./test-all.sh` with `.env` copied from `.env.example`, and again with `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318` added: both passed (1003 unit, 970 integration, 1239 frontend). A listener on 4318 logged no connection during either run; I checked that it does log one from a manual `curl`. My own `.env` was restored afterwards.
+  - Lint: `uv run ruff check .`, `uv run ruff format --check .`, `uv lock --check` and `npm run lint` all clean.
+  - CI run 43497466977 on 42dda2c passed every job. In the Full system job's telemetry step, Tempo, Loki and Prometheus said "yes" and `/health` returned 200 with lgtm stopped. The Backend job's start log shows a JSON `request finished` line and no access line.
+  - No real AI call.
+- **Left open:**
+  - The criterion's example `PATCH /entries/{entryId}` names a method that route does not have, because entries are changed with PUT. Tests cover `PUT /entries/{entryId}` (401), and also `PATCH` (405), which still uses the route template.
+  - A 5xx answered without an exception, such as 503 `ai_unavailable`, gets `error.type` set to the status code (`"503"`), as OTel's conventions say. The issue names `error.type` for 5xx but not its value in this case.
+  - Log records written outside a request are printed as JSON but not exported, because no app's telemetry is current then. The app has no such log lines today.
+  - The Compose-only criteria (`docker compose up --build`, the UI in a browser, `docker compose restart lgtm`) could not be run here, because pip TLS fails in this session's image build. They are covered by the CI Full system job and, for the restart, by stopping and starting `lgtm` with the host backend.
