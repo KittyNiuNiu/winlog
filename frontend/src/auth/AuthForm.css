@@ -22,6 +22,17 @@
   margin: var(--space-12) 0 0;
 }
 
+/* "Try the demo" (#35): outside the form, 16px below "Log in" or its waking-up hint. Its
+   own messages sit below it, 12px apart, only while they have text. */
+.auth-page__demo {
+  width: 100%;
+  margin-top: var(--space-16);
+}
+
+.auth-page__demo-messages > .message:not(:empty) {
+  margin: var(--space-12) 0 0;
+}
+
 .password-toggle {
   flex: 0 0 auto;
   min-width: 4.5rem;

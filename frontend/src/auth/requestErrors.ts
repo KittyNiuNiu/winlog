@@ -9,6 +9,11 @@ export const ACCOUNT_CREATED_MESSAGE = 'Account created. Please log in.'
 export const ACCOUNT_DELETED_MESSAGE = 'Your account has been deleted.'
 export const WAKING_UP_MESSAGE = 'The server is waking up. This can take up to a minute.'
 
+// "Try the demo" below the login form (FR-X1, design note on #35).
+export const TRY_DEMO_LABEL = 'Try the demo'
+export const OPENING_DEMO_LABEL = 'Opening the demo…'
+export const DEMO_UNAVAILABLE_MESSAGE = "The demo isn't available right now."
+
 /** After this long, a running request shows the waking-up hint (product-spec.md §12). */
 export const WAKING_UP_AFTER_MS = 10_000
 

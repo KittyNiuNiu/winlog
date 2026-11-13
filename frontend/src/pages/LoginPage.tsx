@@ -1,10 +1,14 @@
 import { useRef, useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
-import { InvalidCredentialsError, ValidationError, login } from '../api/index.ts'
+import { InvalidCredentialsError, NotFoundError, ValidationError, demoLogin, login } from '../api/index.ts'
 import { EmailField, FormAlert, FormNotice, PasswordField, SubmitButton } from '../auth/AuthFields.tsx'
 import {
   ACCOUNT_CREATED_MESSAGE,
   ACCOUNT_DELETED_MESSAGE,
+  DEMO_UNAVAILABLE_MESSAGE,
+  OPENING_DEMO_LABEL,
+  TRY_DEMO_LABEL,
+  WAKING_UP_MESSAGE,
   WRONG_CREDENTIALS_MESSAGE,
   unexpectedErrorMessage,
   validationMessages,
@@ -12,7 +16,9 @@ import {
 import { useWakingUpHint } from '../auth/useWakingUpHint.ts'
 import { PASSWORD_MISSING, emailProblem } from '../auth/validation.ts'
 import { REGISTER_PATH, cameFromAccountDeletion, cameFromRegistration, wantedPage } from '../auth/wantedPage.ts'
+import { Button } from '../components/Button.tsx'
 import { LoginIllustration } from '../components/Illustrations.tsx'
+import Message from '../components/Message.tsx'
 import '../auth/AuthForm.css'
 
 type Field = 'email' | 'password'
@@ -26,6 +32,8 @@ function noticeFor(state: unknown): string | null {
 }
 
 // FR-A2: log in. Login checks no password rule; it only needs both fields filled in.
+// FR-X1: "Try the demo" below the form logs in to the shared demo account without the
+// fields. The two requests block each other, and each clears the other's message.
 export default function LoginPage() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -41,6 +49,11 @@ export default function LoginPage() {
   const [notice, setNotice] = useState<string | null>(() => noticeFor(location.state))
   const [pending, setPending] = useState(false)
   const wakingUp = useWakingUpHint(pending)
+  const [demoPending, setDemoPending] = useState(false)
+  const [demoError, setDemoError] = useState<string | null>(null)
+  const demoWakingUp = useWakingUpHint(demoPending)
+  // Answers a second press before React renders again, so it sends nothing.
+  const requestRunning = useRef(false)
 
   const emailError = emailProblem(email)
   const passwordError = password === '' ? PASSWORD_MISSING : null
@@ -65,7 +78,7 @@ export default function LoginPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (pending) {
+    if (requestRunning.current) {
       return
     }
     setChecked({ email: true, password: true })
@@ -81,10 +94,13 @@ export default function LoginPage() {
     setFormError(null)
     setServerMessages({ email: [], password: [] })
     setNotice(null)
+    setDemoError(null)
+    requestRunning.current = true
     setPending(true)
     try {
       await login({ email, password })
     } catch (error) {
+      requestRunning.current = false
       setPending(false)
       if (error instanceof InvalidCredentialsError) {
         setFormError(WRONG_CREDENTIALS_MESSAGE)
@@ -93,6 +109,29 @@ export default function LoginPage() {
       } else {
         setFormError(unexpectedErrorMessage(error))
       }
+      return
+    }
+    await navigate(wantedPage(location.state), { replace: true })
+  }
+
+  // No field check: the demo needs no email or password, and anything typed stays.
+  async function handleDemo() {
+    if (requestRunning.current) {
+      return
+    }
+    setNotice(null)
+    setFormError(null)
+    setDemoError(null)
+    requestRunning.current = true
+    setDemoPending(true)
+    try {
+      // Stores the token with the demo flag (#25).
+      await demoLogin()
+    } catch (error) {
+      requestRunning.current = false
+      setDemoPending(false)
+      // `not_found`: the demo is turned off or not seeded. The server's text is never shown.
+      setDemoError(error instanceof NotFoundError ? DEMO_UNAVAILABLE_MESSAGE : unexpectedErrorMessage(error))
       return
     }
     await navigate(wantedPage(location.state), { replace: true })
@@ -128,8 +167,30 @@ export default function LoginPage() {
           inputRef={passwordRef}
           autoComplete="current-password"
         />
-        <SubmitButton pending={pending} label="Log in" pendingLabel="Logging in…" wakingUp={wakingUp} />
+        <SubmitButton
+          pending={pending}
+          label="Log in"
+          pendingLabel="Logging in…"
+          wakingUp={wakingUp}
+          disabled={demoPending}
+        />
       </form>
+      {/* Outside the form, so Enter in a field always submits the login form. */}
+      <Button
+        className="auth-page__demo"
+        variant="secondary"
+        type="button"
+        busy={demoPending}
+        busyLabel={OPENING_DEMO_LABEL}
+        disabled={pending}
+        onClick={() => void handleDemo()}
+      >
+        {TRY_DEMO_LABEL}
+      </Button>
+      <div className="auth-page__demo-messages">
+        <Message variant="error">{demoError}</Message>
+        <Message variant="info">{demoWakingUp ? WAKING_UP_MESSAGE : null}</Message>
+      </div>
       <p className="auth-page__switch">
         New to Winlog? <Link to={REGISTER_PATH}>Create an account</Link>
       </p>

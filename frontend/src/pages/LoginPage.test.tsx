@@ -367,9 +367,10 @@ describe('the login illustration (§9 Design)', () => {
     expect(screen.getByRole('main').contains(svg)).toBe(true)
     const wordmark = document.querySelector('.wordmark') as HTMLElement
     expect(wordmark.compareDocumentPosition(svg) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    // Nothing new to read or reach: the same heading, button and link as before.
+    // Nothing new to read or reach: the same heading, button and link as before, plus
+    // "Try the demo" below the form (#35).
     expect(screen.getAllByRole('heading').map((element) => element.textContent)).toEqual(['Log in'])
-    expect(screen.getAllByRole('button').map((button) => button.textContent)).toEqual(['Show', 'Log in'])
+    expect(screen.getAllByRole('button').map((button) => button.textContent)).toEqual(['Show', 'Log in', 'Try the demo'])
   })
 
   it('test_design_login_illustration_stays_with_the_account_created_notice_and_an_error', async () => {

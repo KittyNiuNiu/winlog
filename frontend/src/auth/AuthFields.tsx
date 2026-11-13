@@ -127,13 +127,15 @@ interface SubmitButtonProps {
   label: string
   pendingLabel: string
   wakingUp: boolean
+  /** True while another request on the page runs, for example the demo login. */
+  disabled?: boolean
 }
 
 /** The submit button: busy with a progress label while the request runs. */
-export function SubmitButton({ pending, label, pendingLabel, wakingUp }: SubmitButtonProps) {
+export function SubmitButton({ pending, label, pendingLabel, wakingUp, disabled }: SubmitButtonProps) {
   return (
     <>
-      <Button className="form__submit" type="submit" busy={pending} busyLabel={pendingLabel}>
+      <Button className="form__submit" type="submit" busy={pending} busyLabel={pendingLabel} disabled={disabled}>
         {label}
       </Button>
       <Message variant="info" className="form__status">
