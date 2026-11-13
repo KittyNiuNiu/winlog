@@ -2451,3 +2451,40 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Live check in headless Google Chrome (global Playwright, nothing added to the project), with the `db` container, `uvicorn` with `AI_PROVIDER=mock` and `DEMO_EMAIL` set only in the shell, the demo seeded with `scripts.seed_demo`, and `vite`. QA's second-press script (3 fields × two mouse clicks, double-click, two taps × 360×640 and 1280×800 × slow success and 404): 36/36 runs showed no field message at any time, sent one `POST /auth/demo`, opened `/` on success and showed "The demo isn't available right now." on 404. QA's single-press script (4 fields × mouse and tap × both widths × success and 404): 32/32 runs sent one request with no field message, kept the typed text and kept focus in the field. Keyboard Enter and Space pressed twice on the button, at both widths, success and 404: one request, no field message. "Log in"'s own blur checks at both widths: leaving `not-an-email` for the password field, clicking the heading, Tab out of the empty email and "Log in" with empty fields all showed their messages as before, with no request; after a failed double-clicked demo, leaving the email field showed its message again.
   - No AI request was made.
 - **Left open:** real iOS Safari and Android Chrome devices were not checked. Focus after a press on a disabled busy button stays with #84.
+
+## 2026-11-13: Orchestrator: closed #35 (task 39, "Try the demo" on the login page)
+
+- **Outcome:**
+  - The PM re-groomed it (ad5c4a2) and the design note was posted (issue comment 6852863190).
+  - The engineer implemented it in aaadaeb, adf98a6 and 912e6b3 (6853158770).
+  - QA FAIL 1 (6853627846): a press on "Try the demo" with focus in a login field ran the blur check, moved the button and lost the press. Fixed in 095db31 (6853808197).
+  - QA FAIL 2 (6854879345): a second press on the busy button still showed a field message. Second QA FAIL, so a stop point.
+  - Fixed again in 4dc5e93 (6855665172), then QA PASS (6855977555) and design review PASS (6856222075).
+  - Closed as completed; the last status label `qa-passed` stays. No real AI calls: `AI_PROVIDER=mock`, with `DEMO_EMAIL` set only in the environment.
+- **Product owner decision (2026-11-13), at the second-QA-FAIL stop point:** one more fix (the recommended option), not accepting the edge case or pausing.
+- **Decisions accepted under the 2026-11-12 standing rule:**
+  - PM:
+    - Kept the 2026-11-01 notice wording, link, flag and texts.
+    - "Try the demo" is secondary and sits below the form; both buttons must be visible at 360×640. Demo errors sit below the button.
+    - The page opens the wanted page or `/`, replacing the history entry.
+    - No field checks run for the demo; one request at a time.
+    - The notice shows on every shell page. It is not closable and not a live region.
+    - "Create your own account" logs out, then opens `/register`.
+    - The settings page shows only "The demo account can't be deleted.", and a 409 shows the same text.
+    - Corrected the brief: deletion returns 409 `demo_account_not_deletable`, not 403.
+  - Designer:
+    - The button is full width, outside the `<form>`, 16px below "Log in".
+    - The notice is a non-live info `Message` at 15px, capped at 68ch, first in `<main>` and above "Entry saved.".
+    - The link shows a spinner and "Leaving the demo…".
+    - "Opening the demo…".
+  - Engineer:
+    - Two existing assertions changed because the criteria require it: the #77 login button list now ends with "Try the demo", and the #34 demo row uses 409 with the demo sentence.
+    - One logout runs at a time.
+    - `onMouseDown` preventDefault on the demo button, so focus stays in the field. Chosen over relying on button focus, which Safari does not give.
+    - A `demoRunning` ref suppresses the field blur checks while the demo request runs. The shared `Button` stays natively disabled.
+- **Where each open point went:**
+  - Focus stays in the field after a press, focus ends on `body` after a second press, and the phone keyboard may cover the demo error (engineer, QA, designer): comment on #84 (6856233907).
+  - Notice width at 68ch on the laptop, the link's focus outline, the idle "Draft summary" fill looking close to disabled, and "Create an account" or the demo error partly below the fold at 360×640 (designer): comment on #36 (6856236373).
+  - Demo login rate limit and its "Too many attempts" message: already on #46 (PM input 6852720673).
+  - Not checked on real iOS Safari or Android Chrome devices (engineer, QA): left in this log.
+  - The demo account was seeded in the local dev database and reset with `seed_demo` after the design review: left in this log.
