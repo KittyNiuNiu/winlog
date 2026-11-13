@@ -2334,3 +2334,44 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Left open:**
   - A real-device check on iOS Safari and Android Chrome is not possible here (as the issue says).
   - The demo replacement (#35), "too many attempts" (#46), focus while a busy button is disabled (#84) and the in-page step pattern in `DESIGN.md` (#83) stay with their issues.
+
+## 2026-11-13: Orchestrator: closed #34 (task 38, data and account settings page)
+
+- **Outcome:**
+  - The PM re-groomed it (1cdd8a5) and posted the design note (issue comment 6852002534).
+  - The engineer implemented it in 0bf909d (6852198027).
+  - QA PASS (6852486082), including real downloads and a real account deletion with throwaway users, all deleted afterwards.
+  - Design review PASS (6852622504).
+  - Closed as completed; the last status label `qa-passed` stays. No real AI calls.
+- **Decisions accepted under the 2026-11-12 standing rule:**
+  - PM:
+    - Kept the product owner's 2026-11-01 choices: the current password is required, plus a typed confirmation word. The downloads sit inside the step. "Delete my account" stays disabled until both fields are filled. The user stays logged in after any failure. "Your account has been deleted." shows on `/login`.
+    - The confirmation label is `Type "delete" to confirm`, in any case, with outer spaces ignored.
+    - The step opens in place on the page, not in a modal. All buttons are secondary, with no logout on the page.
+    - A `current_password` validation error shows "That password is incorrect."
+    - The waking-up hint appears after 10s.
+    - `/login` replaces `/settings` in the history.
+    - Files are saved through an object URL and `<a download>`, with no new dependency.
+    - `PlaceholderPage` is removed.
+  - Designer:
+    - One 68ch column with plain sections.
+    - The step is a flat Paper-white panel that replaces "Delete account". Its heading "Delete your account?" gets focus.
+    - The danger signal comes from the heading, text, label and `Trash2`, with no error-coloured button.
+    - Buttons are stacked below 48rem and in a row above it. "Cancel" comes before "Delete my account".
+    - The step is a `<form>`; there is no Escape key and no focus trap.
+    - One busy state and one message slot per file.
+  - Engineer:
+    - The object URL is revoked 1s after the click.
+    - Cancel unmounts the step, which resets the fields and hides the password again.
+    - A download message shown in the step moves to "Your data" on Cancel.
+- **Where each open point went:**
+  - In dark mode, the disabled button fill matches the Paper-white panel (designer): comment on #83 (6852633278).
+  - Focus falls to the body while "Delete my account" is busy (designer): already on #84 (PM input 6851923673).
+  - The demo account on this page (PM): already on #35 (6851922938).
+  - Left in this log:
+    - The download waking-up hint shares one timer when both downloads run at once (QA). The criteria do not cover this.
+    - A second Back after deletion leaves the app (QA): browser behaviour.
+    - The focus border shows over the error border while the field has focus (QA, designer): the shared field's rule.
+    - Registering through the UI logs in and opens `/`, so "Account created. Please log in." only shows when the automatic login fails (designer). This is expected.
+    - The sticky sidebar looks shifted in full-page screenshots (designer): a screenshot artefact.
+    - Not checked on real iOS Safari or Android Chrome devices (engineer, QA).
