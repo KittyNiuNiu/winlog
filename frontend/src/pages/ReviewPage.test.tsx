@@ -274,6 +274,69 @@ describe('the filters send the right query (FR-R1)', () => {
     expect(screen.queryByText(DATE_ORDER_ERROR)).toBeNull()
   })
 
+  // Chrome edits a date input in segments and reports a value after each year digit
+  // (0002-11-01, 0020-11-01, ...). If the page writes any other value into the input while
+  // the URL catches up, Chrome drops the typed segments and the date never arrives (#31,
+  // QA). jsdom has no segmented editing, so the test watches every value the page writes
+  // into the input: there must be none, only the user's own changes.
+  it.each([
+    ['Start date', 'start_date', '/review', ['0002-11-01', '0020-11-01', '0201-11-01', '2026-11-01'], '2026-11-01'],
+    ['End date', 'end_date', '/review', ['0002-11-01', '0020-11-01', '0201-11-01', '2026-11-01'], '2026-11-01'],
+    ['Start date', 'start_date', '/review?start_date=2026-11-01', ['0002-11-01', '0020-11-01', '0202-11-01', '2025-11-01'], '2025-11-01'],
+    ['End date', 'end_date', '/review?end_date=2026-11-01', ['0002-11-01', '0020-11-01', '0202-11-01', '2025-11-01'], '2025-11-01'],
+  ] as const)(
+    'test_fr_r1_a_date_typed_key_by_key_into_%s_at_%s_reaches_the_filter_from_%s',
+    async (label, param, path, typed, expected) => {
+      const valueSetter = vi.spyOn(HTMLInputElement.prototype, 'value', 'set')
+      try {
+        const { router } = await renderReview(path)
+        const input = screen.getByLabelText(label) as HTMLInputElement
+        const typedValues: string[] = []
+
+        for (const value of typed) {
+          // Record only what reaches the input after the user's own change.
+          valueSetter.mockClear()
+          await act_(() => fireEvent.change(input, { target: { value } }))
+          typedValues.push(input.value)
+          const pageWrites = valueSetter.mock.calls.filter((_, index) => valueSetter.mock.contexts[index] === input)
+          expect(pageWrites.map(([written]) => written)).toEqual([value])
+        }
+
+        expect(typedValues).toEqual(typed)
+        expect(new URLSearchParams(router.state.location.search).get(param)).toBe(expected)
+        expect(lastQuery()).toEqual({ [param]: expected })
+      } finally {
+        valueSetter.mockRestore()
+      }
+    },
+  )
+
+  it('test_fr_r1_a_typed_date_follows_clear_filters_and_history', async () => {
+    const { router } = await renderWithHistory(['/review?start_date=2026-01-01', '/review?start_date=2026-05-01'])
+    await setDate(startDate(), '2026-02-01')
+    await setDate(endDate(), '2026-03-01')
+
+    await click(clearButtons()[0])
+    expect(startDate().value).toBe('')
+    expect(endDate().value).toBe('')
+
+    await setDate(startDate(), '2026-04-01')
+    await act(async () => {
+      await router.navigate(-1)
+    })
+    expect(startDate().value).toBe('2026-01-01')
+    expect(lastQuery()).toEqual({ start_date: '2026-01-01' })
+    await act(async () => {
+      await router.navigate(1)
+    })
+    expect(startDate().value).toBe('2026-04-01')
+    await act(async () => {
+      await router.navigate('/review')
+    })
+    expect(startDate().value).toBe('')
+    expect(lastQuery()).toEqual({})
+  })
+
   it('test_fr_r1_dates_are_native_date_inputs_and_optional', async () => {
     await renderReview()
 
