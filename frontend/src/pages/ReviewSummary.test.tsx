@@ -677,10 +677,21 @@ describe('"Draft again" (FR-R3)', () => {
     await renderWithDraft()
     await type(field(), 'Unsaved edit')
     generateSummary.mockRejectedValue(new AiUnavailableError('server text', 503))
-    draftButton().focus()
+    // A click that does not focus the button (Safari): focus is still in the text field.
+    field().focus()
+    // The browser gives focus back to what had it when the dialog opened.
+    const focusedAtOpen: (Element | null)[] = []
+    const showModal = vi.spyOn(HTMLDialogElement.prototype, 'showModal').mockImplementation(function (
+      this: HTMLDialogElement,
+    ) {
+      focusedAtOpen.push(document.activeElement)
+      this.setAttribute('open', '')
+    })
 
     await click(draftButton())
+    expect(focusedAtOpen).toEqual([draftButton()])
     await click(within(openDialog() as HTMLElement).getByRole('button', { name: 'Discard' }))
+    showModal.mockRestore()
 
     expect(field().value).toBe(DRAFT_TEXT)
     expect(sourceLine().textContent).toBe('Entries from 1 Jan 2026 – 30 Jun 2026 · All categories · All tags')

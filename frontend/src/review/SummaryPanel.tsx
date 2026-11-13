@@ -179,6 +179,9 @@ export default function SummaryPanel({ filter, entryCount }: SummaryPanelProps) 
       return
     }
     if (dirty) {
+      // Closing the dialog gives focus back to what had it before (Safari does not focus
+      // a clicked button), so make that "Draft again".
+      draftButtonRef.current?.focus()
       setConfirmingAgain(true)
       return
     }
