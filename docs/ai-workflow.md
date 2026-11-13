@@ -1289,6 +1289,30 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - The wanted page is kept in the history state, so it is lost if the visitor reloads `/login`, and they then land on `/`.
 - **Side effects:** Node 26.13.0 was installed with nvm in the sandbox. Docker and the `db` container are still running. uvicorn and the Vite dev server are stopped. A local `.env` (git-ignored) was copied from `.env.example`.
 
+## 2026-11-11: Orchestrator: #26 implemented, QA PASS, closed
+
+- *Recovered on 2026-11-13 from commit 75415d1 on branch `developer/zen-bell-yusvf7`, which was never merged into `main`. Text unchanged.*
+- The product owner asked for #26. Latest `main` was already merged into `developer/zen-bell-yusvf7`. #26 was `groomed`, so it went to the engineer, with the open points from #25 (https://github.com/KittyNiuNiu/winlog/issues/26#issuecomment-6778691811) as inputs.
+- The engineer built the login and registration pages, route protection, logout and the router-based login redirect in `frontend/src/auth/` and `frontend/src/pages/` (3efab16, 1cb6d9d, bc56ccc, ac60f0e; https://github.com/KittyNiuNiu/winlog/issues/26#issuecomment-6781937879). No new dependencies. 253 frontend tests pass, lint and build are clean, and CI run 42921370887 passed.
+- QA PASS on all 17 criteria in the first round, with only `AI_PROVIDER=mock`, including a headless browser check at 360px and 1280px (https://github.com/KittyNiuNiu/winlog/issues/26#issuecomment-6782207451). Closed #26 as completed.
+- **Open points**, recorded where they belong:
+  - #36 (https://github.com/KittyNiuNiu/winlog/issues/36#issuecomment-6782218622): "Log out" sits on its own row at 360px, and the error areas hidden until they have text should be checked with a real screen reader.
+  - New issue #72, created on the product owner's instruction: server validation messages are shown as the backend sends them, and some are technical.
+  - Left in this log by the product owner's choice: the wanted page is lost if the visitor reloads `/login` (deliberate, it rules out open redirects); and, unchanged from #25, a 401 without the JSON `not_authenticated` body does not redirect, and a logout in another tab is noticed only at that tab's next request.
+  - Environment only, left in this log by the product owner's choice: in the sandbox, `docker compose up --build` failed because the backend image build could not reach PyPI through the proxy. CI's "Full system" job builds it. To be flagged again when #37 starts.
+
+## 2026-11-11: Orchestrator: fixed requirements for tests, CI/CD and telemetry
+
+- *Recovered on 2026-11-13 from commit a8da36c on branch `developer/zen-bell-yusvf7`, which was never merged into `main`. Text unchanged. The `docs/tasks.md` renumbering from that commit was not recovered: `main` already has a later list that includes #73 and #74.*
+- The product owner gave five fixed requirements and asked whether the spec covers them. The orchestrator compared them with `product-spec.md`, the issues, `docker-compose.yml` and the CI workflow. Covered: the full stack running end to end with data persisted (§9, §10.1, #37), and the full system in Docker Compose with one command (§9, §10.4, CI "Full system" job). Not covered: one command for all tests, CI/CD with dev and a manual production deploy (it contradicted §10.2 and #39), and telemetry.
+- **Product owner decisions (2026-11-11):**
+  1. All five are fixed requirements.
+  2. CI/CD applies after the first cloud deployment (#38, unchanged). The image is built in GitHub Actions, not locally, and pushed to a registry such as GHCR. It is deployed to dev automatically, and the same image is promoted to production by a manual step. #39 goes back to grooming for this rather than a new issue being opened: its `groomed` label was removed and the decision was posted (https://github.com/KittyNiuNiu/winlog/issues/39#issuecomment-6805322615). Its title is now "Deploy to dev automatically and to production by hand".
+  3. Telemetry runs locally first, in Docker Compose. Sending signals from the deployed dev and production environments to a hosted UI is a later follow-up after #39. That follow-up issue is not created yet.
+  4. Build order: the new issues go before the first deploy.
+- New issues, both needing grooming: #73 (all unit and integration tests with a single command) and #74 (metrics, traces and structured logs with a shared trace ID on a key user journey, local UI).
+- `docs/tasks.md`: #73 and #74 are tasks 39 and 40, so #38, #39 and #40 move to 41, 42 and 43. The issue titles were renumbered to match. The "Task N of 41" lines in the bodies of #38 and #40 are now out of date; the PM can correct them when grooming touches those issues.
+
 ## 2026-11-11: Add the frontend-design skill (product owner request)
 
 - **Task:** the product owner asked to install Anthropic's `frontend-design` skill for this project with `npx skills add anthropics/skills --skill frontend-design`.
@@ -3227,3 +3251,15 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Follow-up issues created:** #87, #88, #89, #90, #91, #92.
 - **No real AI calls** were made in the batch.
 - **Left open after the batch:** #38, #39, #40 (build order) and the follow-ups #58, #61, #64, #68, #72, #86, #87–#92.
+
+## 2026-11-13: Orchestrator: recover two log entries from an unmerged branch
+
+- **Task:** the product owner asked why `developer/zen-bell-yusvf7` is two commits ahead of `main`, and then asked to recover its two log entries.
+- **What I found:**
+  - Both commits are docs-only and come from an orchestration session on 2026-11-11 that never opened a pull request. `main` is 160 commits ahead of that branch.
+  - 75415d1 adds the log entry "#26 implemented, QA PASS, closed".
+  - a8da36c adds the log entry "fixed requirements for tests, CI/CD and telemetry", with the product owner's 2026-11-11 decisions. It also renumbers `docs/tasks.md`.
+  - The decisions themselves were carried out on `main` (#39 re-groomed, #73 and #74 created and now closed). Only the two log entries were missing.
+- **What I did:** inserted both entries unchanged into `docs/ai-workflow.md` after "Implement #26", where they stood on the old branch, each with a note naming its source commit. The `docs/tasks.md` change was not recovered: `main`'s list is newer and already includes #73 and #74.
+- **How I verified it:** compared `git diff origin/main...developer/zen-bell-yusvf7` with `main`. Neither heading existed in `main`'s log, and the recovered text matches the commits line for line.
+- **Left open:** once this reaches `main` through #93, the branch `developer/zen-bell-yusvf7` holds nothing else that is needed and can be deleted by the product owner.
