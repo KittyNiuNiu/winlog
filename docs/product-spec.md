@@ -166,7 +166,7 @@ Individual professionals who want a lightweight record of their work so they can
 | Security | Passwords are stored only as hashes. Logins use tokens that the server stores, so they can be revoked, and that expire. Repeated failed logins are slowed down (FR-A4). Secrets and keys come from environment variables and are never committed. All data access is scoped to the authenticated user. |
 | Privacy | Users can export and delete their data (see 7.6). AI providers do not retain request data (see 8). |
 | Reliability | The app stays usable if the AI provider is unavailable. |
-| Testability | Backend and frontend have automated tests. AI calls are mocked in tests. |
+| Testability | Backend and frontend have automated unit and integration tests, and one command runs them all. AI calls are mocked in tests. |
 | Reproducibility | The full system (frontend, backend, database) starts locally with Docker Compose. |
 
 ---
@@ -261,6 +261,8 @@ Closed:
 - Default LLM model (closed 9 November 2026): `anthropic/claude-haiku-5.5`, chosen by a documented comparison (issue #14). The backup model is `deepseek/deepseek-v4.1-flash`: if the default becomes unavailable, too expensive or worse, the model setting is switched to it. It is not an automatic fallback. Details in `docs/decisions/default-model.md`.
 
 ## 14. Change log
+
+**0.2, updated 13 November 2026.** §9: the Testability row adds that one command runs all unit and integration tests (issue #73). Nothing else changed.
 
 **0.2, updated 11 November 2026.** §9: new "Design" row. The user interface follows `DESIGN.md`, the design system the product owner chose on 11 November 2026 ("Plum & Peach v2"). Nothing else changed.
 
