@@ -2706,3 +2706,36 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
     - no sideways scroll on `/login` at 360.
   - No backend change and no real AI call.
 - **Left open:** on the edit and summary pages a retry flag stays set if the route id changes while the same page stays mounted (no link does this today); a later failed load then focuses "Try again" only when focus is on the page body.
+
+## 2026-11-13: Orchestrator: closed #84 (keyboard focus on busy buttons, after failures and on the edit page)
+
+- **Outcome:**
+  - The PM re-groomed it (4f0e186) and the design note was posted (issue comment 6858157565).
+  - The engineer implemented it in 1eda50c and 73be856, including the `DESIGN.md` Buttons line (6858694650).
+  - QA PASS (6859162250) and design review PASS (6859625235).
+  - Closed as completed; the last status label `qa-passed` stays. No real AI calls: everything ran on `AI_PROVIDER=mock`.
+- **Decisions accepted under the 2026-11-12 standing rule:**
+  - PM:
+    - A busy shared `Button` uses `aria-disabled` and ignores activation instead of native `disabled`. One change covers every busy button; disabled-but-not-busy stays native.
+    - The earlier criteria "is disabled / cannot be pressed" still hold, so no closed issue changes.
+    - Focus moves to the first field with a server error.
+    - "Try the demo" gets focus after a failure.
+    - The new "Try again" gets focus after a failed retry on five pages.
+    - The edit page starts in the text field.
+    - No focus moves once the user has moved on.
+    - The existing busy-button tests change from native `disabled` to `aria-disabled` and keep every second-press check.
+  - Designer:
+    - A focused busy button shows the normal 2px outline and no extra cue.
+    - Focus wins over the error style.
+    - Plain `focus()` for the moves.
+    - One `DESIGN.md` Buttons line on the busy state.
+  - Engineer:
+    - New `components/focus.ts` helper.
+    - The suggest refocus effect is removed. The refocus in the summary panel, summary page and delete dialog is kept, for Safari and for Tab while busy.
+    - Both #35 demo fixes are kept; `demoRunning` now also covers the focus move after a failure.
+    - The `main` landmark does not count as "moved on".
+    - `/review` remembers which request "Try again" started.
+- **Where each open point went (all left in this log):**
+  - On the edit and summary pages a retry is detected with `attempt > 0`, which would stay set if the route id changed while the page stays mounted. No link does that today (engineer).
+  - The outline is not shown on "Try the demo" after a mouse-started failed demo, which is better than the note expected. An outline that is already shown stays when a keyboard-focused button is then clicked, which is Chromium behaviour (designer).
+  - The shared local database had used today's global AI limit, so QA and the designer raised `AI_DAILY_*` through the environment only, still with the mock provider (QA, designer).
