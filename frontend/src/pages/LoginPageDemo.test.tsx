@@ -296,6 +296,107 @@ describe('"Try the demo" pressed while a field has focus (FR-X1)', () => {
   })
 })
 
+// QA FAIL 2 on #35: a second press while the demo request runs (two clicks, a
+// double-click or two taps) landed on the busy, disabled button. A disabled button runs
+// no handler, so the browser moved focus to the page, and the field's blur check showed
+// a field message. userEvent moves focus away on a press of a disabled button too.
+describe('"Try the demo" pressed twice while a field has focus (FR-X1)', () => {
+  const FIELDS = [
+    ['empty_email_field', emailInput, ''],
+    ['invalid_email_field', emailInput, 'not-an-email'],
+    ['empty_password_field', passwordInput, ''],
+  ] as const
+
+  async function focusField(user: ReturnType<typeof userEvent.setup>, input: () => HTMLInputElement, typed: string) {
+    await user.click(input())
+    if (typed !== '') {
+      await user.type(input(), typed)
+    }
+    expect(document.activeElement).toBe(input())
+  }
+
+  function expectNoFieldMessages() {
+    expect(fieldMessages(emailInput())).toEqual([])
+    expect(fieldMessages(passwordInput())).toEqual([])
+  }
+
+  it.each(FIELDS)('test_fr_x1_second_press_on_busy_try_demo_from_%s_runs_no_field_check', async (_name, input, typed) => {
+    demoLogin.mockReturnValue(new Promise(() => {}))
+    const user = userEvent.setup()
+    renderRoute('/login')
+    await focusField(user, input, typed)
+
+    await user.click(demoButton())
+    expect(demoButton().disabled).toBe(true)
+    await user.click(demoButton())
+
+    expect(demoLogin).toHaveBeenCalledTimes(1)
+    expect(login).not.toHaveBeenCalled()
+    expectNoFieldMessages()
+    expect(input().value).toBe(typed)
+  })
+
+  it.each(FIELDS)('test_fr_x1_double_click_on_try_demo_from_%s_runs_no_field_check', async (_name, input, typed) => {
+    demoLogin.mockReturnValue(new Promise(() => {}))
+    const user = userEvent.setup()
+    renderRoute('/login')
+    await focusField(user, input, typed)
+
+    await user.dblClick(demoButton())
+
+    expect(demoLogin).toHaveBeenCalledTimes(1)
+    expectNoFieldMessages()
+    expect(input().value).toBe(typed)
+  })
+
+  it.each(FIELDS)('test_fr_x1_two_taps_on_try_demo_from_%s_run_no_field_check', async (_name, input, typed) => {
+    demoLogin.mockReturnValue(new Promise(() => {}))
+    const user = userEvent.setup()
+    renderRoute('/login')
+    await focusField(user, input, typed)
+
+    await user.pointer([{ keys: '[TouchA]', target: demoButton() }])
+    await user.pointer([{ keys: '[TouchA]', target: demoButton() }])
+
+    expect(demoLogin).toHaveBeenCalledTimes(1)
+    expectNoFieldMessages()
+    expect(input().value).toBe(typed)
+  })
+
+  it('test_fr_x1_second_press_then_demo_unavailable_shows_only_the_demo_message', async () => {
+    const request = deferred<api.DemoLoginResult>()
+    demoLogin.mockReturnValue(request.promise)
+    const user = userEvent.setup()
+    renderRoute('/login')
+    await focusField(user, emailInput, 'not-an-email')
+
+    await user.click(demoButton())
+    await user.click(demoButton())
+    await act(async () => {
+      request.reject(new api.NotFoundError('server text', 404))
+    })
+
+    expect(demoMessageTexts()).toEqual([DEMO_UNAVAILABLE])
+    expectNoFieldMessages()
+    expect(emailInput().value).toBe('not-an-email')
+    expect(demoLogin).toHaveBeenCalledTimes(1)
+  })
+
+  it('test_fr_x1_leaving_a_field_after_a_failed_demo_checks_it_again', async () => {
+    demoLogin.mockRejectedValue(new api.NotFoundError('server text', 404))
+    const user = userEvent.setup()
+    renderRoute('/login')
+    await focusField(user, emailInput, 'not-an-email')
+    await user.dblClick(demoButton())
+    expectNoFieldMessages()
+
+    // Once the demo request has ended, "Log in"'s blur check works as before.
+    await user.click(emailInput())
+    await user.click(passwordInput())
+    expect(fieldMessages(emailInput())).toEqual(['Enter an email address with an @, such as name@example.com.'])
+  })
+})
+
 describe('"Try the demo" while a request runs (FR-X1)', () => {
   it('test_fr_x1_try_demo_is_busy_and_a_second_press_sends_nothing', async () => {
     demoLogin.mockReturnValue(new Promise(() => {}))

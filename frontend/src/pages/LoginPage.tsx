@@ -54,6 +54,10 @@ export default function LoginPage() {
   const demoWakingUp = useWakingUpHint(demoPending)
   // Answers a second press before React renders again, so it sends nothing.
   const requestRunning = useRef(false)
+  // True from a press on "Try the demo" until its request fails. Leaving a field then
+  // checks nothing: a second press lands on the busy (disabled) button, which runs no
+  // handler, so the browser moves focus to the page and the field is blurred (QA on #35).
+  const demoRunning = useRef(false)
 
   const emailError = emailProblem(email)
   const passwordError = password === '' ? PASSWORD_MISSING : null
@@ -73,6 +77,9 @@ export default function LoginPage() {
   }
 
   function check(field: Field) {
+    if (demoRunning.current) {
+      return
+    }
     setChecked((current) => ({ ...current, [field]: true }))
   }
 
@@ -123,12 +130,14 @@ export default function LoginPage() {
     setFormError(null)
     setDemoError(null)
     requestRunning.current = true
+    demoRunning.current = true
     setDemoPending(true)
     try {
       // Stores the token with the demo flag (#25).
       await demoLogin()
     } catch (error) {
       requestRunning.current = false
+      demoRunning.current = false
       setDemoPending(false)
       // `not_found`: the demo is turned off or not seeded. The server's text is never shown.
       setDemoError(error instanceof NotFoundError ? DEMO_UNAVAILABLE_MESSAGE : unexpectedErrorMessage(error))
@@ -185,7 +194,8 @@ export default function LoginPage() {
         disabled={pending}
         // A mouse press or tap must not move focus: leaving a field would run its blur
         // check, and the field message it shows pushes this button down between press
-        // and release, so the click is lost (QA on #35). Keyboard use is unaffected.
+        // and release, so the click is lost (QA on #35). Keyboard use is unaffected. The
+        // busy button is disabled and runs no handler, so `demoRunning` covers later presses.
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => void handleDemo()}
       >
