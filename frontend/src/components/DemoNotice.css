@@ -1,7 +1,8 @@
 /* The demo notice (design note on #35): the information message's look at body-small size,
    first in the main content area, 20px above the page. On the laptop it is at most 68ch
-   wide (measured at its own 15px), left-aligned. The link's 44px box gives the space below
-   it, so the bottom padding is small. */
+   wide (measured at its own 15px), left-aligned. The text line, 8px of space, then the
+   link's 44px box (design note on #36), so the link's focus outline stays clear of the
+   text. The link's box gives the space below it, so the bottom padding is small. */
 
 .message.demo-notice {
   max-width: var(--measure);
@@ -20,7 +21,7 @@
 
 .demo-notice__text {
   max-width: none;
-  margin: 0;
+  margin: 0 0 var(--space-8);
 }
 
 .demo-notice__link {
