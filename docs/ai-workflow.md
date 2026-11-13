@@ -2488,3 +2488,59 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Demo login rate limit and its "Too many attempts" message: already on #46 (PM input 6852720673).
   - Not checked on real iOS Safari or Android Chrome devices (engineer, QA): left in this log.
   - The demo account was seeded in the local dev database and reset with `seed_demo` after the design review: left in this log.
+
+## 2026-11-13: Engineer: limit login and demo-login attempts (#46)
+
+- **Task:** implement #46 (task 36, FR-A4) against its acceptance criteria, its Constraints and the design note (6856286794), following `docs/software-engineer.md`. The plan was posted before editing (6856402764); under the 2026-11-12 standing rule I went ahead, because nothing in it is severe or critical.
+- **What I did:**
+  - Contract first (`openapi.yaml`, 0c37218):
+    - A new `Error.code` value, `too_many_attempts`.
+    - A new 429 response, `TooManyAttempts`, with a `Retry-After` header (whole seconds, at least 1), on `login`, `demoLogin` and `deleteAccount`.
+    - The descriptions explain FR-A4 and the deletion check order.
+    - `frontend/src/api/schema.d.ts` is regenerated.
+  - Backend (4694fd3, 060cc36):
+    - Settings and `.env.example`: `LOGIN_MAX_FAILED_ATTEMPTS=10`, `LOGIN_ATTEMPT_WINDOW_MINUTES=15`, `DEMO_LOGIN_MAX_ATTEMPTS=20` and `DEMO_LOGIN_WINDOW_MINUTES=60`, parsed by the strict `_whole_number` (minimum 1).
+    - New migration `5dcfe6c54d82` (no existing migration touched) and model `LoginAttempt`: table `login_attempts (kind, key_hash, window_start, attempt_count)`, keyed on `(kind, key_hash)`, with an index on `window_start`.
+    - New `app/attempt_limits.py`, `AttemptLimiter`, in the same pattern as `app/ai/limits.py`:
+      - Every attempt takes a slot first, in one `INSERT … ON CONFLICT DO UPDATE … WHERE attempt_count < limit OR window ended … RETURNING` statement, on its own transaction. That transaction commits before argon2 runs.
+      - When the attempt is refused, the window start is read in the same transaction (the row stays locked) to compute `Retry-After`.
+      - Ended windows of both kinds are deleted on every write, with `FOR UPDATE SKIP LOCKED`.
+      - Keys are SHA-256 hashes of the normalised email or of the visitor IP.
+    - Login takes a slot for the email before looking up the user. A correct password clears the email's row.
+    - Account deletion takes a slot for the account's email after the body is validated and before the password is checked. A correct password clears the row.
+    - Demo-login takes a slot for `visitor_ip()` first: the last `X-Forwarded-For` entry, or the connection address when there is no header.
+    - CORS `expose_headers` now includes `Retry-After`.
+  - Frontend (c6217a0), following the design note:
+    - `TooManyAttemptsError` with `retryAfterSeconds`. `errorFromResponse` reads `Retry-After`, accepting only whole seconds; anything else gives `null`.
+    - `tooManyAttemptsMessage()` in `auth/requestErrors.ts` builds the text: N is `ceil(s/60)`, at least 1; "1 minute" is singular; the fallback is "Too many attempts. Please try again later."
+    - The text shows in the login form slot and below "Try the demo" (replacing the interim general error) on `LoginPage`. On `SettingsPage` it goes to the step's error slot, with no field message and no focus move. Nothing is disabled, and there is no countdown.
+  - Tests:
+    - `tests/integration/test_attempt_limits.py` (48 tests, named `test_fr_a4_…`, real PostgreSQL). They cover: the 10th failure allowed and the 11th refused; a correct password refused while blocked, with no password check and no token; unknown emails counted the same way; trimming and lower-casing; a successful login clearing the count; the block ending after the window, measured from the first failure; `Retry-After`; wrong deletion passwords counting; deletion refused while blocked with no password check; the demo limit per IP, with spoofed `X-Forwarded-For` prefixes ignored; counts surviving a restart; 25 parallel logins giving exactly ten 401s; the last slot under a race; parallel logins and deletions sharing the limit; 30 parallel demo-logins giving exactly 20; no deadlock with cleanups running in parallel; old rows deleted per kind; only hashes stored; nothing in the logs.
+    - `tests/unit/test_attempt_limits.py` (82 tests): settings, IP parsing, the contract, CORS and the check order.
+    - Frontend: `auth/requestErrors.test.ts`, client mapping and `Retry-After` parsing, and the three places in `LoginPage.test.tsx`, `LoginPageDemo.test.tsx` and `SettingsPage.test.tsx`.
+- **Decisions taken under the 2026-11-12 standing rule (recorded in the plan on the issue):**
+  - Status 429. None of the three operations had a 429 before, so it is their own status, and it is the HTTP status for `Retry-After`.
+  - A `kind` column next to §10.5's `(key_hash, window_start, attempt_count)`. It keeps the email and IP counters apart and lets the cleanup use each kind's own window. It holds no personal data.
+  - Each window is capped at 525,600 minutes (one year). A longer window would overflow date arithmetic while the app runs, so it stops the app at startup instead. The two attempt counts have no upper bound.
+  - Every demo-login request counts, including a 404 while the demo is off.
+  - A correct deletion password clears the email's count, as a successful login does. This keeps the correct attempt from counting as a failure.
+  - Existing tests changed only where the new criteria require it, and no assertion was weakened:
+    - The #21 set of `deleteAccount` statuses now includes 429.
+    - The table lists in the integration tests now classify `login_attempts`.
+    - The deletion "nothing changed" snapshots leave out `login_attempts`, because wrong passwords are counted there on purpose. The "no row remains" test now checks that table separately.
+    - The #35 demo test's comment for a 429 without the code was updated, and that row still expects the general error.
+    - Unit tests replace the limiter with a recording fake (`tests/unit/conftest.py`), because they have no database.
+- **How I verified it:**
+  - Backend: `ruff check` and `ruff format --check` pass. 975 unit tests and 960 integration tests pass against the `db` container. The parallel tests passed in 4 extra runs.
+  - Frontend: `npm run lint`, `npm test` (48 files, 1166 tests, no backend on :8000) and `npm run build` pass.
+  - Real-browser check in headless Chrome (global Playwright, nothing added to the project), at 390×844 and 1280×800. It ran against `uvicorn` with `AI_PROVIDER=mock` and `DEMO_EMAIL`, `LOGIN_MAX_FAILED_ATTEMPTS=3` and `DEMO_LOGIN_MAX_ATTEMPTS=2` set only in the shell, plus `vite`:
+    - The browser read `Retry-After` (900, 3598 and 896 seconds).
+    - The login slot showed "Too many attempts. Please try again in 15 minutes."
+    - The slot below "Try the demo" showed "… in 60 minutes.", with nothing above the form.
+    - The delete step's slot showed "… in 15 minutes.", with no field message under Current password.
+    - Screenshots were checked.
+  - The test users and attempt rows were removed from the dev database afterwards. No AI request was made.
+- **Left open:**
+  - Render's `X-Forwarded-For` layout could not be checked from this session (Render's docs were unreachable, and forum notes disagree about Cloudflare in front of Render). The code trusts only the last entry, as the criterion says. On the first deploy, check that demo visitors get separate counts. If the last entry turns out to be a shared edge address, that needs a follow-up.
+  - Uvicorn's default access log prints the connection address. That is `127.0.0.1` locally and the proxy's address on Render, never the visitor's, because uvicorn trusts forwarded headers only from `127.0.0.1`. The app itself logs no email, IP or password. Keep this in mind if uvicorn's `--forwarded-allow-ips` is ever widened.
+  - After a press on a busy button, focus ends on `body` in the delete step, as for the step's other errors. This is already with #84.
