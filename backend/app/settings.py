@@ -38,6 +38,10 @@ _MISSING_FOR_AI_PROVIDER = "missing_for_ai_provider"
 
 _EMAIL = TypeAdapter(EmailStr)
 
+# The longest attempt window (FR-A4): one year. A longer one would overflow date arithmetic
+# while the app runs, so it stops the app at startup instead.
+MAX_ATTEMPT_WINDOW_MINUTES = 525_600
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -87,6 +91,14 @@ class Settings(BaseSettings):
     # The shared demo account's email (FR-X1, issue #21). Empty or not set turns the demo off.
     # Stored in lower case, as registration stores emails, so it matches the users table.
     demo_email: str | None = None
+    # Login and demo-login attempt limits (FR-A4, issue #46). Whole numbers of 1 or more.
+    # Failed logins per email: after this many within the window, every login for that email
+    # is refused until the window ends. Wrong passwords on account deletion count too.
+    login_max_failed_attempts: int = 10
+    login_attempt_window_minutes: int = 15
+    # Demo-logins per visitor IP address within the window.
+    demo_login_max_attempts: int = 20
+    demo_login_window_minutes: int = 60
 
     @field_validator("database_url")
     @classmethod
@@ -134,6 +146,16 @@ class Settings(BaseSettings):
     def _check_summary_input_limit(cls, value: object) -> int:
         return _whole_number(value, minimum=1)
 
+    @field_validator("login_max_failed_attempts", "demo_login_max_attempts", mode="before")
+    @classmethod
+    def _check_attempt_limit(cls, value: object) -> int:
+        return _whole_number(value, minimum=1)
+
+    @field_validator("login_attempt_window_minutes", "demo_login_window_minutes", mode="before")
+    @classmethod
+    def _check_attempt_window(cls, value: object) -> int:
+        return _whole_number(value, minimum=1, maximum=MAX_ATTEMPT_WINDOW_MINUTES)
+
     @field_validator("demo_email", mode="before")
     @classmethod
     def _check_demo_email(cls, value: object) -> object:
@@ -172,19 +194,23 @@ class Settings(BaseSettings):
         return value
 
 
-def _whole_number(value: object, *, minimum: int) -> int:
-    """A whole number of `minimum` or more, from code or from an environment variable.
+def _whole_number(value: object, *, minimum: int, maximum: int | None = None) -> int:
+    """A whole number of `minimum` or more (and at most `maximum`, if given).
 
-    Stricter than pydantic's int parsing, which also accepts "1.0", "+5" and "1_000".
+    From code or from an environment variable. Stricter than pydantic's int parsing, which
+    also accepts "1.0", "+5" and "1_000".
     """
-    message = f"must be a whole number of {minimum} or more"
+    if maximum is None:
+        message = f"must be a whole number of {minimum} or more"
+    else:
+        message = f"must be a whole number from {minimum} to {maximum}"
     if isinstance(value, int) and not isinstance(value, bool):
         number = value
     elif isinstance(value, str) and value.strip().isascii() and value.strip().isdigit():
         number = int(value.strip())
     else:
         raise ValueError(message)
-    if number < minimum:
+    if number < minimum or (maximum is not None and number > maximum):
         raise ValueError(message)
     return number
 

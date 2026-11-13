@@ -7,6 +7,7 @@ from fastapi import FastAPI
 
 from app import accounts, demo, entries, export, health, suggestions, summaries, tags
 from app.ai import AILimits, create_ai_provider
+from app.attempt_limits import AttemptLimiter
 from app.cors import AllowedOriginsCORSMiddleware
 from app.db import create_db_engine
 from app.errors import UnexpectedErrorMiddleware, register_error_handlers
@@ -30,6 +31,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.state.ai_provider = ai_provider
     # The daily AI limits, checked by the limited entry point (app/ai/limits.py, issue #15).
     app.state.ai_limits = AILimits.from_settings(settings)
+    # The login and demo-login attempt limits (app/attempt_limits.py, FR-A4, issue #46).
+    app.state.attempt_limiter = AttemptLimiter.from_settings(engine, settings)
 
     # The middleware added last runs first. UnexpectedErrorMiddleware runs inside the CORS
     # middleware, so the shared 500 response gets CORS headers like every other response.
@@ -40,8 +43,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
         # Authorization carries the bearer token (openapi.yaml, bearerAuth).
         allow_headers=["Authorization", "Content-Type"],
-        # Lets the frontend read the export file name from cross-origin responses.
-        expose_headers=["Content-Disposition"],
+        # Lets the frontend read the export file name and, after too many login attempts,
+        # the seconds to wait (FR-A4) from cross-origin responses.
+        expose_headers=["Content-Disposition", "Retry-After"],
     )
     register_error_handlers(app)
     app.include_router(health.router)

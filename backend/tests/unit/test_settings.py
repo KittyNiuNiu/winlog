@@ -25,6 +25,10 @@ def test_settings_variables():
         "ai_daily_summaries_per_user",
         "ai_daily_requests_global",
         "demo_email",
+        "login_max_failed_attempts",
+        "login_attempt_window_minutes",
+        "demo_login_max_attempts",
+        "demo_login_window_minutes",
     }
 
 

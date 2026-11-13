@@ -123,7 +123,7 @@ def test_fr_x1_delete_account_documents_the_demo_error(settings, contract):
     assert expected["409"] == {"$ref": "#/components/responses/DemoAccountNotDeletable"}
     assert "409" in generated
     # Its own status: no other error of the operation uses 409.
-    assert set(expected) == {"204", "401", "403", "409", "422", "500"}
+    assert set(expected) == {"204", "401", "403", "409", "422", "429", "500"}
     example = OPENAPI["components"]["responses"]["DemoAccountNotDeletable"]["content"][
         "application/json"
     ]["example"]

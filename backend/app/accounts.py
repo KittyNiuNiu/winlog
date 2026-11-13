@@ -1,7 +1,8 @@
 """Registration, login, logout and account deletion.
 
 Operations `register`, `login`, `logout` and `deleteAccount` in openapi.yaml. Covers FR-A1,
-FR-A2, FR-D2 and, for account deletion, FR-X1 (the demo account cannot be deleted).
+FR-A2, FR-D2 and, for account deletion, FR-X1 (the demo account cannot be deleted). Login and
+account deletion share the failed-login limit per email (FR-A4, app/attempt_limits.py).
 """
 
 import datetime as dt
@@ -15,6 +16,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.attempt_limits import AttemptLimiterDependency
 from app.auth import (
     AuthenticateFirstRoute,
     CurrentLogin,
@@ -120,12 +122,18 @@ def _invalid_credentials() -> ApiError:
     operation_id="login",
     summary="Log in with an email address and a password.",
     response_model=LoginResult,
+    responses={429: {"description": "Too many failed logins for this email (FR-A4)."}},
 )
 def login(
     credentials: Credentials,
     request: Request,
     session: Annotated[Session, Depends(get_session)],
+    attempts: AttemptLimiterDependency,
 ) -> LoginResult:
+    # FR-A4: every attempt takes a slot first, for unknown emails exactly as for existing
+    # ones, and counts as a failure unless the password is correct. While the email is
+    # blocked this raises 429: no password is checked and no token is created.
+    attempts.take_login_attempt(credentials.email)
     user = session.scalars(select(User).where(User.email == credentials.email)).one_or_none()
     if user is None:
         # Same work as a wrong password, so the response time does not reveal the account.
@@ -134,6 +142,8 @@ def login(
     if not verify_password(user.password_hash, credentials.password):
         raise _invalid_credentials()
 
+    # A successful login clears the email's failure count.
+    attempts.clear_login_attempts(credentials.email)
     lifetime = dt.timedelta(days=request.app.state.settings.token_lifetime_days)
     token, row = create_token(session, user.id, lifetime)
     session.commit()
@@ -188,6 +198,7 @@ def delete_user(session: Session, user_id: uuid.UUID) -> None:
     responses={
         403: {"description": "The current password is wrong. Nothing was deleted."},
         409: {"description": "The demo account cannot be deleted. Nothing was deleted."},
+        429: {"description": "Too many failed attempts for the account's email (FR-A4)."},
     },
     # Runs first, before the body is validated (see `refuse_demo_account`).
     dependencies=[Depends(refuse_demo_account)],
@@ -196,17 +207,23 @@ def delete_account(
     deletion: AccountDeletion,
     user: CurrentUser,
     session: Annotated[Session, Depends(get_session)],
+    attempts: AttemptLimiterDependency,
 ) -> Response:
     # FR-D2. The checks run in this order, and nothing is deleted unless every one passes:
     # 1. the token (`CurrentUser`, 401);
     # 2. the demo account (`refuse_demo_account`, 409, FR-X1): a demo session gets this error
     #    whatever its body, so before the body and the password are checked (issue #21);
     # 3. the body (422);
-    # 4. the password, below (403).
+    # 4. the failed-login limit of the account's email, below (429, FR-A4): while it is
+    #    blocked, the password is not checked;
+    # 5. the password, below (403). A wrong one counts toward that limit.
+    attempts.take_login_attempt(user.email)
 
     # The same argon2 check as login. The password is never logged or echoed.
     if not verify_password(user.password_hash, deletion.current_password):
         raise _wrong_password()
+    # The password is correct, so this attempt is no failure (as after a successful login).
+    attempts.clear_login_attempts(user.email)
 
     delete_user(session, user.id)
     session.commit()
