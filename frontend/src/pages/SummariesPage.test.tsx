@@ -416,6 +416,75 @@ describe('loading and errors (FR-R4, §12)', () => {
     expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull()
   })
 
+  describe('keyboard focus after a failed retry (#84)', () => {
+    function tryAgain(): HTMLButtonElement {
+      return screen.getByRole('button', { name: 'Try again' }) as HTMLButtonElement
+    }
+
+    function navLink(): HTMLElement {
+      return within(screen.getByRole('navigation', { name: 'Main' })).getByRole('link', { name: 'Review' })
+    }
+
+    /** Presses "Try again" from the keyboard; the retry fails when `fail` is called. */
+    async function pressTryAgainFailing() {
+      let fail: () => void = () => {}
+      listSummaries.mockImplementationOnce(
+        () =>
+          new Promise((_resolve, reject) => {
+            fail = () => reject(new NetworkError())
+          }),
+      )
+      tryAgain().focus()
+      await act(async () => {
+        fireEvent.click(tryAgain())
+      })
+      return async () =>
+        act(async () => {
+          fail()
+        })
+    }
+
+    it('test_fr_r4_failed_retry_moves_focus_to_the_new_try_again', async () => {
+      listSummaries.mockRejectedValueOnce(new NetworkError())
+      await renderList()
+      // The first failure moves no focus.
+      expect(document.activeElement).toBe(document.body)
+      const first = tryAgain()
+
+      const fail = await pressTryAgainFailing()
+      expect(screen.getByText('Loading summaries…')).toBeTruthy()
+      await fail()
+
+      expect(tryAgain()).not.toBe(first)
+      expect(document.activeElement).toBe(tryAgain())
+    })
+
+    it('test_fr_r4_failed_retry_keeps_focus_where_the_user_moved', async () => {
+      listSummaries.mockRejectedValueOnce(new NetworkError())
+      await renderList()
+
+      const fail = await pressTryAgainFailing()
+      navLink().focus()
+      await fail()
+
+      expect(tryAgain()).toBeTruthy()
+      expect(document.activeElement).toBe(navLink())
+    })
+
+    it('test_fr_r4_successful_retry_moves_no_focus', async () => {
+      listSummaries.mockRejectedValueOnce(new NetworkError())
+      await renderList()
+
+      tryAgain().focus()
+      await act(async () => {
+        fireEvent.click(tryAgain())
+      })
+
+      expect(rows()).toHaveLength(1)
+      expect(document.activeElement).toBe(document.body)
+    })
+  })
+
   it('test_fr_r4_an_expired_login_opens_the_login_page', async () => {
     const answer = deferred<api.SummaryList>()
     listSummaries.mockReturnValue(answer.promise)

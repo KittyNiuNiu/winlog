@@ -851,6 +851,103 @@ describe('not found, loading and errors (FR-R5, §12)', () => {
   })
 })
 
+// Keyboard focus (#84): the busy "Save summary" and "Delete summary" keep focus, and a
+// failed retry focuses the new "Try again" unless the user moved on.
+describe('keyboard focus on the summary page (FR-R5, #84)', () => {
+  function tryAgain(): HTMLButtonElement {
+    return screen.getByRole('button', { name: 'Try again' }) as HTMLButtonElement
+  }
+
+  async function pressTryAgain(): Promise<void> {
+    tryAgain().focus()
+    await click(tryAgain())
+  }
+
+  it('test_fr_r5_busy_save_summary_keeps_focus_throughout_a_failure', async () => {
+    await renderPage()
+    const answer = deferred<Summary>()
+    updateSummary.mockReturnValue(answer.promise)
+    await type(field(), 'Edited')
+    saveButton().focus()
+
+    await click(saveButton())
+    expect(saveButton().textContent).toBe('Saving…')
+    // Focusable while busy: a natively disabled button would drop focus in a browser.
+    expect(saveButton().disabled).toBe(false)
+    expect(document.activeElement).toBe(saveButton())
+    await act(async () => {
+      answer.reject(new NetworkError())
+    })
+
+    expect(errorSlot()).toBe(NETWORK_MESSAGE)
+    expect(document.activeElement).toBe(saveButton())
+  })
+
+  it('test_fr_r5_busy_delete_summary_keeps_focus_and_after_a_failure', async () => {
+    await renderPage()
+    const answer = deferred<void>()
+    deleteSummary.mockReturnValue(answer.promise)
+    await click(deleteButton())
+    dialogButton('Delete summary').focus()
+
+    await click(dialogButton('Delete summary'))
+    const busy = dialogButton(/^Deleting…$/)
+    expect(busy.disabled).toBe(false)
+    expect(document.activeElement).toBe(busy)
+    await act(async () => {
+      answer.reject(new NetworkError())
+    })
+
+    expect(openDialog()).not.toBeNull()
+    expect(document.activeElement).toBe(dialogButton('Delete summary'))
+  })
+
+  it('test_fr_r5_failed_retry_moves_focus_to_the_new_try_again', async () => {
+    getSummary.mockRejectedValueOnce(new NetworkError())
+    await renderPage()
+    // The first failure moves no focus.
+    expect(document.activeElement).toBe(document.body)
+    const first = tryAgain()
+    const answer = deferred<Summary>()
+    getSummary.mockReturnValueOnce(answer.promise)
+
+    await pressTryAgain()
+    expect(screen.getByText('Loading summary…')).toBeTruthy()
+    await act(async () => {
+      answer.reject(new NetworkError())
+    })
+
+    expect(tryAgain()).not.toBe(first)
+    expect(document.activeElement).toBe(tryAgain())
+  })
+
+  it('test_fr_r5_failed_retry_keeps_focus_where_the_user_moved', async () => {
+    getSummary.mockRejectedValueOnce(new NetworkError())
+    await renderPage()
+    const answer = deferred<Summary>()
+    getSummary.mockReturnValueOnce(answer.promise)
+
+    await pressTryAgain()
+    navLink('Review').focus()
+    await act(async () => {
+      answer.reject(new NetworkError())
+    })
+
+    expect(tryAgain()).toBeTruthy()
+    expect(document.activeElement).toBe(navLink('Review'))
+  })
+
+  it('test_fr_r5_successful_retry_moves_no_focus', async () => {
+    getSummary.mockRejectedValueOnce(new NetworkError())
+    await renderPage()
+
+    await pressTryAgain()
+
+    expect(field().value).toBe(TEXT)
+    expect(document.activeElement).toBe(document.body)
+  })
+})
+
 describe('maximum size of the summary text (#43, FR-R5)', () => {
   function counter(): HTMLElement | null {
     return document.getElementById(`${field().id}-counter`)

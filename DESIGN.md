@@ -256,6 +256,7 @@ Borders are 1px hairlines for structure and 1.5px for interactive controls.
 - **Primary:** plum fill, white text, Figtree 700 at 16–17px, at least 48px tall (54px on the phone's Save entry), with the Action lift shadow. Labels name the action: "Save entry", "Save summary".
 - **Secondary:** white or transparent fill, plum text, 1.5px Field-border outline. Used for "Draft again", "New entry" in the sidebar, "Cancel".
 - **Hover / focus:** hover darkens the fill slightly. Focus shows a visible 2px plum outline with offset. Disabled buttons use muted text and no shadow.
+- **Busy:** a spinner and the busy label, for example "Saving…", in the button's normal colours, with a progress cursor and no hover change. It cannot be pressed, is announced as unavailable, and keeps keyboard focus, so the focus outline stays while it works (#84).
 - **Quiet text action** (#28): no fill and no border, Plum text in Figtree 700 at 15px, at least 44×44px, 4px by 12px padding, 14px radius. On hover it takes the Secondary hover fill; focus shows the global focus outline. Used for "Discard suggestions" and "Suggested: \<category\>", so the suggest button stays the stronger control and Save entry the only filled plum element.
 
 ### Chips (category)

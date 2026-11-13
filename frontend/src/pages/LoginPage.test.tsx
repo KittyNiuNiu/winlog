@@ -380,6 +380,82 @@ describe('login while the request runs (FR-A2)', () => {
   })
 })
 
+// Keyboard focus after a login request (#84): a server validation error moves the cursor
+// to the first field with a message, email before password; any other error leaves focus
+// where it was, and the busy "Log in" keeps it.
+describe('keyboard focus after a login request (FR-A2, #84)', () => {
+  function loginForm(): HTMLFormElement {
+    return document.querySelector('form') as HTMLFormElement
+  }
+
+  it.each([
+    ['email', [{ field: 'email', reason: 'value is not a valid email address' }], emailInput],
+    ['password', [{ field: 'password', reason: 'String should have at least 1 character' }], passwordInput],
+    [
+      'email before password',
+      [
+        { field: 'password', reason: 'String should have at least 1 character' },
+        { field: 'email', reason: 'value is not a valid email address' },
+      ],
+      emailInput,
+    ],
+  ])('test_fr_a2_server_validation_moves_cursor_to_first_field (%s)', async (_case, fields, expected) => {
+    login.mockRejectedValue(new api.ValidationError('The request has invalid fields.', 422, fields))
+    renderRoute('/login')
+    fillIn(EMAIL, PASSWORD)
+    submitButton().focus()
+
+    await submit()
+
+    expect(document.activeElement).toBe(expected())
+  })
+
+  it.each([
+    ['wrong email or password', new api.InvalidCredentialsError('Wrong.', 401)],
+    ['too many attempts', new api.TooManyAttemptsError('Too many.', 429, 120)],
+    ['a network error', new api.NetworkError()],
+    ['an unexpected error', new api.UnknownError('Internal error.', 500, 'internal_error')],
+    ['a validation error naming no field', new api.ValidationError('The request has invalid fields.', 422, [])],
+  ])('test_fr_a2_%s_leaves_focus_on_log_in', async (_case, error) => {
+    let fail: () => void = () => {}
+    login.mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          fail = () => reject(error)
+        }),
+    )
+    renderRoute('/login')
+    fillIn(EMAIL, PASSWORD)
+    submitButton().focus()
+
+    await submit()
+    expect(submitButton().textContent).toBe('Logging in…')
+    // Focusable while busy: a natively disabled button would drop focus in a browser.
+    expect(submitButton().disabled).toBe(false)
+    expect(document.activeElement).toBe(submitButton())
+    await act(async () => {
+      fail()
+    })
+
+    expect(formAlert().textContent).not.toBe('')
+    expect(document.activeElement).toBe(submitButton())
+  })
+
+  it('test_fr_a2_form_level_error_after_enter_in_a_field_leaves_focus_in_that_field', async () => {
+    login.mockRejectedValue(new api.InvalidCredentialsError('Wrong.', 401))
+    renderRoute('/login')
+    fillIn(EMAIL, PASSWORD)
+    passwordInput().focus()
+
+    await act(async () => {
+      fireEvent.submit(loginForm())
+    })
+
+    expect(formAlert().textContent).toBe('Wrong email or password.')
+    expect(document.activeElement).toBe(passwordInput())
+  })
+})
+
 describe('after a failed automatic login (FR-A1)', () => {
   it('shows "Account created. Please log in." until the next attempt', async () => {
     login.mockReturnValue(new Promise(() => {}))

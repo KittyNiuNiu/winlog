@@ -843,6 +843,85 @@ describe('the confirmation step (FR-D2)', () => {
   })
 })
 
+// Keyboard focus (#84): a busy download or "Delete my account" keeps focus, and after a
+// failure (not a wrong password) focus is where it was.
+describe('keyboard focus on the settings page (FR-D1, FR-D2, #84)', () => {
+  it.each([
+    ['Download JSON', exportJson],
+    ['Download Markdown', exportMarkdown],
+  ] as const)('test_fr_d1_failed_%s_keeps_focus_on_the_pressed_button', async (label, load) => {
+    const download = deferred<DownloadedFile>()
+    load.mockReturnValueOnce(download.promise)
+    await renderSettings()
+    const pressed = button(dataSection(), label)
+    pressed.focus()
+
+    await click(pressed)
+    expect(pressed.textContent).toBe('Downloading…')
+    // Focusable while busy: a natively disabled button would drop focus in a browser.
+    expect(pressed.disabled).toBe(false)
+    expect(document.activeElement).toBe(pressed)
+    await act(async () => {
+      download.reject(new NetworkError())
+    })
+
+    expect(dataMessages()).toEqual([NETWORK_MESSAGE])
+    expect(document.activeElement).toBe(button(dataSection(), label))
+  })
+
+  it('test_fr_d2_failed_deletion_keeps_focus_on_delete_my_account', async () => {
+    const deletion = deferred<void>()
+    deleteAccount.mockReturnValue(deletion.promise)
+    await renderSettings()
+    await openStep()
+    await fillStep()
+    deleteMyAccountButton().focus()
+
+    await submitDeletion()
+    expect(deleteMyAccountButton().textContent).toBe('Deleting…')
+    expect(deleteMyAccountButton().disabled).toBe(false)
+    expect(document.activeElement).toBe(deleteMyAccountButton())
+    await act(async () => {
+      deletion.reject(new NetworkError())
+    })
+
+    expect(messageTexts(step())).toContain(NETWORK_MESSAGE)
+    expect(document.activeElement).toBe(deleteMyAccountButton())
+  })
+
+  it('test_fr_d2_failed_deletion_after_enter_in_a_field_keeps_focus_in_that_field', async () => {
+    const deletion = deferred<void>()
+    deleteAccount.mockReturnValue(deletion.promise)
+    await renderSettings()
+    await openStep()
+    await fillStep()
+    confirmInput().focus()
+
+    await act(async () => {
+      fireEvent.submit(confirmInput().form as HTMLFormElement)
+    })
+    expect(document.activeElement).toBe(confirmInput())
+    await act(async () => {
+      deletion.reject(new NetworkError())
+    })
+
+    expect(messageTexts(step())).toContain(NETWORK_MESSAGE)
+    expect(document.activeElement).toBe(confirmInput())
+  })
+
+  it('test_fr_d2_wrong_password_still_moves_focus_to_the_password_field', async () => {
+    deleteAccount.mockRejectedValueOnce(new WrongPasswordError('server text', 403))
+    await renderSettings()
+    await openStep()
+    await fillStep()
+    deleteMyAccountButton().focus()
+
+    await submitDeletion()
+
+    expect(document.activeElement).toBe(passwordInput())
+  })
+})
+
 describe('after the deletion (FR-D2)', () => {
   it('test_fr_d2_successful_deletion_opens_login_with_account_deleted_notice', async () => {
     deleteAccount.mockImplementation(deleteClearingSession)

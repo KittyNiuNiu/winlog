@@ -415,6 +415,73 @@ describe('registration while the request runs (FR-A1)', () => {
 })
 
 // §9 Design, #77: the same drawing as on the login page, above the heading.
+// Keyboard focus after a registration request (#84): a server validation error moves the
+// cursor to the first field with a message, email before password; an email already in use
+// moves it to the email field (#26); any other error leaves focus where it was.
+describe('keyboard focus after a registration request (FR-A1, #84)', () => {
+  it.each([
+    ['email', [{ field: 'email', reason: 'value is not a valid email address' }], emailInput],
+    ['password', [{ field: 'password', reason: 'String should have at most 128 characters' }], passwordInput],
+    [
+      'email before password',
+      [
+        { field: 'password', reason: 'String should have at most 128 characters' },
+        { field: 'email', reason: 'value is not a valid email address' },
+      ],
+      emailInput,
+    ],
+  ])('test_fr_a1_server_validation_moves_cursor_to_first_field (%s)', async (_case, fields, expected) => {
+    register.mockRejectedValue(new api.ValidationError('The request has invalid fields.', 422, fields))
+    renderRoute('/register')
+    fillIn(EMAIL, PASSWORD)
+    submitButton().focus()
+
+    await submit()
+
+    expect(document.activeElement).toBe(expected())
+  })
+
+  it('test_fr_a1_email_already_registered_moves_cursor_to_email', async () => {
+    register.mockRejectedValue(new api.EmailAlreadyRegisteredError('This email is already registered.', 409))
+    renderRoute('/register')
+    fillIn(EMAIL, PASSWORD)
+    submitButton().focus()
+
+    await submit()
+
+    expect(document.activeElement).toBe(emailInput())
+  })
+
+  it.each([
+    ['a network error', new api.NetworkError()],
+    ['an unexpected error', new api.UnknownError('Internal error.', 500, 'internal_error')],
+    ['a validation error naming another field', new api.ValidationError('Invalid.', 422, [{ field: 'body', reason: 'x' }])],
+  ])('test_fr_a1_%s_leaves_focus_on_create_account', async (_case, error) => {
+    let fail: () => void = () => {}
+    register.mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          fail = () => reject(error)
+        }),
+    )
+    renderRoute('/register')
+    fillIn(EMAIL, PASSWORD)
+    submitButton().focus()
+
+    await submit()
+    expect(submitButton().textContent).toBe('Creating account…')
+    // Focusable while busy: a natively disabled button would drop focus in a browser.
+    expect(submitButton().disabled).toBe(false)
+    expect(document.activeElement).toBe(submitButton())
+    await act(async () => {
+      fail()
+    })
+
+    expect(formAlert().textContent).not.toBe('')
+    expect(document.activeElement).toBe(submitButton())
+  })
+})
+
 describe('the login illustration on registration (§9 Design)', () => {
   function illustration(): SVGSVGElement {
     const svgs = document.querySelectorAll<SVGSVGElement>('svg.illustration')

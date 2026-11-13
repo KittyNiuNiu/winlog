@@ -299,7 +299,8 @@ describe('"Try the demo" pressed while a field has focus (FR-X1)', () => {
 // QA FAIL 2 on #35: a second press while the demo request runs (two clicks, a
 // double-click or two taps) landed on the busy, disabled button. A disabled button runs
 // no handler, so the browser moved focus to the page, and the field's blur check showed
-// a field message. userEvent moves focus away on a press of a disabled button too.
+// a field message. Since #84 the busy button is not natively disabled: a second press
+// leaves focus in the field, like the first one, and sends nothing.
 describe('"Try the demo" pressed twice while a field has focus (FR-X1)', () => {
   const FIELDS = [
     ['empty_email_field', emailInput, ''],
@@ -336,6 +337,22 @@ describe('"Try the demo" pressed twice while a field has focus (FR-X1)', () => {
     expect(login).not.toHaveBeenCalled()
     expectNoFieldMessages()
     expect(input().value).toBe(typed)
+  })
+
+  it.each(FIELDS)('test_fr_x1_second_press_on_busy_try_demo_from_%s_keeps_focus_in_the_field', async (_name, input, typed) => {
+    demoLogin.mockReturnValue(new Promise(() => {}))
+    const user = userEvent.setup()
+    renderRoute('/login')
+    await focusField(user, input, typed)
+
+    await user.click(demoButton())
+    expect(document.activeElement).toBe(input())
+    await user.click(demoButton())
+
+    // Not the page body (#84).
+    expect(document.activeElement).toBe(input())
+    expect(demoLogin).toHaveBeenCalledTimes(1)
+    expectNoFieldMessages()
   })
 
   it.each(FIELDS)('test_fr_x1_double_click_on_try_demo_from_%s_runs_no_field_check', async (_name, input, typed) => {
@@ -396,6 +413,72 @@ describe('"Try the demo" pressed twice while a field has focus (FR-X1)', () => {
     await user.click(emailInput())
     await user.click(passwordInput())
     expect(fieldMessages(emailInput())).toEqual(['Enter an email address with an @, such as name@example.com.'])
+  })
+})
+
+// Focus after a failed demo login (#84): it moves to "Try the demo", so on a phone the
+// keyboard closes and the error under the button shows. The move runs no field check.
+describe('focus after a failed demo login (FR-X1, #84)', () => {
+  const FIELDS = [
+    ['empty_email_field', emailInput, ''],
+    ['invalid_email_field', emailInput, 'not-an-email'],
+    ['empty_password_field', passwordInput, ''],
+  ] as const
+
+  it.each(FIELDS)('test_fr_x1_failed_demo_moves_focus_to_try_the_demo_from_%s', async (_name, input, typed) => {
+    const request = deferred<api.DemoLoginResult>()
+    demoLogin.mockReturnValue(request.promise)
+    const user = userEvent.setup()
+    renderRoute('/login')
+    await user.click(input())
+    if (typed !== '') {
+      await user.type(input(), typed)
+    }
+
+    await user.click(demoButton())
+    // During the request focus stays in the field (#35).
+    expect(document.activeElement).toBe(input())
+    await act(async () => {
+      request.reject(new api.NotFoundError('server text', 404))
+    })
+
+    expect(document.activeElement).toBe(demoButton())
+    expect(demoMessageTexts()).toEqual([DEMO_UNAVAILABLE])
+    // The move runs no field check, and what the user typed stays.
+    expect(fieldMessages(emailInput())).toEqual([])
+    expect(fieldMessages(passwordInput())).toEqual([])
+    expect(input().value).toBe(typed)
+  })
+
+  it('test_fr_x1_failed_demo_from_the_keyboard_keeps_focus_on_try_the_demo', async () => {
+    demoLogin.mockRejectedValue(new api.NetworkError())
+    const user = userEvent.setup()
+    renderRoute('/login')
+    demoButton().focus()
+
+    await user.keyboard('{Enter}')
+
+    expect(demoMessageTexts()).toEqual([NETWORK_MESSAGE])
+    expect(document.activeElement).toBe(demoButton())
+    expect(demoLogin).toHaveBeenCalledTimes(1)
+  })
+
+  it('test_fr_x1_failed_demo_keeps_focus_where_the_user_moved', async () => {
+    const request = deferred<api.DemoLoginResult>()
+    demoLogin.mockReturnValue(request.promise)
+    const user = userEvent.setup()
+    renderRoute('/login')
+    await user.click(emailInput())
+    await user.click(demoButton())
+
+    // The user moves on to another control while the demo opens.
+    await user.click(passwordInput())
+    await act(async () => {
+      request.reject(new api.NetworkError())
+    })
+
+    expect(demoMessageTexts()).toEqual([NETWORK_MESSAGE])
+    expect(document.activeElement).toBe(passwordInput())
   })
 })
 

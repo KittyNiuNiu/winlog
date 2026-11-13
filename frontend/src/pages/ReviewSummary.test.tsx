@@ -910,6 +910,51 @@ describe('when drafting fails (FR-R3, §7.4, §8)', () => {
   })
 })
 
+// Keyboard focus (#84): the busy draft button and "Save summary" keep focus while their
+// request runs; a draft still moves focus to the source line.
+describe('keyboard focus on busy panel buttons (FR-R3, FR-R5, #84)', () => {
+  it('test_fr_r3_busy_draft_button_keeps_focus_until_the_draft_arrives', async () => {
+    await renderReview()
+    const answer = deferred<Summary>()
+    generateSummary.mockReturnValue(answer.promise)
+    draftButton().focus()
+
+    await click(draftButton())
+    expect(draftButton().textContent).toBe('Drafting…')
+    // Focusable while busy: a natively disabled button would drop focus in a browser.
+    expect(draftButton().disabled).toBe(false)
+    expect(document.activeElement).toBe(draftButton())
+    await click(draftButton())
+    expect(generateSummary).toHaveBeenCalledTimes(1)
+    await act(async () => {
+      answer.resolve(makeSummary(PERIOD))
+    })
+
+    expect(document.activeElement).toBe(sourceLine())
+  })
+
+  it('test_fr_r5_busy_save_summary_keeps_focus_throughout_a_failure', async () => {
+    await renderWithDraft()
+    const answer = deferred<Summary>()
+    updateSummary.mockReturnValue(answer.promise)
+    await type(field(), 'Edited')
+    saveButton().focus()
+
+    await click(saveButton())
+    expect(saveButton().textContent).toBe('Saving…')
+    expect(saveButton().disabled).toBe(false)
+    expect(document.activeElement).toBe(saveButton())
+    await click(saveButton())
+    expect(updateSummary).toHaveBeenCalledTimes(1)
+    await act(async () => {
+      answer.reject(new NetworkError())
+    })
+
+    expect(errorNotice()).toBe(NETWORK_MESSAGE)
+    expect(document.activeElement).toBe(saveButton())
+  })
+})
+
 describe('maximum sizes in the panel (#43, FR-R3, FR-R5)', () => {
   const TOO_MUCH =
     'This filter covers too much text for one summary. Choose a shorter period, or narrow it down by category or tag.'

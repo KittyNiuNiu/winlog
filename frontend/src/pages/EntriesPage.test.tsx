@@ -855,6 +855,89 @@ describe('empty, loading and error states', () => {
   })
 })
 
+// Keyboard focus (#84): the busy "Delete entry" keeps focus, and a failed retry focuses the
+// new "Try again" unless the user moved on.
+describe('keyboard focus on the entries page (FR-E4, #84)', () => {
+  function tryAgain(): HTMLButtonElement {
+    return screen.getByRole('button', { name: 'Try again' }) as HTMLButtonElement
+  }
+
+  function navLink(): HTMLElement {
+    return within(screen.getByRole('navigation', { name: 'Main' })).getByRole('link', { name: 'Review' })
+  }
+
+  async function pressTryAgain(): Promise<void> {
+    tryAgain().focus()
+    await click(tryAgain())
+  }
+
+  it('test_fr_e4_busy_delete_entry_keeps_focus_and_after_a_failure', async () => {
+    const pending = deferred<undefined>()
+    deleteEntry.mockReturnValue(pending.promise)
+    await renderEntries()
+    await click(deleteButton('1 Nov 2026'))
+    dialogButton('Delete entry').focus()
+
+    await click(dialogButton('Delete entry'))
+    const busy = dialogButton('Deleting…')
+    // Focusable while busy: a natively disabled button would drop focus in a browser.
+    expect(busy.disabled).toBe(false)
+    expect(document.activeElement).toBe(busy)
+    await act(async () => {
+      pending.reject(new api.NetworkError())
+    })
+
+    expect(within(openDialog()).getByRole('alert').textContent).toBe(NETWORK_MESSAGE)
+    expect(document.activeElement).toBe(dialogButton('Delete entry'))
+    expect(document.activeElement).toBe(busy)
+  })
+
+  it('test_fr_e4_failed_retry_moves_focus_to_the_new_try_again', async () => {
+    listEntries.mockRejectedValueOnce(new api.NetworkError())
+    await renderEntries()
+    // The first failure moves no focus.
+    expect(document.activeElement).toBe(document.body)
+    const first = tryAgain()
+    const load = deferred<{ entries: Entry[] }>()
+    listEntries.mockReturnValueOnce(load.promise)
+
+    await pressTryAgain()
+    expect(screen.getByText('Loading entries…')).toBeTruthy()
+    await act(async () => {
+      load.reject(new api.NetworkError())
+    })
+
+    expect(tryAgain()).not.toBe(first)
+    expect(document.activeElement).toBe(tryAgain())
+  })
+
+  it('test_fr_e4_failed_retry_keeps_focus_where_the_user_moved', async () => {
+    listEntries.mockRejectedValueOnce(new api.NetworkError())
+    await renderEntries()
+    const load = deferred<{ entries: Entry[] }>()
+    listEntries.mockReturnValueOnce(load.promise)
+
+    await pressTryAgain()
+    navLink().focus()
+    await act(async () => {
+      load.reject(new api.NetworkError())
+    })
+
+    expect(tryAgain()).toBeTruthy()
+    expect(document.activeElement).toBe(navLink())
+  })
+
+  it('test_fr_e4_successful_retry_moves_no_focus', async () => {
+    listEntries.mockRejectedValueOnce(new api.NetworkError())
+    await renderEntries()
+
+    await pressTryAgain()
+
+    expect(rows()).toHaveLength(6)
+    expect(document.activeElement).toBe(document.body)
+  })
+})
+
 // The tests run in Australia/Sydney (vite.config.ts): UTC+11 in summer time (from 4 October
 // 2026 to 4 April 2027), UTC+10 otherwise.
 describe('the writing nudge (FR-N1)', () => {

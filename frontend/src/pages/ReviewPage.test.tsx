@@ -1169,6 +1169,72 @@ describe('loading and errors (FR-R2, §12)', () => {
   })
 })
 
+// Keyboard focus after a failed retry (#84): the new "Try again" gets focus, unless the user
+// moved on, for example to a filter. Only a load that "Try again" started moves focus.
+describe('keyboard focus after a failed retry (FR-R2, #84)', () => {
+  function tryAgain(): HTMLButtonElement {
+    return screen.getByRole('button', { name: 'Try again' }) as HTMLButtonElement
+  }
+
+  async function pressTryAgain(): Promise<void> {
+    tryAgain().focus()
+    await click(tryAgain())
+  }
+
+  it('test_fr_r2_failed_retry_moves_focus_to_the_new_try_again', async () => {
+    setViewport('laptop')
+    listEntries.mockRejectedValueOnce(new api.NetworkError())
+    await renderReview()
+    // The first failure moves no focus.
+    expect(document.activeElement).toBe(document.body)
+    const first = tryAgain()
+    const load = deferred<EntryList>()
+    listEntries.mockReturnValueOnce(load.promise)
+
+    await pressTryAgain()
+    expect(screen.getByText('Loading entries…')).toBeTruthy()
+    await act(async () => {
+      load.reject(new api.NetworkError())
+    })
+
+    expect(tryAgain()).not.toBe(first)
+    expect(document.activeElement).toBe(tryAgain())
+  })
+
+  it('test_fr_r2_failed_retry_keeps_focus_on_the_filter_the_user_moved_to', async () => {
+    setViewport('laptop')
+    listEntries.mockRejectedValueOnce(new api.NetworkError())
+    await renderReview()
+    const load = deferred<EntryList>()
+    listEntries.mockReturnValueOnce(load.promise)
+
+    await pressTryAgain()
+    chip('Achievement').focus()
+    await act(async () => {
+      load.reject(new api.NetworkError())
+    })
+
+    expect(tryAgain()).toBeTruthy()
+    expect(document.activeElement).toBe(chip('Achievement'))
+  })
+
+  it('test_fr_r2_a_failed_filter_change_after_a_successful_retry_moves_no_focus', async () => {
+    setViewport('laptop')
+    listEntries.mockRejectedValueOnce(new api.NetworkError())
+    await renderReview()
+    await pressTryAgain()
+    // The retry succeeded: focus is not moved.
+    expect(rows()).toHaveLength(6)
+    expect(document.activeElement).toBe(document.body)
+
+    listEntries.mockRejectedValueOnce(new api.NetworkError())
+    await click(chip('Feedback'))
+
+    expect(tryAgain()).toBeTruthy()
+    expect(document.activeElement).toBe(document.body)
+  })
+})
+
 describe('phone and laptop (FR-R1)', () => {
   it('test_fr_r1_phone_filters_sit_in_a_collapsed_panel_with_a_toggle', async () => {
     await renderReview()
