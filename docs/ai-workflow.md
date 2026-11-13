@@ -3016,3 +3016,32 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Checked that Docker Compose v5.6.1 supports `docker compose ps --status running -q db`, which can tell whether the db was already running.
   - No product code written, and no AI call.
 - **Left open:** none for grooming.
+
+## 2026-11-13: Engineer: implement #73 (run all unit and integration tests with a single command)
+
+- **Task:** implement #73 (groomed, no screen changes), following `docs/software-engineer.md`.
+- **What I did:**
+  - `test-all.sh` (new, mode `100755`, `#!/usr/bin/env bash`, bash 3.2-compatible: indexed arrays only):
+    - finds the repository root from its own location, so it runs from any folder;
+    - stops before any suite, with exit 1, when `.env` is missing and tells the user to copy `.env.example`;
+    - runs backend unit, backend integration and frontend (`npm test`) in that order, each with its existing command in its own folder, and keeps going after a failure;
+    - starts the db with `docker compose up -d --wait db` before the integration tests; if `db` was not running before, stops it with `docker compose stop db` at the end, through a `trap` on EXIT (and INT/TERM, which exit and so run it); never `down -v`, never touches `.env`;
+    - a db that cannot start fails the integration suite with "the test database could not be started"; a missing `frontend/node_modules` fails the frontend suite with "Run 'npm ci' in frontend/ first"; it installs nothing;
+    - prints a summary line per suite and exits 0 only when all pass.
+  - `frontend/src/test/network.ts` (new) and `setup.ts`: `vi.stubGlobal('fetch', unreachableFetch)` before each test and again after each test. The stub rejects with `TypeError('fetch failed')`, like Node's fetch for an unreachable server, so the API client raises its usual `NetworkError`. `vi.stubGlobal` instead of assigning `globalThis.fetch`, because the project's ESLint rule forbids `globalThis.fetch` outside `src/api/`. Tests that install their own stub (`client.test.ts`, `EntriesPage.test.tsx`) are unchanged.
+  - `.github/workflows/ci.yml`: new "Tests" job (checkout, `.env` from `.env.example`, mock-provider check, setup-uv v10.3.3 with uv 0.11.32, `uv python install`, `uv sync --locked`, setup-node from `.nvmrc` with npm cache, `npm ci`, `./test-all.sh`, db logs on failure, 20-minute timeout). Removed "Unit tests" and "Integration tests" from Backend and "Tests" from Frontend. "Full system" now needs `tests` too.
+  - `AGENTS.md` (Repository layout, Commands, Testing) and `docs/product-spec.md` (§9 Testability row, §14 change-log line) as the issue words them.
+- **How I verified it:**
+  - Before the fix, with `python3 -m http.server 8000` in an empty folder, one `npm test` run sent 75 requests to it. After the fix: 0 requests, 1239/1239 tests passed. With nothing on port 8000: 1239 passed.
+  - Real backend on port 8000 (`AI_PROVIDER=mock`): `npm test` passed 3 times in a row (1239 each), and the backend logged no request from them.
+  - `./test-all.sh` with the db stopped first: 975 unit, 960 integration, 1239 frontend passed, exit 0, db stopped again afterwards. Run again at the end on the final commit: same result.
+  - From `frontend/` as `../test-all.sh` with the db already running: all passed, exit 0, db still running. Once more with the real backend on port 8000: all passed, exit 0.
+  - A unit test broken on purpose (not committed): summary "Backend unit tests failed", the other two suites ran and passed, exit 1.
+  - No `.env`: stops before any suite, exit 1. A `docker` that fails (shim on `PATH`) plus no `node_modules`: unit passed, integration and frontend failed with their messages, exit 1.
+  - Ctrl+C (SIGINT to the process group) during the integration tests with the db stopped first: the script printed "interrupted", stopped the db and exited.
+  - Lint: `npm run lint`, `tsc -b`, `uv run ruff check .`, `uv run ruff format --check .` all clean.
+  - CI run 43485192074 on commit 8be7839: all jobs passed (Contract, Backend, Frontend, Tests, Full system). The Tests job log shows 975 unit, 960 integration and 48 frontend test files passing and the summary "All test suites passed."
+  - No real AI call.
+- **Left open:**
+  - The script was checked with this session's bash 5, not with macOS's bash 3.2 itself; it avoids every bash-4 feature the issue lists.
+  - When Docker itself fails, the script still tries `docker compose stop db` at the end and prints "could not stop the db service". Harmless, but a second message.
