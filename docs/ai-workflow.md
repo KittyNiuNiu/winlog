@@ -3330,3 +3330,13 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Section B (product owner) and section C (QA on the live app).
   - The two hosts are a prediction: if Render adds a suffix to a taken name, the product owner sets the real value in the dashboard to unblock and a small follow-up commit puts it into `render.yaml` (`ops/deployment.md`).
   - Free-plan figures and console wording in `ops/deployment.md` are from memory, as the guide says.
+
+## 2026-11-13: Fix the intermittent failure of the Full system CI job
+
+- **Task:** find out why the Full system job in CI fails on some pushes and pull requests, and fix it. Requested directly by the product owner; no issue.
+- **What I did:**
+  - Read the logs of the three recent failed runs (43505953281, 43514760532, 43523197884). Each failed only in "Telemetry reached the local stack": Tempo yes, Prometheus yes, Loki no.
+  - Cause: the trace ID Tempo's search API returned had 31 characters each time (for example `6bf9a7b1d51d…f736`), while the backend's own log line for the same `POST /summaries` request had the 32-character ID with a leading zero (`06bf9a7b1d51d…f736`). Tempo drops leading zeros, the Loki query matches the ID exactly, so it never matches. Trace IDs are random, so this hits about one run in 16 (only IDs that start with `0`).
+  - `.github/workflows/ci.yml`: the Tempo lookup now prints `traceID.zfill(32)`, and a comment explains why. No other step changed; the check is as strict as before.
+- **How I verified it:** ran the changed Python one-liner locally on the 31-character ID from run 43505953281 (prints the backend's 32-character ID), on a full 32-character ID (unchanged), and on empty Tempo responses (prints nothing, as before). The workflow file still parses as YAML. The CI run on this branch is the end-to-end check; because the bug hits only about one run in 16, one green run does not prove the fix on its own, but the log evidence above does.
+- **Left open:** nothing.
