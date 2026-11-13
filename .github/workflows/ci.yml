@@ -300,6 +300,8 @@ jobs:
         # no login, 127.0.0.1 only) must show its trace in Tempo, a log record with the same
         # trace ID in Loki, and the outcome counter in Prometheus. The backend batches traces
         # and logs (about 5 s) and exports metrics every 10 s, so this retries for up to 90 s.
+        # Tempo's search API drops leading zeros from trace IDs, while Loki holds the full
+        # 32-character ID, so the ID is padded back to 32 characters before the Loki query.
         # Then lgtm is stopped, and the backend must still answer GET /health with 200. Last, the
         # backend container's log must have no uvicorn access log line.
         run: |
@@ -310,7 +312,7 @@ jobs:
               trace_id=$(curl -s -G --max-time 5 "$grafana/tempo/api/search" \
                 --data-urlencode 'q={resource.service.name="winlog-backend" && name="POST /summaries"}' \
                 --data-urlencode 'limit=20' \
-                | python3 -c 'import json, sys; traces = json.load(sys.stdin).get("traces") or []; print(traces[0]["traceID"] if traces else "")' || true)
+                | python3 -c 'import json, sys; traces = json.load(sys.stdin).get("traces") or []; print(traces[0]["traceID"].zfill(32) if traces else "")' || true)
               [ -n "$trace_id" ] && tempo_ok=yes
             fi
             if [ -n "$trace_id" ] && [ "$loki_ok" = no ]; then
