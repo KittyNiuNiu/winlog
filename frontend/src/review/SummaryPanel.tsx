@@ -192,6 +192,8 @@ export default function SummaryPanel({ filter, entryCount }: SummaryPanelProps) 
 
   function handleDiscard() {
     setConfirmingAgain(false)
+    // Back on "Draft again", so a failure can return focus there.
+    draftButtonRef.current?.focus()
     if (draft !== null) {
       setText(draft.text)
     }
