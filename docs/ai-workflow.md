@@ -2938,3 +2938,29 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Left open:**
   - A long-used local database can reach the global AI limit (100 a day). `docker compose down -v` resets it.
   - Issue comment: https://github.com/KittyNiuNiu/winlog/issues/37#issuecomment-6860948310
+
+## 2026-11-13: Orchestrator: closed #37 (task 42, end-to-end smoke test)
+
+- **Outcome:**
+  - The PM re-groomed it (31169a9, grooming comment 6860688208); the 2026-11-01 flow predated #30, #32 and #34.
+  - The engineer implemented it in 4438ff5, 57101c1 and ab35c26 (issue comment 6860948310).
+  - QA PASS (6861078783): run twice locally on one database, the failure output checked, and CI run 43479127628 for a25dba3 green with "Full system" running the test after the other three jobs.
+  - The task changes no screens, so there was no design note or review.
+  - Closed as completed; the last status label `implemented` stays. No real AI calls: `AI_PROVIDER=mock`.
+- **Decisions accepted under the 2026-11-12 standing rule:**
+  - PM:
+    - Kept every 2026-11-01 decision.
+    - The summary step follows #32/#33: draft in the `/review` panel with the exact mock text, edit, "Save summary", then one summary in `/summaries`.
+    - The nudge is checked on Entries with its #30 text.
+    - The export comes from Playwright's download event and holds the edited summary.
+    - Log out, then `/` redirects to `/login`.
+    - Today is read from the form's Date field.
+    - `E2E_BASE_URL`, no `webServer`. CI runs it against `docker compose up --build -d` in the existing "Full system" job with `needs`; cloud sessions run it against db + uvicorn + `vite preview`.
+    - Reuses #36's Playwright and adds no dependency.
+  - Engineer:
+    - Separate `tsconfig.e2e.json`.
+    - The export file name is checked against the `winlog-export-YYYY-MM-DD.json` pattern, because the server uses the UTC date. The entry date inside the file is checked exactly.
+- **Where each open point went (all left in this log):**
+  - The engineer's first local run hit 429: the session's local database had already counted 129 of today's 100 global AI requests from earlier sessions. The engineer reset it with `docker compose down -v`, as the issue allows. That removed only throwaway test accounts in this cloud session's local database.
+  - The session's local `.env` is an older copy that lacks some variables; QA exported `.env.example` instead (QA).
+  - The export file name is checked by pattern, not exact date (QA): accepted, because the criterion gives only the format.
