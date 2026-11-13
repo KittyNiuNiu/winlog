@@ -18,12 +18,17 @@ RUN uv sync --locked --no-dev --no-cache
 COPY alembic.ini ./
 COPY migrations ./migrations
 COPY app ./app
+# The demo reset that start.sh runs (issue #21). Only this script: scripts/model_comparison/
+# and its result files stay out of the image (also excluded in .dockerignore).
+COPY scripts/__init__.py scripts/seed_demo.py ./scripts/
+COPY start.sh ./
 
 # Run as an unprivileged user.
 RUN useradd --create-home --uid 10001 winlog
 USER winlog
 
+# The default port. Render sets PORT, and start.sh then listens on that port instead.
 EXPOSE 8000
-# Apply the database migrations, then start the server. `exec` makes uvicorn the main
-# process, so it receives stop signals directly.
-CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+# Apply the database migrations, reset the demo account when DEMO_EMAIL is set, then start the
+# server on PORT or 8000 (see start.sh). A failed step stops the start.
+CMD ["sh", "/app/start.sh"]
