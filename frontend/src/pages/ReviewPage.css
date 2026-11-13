@@ -165,9 +165,17 @@
 }
 
 @media (min-width: 48rem) {
-  /* The title keeps its 16px margin; the filter area starts 24px below it. */
+  /* The filter area starts 24px below the title at every laptop width (design note on
+     #36). The 24px is the title's own margin and the filter area has none, so the gap
+     does not depend on margins collapsing (they collapse in a block, not in the grid
+     from 75rem). Other pages keep 16px below their title (.page h1 in AppShell.css,
+     which this rule outranks). */
+  .page.review-page > h1 {
+    margin-bottom: var(--space-24);
+  }
+
   .review-page__filters {
-    margin-top: var(--space-8);
+    margin-top: 0;
   }
 
   .review-page__dates {
@@ -193,14 +201,15 @@
     align-items: start;
   }
 
-  /* Its top is level with the top of the filter area. If the window is shorter than the
-     panel, it scrolls inside itself, so Save summary stays within reach. */
+  /* No top margin, so its top is level with the top of the filter area, 24px below the
+     title. If the window is shorter than the panel, it scrolls inside itself, so Save
+     summary stays within reach. */
   .review-page__layout > .summary-panel {
     position: sticky;
     top: var(--space-24);
     max-width: none;
     max-height: calc(100dvh - 2 * var(--space-24));
-    margin-top: var(--space-8);
+    margin-top: 0;
     overflow-y: auto;
   }
 }
