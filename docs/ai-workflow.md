@@ -2201,3 +2201,37 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Confirmed that CI lints the contract with `npx --yes @redocly/cli@2 lint openapi.yaml` and that `npm run generate:api` regenerates `schema.d.ts`.
   - Read #43 back from GitHub: the body matches what I sent (plus the automatic footer), the title is unchanged and it has no labels.
 - **Left open:** for the designer's note, the counter's layout and how it is announced to screen readers, and the exact wording of the new messages and the panel notice.
+
+## 2026-11-13: Engineer: implement #43 (Enforce maximum input sizes)
+
+- **Task:** implement #43 (task 37) following `docs/software-engineer.md`, against the groomed criteria and the design note (comment 6850117531). A first engineer session was stopped by a container restart after the contract commit (89f291c) and some uncommitted backend work; this session reviewed that work, kept it and finished the task.
+- **What I did:**
+  - Contract (89f291c, reviewed and kept): `maxLength`/`maxItems` on `EntryInput`, `SuggestionRequest`, `Suggestion.tags`, `SummaryUpdate`, `SummaryFilter.tags` and the `tag` parameter; `minLength: 1`/`maxLength: 128` on `Credentials.password` and `AccountDeletion.current_password`; the `summary_input_too_large` code and example; the rewritten "Size limits" section. `npm run generate:api` gives no diff.
+  - Backend:
+    - Limits checked at the API boundary in code points: `text_rules.at_most`, `MAX_ENTRY_TEXT_CHARACTERS`/`MAX_RESULT_IMPACT_CHARACTERS`/`MAX_TAGS_PER_ENTRY` in `app/entries.py`, `MAX_TAG_NAME_CHARACTERS` on `TagName` (as sent, before cleaning) and `FilterTagName` in `app/tags.py`.
+    - The Result/Impact length is checked before whitespace becomes none.
+    - Edited summary text has its own type, `SummaryText`, with `MAX_SUMMARY_CHARACTERS` from the adapter. Before this it reused `EntryText`, which would have capped edits at 2,000.
+    - `POST /summaries` adds up text, Result/Impact and tag names of the matching entries (`summary_input_characters`). Above `AI_SUMMARY_MAX_INPUT_CHARACTERS` it answers 422 `summary_input_too_large`, after `no_matching_entries` and before the limited AI entry point, so nothing is counted or saved.
+    - Suggestions drop names over 40 characters after cleaning, before taking 5.
+    - `AI_SUMMARY_MAX_INPUT_CHARACTERS` in the settings (strict whole number of 1 or more, shared `_whole_number` helper with the daily limits) and in `.env.example`.
+  - Frontend:
+    - `components/inputLimits.ts`: the field limits, a code-point count and the counter text.
+    - `TextArea` takes `maxCharacters`. The counter shows from 80%, right-aligned under the field and above the messages. It is outside the `role="alert"` area and not live, is linked only while shown, says "x of y characters" to screen readers, and makes the field `aria-invalid` over the limit. There is no `maxlength`.
+    - Entry form: "Shorten the text/result…" checks before saving; the fold opens and the cursor goes to the first problem in form order. The suggest button is disabled over 2,000 characters, with the line "Suggestions work on up to 2,000 characters.".
+    - Tags: `addTagNamesWithin` keeps names over 40 characters, or beyond 10 tags, in the tag input (joined with ", "). It shows "Tags can be up to 40 characters." and/or "Up to 10 tags per entry." while each still applies, and Save stops on them. Suggestions add tags only up to 10.
+    - Summary panel and summary page: the 10,000-character counter, with "Shorten the summary to 10,000 characters, then save.".
+    - `SummaryInputTooLargeError` in `src/api/`, and the panel notice from the design note.
+- **Decisions (standing rule, 2026-11-12/13):**
+  - `generate_summary` reads the limit through a small dependency (`summary_input_limit`), not the `Request`. A unit test that calls the function directly passes it as a keyword.
+  - In the tag input, a comma only comes from names that did not fit (typed and pasted commas already split). So Enter and Save split the input on commas, and each name is checked on its own.
+  - The 10-tag message also shows while the entry has 10 tags and a name is still in the input. The design note says the message goes "once the entry has fewer than 10 tags, or has 10 and the tag input is empty".
+  - The counter's spacing is checked on the CSS text, because jsdom cannot resolve `var()` in margins.
+  - The panel notice uses the design note's wording ("…or narrow it down by category or tag."), which replaces the wording groomed in the criteria (designer decision 6).
+- **How I verified it:**
+  - Backend: `uv run ruff check .` and `ruff format --check` clean. Unit tests: 893 passed. Integration tests: 912 passed (PostgreSQL in Docker). New tests are in `tests/unit/test_input_limits.py` and `tests/integration/test_input_limits.py`. They cover each limit at and one over, with emoji, the 9,000-character tag, long suggested tags, the summary input limit (at and over, no AI call, no count, nothing saved, order of checks, another user's entries), the variable, legacy data (read, list, export, summarise, rejected unchanged, saved shortened), another user, logs and the demo data.
+  - Frontend: `npm run lint`, `npm test` (1,012 passed, with no backend on :8000) and `npm run build` pass. New tests are `components/inputLimits.test.ts` and `entries/entryLimits.test.tsx`, plus additions to the TextField, tag name, suggestion, summary draft, client, style, review panel and summary page tests.
+  - `npx --yes @redocly/cli@2 lint openapi.yaml` is valid, with the same 3 warnings as before.
+  - Manual run with `AI_PROVIDER=mock` (and `AI_SUMMARY_MAX_INPUT_CHARACTERS=1000` to trigger the notice), driving headless Chrome at 360px in light and dark mode. Checked the entry form with the red counter, save message, disabled suggest button with its hint, a long unbroken tag name and both tag messages; the edit page with legacy over-limit data; the summary page with a 10,530-character legacy summary; and the panel with "10,512 / 10,000", its message and the too-much-text notice. Nothing scrolls sideways. No real AI call was made.
+- **Left open:**
+  - A dev-database user (`check-…@example.com`) with sample entries was created by the manual check. It is local data only.
+  - The design review (step 7) still has to look at the screens.
