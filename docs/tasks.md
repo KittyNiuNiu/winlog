@@ -4,6 +4,8 @@ The backlog lives in GitHub issues. Each task below links to its issue, which ho
 
 Tasks follow `product-spec.md` (v0.2) and are listed in build order. Each issue title starts with the same number as below, so the order is also visible in the GitHub issue list. Issue numbers and task numbers differ: #1 is a pull request, and #43, #46, #73, #74, #75, #77, #78 and #79 were added later. References such as FR-E1 or §8 in the issues point to the spec.
 
+Tasks 48 to 61 are follow-up issues created from open points of earlier tasks. The product owner set their order on 2026-11-14: first what protects the live app, then the pipeline and developer set-up, then interface polish, and last the larger tasks that need an account or real AI calls. They keep their original titles, without a task number.
+
 1. [Write the OpenAPI contract](https://github.com/KittyNiuNiu/winlog/issues/2) (#2)
 2. [Set up the backend project skeleton](https://github.com/KittyNiuNiu/winlog/issues/3) (#3)
 3. [Run the backend and PostgreSQL with Docker Compose](https://github.com/KittyNiuNiu/winlog/issues/4) (#4)
@@ -51,3 +53,24 @@ Tasks follow `product-spec.md` (v0.2) and are listed in build order. Each issue 
 45. [Deploy to Render and Neon](https://github.com/KittyNiuNiu/winlog/issues/38) (#38)
 46. [Deploy to dev automatically and to production by hand](https://github.com/KittyNiuNiu/winlog/issues/39) (#39)
 47. [Write the project README](https://github.com/KittyNiuNiu/winlog/issues/40) (#40)
+48. [Follow-up from #4 and #38: limit how long requests wait for a database that stops answering](https://github.com/KittyNiuNiu/winlog/issues/95) (#95)
+49. [Follow-up from #43: limit the number of filter values and the size of a request](https://github.com/KittyNiuNiu/winlog/issues/88) (#88)
+50. [Follow-ups from #9 and #10: non-UTF-8 request bodies and entry tag order](https://github.com/KittyNiuNiu/winlog/issues/58) (#58)
+51. [Follow-up from #46: very large login-attempt limits pass startup but break every login](https://github.com/KittyNiuNiu/winlog/issues/89) (#89)
+52. [Follow-up from #38: the production backend sends no HSTS header](https://github.com/KittyNiuNiu/winlog/issues/99) (#99)
+53. [Follow-up from #39: the deploy health wait can pass on the previous deploy](https://github.com/KittyNiuNiu/winlog/issues/102) (#102)
+54. [Follow-ups from #13: AI variables in Docker Compose and the httpx2 runtime dependency](https://github.com/KittyNiuNiu/winlog/issues/61) (#61)
+55. [Follow-up from #2 and #19: the Markdown export's file name example in openapi.yaml](https://github.com/KittyNiuNiu/winlog/issues/64) (#64)
+56. [Follow-up from #24: list CI's contract lint command in AGENTS.md](https://github.com/KittyNiuNiu/winlog/issues/68) (#68)
+57. [Follow-up from #26: technical server validation messages on the login and registration forms](https://github.com/KittyNiuNiu/winlog/issues/72) (#72)
+58. [Follow-up from #28: feedback when a suggestion adds nothing or is dropped](https://github.com/KittyNiuNiu/winlog/issues/86) (#86)
+59. [Follow-up from #83: dark-mode hover and disabled fills, the writing nudge's look, and the laptop entry row height](https://github.com/KittyNiuNiu/winlog/issues/90) (#90)
+60. [Follow-up from #74: send telemetry from the deployed dev and production environments to a hosted UI](https://github.com/KittyNiuNiu/winlog/issues/92) (#92)
+61. [Follow-up from #38: AI summaries mostly repeat the entries' own wording](https://github.com/KittyNiuNiu/winlog/issues/98) (#98)
+
+## Skipped
+
+Out of scope, by the product owner's decision of 2026-11-14. These issues stay open but are not part of the build order, so the orchestrator does not pick them.
+
+- [Follow-up from #31: typed dates on the review page can lose digits on a slow device](https://github.com/KittyNiuNiu/winlog/issues/87) (#87)
+- [Follow-up from #26 and #30: check message announcements with a screen reader, and screens at a larger text size](https://github.com/KittyNiuNiu/winlog/issues/91) (#91)

@@ -3550,3 +3550,18 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - In this cloud session, an unmodified `docker compose up --build` cannot build the images (TLS through the egress gateway). CI covers it.
   - When #61 passes every variable to Compose, the README's Quick start and Configuration notes change (the PM's input comment on #61 asks for it).
   - `docs/product-spec.md`'s header still says "Last updated: 11 November 2026", while its change log has entries from 13 and 14 November. The spec is the product owner's, so it is unchanged.
+
+## 2026-11-14: Orchestrator: order the follow-up issues in docs/tasks.md
+
+- **Task:** the product owner asked to add the open follow-up issues to `docs/tasks.md` in the orchestrator's recommended order, and to skip #87 and #91 as out of scope.
+- **What I did:**
+  - Added tasks 48 to 61 to `docs/tasks.md`, in this order:
+    - first what protects the live app: #95, #88, #58, #89, #99;
+    - then the pipeline and developer set-up: #102, #61, #64, #68;
+    - then interface polish: #72, #86, #90;
+    - last the larger tasks that need an account or real AI calls: #92, #98.
+  - Added a "Skipped" section with #87 (typed dates on very slow devices) and #91 (screen-reader and larger-text checks). They stay open, outside the build order, so `/orchestrate` does not pick them.
+  - The follow-up issues keep their original titles, without a task number; `docs/tasks.md` says so.
+  - Posted the skip decision on #87 and #91.
+- **Decision (product owner, 2026-11-14):** #87 and #91 are out of scope. The issues are not closed.
+- **Verified:** every new entry links to an open issue with its current title.
