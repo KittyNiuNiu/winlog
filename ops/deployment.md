@@ -70,7 +70,10 @@ push to any branch ──► CI (all jobs) ──► branch other than main: sto
       nothing. If the dev deploy failed, the production step is never offered.
 
 A deploy hook that does not answer 2xx, or a missing hook secret, fails the job with a message
-that names the service or the secret, never the URL. The two static sites are separate builds
+that names the service or the secret, never the URL. If the backend's hook succeeded and the
+static site's hook then fails, that environment runs the new backend with the previous app until
+the failed job is re-run (**Re-run this job**; in production it waits for approval again). The
+two static sites are separate builds
 of the same commit, because `VITE_API_BASE_URL` is built into the JavaScript (#25).
 
 **What the pipeline cannot see.** Render keeps the previous deploy live until a new one is
@@ -171,15 +174,19 @@ machine or on Render. Only images already in GHCR can be deployed:
 - **Go back:** Render's rollback (above).
 - **Deploy one specific image by hand:** find its digest on the GHCR package page (each version
   lists its tags `sha-<commit>` and its digest). Copy the service's deploy hook URL from the
-  service's **Settings** page in Render. In your own terminal, without the URL in the command
-  or the shell history:
+  service's **Settings** page in Render. In your own terminal (bash), without the URL on any
+  command line, in the shell history or in the process list:
 
   ```
   read -rs HOOK          # paste the deploy hook URL, then press Enter
-  curl --silent --output /dev/null --write-out '%{http_code}\n' --request POST \
-    "$HOOK&imgURL=ghcr.io%2Fkittyniuniu%2Fwinlog-backend%40sha256%3A<digest without sha256:>"
+  printf 'url = "%s&imgURL=ghcr.io%%2Fkittyniuniu%%2Fwinlog-backend%%40sha256%%3A%s"\n' \
+    "$HOOK" '<digest without sha256:>' |
+    curl --silent --output /dev/null --write-out '%{http_code}\n' --request POST --config -
   unset HOOK
   ```
+
+  `printf` is built into bash, so the URL reaches curl only on its standard input, as in the
+  pipeline.
 
   `200` or `202` means Render accepted the deploy. Production still gets only an image that has
   run in dev. Afterwards, re-run the matching production step once GitHub Actions works, so the
@@ -228,13 +235,26 @@ Production never runs an image that has not run in dev first.
 
 **Before the pull request is merged** (production runs exactly as before):
 
-1. **Render: stop automatic Blueprint syncs.** Open the Blueprint (Dashboard → **Blueprints** →
+1. **Render: turn off automatic deploys of the two production services.** `winlog-api` →
+   **Settings** → **Auto-Deploy** → **Off** → save. Then the same for `winlog-app`. Check that
+   both services' **Settings** now show **Off**. Until the Blueprint sync (step 8), both still
+   have their #38 setting **After CI Checks Pass** (`autoDeployTrigger: checksPass`): Render
+   would build every new commit on `main` and deploy it to production as soon as that commit's
+   checks have passed, with no approval and without dev. The **Deploy** workflow's checks appear only after CI has finished,
+   so they cannot stop that. With **Off**, Render deploys these two services only when someone
+   starts a deploy (by hand, or later through their deploy hooks); their live deploys keep
+   serving. The setting stays **Off** after the migration: `render.yaml` sets
+   `autoDeployTrigger: "off"` for `winlog-app`, and for `winlog-api` it leaves the field out,
+   which keeps the current value and has no effect on an image service (Render's Blueprint
+   reference). (A `[skip render]` in the merge commit's message would skip only that one
+   commit, so this guide does not rely on it.)
+2. **Render: stop automatic Blueprint syncs.** Open the Blueprint (Dashboard → **Blueprints** →
    the Winlog Blueprint) → **Settings** → set **Auto Sync** to **No**. Otherwise the merge would
    sync `render.yaml` at once, before the image, the dev database and the hooks exist.
-2. **GitHub: create the environment `dev`.** Repository → **Settings** → **Environments** →
+3. **GitHub: create the environment `dev`.** Repository → **Settings** → **Environments** →
    **New environment** → name `dev` → **Deployment branches** → **Selected branches and tags** →
    **Add deployment branch or tag rule** → Branch, `main` → **Add rule**. No reviewers.
-3. **GitHub: create the environment `production`.** The same, with the name `production` and
+4. **GitHub: create the environment `production`.** The same, with the name `production` and
    the branch rule `main`, and also:
    - **Required reviewers**: the product owner → **Save protection rules**;
    - leave **Prevent self-review** off: the product owner starts the runs (by merging) and
@@ -244,85 +264,95 @@ Production never runs an image that has not run in dev first.
 
    Add no secrets yet.
 
-**Merge the pull request into `main`.** What happens then:
+**Merge the pull request into `main`.** From now on, **merge nothing else into `main` until
+step 13 is done.** Step 1 already keeps any merge out of production; the freeze also leaves one
+Deploy run to follow and to re-run. What happens then:
 
 - CI runs for the merge commit. When every job has passed, the **Deploy** workflow runs:
   **Publish image** pushes the first image, `ghcr.io/kittyniuniu/winlog-backend:sha-<commit>`
   (this creates the GHCR package, private at first). **Deploy to dev** then fails at "Check the
   deploy hook secrets", because the secrets do not exist yet. That is expected. **Deploy to
   production** is skipped.
-- **Production is not changed by the pipeline.** Until step 7 it still has its #38 settings
-  (built by Render from `main`, `autoDeployTrigger: checksPass`), so Render may also build the
-  merge commit itself, but only if every GitHub check passed; the failed dev job usually stops
-  it. Either way production keeps the same app: this change touches no app code (only a label in
-  `backend/Dockerfile`).
-- If step 1 was forgotten, Render syncs `render.yaml` right after the merge and makes step 7's
+- **Production is not changed.** The pipeline cannot reach it yet, and Render does not build the
+  merge commit, because step 1 turned automatic deploys off. Check it once CI has finished:
+  `winlog-api` → **Events** and `winlog-app` → **Events** show no new deploy.
+- If one of them does show a deploy of the merge commit, step 1 was missed for that service: set
+  its **Auto-Deploy** to **Off** now. If that deploy is still in progress, click **Cancel deploy**
+  on its **Deploys** page (the previous deploy stays live). If it is already live, roll back to
+  the previous deploy as in [Render's own rollback](#renders-own-rollback). Then continue.
+- If step 2 was missed, Render syncs `render.yaml` right after the merge and makes step 8's
   changes early: the backends' first image deploys fail because the tags do not exist yet, and
-  Render keeps the current production deploy live. Continue with step 4.
+  Render keeps the current production deploy live. Continue with step 5.
 
 **After the merge:**
 
-4. **GHCR: make the package public.** On the repository page → **Packages** → `winlog-backend`
+5. **GHCR: make the package public.** On the repository page → **Packages** → `winlog-backend`
    → **Package settings** → under "Danger Zone", **Change visibility** → **Public** → type the
    package name → confirm. GitHub warns that this cannot be undone (the repository is public and
    the image holds only its code; the product owner confirmed this on 2026-11-14). On the same
    page, check that the package is linked to `KittyNiuNiu/winlog` (the label does that).
-5. **Neon: create the dev project.** **New project**, a name such as `winlog-dev`, PostgreSQL
+6. **Neon: create the dev project.** **New project**, a name such as `winlog-dev`, PostgreSQL
    18, region AWS eu-central-1 (Frankfurt), free plan. Leave it empty: the backend's first start
    creates the tables and the demo account. Copy its **direct** connection string as in
-   [Set up from scratch](#set-up-from-scratch), step 1. It goes only into step 8.
-6. **Render: review the Blueprint sync.** Open the Blueprint → **Manual Sync**. Render lists
+   [Set up from scratch](#set-up-from-scratch), step 1. It goes only into step 9.
+7. **Render: review the Blueprint sync.** Open the Blueprint → **Manual Sync**. Render lists
    what it will change. It should be exactly:
    - new web service `winlog-api-dev` (image) and new static site `winlog-app-dev`;
    - `winlog-api`: runtime from Docker to image `ghcr.io/kittyniuniu/winlog-backend:production`,
-     no other change to its values;
-   - `winlog-app`: auto-deploy off.
+     no other change to its values.
 
-   If it lists anything else, or a new name for an existing service, stop and report it.
-7. **Apply the sync.** Expect:
+   `winlog-app` should not be listed: its only change in `render.yaml` is auto-deploy off,
+   which step 1 already made. If it is listed with auto-deploy, do not apply: set its
+   **Auto-Deploy** to **Off** (step 1) and open **Manual Sync** again, because a sync redeploys
+   every service it changes, and `winlog-app` would then build the newest commit on `main`
+   before that commit has run in dev. If the list shows anything else, or a new name for an
+   existing service, stop and report it.
+8. **Apply the sync.** Expect:
    - `winlog-app-dev` builds the latest commit on `main` and goes live;
    - `winlog-api-dev`'s first deploy **fails** (no `:dev` image yet, and no `DATABASE_URL`);
    - `winlog-api` keeps its URL and its secrets. Its deploy of `:production` **fails** with an
-     image pull error, because that tag does not exist until step 12. A failed deploy leaves the
+     image pull error, because that tag does not exist until step 13. A failed deploy leaves the
      previous one live (Render's docs on zero-downtime deploys), so production keeps serving its
      Render-built deploy. Check
      https://winlog-api.onrender.com/health still answers `{"status": "ok", "database": "ok"}`.
-   - `winlog-app` keeps its URL and its live deploy.
+   - `winlog-app` keeps its URL and its live deploy, with no new deploy.
 
    Render's docs say a service's runtime can change in a Blueprint (except for static sites), and
    the Dashboard can also change a service's source (**Settings → Build → Source → Edit**, the
    **Update Source** dialog). If the sync refuses to change `winlog-api`, or offers it only as a
    new service with a new URL, **stop**: production is unchanged, and the product owner decides
    how to continue.
-8. **Render: the dev database.** `winlog-api-dev` → **Environment** → add `DATABASE_URL` with
-   the dev connection string from step 5 → save. Render asks for `sync: false` values only when a
+9. **Render: the dev database.** `winlog-api-dev` → **Environment** → add `DATABASE_URL` with
+   the dev connection string from step 6 → save. Render asks for `sync: false` values only when a
    Blueprint is first created, so it does not ask for this one. A deploy started by saving fails
    again (still no `:dev` image), which is expected.
-9. **Render: copy the four deploy hooks.** On each service's **Settings** page, copy its
-   **Deploy Hook** URL: `winlog-api-dev`, `winlog-app-dev`, `winlog-api`, `winlog-app`.
-10. **GitHub: add the four environment secrets** ([Secrets](#secrets)): Repository →
+10. **Render: copy the four deploy hooks.** On each service's **Settings** page, copy its
+    **Deploy Hook** URL: `winlog-api-dev`, `winlog-app-dev`, `winlog-api`, `winlog-app`.
+11. **GitHub: add the four environment secrets** ([Secrets](#secrets)): Repository →
     **Settings** → **Environments** → `dev` → **Add environment secret**:
     `RENDER_API_DEPLOY_HOOK` (the `winlog-api-dev` hook) and `RENDER_APP_DEPLOY_HOOK` (the
     `winlog-app-dev` hook). Then `production`: `RENDER_API_DEPLOY_HOOK` (the `winlog-api` hook)
     and `RENDER_APP_DEPLOY_HOOK` (the `winlog-app` hook). Paste each URL only there.
-11. **First dev deploy.** **Actions** → workflow **Deploy** → the run of the merge commit →
+12. **First dev deploy.** **Actions** → workflow **Deploy** → the run of the merge commit →
     **Re-run jobs** → **Re-run failed jobs**. **Deploy to dev** now deploys the image by digest,
     moves `:dev`, builds `winlog-app-dev` from the same commit and waits for both. Then check dev
     as in [Promote to production](#promote-to-production), step 3:
     https://winlog-api-dev.onrender.com/health answers `{"status": "ok", "database": "ok"}`.
-12. **First production deploy.** Approve **Deploy to production** as in
+13. **First production deploy.** Approve **Deploy to production** as in
     [Promote to production](#promote-to-production). `winlog-api` now deploys the image by
     digest, its first image deploy; if it fails, the previous deploy stays live. Then
     `winlog-app` builds the same commit. Check https://winlog-api.onrender.com/health and
-    https://winlog-app.onrender.com.
-13. **Leave Auto Sync off.** With it on, a merged change to `render.yaml` would also rebuild the
-    static sites from the newest commit on `main` before that commit was approved. Instead, when
-    a change to `render.yaml` has been promoted to production, open the Blueprint and click
-    **Manual Sync**. A sync redeploys the backends from their tags, which point to the images the
-    pipeline last deployed.
+    https://winlog-app.onrender.com. Other merges into `main` may resume.
+14. **Leave Auto Sync off, and the static sites' Auto-Deploy off.** With Auto Sync on, a
+    merged change to `render.yaml` would also rebuild the static sites from the newest commit on
+    `main` before that commit was approved. Instead, when a change to `render.yaml` has been
+    promoted to production, open the Blueprint and click **Manual Sync**. A sync redeploys the
+    backends from their tags, which point to the images the pipeline last deployed. (A deploy
+    hook called with `ref`, as the pipeline does for the static sites, also turns a service's
+    auto-deploy off, Render's docs on deploying a specific commit.)
 
 **The proof (#39, section B)** comes from the next ordinary merge into `main` after these steps
-(step 7 itself starts a production deploy, so the migration run does not show the normal order).
+(step 8 itself starts a production deploy, so the migration run does not show the normal order).
 For that run, report: when the CI run finished; when `winlog-api-dev` and `winlog-app-dev`
 started deploying in Render's **Events** (the backend deploy names the digest, the static site
 deploy the commit); that production showed no new deploy until the approval; and that
@@ -368,8 +398,8 @@ OpenRouter accounts.
 ### 3. GitHub: the two environments
 
 Create `dev` and `production` as in [the migration](#the-one-off-migration-of-the-live-production-39),
-steps 2 and 3. Then merge (or push) the branch with the workflows into `main`, let CI pass, and
-make the GHCR package public (migration step 4). The first **Deploy** run fails at the missing
+steps 3 and 4. Then merge (or push) the branch with the workflows into `main`, let CI pass, and
+make the GHCR package public (migration step 5). The first **Deploy** run fails at the missing
 hook secrets; that is expected.
 
 ### 4. Render: create the Blueprint
@@ -385,11 +415,11 @@ hook secrets; that is expected.
    `:dev` and `:production` tags do not exist yet. (If Render refuses to create an image
    service whose tag does not exist yet, stop and report it, so this guide is corrected.)
 4. Check the public URLs ([below](#the-public-urls)).
-5. Set the Blueprint's **Auto Sync** to **No** (migration step 13).
+5. Set the Blueprint's **Auto Sync** to **No** (migration step 14).
 
 ### 5. Hooks and the first deploys
 
-Do steps 9 to 12 of the migration: copy the four deploy hooks into the GitHub environment
+Do steps 10 to 13 of the migration: copy the four deploy hooks into the GitHub environment
 secrets, re-run the failed jobs of the Deploy run, check dev, then approve production. The
 backend's first start runs all migrations and creates the demo account.
 
@@ -547,7 +577,7 @@ uv run python -m scripts.model_comparison check deepseek/deepseek-v4.1-flash
 ```
 
 Then change `AI_MODEL` in `render.yaml` with a normal task, merge it, promote it, and sync the
-Blueprint ([migration step 13](#the-one-off-migration-of-the-live-production-39)). Dev keeps the
+Blueprint ([migration step 14](#the-one-off-migration-of-the-live-production-39)). Dev keeps the
 mock.
 
 

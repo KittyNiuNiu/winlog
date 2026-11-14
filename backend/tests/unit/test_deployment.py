@@ -395,6 +395,41 @@ def test_deploy_guide_lists_every_render_variable_and_no_secret():
         assert secret_prefix not in guide
 
 
+def _guide_section(heading: str) -> str:
+    guide = (ROOT / "ops" / "deployment.md").read_text(encoding="utf-8")
+    start = guide.index(f"\n{heading}\n")
+    end = guide.find("\n## ", start + 1)
+    return guide[start : end if end != -1 else len(guide)]
+
+
+def test_deploy_guide_migration_turns_production_auto_deploy_off_before_the_merge():
+    # Until the Blueprint sync, winlog-api and winlog-app still have #38's checksPass, so
+    # Render would deploy the merge commit to production without approval and without dev.
+    migration = _guide_section("## The one-off migration of the live production (#39)")
+    before_merge, after_merge = migration.split("**Merge the pull request into `main`.**")
+    first_step = before_merge.split("\n1. ")[1].split("\n2. ")[0]
+    assert "`winlog-api`" in first_step and "`winlog-app`" in first_step
+    assert "**Auto-Deploy** → **Off**" in first_step
+    # Auto Sync is turned off before the merge too, but after Auto-Deploy.
+    assert "**Auto Sync** to **No**" in before_merge.split("\n2. ")[1]
+    # Nothing else is merged until the first production deploy is done.
+    assert "merge nothing else into `main` until\nstep 13 is done" in after_merge
+    assert "\n13. **First production deploy.**" in after_merge
+    # The steps are numbered 1 to 14 in order, with no gap.
+    numbers = [int(n) for n in re.findall(r"^ ?(\d+)\. \*\*", migration, flags=re.MULTILINE)]
+    assert numbers == list(range(1, 15))
+
+
+def test_deploy_guide_by_hand_hook_call_keeps_the_url_off_the_command_line():
+    section = _guide_section("### When GitHub Actions is down")
+    [block] = re.findall(r"```\n(.*?)```", section, flags=re.DOTALL)
+    assert "read -rs HOOK" in block and "unset HOOK" in block
+    # The URL goes to curl through a builtin on its standard input, as in the pipeline.
+    assert "--config -" in block
+    curl_lines = [line for line in block.splitlines() if "curl " in line]
+    assert curl_lines and not [line for line in curl_lines if "HOOK" in line]
+
+
 # --- CI and Deploy workflows (#39) ---------------------------------------------------------
 
 
