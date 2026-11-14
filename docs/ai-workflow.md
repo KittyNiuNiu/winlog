@@ -3361,3 +3361,40 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - `checksPass` already set; `ops/deployment.md` console wording and free-plan figures from memory; the image `.env` check not run on a built image; cloud-session traffic leaves from several addresses (engineer, QA): comment on #39 (6877556341).
   - Live URLs, the working demo and the measured cold start of 43.7 s (QA): comment on #40 (6877556862).
   - A demo token QA may not have revoked (never written down, expires within 7 days); the `render.yaml` host prediction, which turned out right; QA's scratch files, deleted after the check: left in this log.
+
+## 2026-11-14: Re-groom issue #39 (task 46, deploy to dev automatically and to production by hand)
+
+- **Task:** re-groom #39 following `docs/pm.md`, after #38 closed. The body was from 2026-11-01 ("Task 40 of 41", Render's `checksPass` as the whole task), and the product owner's fixed requirement of 2026-11-11 (comment 6805322615) had sent it back to grooming.
+- **What I did:**
+  - Rewrote the body with the task template, split into three parts as in #38: A for the engineer, B for the product owner by hand, C for QA live.
+  - Corrected the task line to 46 of 47, and the GitHub title to "46. Deploy to dev automatically and to production by hand", matching `docs/tasks.md`. Labels unchanged (none).
+  - Posted the PM comment with the decisions and fact checks (6877757263).
+  - **Scope:** §10.2 on its own asks only for deploys after CI passes, which #38 already meets. The product owner's 2026-11-11 decision asks for the pipeline and says this issue updates §10.2 and §10.4. So the issue follows that decision, and the spec edit (§10.2, §10.4, §14) is a criterion.
+  - **Decisions under the 2026-11-01 standing rule (the 2026-11-12 rule covered only #29–#38):**
+    - one backend image per `main` commit, built after every CI job passes and pushed to `ghcr.io/kittyniuniu/winlog-backend` with the SHA as its tag; deployed by digest through Render deploy hooks (`imgURL`);
+    - the GHCR package is public (the repository is public; no registry credential at Render). This cannot be undone, so the `.env` check runs in CI on every push;
+    - a tag per environment as each service's `image.url`, so a deploy that names no image never jumps ahead;
+    - dev: `winlog-api-dev` and `winlog-app-dev` in the same Blueprint, their own empty Neon project, and the mock AI;
+    - static sites: the same commit through hooks with `ref`, built per environment, because `VITE_API_BASE_URL` is built in (#25);
+    - production: a job behind the GitHub environment `production` with the product owner as required reviewer; the hooks are environment secrets;
+    - GitHub holds only the four hook URLs, with no Render API key or PAT;
+    - free plans only, with the shared 750 Render hours documented as a risk to production;
+    - the live `winlog-api` switches its source in place and keeps its URL, with a stop point if Render needs a new service or a paid plan.
+  - **#38 open points (comment 6877556341):**
+    - `checksPass`: replaced;
+    - console wording: corrected from the product owner's report during B;
+    - `.env` check: a CI step;
+    - cloud-session addresses: do not apply.
+- **How I verified it:**
+  - Read the issue and its two comments, #38's body, PM comment (6865852461) and close comment (6877558957), `docs/pm.md`, `docs/process.md`, `docs/task-template.md` and the spec (§9, §10, §12, §14).
+  - Read `render.yaml`, `ci.yml`, `backend/Dockerfile`, `.dockerignore`, `start.sh`, `settings.py`, the end-to-end test and `ops/deployment.md`.
+  - Facts:
+    - GitHub's environment and package rules: from the `github/docs` source files;
+    - Render's image fields and immutable `runtime`: from Render's `render-oss/skills` notes;
+    - Render deploy hooks, the source change, free hours and Neon limits: from search results only, because render.com and neon.com were not reachable. The issue asks for each to be checked in the current docs.
+  - Read the saved body back: it matches, with the four template sections.
+- **Left open:**
+  - The Render facts above still need checking. The engineer session needs render.com reachable for that.
+  - QA needs the dev hosts added to the session's allowed hosts.
+  - Both go to the orchestrator in the PM report.
+  - No follow-up issues were created.
