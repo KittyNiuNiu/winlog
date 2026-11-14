@@ -3459,3 +3459,125 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - The health wait in `deploy.yml` stays as it is (not changed in this task). Telling the new deploy from the previous one needs a Render API key, which the issue excludes, or a version in `/health`, which changes `openapi.yaml`. That would be a follow-up issue if wanted; the **Events** check covers it meanwhile.
   - Whether **New > Blueprint** takes over existing services by name (set-up step 6) can only be learnt in a real set-up.
   - The proof run of section B is the merge of this branch; then QA runs section C.
+
+## 2026-11-14: Orchestrator: close #39 (deploy to dev automatically and to production by hand)
+
+- **Task:** run #39 from `implemented` to closed with `/orchestrate 39`. No screens change, so no design note or review.
+- **What happened:**
+  - **Section B with the product owner, one step at a time:** Auto Sync off, the GitHub environments `dev` and `production`, the merge of PR #100 (7743b4f), the public GHCR package and the Neon dev project.
+  - **Step 7:** Render refused the Blueprint sync while `:dev` and `:production` did not exist. The engineer reported BLOCKED (6883111289): every path broke one constraint.
+  - **The product owner chose Option A (6883185445):** dev services created by hand from `sha-7743b4f…`, the first pipeline deploy to dev, then **Update Source** of `winlog-api` to the digest dev ran, the production hooks, the approval, and **Manual Sync**. Record: 6883991210.
+  - **The engineer corrected `ops/deployment.md`** for what happened (PR #101, 6884270725). Its merge (ff76738) was the proof run (6884765919): CI, then dev automatically, then production waiting until the approval, with the same digest `sha256:c2816c1c…015d`.
+  - **QA PASS** (6884956187) on the correction, section B and section C. The product owner confirmed the three settings QA could not read (6885023775). Closed as completed.
+- **Decisions:**
+  - **Option A** (product owner): production's first image deploy was started by hand, once, with the image that had already run in dev. Every later image goes only through the approved step.
+  - **The first dev backend got the URL `winlog-backend-sha.onrender.com`,** because Render pre-fills the Name from the image. The product owner deleted it and recreated it as `winlog-api-dev` (orchestrator's recommendation), so no code change or extra merge was needed.
+  - **The Manual Sync list was reviewed before it was applied.** Its "commit" auto-deploy trigger on the image services was judged harmless.
+  - **The product owner added `render.com` and the two dev hosts** to the session's allowed hosts for the engineer and QA.
+- **Open points and where they went:**
+  - **The health wait can pass on the previous deploy** (engineer and QA), with the proof paragraph that still reads as a plan: a new issue, #102, on the product owner's decision.
+  - **The README's deployment sentence must describe the new pipeline:** a comment on #40 (6885025618).
+  - **#92 can start now; the dev environment and the Manual Sync rules are inputs:** a comment on #92 (6885026619).
+  - **The HTTP-to-HTTPS redirect of the dev hosts is untested, and the dev hosts are new:** a comment on #99 (6885027348).
+  - **Left in this log, on the product owner's decision:**
+    - "New > Blueprint" taking over existing services (from-scratch set-up only) has not been tried; the guide says to stop at Render's notice.
+    - QA's 5 demo logins in production (the tokens expire normally).
+    - The end-to-end test account and mock summary in the dev database.
+    - The Neon and OpenRouter console wording is still from memory.
+  - **Resolved during section B:** the watch points from QA's first PASS (6878930201) and the engineer's first open points (6878329557).
+- **Verified:** I checked production `/health`, the app and CORS after every production change. GitHub Actions logs: hook HTTP 200s, deploy IDs, tag moves, and no hook URL in any log. No agent called a hook, approved or re-ran a job, or changed a setting. No real AI call.
+
+## 2026-11-14: PM: re-groom #40 (task 47, write the project README)
+
+- **Task:** check #40, labelled `groomed` since 2026-11-01, against the repository and the spec before the engineer starts. Followed `docs/pm.md`. The 2026-11-01 decisions stay.
+- **What I read:**
+  - the issue and its two input comments (6877556862 from #38, 6885025618 from #39);
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md`, `docs/product-spec.md` (v0.2, updated 14 November 2026), `AGENTS.md`, `.env.example`, `docker-compose.yml`, `docs/tasks.md`, `ops/deployment.md`, `docs/observability.md` and `docs/decisions/default-model.md`;
+  - `backend/Dockerfile`, `backend/start.sh`, `backend/app/health.py`, the login page's demo error, `README.md`, #38, #39 and #61 with its comments.
+- **What I did:**
+  - Updated the body of #40. Spec path `docs/product-spec.md`; task 47 of 47 in `docs/tasks.md`; dependencies all closed. The deployment sentence now describes the #39 pipeline. The live demo has the production URL only, the demo facts from §7.7 and the cold start "up to about a minute" (§12). The input comments are listed as references. Labels unchanged (`groomed`).
+  - Posted the PM comment with the changes and decisions (6885133663), and an input comment on #61 (6885135434): when #61 changes Compose, it updates the README's note.
+- **Decisions under the standing rule (2026-11-01), recorded in the issue:**
+  - Quick start names the app (http://localhost:8080), the backend's `/health` (http://localhost:8000/health) and local Grafana (http://localhost:3000, #74).
+  - Quick start and Configuration say what Compose does not pass on (#61): no demo locally, default AI and login limits, and no real AI provider under Compose. Fixing Compose stays in #61, now under Out of scope.
+  - "Development and tests" adds `./test-all.sh` (#73). New accuracy check: every README command matches `AGENTS.md`.
+  - AI adds that production uses the default model with a spending limit on its key, linked to `ops/deployment.md`. The amount is not copied.
+  - Project documents adds `DESIGN.md`, `PRODUCT.md`, `docs/process.md` and `docs/tasks.md`. `security/` is not linked, because it does not exist.
+  - No real AI calls in the checks; the production page is only opened.
+- **How I verified it:**
+  - Checked the AI defaults (10, 2, 100), the 00:00 UTC reset, OpenRouter with zero-data retention and the default model in §8, §13, `.env.example`, `docs/decisions/default-model.md` and `ops/deployment.md`.
+  - Checked that Compose passes only `DATABASE_URL`, `CORS_ALLOWED_ORIGINS`, `DATABASE_CONNECT_TIMEOUT_SECONDS`, `AI_PROVIDER` and the OTLP endpoint to the backend. `start.sh` skips the demo reset without `DEMO_EMAIL`. The login page shows "The demo isn't available right now." on `not_found`.
+  - Every task issue in `docs/tasks.md` except #40 is closed.
+  - Read the saved body back: it matches, with the four template sections.
+  - No code run, and no AI call.
+- **Left open:**
+  - `AGENTS.md`'s layout lists `security/`, which does not exist. The README does not link it.
+  - §10.2 still says "OpenRouter planned", though production uses it (#38). The spec is the product owner's, so it is unchanged.
+  - No follow-up issues were created.
+
+## 2026-11-14: Engineer: write the project README (#40)
+
+- **Task:** #40 (task 47 of 47), as re-groomed by the PM today (comment 6885133663), with the input comments 6877556862 (from #38) and 6885025618 (from #39). Files: `README.md` and this entry. No screens change.
+- **What I did:** replaced the two-line `README.md` with the ten sections, in the issue's order:
+  - what Winlog is (§1–§2) and the AI Dev Tools Zoomcamp 2026 note;
+  - live demo: the production URL only, **Try the demo** as §7.7 describes it, the reset on every backend start, and the cold start (up to about a minute; 43.7 s measured);
+  - features (§7); architecture (the §10.1 diagram and a summary of §10.2, linking §10);
+  - quick start with the three URLs, the mock without a key, and no demo account locally;
+  - development and tests: the essential commands exactly as in `AGENTS.md`, `./test-all.sh`, and `AGENTS.md` as the full reference;
+  - configuration: `.env.example` as the full list, and what the Compose backend does not get (#61);
+  - AI: adapter and mock, OpenRouter with zero-data retention, the limits 10, 2 and 100 with the 00:00 UTC reset, the model decision, and production's default model with a spending limit (amount not copied);
+  - deployment: one sentence on the pipeline and the link to `ops/deployment.md`;
+  - project documents: the eight documents, each with a few words.
+- **Decisions:**
+  - No README test: the issue limits the files to `README.md` and this log. The accuracy checks were run with a session-only script instead (below).
+  - Quick start says "in the root of a clone" and shows no `git clone`, because every command in the README must match `AGENTS.md`.
+- **How I verified it:**
+  - **Quick start, 2026-11-14 between 22:25 and 22:33 UTC, in fresh clones of this branch** (session scratchpad, Compose project `winlog-fresh`):
+    - Unmodified, at 9d5c72e: `cp .env.example .env`, then `docker compose up --build` failed at the backend image's `pip install uv`. The session's egress gateway re-signs TLS with its own CA, which the plain `python:3.13-slim` does not trust. This is the environment limit earlier sessions noted, not a defect.
+    - A new clone at e9c5336 (the README commit): `cp .env.example .env` (`AI_PROVIDER=mock`, `AI_API_KEY` empty) and `docker compose up --build`, with the committed Dockerfiles and `docker-compose.yml` unchanged. The only change was local: the base images `python:3.13-slim` and `node:26.13.0-alpine` were session-only copies that add the session's egress CAs. They were never committed and were removed afterwards.
+    - Results: all four services up. http://localhost:8000/health returned 200 `{"status":"ok","database":"ok"}`. http://localhost:8080 `/`, `/login`, `/register` and `/review` returned 200 with the title Winlog. http://localhost:3000 returned 200 (Grafana 13.3.0, no login), with the data sources Loki, Prometheus, Pyroscope and Tempo.
+    - Mock without a key: with a throwaway account, a suggestion returned `Side project` and `Mock tag`, and a summary "Mock summary of 1 entry …". Through Grafana, its trace was in Tempo, a log line with the same trace ID in Loki, and the outcome counter at 1 in Prometheus.
+    - No local demo: `POST /auth/demo` returned 404 `not_found`. In Chromium, **Try the demo** showed "The demo isn't available right now." and **Create an account** was shown.
+    - `npm run test:e2e` against that system: 1 passed.
+    - The Compose note: the backend container gets only `AI_PROVIDER`, `CORS_ALLOWED_ORIGINS`, `DATABASE_CONNECT_TIMEOUT_SECONDS`, `DATABASE_URL` and `OTEL_EXPORTER_OTLP_ENDPOINT`. With `AI_PROVIDER=openai-compatible`, loading the settings in that container stops with `AI_BASE_URL`, `AI_API_KEY` and `AI_MODEL` "required … but not set" (no AI call).
+    - `docker compose down -v` afterwards, so nothing of that system is left.
+    - CI's Full system job runs the unmodified `docker compose up --build` from a fresh checkout and checks `/health`, the frontend, the end-to-end test and Grafana. The run on this branch is linked in the issue comment.
+  - **Links:** 18 relative links to 13 files, all present; the anchors `#ai` and `#live-demo` exist. https://winlog-app.onrender.com returned 200 with the title Winlog at 22:31 UTC. It was only opened: no demo login, no suggestion, no summary.
+  - **Commands:** every command in the README appears word for word in `AGENTS.md`, for the same folder. The one exception in form is `cp .env.example .env`, which is `AGENTS.md`'s "copy `.env.example` to `.env` in the repo root" and the hint `test-all.sh` prints.
+  - **Secrets:** a pattern search found no key, token, password, connection string or deploy hook URL. The README names variables only.
+  - `./test-all.sh`: backend unit 1045 passed, integration 970 passed, frontend 1239 passed. `uv run ruff check .`, `uv run ruff format --check .` and `npm run lint` clean.
+- **Left open:**
+  - In this cloud session, an unmodified `docker compose up --build` cannot build the images (TLS through the egress gateway). CI covers it.
+  - When #61 passes every variable to Compose, the README's Quick start and Configuration notes change (the PM's input comment on #61 asks for it).
+  - `docs/product-spec.md`'s header still says "Last updated: 11 November 2026", while its change log has entries from 13 and 14 November. The spec is the product owner's, so it is unchanged.
+
+## 2026-11-14: Orchestrator: order the follow-up issues in docs/tasks.md
+
+- **Task:** the product owner asked to add the open follow-up issues to `docs/tasks.md` in the orchestrator's recommended order, and to skip #87 and #91 as out of scope.
+- **What I did:**
+  - Added tasks 48 to 61 to `docs/tasks.md`, in this order:
+    - first what protects the live app: #95, #88, #58, #89, #99;
+    - then the pipeline and developer set-up: #102, #61, #64, #68;
+    - then interface polish: #72, #86, #90;
+    - last the larger tasks that need an account or real AI calls: #92, #98.
+  - Added a "Skipped" section with #87 (typed dates on very slow devices) and #91 (screen-reader and larger-text checks). They stay open, outside the build order, so `/orchestrate` does not pick them.
+  - The follow-up issues keep their original titles, without a task number; `docs/tasks.md` says so.
+  - Posted the skip decision on #87 and #91.
+- **Decision (product owner, 2026-11-14):** #87 and #91 are out of scope. The issues are not closed.
+- **Verified:** every new entry links to an open issue with its current title.
+
+## 2026-11-14: Orchestrator: close #40 (write the project README)
+
+- **Task:** run #40 with the orchestrator, after the product owner said "go on with 40". No screens change, so no design note or review.
+- **What happened:**
+  - The grooming of 2026-11-01 was stale, so the PM re-groomed the issue (6885133663). It corrected stale facts (the spec path, the task number, #39's pipeline, the live demo) and kept every settled decision. Under the 2026-11-01 standing rule it added three local URLs to Quick start, notes on what Docker Compose does not pass (#61), `./test-all.sh`, a link to production's spending limit, and more project documents.
+  - The engineer wrote `README.md` (6885395249, commits e9c5336 and 37e4e13).
+  - QA PASS (6885535394). Closed as completed. This completes the 47 tasks of the original build order.
+- **How Quick start was checked:** in this session, the plain `docker compose up --build` stops at the backend image's `pip install uv`, because the session's gateway re-signs TLS. The engineer and QA each followed Quick start in fresh clones, with session-only base images that trust the session's CA (not committed). All URLs answered, the mock worked without a key, and the end-to-end test passed. CI's Full system job runs the plain command from a fresh checkout and passed (43649169504).
+- **Open points and where they went:**
+  - **Compose: the README notes need updating, and a minimum version** (`configs:` with inline `content:` needs a recent Docker Compose): a comment on #61 (6885542899), next to the PM's earlier input (6885135434).
+  - **`AGENTS.md` lists a `security/` folder that does not exist:** a comment on #68 (6885542361).
+  - **The spec says "OpenRouter planned" in §10.2, and its "Last updated" date is 11 November:** a new issue, #103, on the product owner's decision. It is not listed in `docs/tasks.md`, so it comes after task 61.
+  - **Left in this log, on the product owner's decision:**
+    - the plain Compose build cannot run in cloud sessions because of the TLS interception; CI covers it;
+    - the README's "What Winlog is" text has no heading of its own (not required).
