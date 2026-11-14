@@ -3486,3 +3486,31 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
     - The Neon and OpenRouter console wording is still from memory.
   - **Resolved during section B:** the watch points from QA's first PASS (6878930201) and the engineer's first open points (6878329557).
 - **Verified:** I checked production `/health`, the app and CORS after every production change. GitHub Actions logs: hook HTTP 200s, deploy IDs, tag moves, and no hook URL in any log. No agent called a hook, approved or re-ran a job, or changed a setting. No real AI call.
+
+## 2026-11-14: PM: re-groom #40 (task 47, write the project README)
+
+- **Task:** check #40, labelled `groomed` since 2026-11-01, against the repository and the spec before the engineer starts. Followed `docs/pm.md`. The 2026-11-01 decisions stay.
+- **What I read:**
+  - the issue and its two input comments (6877556862 from #38, 6885025618 from #39);
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md`, `docs/product-spec.md` (v0.2, updated 14 November 2026), `AGENTS.md`, `.env.example`, `docker-compose.yml`, `docs/tasks.md`, `ops/deployment.md`, `docs/observability.md` and `docs/decisions/default-model.md`;
+  - `backend/Dockerfile`, `backend/start.sh`, `backend/app/health.py`, the login page's demo error, `README.md`, #38, #39 and #61 with its comments.
+- **What I did:**
+  - Updated the body of #40. Spec path `docs/product-spec.md`; task 47 of 47 in `docs/tasks.md`; dependencies all closed. The deployment sentence now describes the #39 pipeline. The live demo has the production URL only, the demo facts from §7.7 and the cold start "up to about a minute" (§12). The input comments are listed as references. Labels unchanged (`groomed`).
+  - Posted the PM comment with the changes and decisions (6885133663), and an input comment on #61 (6885135434): when #61 changes Compose, it updates the README's note.
+- **Decisions under the standing rule (2026-11-01), recorded in the issue:**
+  - Quick start names the app (http://localhost:8080), the backend's `/health` (http://localhost:8000/health) and local Grafana (http://localhost:3000, #74).
+  - Quick start and Configuration say what Compose does not pass on (#61): no demo locally, default AI and login limits, and no real AI provider under Compose. Fixing Compose stays in #61, now under Out of scope.
+  - "Development and tests" adds `./test-all.sh` (#73). New accuracy check: every README command matches `AGENTS.md`.
+  - AI adds that production uses the default model with a spending limit on its key, linked to `ops/deployment.md`. The amount is not copied.
+  - Project documents adds `DESIGN.md`, `PRODUCT.md`, `docs/process.md` and `docs/tasks.md`. `security/` is not linked, because it does not exist.
+  - No real AI calls in the checks; the production page is only opened.
+- **How I verified it:**
+  - Checked the AI defaults (10, 2, 100), the 00:00 UTC reset, OpenRouter with zero-data retention and the default model in §8, §13, `.env.example`, `docs/decisions/default-model.md` and `ops/deployment.md`.
+  - Checked that Compose passes only `DATABASE_URL`, `CORS_ALLOWED_ORIGINS`, `DATABASE_CONNECT_TIMEOUT_SECONDS`, `AI_PROVIDER` and the OTLP endpoint to the backend. `start.sh` skips the demo reset without `DEMO_EMAIL`. The login page shows "The demo isn't available right now." on `not_found`.
+  - Every task issue in `docs/tasks.md` except #40 is closed.
+  - Read the saved body back: it matches, with the four template sections.
+  - No code run, and no AI call.
+- **Left open:**
+  - `AGENTS.md`'s layout lists `security/`, which does not exist. The README does not link it.
+  - §10.2 still says "OpenRouter planned", though production uses it (#38). The spec is the product owner's, so it is unchanged.
+  - No follow-up issues were created.
