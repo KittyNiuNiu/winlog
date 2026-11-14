@@ -3340,3 +3340,24 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - `.github/workflows/ci.yml`: the Tempo lookup now prints `traceID.zfill(32)`, and a comment explains why. No other step changed; the check is as strict as before.
 - **How I verified it:** ran the changed Python one-liner locally on the 31-character ID from run 43505953281 (prints the backend's 32-character ID), on a full 32-character ID (unchanged), and on empty Tempo responses (prints nothing, as before). The workflow file still parses as YAML. The CI run on this branch is the end-to-end check; because the bug hits only about one run in 16, one green run does not prove the fix on its own, but the log evidence above does.
 - **Left open:** nothing.
+
+## 2026-11-14: Orchestrator: closed #38 (task 45, deploy to Render and Neon)
+
+- **Outcome:**
+  - Section A: the engineer's plan (6866482669) and build (6866839100), QA PASS (6866953885), merged into `main` with #96.
+  - Section B: done by the product owner (6876931277).
+  - Section C: QA PASS on the live app (6877467325).
+  - The task changes no screens, so there was no design note or review.
+  - Closed as completed; the last status label `implemented` stays. Close comment: 6877558957.
+- **Decisions and answers in this session:**
+  - **Network:** the Default environment allowed only the exact host `onrender.com`, which does not match subdomains, so the live app was blocked (403). The product owner approved adding the exact hosts `winlog-api.onrender.com` and `winlog-app.onrender.com` to the Default environment.
+  - **Demo-login per visitor (#46):** the product owner pressed "Try the demo" from mobile data while QA's address was refused. The demo opened, so no follow-up issue.
+  - **Real AI:** the product owner approved at most 2 suggestions and 1 summary, quoted at about $0.001 expected and about $0.011 at most (2026-11-09 prices; OpenRouter was not reachable for a re-check). QA made 1 suggestion and 1 summary. The summary confirms that the model accepts `max_tokens` 16000 (#17).
+  - **Node version:** the product owner confirmed `Node v26.13.0` in the static site's Render build log, the part of the static-site criterion that section A left to section B.
+  - **HSTS follow-up:** filed under the 2026-11-12 standing rule, taking QA's suggested option.
+- **Where each open point went:**
+  - Live summaries mostly repeat the entries' wording (product owner): new issue #98, at the product owner's request.
+  - No HSTS header on the backend (QA): new issue #99.
+  - `checksPass` already set; `ops/deployment.md` console wording and free-plan figures from memory; the image `.env` check not run on a built image; cloud-session traffic leaves from several addresses (engineer, QA): comment on #39 (6877556341).
+  - Live URLs, the working demo and the measured cold start of 43.7 s (QA): comment on #40 (6877556862).
+  - A demo token QA may not have revoked (never written down, expires within 7 days); the `render.yaml` host prediction, which turned out right; QA's scratch files, deleted after the check: left in this log.
