@@ -3565,3 +3565,19 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Posted the skip decision on #87 and #91.
 - **Decision (product owner, 2026-11-14):** #87 and #91 are out of scope. The issues are not closed.
 - **Verified:** every new entry links to an open issue with its current title.
+
+## 2026-11-14: Orchestrator: close #40 (write the project README)
+
+- **Task:** run #40 with the orchestrator, after the product owner said "go on with 40". No screens change, so no design note or review.
+- **What happened:**
+  - The grooming of 2026-11-01 was stale, so the PM re-groomed the issue (6885133663). It corrected stale facts (the spec path, the task number, #39's pipeline, the live demo) and kept every settled decision. Under the 2026-11-01 standing rule it added three local URLs to Quick start, notes on what Docker Compose does not pass (#61), `./test-all.sh`, a link to production's spending limit, and more project documents.
+  - The engineer wrote `README.md` (6885395249, commits e9c5336 and 37e4e13).
+  - QA PASS (6885535394). Closed as completed. This completes the 47 tasks of the original build order.
+- **How Quick start was checked:** in this session, the plain `docker compose up --build` stops at the backend image's `pip install uv`, because the session's gateway re-signs TLS. The engineer and QA each followed Quick start in fresh clones, with session-only base images that trust the session's CA (not committed). All URLs answered, the mock worked without a key, and the end-to-end test passed. CI's Full system job runs the plain command from a fresh checkout and passed (43649169504).
+- **Open points and where they went:**
+  - **Compose: the README notes need updating, and a minimum version** (`configs:` with inline `content:` needs a recent Docker Compose): a comment on #61 (6885542899), next to the PM's earlier input (6885135434).
+  - **`AGENTS.md` lists a `security/` folder that does not exist:** a comment on #68 (6885542361).
+  - **The spec says "OpenRouter planned" in §10.2, and its "Last updated" date is 11 November:** a new issue, #103, on the product owner's decision. It is not listed in `docs/tasks.md`, so it comes after task 61.
+  - **Left in this log, on the product owner's decision:**
+    - the plain Compose build cannot run in cloud sessions because of the TLS interception; CI covers it;
+    - the README's "What Winlog is" text has no heading of its own (not required).
