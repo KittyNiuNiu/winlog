@@ -402,22 +402,147 @@ def _guide_section(heading: str) -> str:
     return guide[start : end if end != -1 else len(guide)]
 
 
+def _flat(text: str) -> str:
+    """The text with every run of whitespace as one space, so line wrapping does not matter."""
+    return " ".join(text.split())
+
+
+def _numbered_steps(text: str) -> dict[int, str]:
+    """The top-level numbered steps of a guide passage (`1. **…`), by number."""
+    parts = re.split(r"^ ?(\d+)\. (?=\*\*)", text, flags=re.MULTILINE)
+    pairs = zip(parts[1::2], parts[2::2], strict=True)
+    return {int(number): _flat(body) for number, body in pairs}
+
+
 def test_deploy_guide_migration_turns_production_auto_deploy_off_before_the_merge():
-    # Until the Blueprint sync, winlog-api and winlog-app still have #38's checksPass, so
-    # Render would deploy the merge commit to production without approval and without dev.
+    # Until the migration, winlog-api and winlog-app still had #38's checksPass, so Render
+    # would have deployed the merge commit to production without approval and without dev.
     migration = _guide_section("## The one-off migration of the live production (#39)")
-    before_merge, after_merge = migration.split("**Merge the pull request into `main`.**")
+    before_merge, after_merge = migration.split("**The merge into `main`.**")
     first_step = before_merge.split("\n1. ")[1].split("\n2. ")[0]
     assert "`winlog-api`" in first_step and "`winlog-app`" in first_step
     assert "**Auto-Deploy** → **Off**" in first_step
     # Auto Sync is turned off before the merge too, but after Auto-Deploy.
     assert "**Auto Sync** to **No**" in before_merge.split("\n2. ")[1]
-    # Nothing else is merged until the first production deploy is done.
-    assert "merge nothing else into `main` until\nstep 13 is done" in after_merge
-    assert "\n13. **First production deploy.**" in after_merge
-    # The steps are numbered 1 to 14 in order, with no gap.
+    # Nothing else was merged until the Blueprint sync, the last Render step, was done.
+    assert "nothing else was merged into `main` until step 15 was done" in _flat(after_merge)
+    assert "\n15. **Render: Manual Sync of the Blueprint.**" in after_merge
+    # The steps are numbered 1 to 16 in order, with no gap.
     numbers = [int(n) for n in re.findall(r"^ ?(\d+)\. \*\*", migration, flags=re.MULTILINE)]
-    assert numbers == list(range(1, 15))
+    assert numbers == list(range(1, 17))
+
+
+def test_deploy_guide_migration_record_matches_what_was_done():
+    # #39 section B, done on 2026-11-14 with the product owner's Option A: the Blueprint sync
+    # was refused while :dev and :production did not exist, so dev was created by hand first.
+    migration = _guide_section("## The one-off migration of the live production (#39)")
+    flat = _flat(migration)
+    assert "**Done on 14 November 2026.**" in flat
+    steps = _numbered_steps(migration)
+    # Steps 1 to 6 are the ones that worked as written; set-up from scratch reuses 3 to 5.
+    assert "**GitHub: create the environment `dev`.**" in steps[3]
+    assert "**GitHub: create the environment `production`.**" in steps[4]
+    assert "**GHCR: make the package public.**" in steps[5]
+    assert "**Neon: create the dev project.**" in steps[6]
+    assert '"backend images not found"' in flat
+    # Dev first, by hand, from the image the pipeline published for the merge commit.
+    assert "create `winlog-api-dev`" in steps[7]
+    assert re.search(r"winlog-backend:sha-[0-9a-f]{40}", steps[7])
+    assert "pre-fills the **Name**" in steps[7]
+    assert "create `winlog-app-dev`" in steps[8] and "**Auto-Deploy** **Off**" in steps[8]
+    assert "the dev hooks" in steps[9]
+    assert "**Re-run failed jobs**" in steps[10]
+    assert "Events" in steps[11] and "named the digest" in steps[11]
+    # Then production's source, to the digest dev runs, before its hooks and the approval.
+    assert "**Update Source**" in steps[12] and "winlog-backend@sha256:" in steps[12]
+    assert "the production hooks" in steps[13]
+    assert "**Approve.**" in steps[14] and "`:production`" in steps[14]
+    # The sync came last and took over the services Render already had.
+    assert "Manual Sync" in steps[15]
+    assert steps[15].count("**associated** (not new)") == 2
+    assert "`winlog-app`: not listed" in steps[15]
+    assert "freeze ended" in steps[16]
+    # The one accepted deviation is stated, with whose decision it was.
+    deviation = flat.split("**The one accepted deviation.**")[1].split("**Before the")[0]
+    assert "started by hand" in deviation and "product owner's decision" in deviation
+    # What turned out wrong is gone: the sync applying first, and first deploys that fail.
+    assert "**fails**" not in migration
+    guide = (ROOT / "ops" / "deployment.md").read_text(encoding="utf-8")
+    assert "keeps the current value" not in _flat(guide)
+
+
+def test_deploy_guide_set_up_creates_the_services_before_the_blueprint():
+    setup = _guide_section("## Set up from scratch")
+    dev = setup.split("### 4. Render: the dev services")[1].split("\n### 5.")[0]
+    production = setup.split("### 5. Render: the production services and the approval\n")[1]
+    production = production.split("\n### 6.")[0]
+    blueprint = setup.split("### 6. Render: the Blueprint")[1]
+    flat = _flat(setup)
+    assert "A Blueprint sync is refused while an image tag it names does not exist" in flat
+    # Dev first, from the sha-<commit> image, with the pre-filled name overwritten.
+    assert "winlog-backend:sha-<commit>" in dev
+    assert "**Overwrite the pre-filled Name with `winlog-api-dev` before" in _flat(dev)
+    assert "**Re-run failed jobs**" in _flat(dev) and "do not approve it yet" in _flat(dev)
+    # Production only after dev has been checked; the approval creates the tag.
+    assert production.lstrip().startswith("Only after dev has been checked")
+    assert "creates `:production`" in _flat(production)
+    # The Blueprint last, once both tags exist, and only if it takes over the services.
+    assert blueprint.lstrip().startswith("Now that both tags exist")
+    assert "not observed" in _flat(blueprint)
+    assert "**do not deploy the Blueprint**" in _flat(blueprint)
+    # The URL comes from the name the service had when it was created.
+    urls = _flat(_guide_section("## The public URLs"))
+    assert "pre-fills the **Name**" in urls
+    assert "renaming the service later does not change it" in urls
+
+
+def _hand_entered_keys(step: str, service: dict) -> set[str]:
+    return set(re.findall(r"`([A-Z_]+)`", step)) & set(_env_vars(service))
+
+
+def test_deploy_guide_set_up_hand_entered_values_and_backend_defaults_give_render_yaml():
+    """A backend created by hand runs with render.yaml's values before the Blueprint sync."""
+    setup = _guide_section("## Set up from scratch")
+    dev_step = setup.split("### 4. Render: the dev services")[1].split("\n2. ")[0]
+    production_step = setup.split("### 5. Render: the production services")[1].split("\n2. ")[0]
+    for name, step in ((DEV_API, dev_step), (PROD_API, production_step)):
+        service = _service(name)
+        entered = _hand_entered_keys(step, service)
+        assert _synced_by_hand(service) <= entered
+        for key, value in _plain_values(service).items():
+            if key in entered:
+                continue
+            default = Settings.model_fields[key.lower()].default
+            assert str(default) == value, f"{name}: enter {key} by hand, or change its default"
+
+
+def test_deploy_guide_says_the_health_wait_can_pass_on_the_previous_deploy():
+    # Observed on 2026-11-14: the wait passed while the previous deploys still answered.
+    pipeline = _flat(_guide_section("## The pipeline"))
+    assert "This wait does not show that the new deploy is live" in pipeline
+    assert "can pass on the previous deploy" in pipeline
+    promote = _guide_section("## Promote to production")
+    check_dev = _flat(promote.split("\n3. ")[1].split("\n4. ")[0])
+    assert "A green **Deploy to dev** job is not enough" in check_dev
+    assert "can pass on the previous deploy" in check_dev and "**Events**" in check_dev
+    proof = _flat(_guide_section("## The one-off migration of the live production (#39)"))
+    assert "not from the deploy jobs' wait, which can pass on the previous deploy" in proof
+    assert "does not prove which version is live" in DEPLOY_TEXT
+
+
+def test_deploy_guide_blueprint_syncs_stay_manual_and_explain_the_backends_trigger():
+    syncs = _flat(_guide_section("## Blueprint syncs"))
+    assert "**Auto Sync stays No, and both static sites' Auto-Deploy stays Off.**" in syncs
+    assert "**Manual Sync**" in syncs
+    assert "refused as a whole while an image tag it names does not exist" in syncs
+    # The sync set "commit" on the image services, which render.yaml leaves unset.
+    assert 'set both backends to "commit". This is harmless.' in syncs
+    for name in (PROD_API, DEV_API):
+        assert "autoDeployTrigger" not in _service(name)
+    # Every other passage that syncs the Blueprint points here.
+    guide = (ROOT / "ops" / "deployment.md").read_text(encoding="utf-8")
+    assert "migration step 14" not in guide
+    assert guide.count("[Blueprint syncs](#blueprint-syncs)") >= 4
 
 
 def test_deploy_guide_by_hand_hook_call_keeps_the_url_off_the_command_line():
