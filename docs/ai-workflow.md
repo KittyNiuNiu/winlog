@@ -3514,3 +3514,39 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - `AGENTS.md`'s layout lists `security/`, which does not exist. The README does not link it.
   - §10.2 still says "OpenRouter planned", though production uses it (#38). The spec is the product owner's, so it is unchanged.
   - No follow-up issues were created.
+
+## 2026-11-14: Engineer: write the project README (#40)
+
+- **Task:** #40 (task 47 of 47), as re-groomed by the PM today (comment 6885133663), with the input comments 6877556862 (from #38) and 6885025618 (from #39). Files: `README.md` and this entry. No screens change.
+- **What I did:** replaced the two-line `README.md` with the ten sections, in the issue's order:
+  - what Winlog is (§1–§2) and the AI Dev Tools Zoomcamp 2026 note;
+  - live demo: the production URL only, **Try the demo** as §7.7 describes it, the reset on every backend start, and the cold start (up to about a minute; 43.7 s measured);
+  - features (§7); architecture (the §10.1 diagram and a summary of §10.2, linking §10);
+  - quick start with the three URLs, the mock without a key, and no demo account locally;
+  - development and tests: the essential commands exactly as in `AGENTS.md`, `./test-all.sh`, and `AGENTS.md` as the full reference;
+  - configuration: `.env.example` as the full list, and what the Compose backend does not get (#61);
+  - AI: adapter and mock, OpenRouter with zero-data retention, the limits 10, 2 and 100 with the 00:00 UTC reset, the model decision, and production's default model with a spending limit (amount not copied);
+  - deployment: one sentence on the pipeline and the link to `ops/deployment.md`;
+  - project documents: the eight documents, each with a few words.
+- **Decisions:**
+  - No README test: the issue limits the files to `README.md` and this log. The accuracy checks were run with a session-only script instead (below).
+  - Quick start says "in the root of a clone" and shows no `git clone`, because every command in the README must match `AGENTS.md`.
+- **How I verified it:**
+  - **Quick start, 2026-11-14 between 22:25 and 22:33 UTC, in fresh clones of this branch** (session scratchpad, Compose project `winlog-fresh`):
+    - Unmodified, at 9d5c72e: `cp .env.example .env`, then `docker compose up --build` failed at the backend image's `pip install uv`. The session's egress gateway re-signs TLS with its own CA, which the plain `python:3.13-slim` does not trust. This is the environment limit earlier sessions noted, not a defect.
+    - A new clone at e9c5336 (the README commit): `cp .env.example .env` (`AI_PROVIDER=mock`, `AI_API_KEY` empty) and `docker compose up --build`, with the committed Dockerfiles and `docker-compose.yml` unchanged. The only change was local: the base images `python:3.13-slim` and `node:26.13.0-alpine` were session-only copies that add the session's egress CAs. They were never committed and were removed afterwards.
+    - Results: all four services up. http://localhost:8000/health returned 200 `{"status":"ok","database":"ok"}`. http://localhost:8080 `/`, `/login`, `/register` and `/review` returned 200 with the title Winlog. http://localhost:3000 returned 200 (Grafana 13.3.0, no login), with the data sources Loki, Prometheus, Pyroscope and Tempo.
+    - Mock without a key: with a throwaway account, a suggestion returned `Side project` and `Mock tag`, and a summary "Mock summary of 1 entry …". Through Grafana, its trace was in Tempo, a log line with the same trace ID in Loki, and the outcome counter at 1 in Prometheus.
+    - No local demo: `POST /auth/demo` returned 404 `not_found`. In Chromium, **Try the demo** showed "The demo isn't available right now." and **Create an account** was shown.
+    - `npm run test:e2e` against that system: 1 passed.
+    - The Compose note: the backend container gets only `AI_PROVIDER`, `CORS_ALLOWED_ORIGINS`, `DATABASE_CONNECT_TIMEOUT_SECONDS`, `DATABASE_URL` and `OTEL_EXPORTER_OTLP_ENDPOINT`. With `AI_PROVIDER=openai-compatible`, loading the settings in that container stops with `AI_BASE_URL`, `AI_API_KEY` and `AI_MODEL` "required … but not set" (no AI call).
+    - `docker compose down -v` afterwards, so nothing of that system is left.
+    - CI's Full system job runs the unmodified `docker compose up --build` from a fresh checkout and checks `/health`, the frontend, the end-to-end test and Grafana. The run on this branch is linked in the issue comment.
+  - **Links:** 18 relative links to 13 files, all present; the anchors `#ai` and `#live-demo` exist. https://winlog-app.onrender.com returned 200 with the title Winlog at 22:31 UTC. It was only opened: no demo login, no suggestion, no summary.
+  - **Commands:** every command in the README appears word for word in `AGENTS.md`, for the same folder. The one exception in form is `cp .env.example .env`, which is `AGENTS.md`'s "copy `.env.example` to `.env` in the repo root" and the hint `test-all.sh` prints.
+  - **Secrets:** a pattern search found no key, token, password, connection string or deploy hook URL. The README names variables only.
+  - `./test-all.sh`: backend unit 1045 passed, integration 970 passed, frontend 1239 passed. `uv run ruff check .`, `uv run ruff format --check .` and `npm run lint` clean.
+- **Left open:**
+  - In this cloud session, an unmodified `docker compose up --build` cannot build the images (TLS through the egress gateway). CI covers it.
+  - When #61 passes every variable to Compose, the README's Quick start and Configuration notes change (the PM's input comment on #61 asks for it).
+  - `docs/product-spec.md`'s header still says "Last updated: 11 November 2026", while its change log has entries from 13 and 14 November. The spec is the product owner's, so it is unchanged.
