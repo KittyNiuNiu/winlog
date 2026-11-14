@@ -4,11 +4,17 @@
 # backend with only that .env), and the AI provider is the mock (AI_PROVIDER=mock in
 # .env.example). No job calls a real AI API.
 #
+# CI only checks: it pushes no image and deploys nothing, on any branch. When a CI run for a push
+# to main passes, the Deploy workflow (deploy.yml) publishes the image the Backend image job built
+# and deploys it (#39). No job here may have a condition that skips it on main: a skipped job
+# does not fail the run, so it could let a deploy through.
+#
 # Actions used, each pinned to at least a major version:
 # - actions/checkout@v7: checks out the repository.
 # - actions/setup-node@v7: installs Node from frontend/.nvmrc and caches npm downloads.
-# - actions/upload-artifact@v7: uploads the viewport screenshots of the Frontend job (#36) and,
-#   when the Full system job fails, the end-to-end test's trace and screenshot (#37).
+# - actions/upload-artifact@v7: uploads the viewport screenshots of the Frontend job (#36),
+#   when the Full system job fails, the end-to-end test's trace and screenshot (#37), and on
+#   main the checked backend image for the Deploy workflow (#39).
 # - astral-sh/setup-uv@v10.3.3: installs uv and caches uv downloads. setup-uv publishes no
 #   floating major tag (such as v10), so it is pinned to its exact release.
 # Python comes from backend/.python-version: `uv python install` reads that file.
@@ -19,7 +25,9 @@ on:
   push:
     branches: ["**"]
 
-# A new push to the same branch cancels the run still in progress for that branch.
+# A new push to the same branch cancels the run still in progress for that branch. On main, the
+# cancelled run's commit is then not deployed; a deploy already running in deploy.yml is not
+# affected.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -173,6 +181,68 @@ jobs:
           name: viewport-screenshots
           path: frontend/viewport-screenshots/
           if-no-files-found: warn
+
+  image:
+    name: Backend image
+    # Builds the backend image that is deployed (#39), on every push, and checks it. Nothing is
+    # pushed from CI. On main, the checked image is kept as the `backend-image` artifact, and the
+    # Deploy workflow (deploy.yml) pushes exactly this image to GHCR once every CI job of the
+    # commit has passed. So each main commit's image is built once, here.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build the image
+        # For linux/amd64, the platform Render runs. Without a provenance attestation the image
+        # is a single manifest, so its digest is the one deployed. The revision label names the
+        # commit, which the Deploy workflow checks before it pushes the image.
+        run: >-
+          docker buildx build
+          --platform linux/amd64
+          --provenance=false
+          --label "org.opencontainers.image.revision=$GITHUB_SHA"
+          --load
+          --tag winlog-backend:ci
+          backend
+
+      - name: The image holds no .env file
+        # No file named .env or .env.<anything> anywhere in the image's file system (#38 open
+        # point 3). .dockerignore keeps them out of the build context and the Dockerfile copies
+        # only named paths; this checks the built result. First the check must see the app's
+        # files, so an empty result means something.
+        run: |
+          seen=$(docker run --rm -u 0 --entrypoint find winlog-backend:ci / -xdev -path /app/start.sh)
+          [ "$seen" = /app/start.sh ] || { echo "::error::The check cannot see /app/start.sh in the image"; exit 1; }
+          found=$(docker run --rm -u 0 --entrypoint find winlog-backend:ci / -xdev -name '.env*')
+          if [ -n "$found" ]; then
+            echo "$found"
+            echo "::error::The backend image holds the files above. Check .dockerignore and the COPY lines in backend/Dockerfile."
+            exit 1
+          fi
+          echo "No file named .env* in the image."
+
+      - name: The image is linked to the repository
+        # GHCR links the package to the repository through this label.
+        run: |
+          source=$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.source" }}' winlog-backend:ci)
+          [ "$source" = "https://github.com/KittyNiuNiu/winlog" ] || { echo "::error::Label org.opencontainers.image.source is '$source'"; exit 1; }
+          echo "org.opencontainers.image.source=$source"
+
+      - name: Save the image for the Deploy workflow
+        if: github.ref == 'refs/heads/main'
+        run: docker save winlog-backend:ci | gzip > "$RUNNER_TEMP/backend-image.tar.gz"
+
+      - name: Upload the image for the Deploy workflow
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-image
+          path: ${{ runner.temp }}/backend-image.tar.gz
+          # Already compressed. Kept for a week: the Deploy workflow downloads it minutes later.
+          compression-level: 0
+          retention-days: 7
+          if-no-files-found: error
 
   tests:
     name: Tests
