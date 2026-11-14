@@ -3459,3 +3459,30 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - The health wait in `deploy.yml` stays as it is (not changed in this task). Telling the new deploy from the previous one needs a Render API key, which the issue excludes, or a version in `/health`, which changes `openapi.yaml`. That would be a follow-up issue if wanted; the **Events** check covers it meanwhile.
   - Whether **New > Blueprint** takes over existing services by name (set-up step 6) can only be learnt in a real set-up.
   - The proof run of section B is the merge of this branch; then QA runs section C.
+
+## 2026-11-14: Orchestrator: close #39 (deploy to dev automatically and to production by hand)
+
+- **Task:** run #39 from `implemented` to closed with `/orchestrate 39`. No screens change, so no design note or review.
+- **What happened:**
+  - **Section B with the product owner, one step at a time:** Auto Sync off, the GitHub environments `dev` and `production`, the merge of PR #100 (7743b4f), the public GHCR package and the Neon dev project.
+  - **Step 7:** Render refused the Blueprint sync while `:dev` and `:production` did not exist. The engineer reported BLOCKED (6883111289): every path broke one constraint.
+  - **The product owner chose Option A (6883185445):** dev services created by hand from `sha-7743b4f…`, the first pipeline deploy to dev, then **Update Source** of `winlog-api` to the digest dev ran, the production hooks, the approval, and **Manual Sync**. Record: 6883991210.
+  - **The engineer corrected `ops/deployment.md`** for what happened (PR #101, 6884270725). Its merge (ff76738) was the proof run (6884765919): CI, then dev automatically, then production waiting until the approval, with the same digest `sha256:c2816c1c…015d`.
+  - **QA PASS** (6884956187) on the correction, section B and section C. The product owner confirmed the three settings QA could not read (6885023775). Closed as completed.
+- **Decisions:**
+  - **Option A** (product owner): production's first image deploy was started by hand, once, with the image that had already run in dev. Every later image goes only through the approved step.
+  - **The first dev backend got the URL `winlog-backend-sha.onrender.com`,** because Render pre-fills the Name from the image. The product owner deleted it and recreated it as `winlog-api-dev` (orchestrator's recommendation), so no code change or extra merge was needed.
+  - **The Manual Sync list was reviewed before it was applied.** Its "commit" auto-deploy trigger on the image services was judged harmless.
+  - **The product owner added `render.com` and the two dev hosts** to the session's allowed hosts for the engineer and QA.
+- **Open points and where they went:**
+  - **The health wait can pass on the previous deploy** (engineer and QA), with the proof paragraph that still reads as a plan: a new issue, #102, on the product owner's decision.
+  - **The README's deployment sentence must describe the new pipeline:** a comment on #40 (6885025618).
+  - **#92 can start now; the dev environment and the Manual Sync rules are inputs:** a comment on #92 (6885026619).
+  - **The HTTP-to-HTTPS redirect of the dev hosts is untested, and the dev hosts are new:** a comment on #99 (6885027348).
+  - **Left in this log, on the product owner's decision:**
+    - "New > Blueprint" taking over existing services (from-scratch set-up only) has not been tried; the guide says to stop at Render's notice.
+    - QA's 5 demo logins in production (the tokens expire normally).
+    - The end-to-end test account and mock summary in the dev database.
+    - The Neon and OpenRouter console wording is still from memory.
+  - **Resolved during section B:** the watch points from QA's first PASS (6878930201) and the engineer's first open points (6878329557).
+- **Verified:** I checked production `/health`, the app and CORS after every production change. GitHub Actions logs: hook HTTP 200s, deploy IDs, tag moves, and no hook URL in any log. No agent called a hook, approved or re-ran a job, or changed a setting. No real AI call.
