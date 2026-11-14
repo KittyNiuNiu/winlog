@@ -1,0 +1,301 @@
+# Deploy: publishes the backend image and deploys it to dev, then to production after the
+# product owner's approval (issue #39, product-spec.md §10.2 and §10.4). How to use it, approve,
+# roll back and set it up: ops/deployment.md.
+#
+# When it runs:
+# - After a CI run for a push to main has finished. Only a CI run that passed (every job
+#   succeeded) is published and deployed. A failed or cancelled CI run deploys nothing.
+# - On a push to any other branch, so GitHub checks this file there too. Then every job is
+#   skipped: nothing is pushed and nothing is deployed from a branch.
+#
+# The jobs:
+# 1. Publish image: pushes the image that CI built and checked for this commit (the
+#    `backend-image` artifact of the CI run) to ghcr.io/kittyniuniu/winlog-backend, tagged
+#    sha-<commit SHA>. Nothing is built here, and nothing is built on Render.
+# 2. Deploy to dev (GitHub environment `dev`): deploys that image by digest to winlog-api-dev,
+#    moves the :dev tag to it, deploys the static site winlog-app-dev from the same commit, and
+#    waits until both answer.
+# 3. Deploy to production (GitHub environment `production`): waits for the product owner's
+#    approval, then does the same with the same digest and commit for winlog-api, the
+#    :production tag and winlog-app. It builds nothing.
+#
+# Secrets: each of the two environments holds two Render deploy hook URLs,
+# RENDER_API_DEPLOY_HOOK (the backend) and RENDER_APP_DEPLOY_HOOK (the static site). Environment
+# secrets are readable only by a job that uses the environment, and in production only after the
+# approval. No step prints a hook URL: curl reads it from its standard input, never from its
+# command line, and the log shows only the HTTP status. GHCR uses the workflow's GITHUB_TOKEN,
+# with packages: write only in the jobs that push or tag the image.
+#
+# No AI calls: the jobs call only Render's deploy hooks, GHCR, the backend's GET /health and the
+# static site's /.
+#
+# Actions used, pinned to a major version:
+# - actions/download-artifact@v8: downloads the image artifact from the CI run that triggered
+#   this run (needs actions: read and the run's ID).
+# docker, curl and python3 are preinstalled on the runner.
+
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  push:
+    branches-ignore: [main]
+
+# No workflow-level concurrency: a newer push to main never cancels this run. Each deploy job has
+# its own group instead, so only one deploy per environment runs at a time.
+permissions: {}
+
+env:
+  IMAGE: ghcr.io/kittyniuniu/winlog-backend
+
+jobs:
+  publish:
+    name: Publish image
+    # Only for a CI run of a push to main in this repository that passed.
+    if: >-
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      # Download the image artifact of the CI run.
+      actions: read
+      # Push the image to GHCR.
+      packages: write
+    outputs:
+      sha: ${{ steps.push.outputs.sha }}
+      digest: ${{ steps.push.outputs.digest }}
+    env:
+      # The commit CI checked. github.sha is the latest commit on main, which can be newer.
+      SHA: ${{ github.event.workflow_run.head_sha }}
+    steps:
+      - name: Download the image CI built and checked
+        uses: actions/download-artifact@v8
+        with:
+          name: backend-image
+          path: ${{ runner.temp }}/backend-image
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+
+      - name: Load the image
+        # The image's revision label must be this commit, so a wrong artifact is never pushed.
+        run: |
+          gunzip -c "$RUNNER_TEMP/backend-image/backend-image.tar.gz" | docker load
+          revision=$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' winlog-backend:ci)
+          if [ "$revision" != "$SHA" ]; then
+            echo "::error::The image artifact is for commit '$revision', not for $SHA"
+            exit 1
+          fi
+          docker tag winlog-backend:ci "$IMAGE:sha-$SHA"
+
+      - name: Log in to GitHub Container Registry
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: printf '%s' "$GITHUB_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+
+      - name: Push the image
+        id: push
+        run: |
+          docker push "$IMAGE:sha-$SHA"
+          # The digest the registry stores for the tag, read back from GHCR.
+          digest=$(docker buildx imagetools inspect "$IMAGE:sha-$SHA" --format '{{json .Manifest}}' \
+            | python3 -c 'import json, sys; print(json.load(sys.stdin)["digest"])')
+          case "$digest" in
+            sha256:????????????????????????????????????????????????????????????????) ;;
+            *) echo "::error::Could not read the image digest from GHCR (got '$digest')"; exit 1 ;;
+          esac
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+          {
+            echo "### Backend image published"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Commit | \`$SHA\` |"
+            echo "| Image | \`$IMAGE:sha-$SHA\` |"
+            echo "| Digest | \`$digest\` |"
+            echo
+            echo "Dev and production deploy this digest: \`$IMAGE@$digest\`."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "Pushed $IMAGE:sha-$SHA with digest $digest"
+
+      - name: Log out of GitHub Container Registry
+        if: always()
+        run: docker logout ghcr.io
+
+  deploy-dev:
+    name: Deploy to dev
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: dev
+      url: https://winlog-app-dev.onrender.com
+    # One dev deploy at a time. A newer run waits and never cancels a running deploy.
+    concurrency:
+      group: deploy-dev
+      cancel-in-progress: false
+    permissions:
+      # Move the :dev tag in GHCR.
+      packages: write
+    env:
+      ENVIRONMENT: dev
+      TAG: dev
+      API_SERVICE: winlog-api-dev
+      APP_SERVICE: winlog-app-dev
+      # The services' public URLs, as in render.yaml (ops/deployment.md).
+      API_URL: https://winlog-api-dev.onrender.com
+      APP_URL: https://winlog-app-dev.onrender.com
+      SHA: ${{ needs.publish.outputs.sha }}
+      DIGEST: ${{ needs.publish.outputs.digest }}
+    # The production job runs the same steps (the alias *deploy-steps), with its own env.
+    steps: &deploy-steps
+      - name: Check the deploy hook secrets
+        # Fails before any deploy when a secret is missing, and names it. Never prints a value.
+        env:
+          RENDER_API_DEPLOY_HOOK: ${{ secrets.RENDER_API_DEPLOY_HOOK }}
+          RENDER_APP_DEPLOY_HOOK: ${{ secrets.RENDER_APP_DEPLOY_HOOK }}
+        run: |
+          missing=no
+          for name in RENDER_API_DEPLOY_HOOK RENDER_APP_DEPLOY_HOOK; do
+            if [ -z "${!name}" ]; then
+              echo "::error::The secret $name is not set in the GitHub environment '$ENVIRONMENT' (see ops/deployment.md)"
+              missing=yes
+            fi
+          done
+          [ "$missing" = no ]
+          case "$DIGEST" in
+            sha256:*) ;;
+            *) echo "::error::No image digest from the Publish image job"; exit 1 ;;
+          esac
+          echo "Deploying commit $SHA and image $IMAGE@$DIGEST to $ENVIRONMENT."
+
+      - name: Log in to GitHub Container Registry
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: printf '%s' "$GITHUB_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+
+      - name: Deploy the backend image and the static site
+        # 1. The backend's deploy hook with imgURL=<image>@<digest>: Render deploys exactly that
+        #    image, not whatever a tag points to.
+        # 2. The environment's tag (:dev or :production) moves to that digest, so a Render deploy
+        #    that names no image (a Blueprint sync, a changed variable, a manual deploy) deploys
+        #    the image last deployed here, never a newer one.
+        # 3. The static site's deploy hook with ref=<commit SHA>: Render builds the same commit.
+        # A hook URL is passed to curl on its standard input (`--config -`), so it is never on a
+        # command line or in the log. Only the HTTP status and Render's deploy ID are printed.
+        env:
+          RENDER_API_DEPLOY_HOOK: ${{ secrets.RENDER_API_DEPLOY_HOOK }}
+          RENDER_APP_DEPLOY_HOOK: ${{ secrets.RENDER_APP_DEPLOY_HOOK }}
+        run: |
+          # call_hook <variable holding the hook URL> <query parameter> <service name>
+          call_hook() {
+            local url="${!1}" separator='?' status
+            case "$url" in *\?*) separator='&' ;; esac
+            status=$(printf 'url = "%s%s%s"\n' "$url" "$separator" "$2" \
+              | curl --config - --request POST --silent --max-time 60 \
+                  --output "$RUNNER_TEMP/hook-response.json" --write-out '%{http_code}') || true
+            case "$status" in
+              2??)
+                deploy_id=$(python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get("deploy", {}).get("id", ""))' \
+                  "$RUNNER_TEMP/hook-response.json" 2>/dev/null || true)
+                rm -f "$RUNNER_TEMP/hook-response.json"
+                echo "Render accepted the deploy of $3 (HTTP $status${deploy_id:+, deploy $deploy_id})."
+                ;;
+              *)
+                rm -f "$RUNNER_TEMP/hook-response.json"
+                if [ "${status:-000}" = 000 ]; then result="no answer"; else result="HTTP $status"; fi
+                echo "::error::The deploy hook of $3 ($1) failed with $result; Render must answer 2xx. Nothing more is deployed. See ops/deployment.md."
+                exit 1
+                ;;
+            esac
+          }
+
+          image_url=$(python3 -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1], safe=""))' "$IMAGE@$DIGEST")
+          call_hook RENDER_API_DEPLOY_HOOK "imgURL=$image_url" "$API_SERVICE"
+
+          docker buildx imagetools create --prefer-index=false --tag "$IMAGE:$TAG" "$IMAGE@$DIGEST"
+          tagged=$(docker buildx imagetools inspect "$IMAGE:$TAG" --format '{{json .Manifest}}' \
+            | python3 -c 'import json, sys; print(json.load(sys.stdin)["digest"])')
+          if [ "$tagged" != "$DIGEST" ]; then
+            echo "::error::$IMAGE:$TAG points to $tagged, not to $DIGEST"
+            exit 1
+          fi
+          echo "Moved $IMAGE:$TAG to $DIGEST."
+
+          call_hook RENDER_APP_DEPLOY_HOOK "ref=$SHA" "$APP_SERVICE"
+
+      - name: Log out of GitHub Container Registry
+        if: always()
+        run: docker logout ghcr.io
+
+      - name: Wait until the backend and the static site answer
+        # Up to 10 minutes, for a free instance's cold start. Render keeps the previous deploy
+        # live until the new one is healthy, so a 200 here does not prove which version is live:
+        # the service's Events in the Render Dashboard show that (ops/deployment.md).
+        run: |
+          deadline=$((SECONDS + 600))
+          api=none app=none
+          while :; do
+            [ "$api" = 200 ] || api=$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 30 "$API_URL/health" || true)
+            [ "$app" = 200 ] || app=$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 30 "$APP_URL/" || true)
+            [ "$api$app" = 200200 ] && break
+            if [ "$SECONDS" -ge "$deadline" ]; then
+              echo "::error::After 10 minutes: GET $API_URL/health -> $api, GET $APP_URL/ -> $app (both must be 200)"
+              exit 1
+            fi
+            sleep 10
+          done
+          echo "GET $API_URL/health -> 200, GET $APP_URL/ -> 200"
+
+      - name: Summary
+        run: |
+          {
+            echo "### Deployed to $ENVIRONMENT"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Commit | \`$SHA\` |"
+            echo "| Backend image | \`$IMAGE@$DIGEST\` (now also \`:$TAG\`) on \`$API_SERVICE\` |"
+            echo "| Static site | \`$APP_SERVICE\`, built from commit \`$SHA\` |"
+            echo
+            if [ "$ENVIRONMENT" = dev ]; then
+              echo "**The production step of this run deploys exactly this commit and this digest.**"
+              echo "Before approving it, check that the Events of \`$API_SERVICE\` in the Render Dashboard"
+              echo "show the deploy of \`$DIGEST\` as live, and that $APP_URL works (ops/deployment.md)."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy-production:
+    name: Deploy to production
+    # Only after this run's dev deploy succeeded, with the digest and commit it deployed.
+    needs: [publish, deploy-dev]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Waits for the product owner's approval (the environment's required reviewer).
+    environment:
+      name: production
+      url: https://winlog-app.onrender.com
+    # One production deploy at a time. A newer run waits and never cancels a running deploy.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    permissions:
+      # Move the :production tag in GHCR.
+      packages: write
+    env:
+      ENVIRONMENT: production
+      TAG: production
+      API_SERVICE: winlog-api
+      APP_SERVICE: winlog-app
+      API_URL: https://winlog-api.onrender.com
+      APP_URL: https://winlog-app.onrender.com
+      SHA: ${{ needs.publish.outputs.sha }}
+      DIGEST: ${{ needs.publish.outputs.digest }}
+    steps: *deploy-steps

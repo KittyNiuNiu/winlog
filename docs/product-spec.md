@@ -197,8 +197,8 @@ React + TypeScript frontend ──── HTTPS / JSON ────► FastAPI ba
 | AI | LLM router service (OpenRouter planned) | Category and tag suggestions; summaries |
 | Containers | Docker, Docker Compose | Local development and integration testing of the full system |
 | Observability | OpenTelemetry (Python SDK, OTLP); Grafana's all-in-one otel-lgtm image (OpenTelemetry Collector, Prometheus, Tempo, Loki, Grafana) | The backend's traces, metrics and JSON logs, sent over OTLP when a collector is configured. Locally, collection, storage and the viewer UI run in Docker Compose. Deployed environments send no telemetry yet. |
-| CI/CD | GitHub Actions | Runs lint and tests on every push; production deploys only after all CI checks for the commit have passed |
-| Hosting | Render (frontend as a static site, backend as a web service, both defined in a Render Blueprint), Neon (PostgreSQL) | Production environment |
+| CI/CD | GitHub Actions | Runs lint and tests on every push. After all CI checks for a commit on `main` have passed, it builds the backend image once, pushes it to GitHub Container Registry and deploys it, with the frontend of the same commit, to the dev environment. Production receives the same image and commit only through a manual approval step in the pipeline. |
+| Hosting | Render (frontend as static sites, backend as web services running the image from GitHub Container Registry, all in one Render Blueprint), Neon (PostgreSQL) | Dev and production environments |
 
 ### 10.3 API contract
 
@@ -211,9 +211,10 @@ React + TypeScript frontend ──── HTTPS / JSON ────► FastAPI ba
 
 | Environment | Runs on | Database |
 |---|---|---|
-| Development | Docker Compose (local) | PostgreSQL container, with separate databases for development and tests |
+| Development (local) | Docker Compose (local) | PostgreSQL container, with separate databases for development and tests |
 | Test / CI | Docker Compose (CI runner) | PostgreSQL container |
-| Production | Render | Neon PostgreSQL |
+| Dev (hosted) | Render, deployed automatically after CI passes on `main`, with the mock AI provider | Neon PostgreSQL in its own project, with test data only |
+| Production | Render, deployed by the manual step from the image already running in dev | Neon PostgreSQL |
 
 Configuration (database URL, AI provider and model, limits, secrets) comes from environment variables in every environment.
 
@@ -263,6 +264,8 @@ Closed:
 - Default LLM model (closed 9 November 2026): `anthropic/claude-haiku-5.5`, chosen by a documented comparison (issue #14). The backup model is `deepseek/deepseek-v4.1-flash`: if the default becomes unavailable, too expensive or worse, the model setting is switched to it. It is not an automatic fallback. Details in `docs/decisions/default-model.md`.
 
 ## 14. Change log
+
+**0.2, updated 14 November 2026.** §10.2: the CI/CD row describes the pipeline (one backend image per `main` commit in GitHub Container Registry, an automatic deploy to dev, and production only through a manual approval step), and the Hosting row covers the dev and production environments. §10.4: four environments, with the new hosted Dev environment (issue #39). Nothing else changed.
 
 **0.2, updated 13 November 2026.** §9: new "Observability" row, and the Reproducibility row includes the local telemetry stack. §10.2: new "Observability" row (issue #74). Nothing else changed.
 

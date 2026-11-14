@@ -1,39 +1,51 @@
-# Render Blueprint for production (issue #38, product-spec.md §10.2 and §10.4).
-# Reference: https://render.com/docs/blueprint-spec
-# How to set up and redeploy production from scratch: ops/deployment.md.
+# Render Blueprint for the hosted environments, production and dev (issues #38 and #39,
+# product-spec.md §10.2 and §10.4). Reference: https://render.com/docs/blueprint-spec
+# How to set up, deploy, promote and roll back: ops/deployment.md.
 #
-# - The backend is a Docker web service built from backend/Dockerfile. Its start script
-#   (backend/start.sh) applies the migrations, resets the demo account and starts the server
-#   on the port Render sets in PORT.
-# - The frontend is a static site built from frontend/ with npm.
-# - The database is PostgreSQL 18 on Neon (AWS eu-central-1, Frankfurt), not managed here.
+# Four services:
+# - winlog-api and winlog-app: production, https://winlog-api.onrender.com and
+#   https://winlog-app.onrender.com.
+# - winlog-api-dev and winlog-app-dev: dev, the same with the mock AI and its own database.
 #
-# Secrets: only DATABASE_URL and AI_API_KEY are secret. They are `sync: false`, so Render asks
-# for them when the Blueprint is created; they never have a value in this file. Every other
-# value is written here, so it is reviewed in git. Change those values here, not in the Render
-# Dashboard: a Blueprint sync overwrites dashboard edits of values this file sets.
+# - The backends run the prebuilt image ghcr.io/kittyniuniu/winlog-backend, built once per main
+#   commit in GitHub Actions from backend/Dockerfile. Its start script (backend/start.sh) applies
+#   the migrations, resets the demo account and starts the server on the port Render sets in PORT.
+# - The frontends are static sites built by Render from frontend/ with npm, one build per
+#   environment, from the same commit.
+# - The databases are PostgreSQL 18 on Neon (AWS eu-central-1, Frankfurt), one project per
+#   environment, not managed here.
 #
-# Deploys: both services deploy from main, and only after all GitHub checks of the commit have
-# passed (`autoDeployTrigger: checksPass`, §10.2). #39 replaces this with its own pipeline.
+# Deploys: no service deploys by itself. After every CI job of a main commit has passed, the
+# Deploy workflow (.github/workflows/deploy.yml) deploys dev through the services' deploy hooks,
+# and production gets the same image and commit only after the product owner approves the
+# production step.
+#
+# Secrets: only DATABASE_URL (all backends) and AI_API_KEY (production) are secret. They are
+# `sync: false`, so they never have a value in this file; they are entered in the Render
+# Dashboard. Every other value is written here, so it is reviewed in git. Change those values
+# here, not in the Render Dashboard: a Blueprint sync overwrites dashboard edits of values this
+# file sets.
 
 services:
-  # --- Backend: FastAPI in Docker ---
+  # --- Production backend: FastAPI, the image from GHCR ---
   - type: web
     name: winlog-api
-    runtime: docker
+    # Pulls the image the Deploy workflow built in GitHub Actions; Render builds nothing.
+    runtime: image
+    # The :production tag points to the image the pipeline last deployed here. The pipeline
+    # deploys by digest through the deploy hook; a deploy that names no image (a Blueprint sync,
+    # a changed variable, a manual deploy) uses this tag. The package is public, so no creds.
+    image:
+      url: ghcr.io/kittyniuniu/winlog-backend:production
     # Free instance: sleeps after 15 minutes without requests; the first request after that
     # waits for a cold start (§12). No paid plan without the product owner's approval.
     plan: free
     # Closest Render region to the Neon project (AWS eu-central-1, Frankfurt).
     region: frankfurt
-    branch: main
-    autoDeployTrigger: checksPass
-    dockerfilePath: ./backend/Dockerfile
-    dockerContext: ./backend
     # GET /health checks the database too (#4).
     healthCheckPath: /health
     envVars:
-      # Secrets, entered in the Render Dashboard when the Blueprint is created.
+      # Secrets, entered in the Render Dashboard (ops/deployment.md).
       # Neon's direct (not pooled) connection string, with its sslmode=require part.
       - key: DATABASE_URL
         sync: false
@@ -98,14 +110,91 @@ services:
       # it), and the variables only Docker Compose or the tests use (POSTGRES_*, *_HOST_PORT,
       # TEST_DATABASE_URL).
 
-  # --- Frontend: the React build as a static site ---
+  # --- Dev backend: the same image, deployed automatically after CI passes on main ---
+  # The same values as production, except: the mock AI (no AI key, base URL or model; dev makes
+  # no real AI call), its own Neon database, and the dev static site's URL in CORS. Keep the
+  # other values the same as winlog-api's.
+  - type: web
+    name: winlog-api-dev
+    runtime: image
+    # The :dev tag points to the image the pipeline last deployed to dev.
+    image:
+      url: ghcr.io/kittyniuniu/winlog-backend:dev
+    # Free instance: sleeps after 15 minutes without requests; the first request after that
+    # waits for a cold start (§12). No paid plan without the product owner's approval.
+    plan: free
+    # Closest Render region to the Neon project (AWS eu-central-1, Frankfurt).
+    region: frankfurt
+    # GET /health checks the database too (#4).
+    healthCheckPath: /health
+    envVars:
+      # The only secret: the direct (not pooled) connection string of the dev Neon project, with
+      # its sslmode=require part. Never the production database. Entered in the Render
+      # Dashboard (ops/deployment.md).
+      - key: DATABASE_URL
+        sync: false
+
+      # The static site's public URL (#3): https://<host>, no trailing slash.
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://winlog-app-dev.onrender.com
+
+      # The mock AI provider: no AI key, base URL or model, no real AI call, no cost (AGENTS.md).
+      - key: AI_PROVIDER
+        value: mock
+      - key: AI_SUGGESTION_TIMEOUT_SECONDS
+        value: "15"
+      - key: AI_SUMMARY_TIMEOUT_SECONDS
+        value: "60"
+      - key: AI_SUMMARY_MAX_TOKENS
+        value: "16000"
+      - key: AI_SUMMARY_MAX_INPUT_CHARACTERS
+        value: "50000"
+
+      # Daily AI usage limits (§8, #15).
+      - key: AI_DAILY_SUGGESTIONS_PER_USER
+        value: "10"
+      - key: AI_DAILY_SUMMARIES_PER_USER
+        value: "2"
+      - key: AI_DAILY_REQUESTS_GLOBAL
+        value: "100"
+
+      # Login and demo-login attempt limits (FR-A4, #46).
+      - key: LOGIN_MAX_FAILED_ATTEMPTS
+        value: "10"
+      - key: LOGIN_ATTEMPT_WINDOW_MINUTES
+        value: "15"
+      - key: DEMO_LOGIN_MAX_ATTEMPTS
+        value: "20"
+      - key: DEMO_LOGIN_WINDOW_MINUTES
+        value: "60"
+
+      # Login token lifetime in days (FR-A2, #7).
+      - key: TOKEN_LIFETIME_DAYS
+        value: "7"
+
+      # Seconds the health check waits for the database (#4).
+      - key: DATABASE_CONNECT_TIMEOUT_SECONDS
+        value: "3"
+
+      # The shared demo account (FR-X1, #21). Not a secret. The start script resets it before
+      # the server accepts requests, so nobody can register this address first.
+      - key: DEMO_EMAIL
+        value: demo@example.com
+
+      # Not set on purpose: AI_API_KEY, AI_BASE_URL and AI_MODEL (the mock needs none), and the
+      # same variables as in production (OTEL_EXPORTER_OTLP_ENDPOINT, PORT, POSTGRES_*,
+      # *_HOST_PORT, TEST_DATABASE_URL).
+
+  # --- Production frontend: the React build as a static site ---
   # Static sites are free and served from Render's global CDN, so they take no plan and no
   # region.
   - type: web
     name: winlog-app
     runtime: static
     branch: main
-    autoDeployTrigger: checksPass
+    # Never deploys by itself. The Deploy workflow builds the commit it promotes, through the
+    # deploy hook with ref=<commit SHA>.
+    autoDeployTrigger: "off"
     # Refuses to build without VITE_API_BASE_URL, like frontend/Dockerfile, so a forgotten
     # value cannot produce a site that calls no backend. Prints the Node version for the log.
     buildCommand: >-
@@ -129,5 +218,33 @@ services:
         value: https://winlog-api.onrender.com
       # The Node version pinned in frontend/.nvmrc and package.json "engines". Set explicitly,
       # because the build starts at the repository root, where Render looks for version files.
+      - key: NODE_VERSION
+        value: 26.13.0
+
+  # --- Dev frontend: the same commit as the dev backend, built with the dev backend's URL ---
+  # A separate build from production's, because VITE_API_BASE_URL is built into the JavaScript
+  # (#25). Build command, rewrite and NODE_VERSION are the same as winlog-app's.
+  - type: web
+    name: winlog-app-dev
+    runtime: static
+    branch: main
+    # Never deploys by itself: the Deploy workflow builds the dev commit through the hook.
+    autoDeployTrigger: "off"
+    buildCommand: >-
+      cd frontend &&
+      { test -n "$VITE_API_BASE_URL" || { echo "VITE_API_BASE_URL is required: set it to the backend's URL (see ops/deployment.md)" >&2; exit 1; }; } &&
+      echo "Node $(node --version)" &&
+      npm ci --no-audit --no-fund &&
+      npm run build
+    staticPublishPath: ./frontend/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      # The dev backend's public URL, built into the JavaScript (#25).
+      - key: VITE_API_BASE_URL
+        value: https://winlog-api-dev.onrender.com
+      # The same Node version as production (frontend/.nvmrc).
       - key: NODE_VERSION
         value: 26.13.0

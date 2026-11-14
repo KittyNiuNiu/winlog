@@ -1,6 +1,9 @@
 # Backend image: Python 3.13 (pinned in .python-version), dependencies installed with uv.
 FROM python:3.13-slim
 
+# Links the image in GitHub Container Registry to this repository (#39).
+LABEL org.opencontainers.image.source=https://github.com/KittyNiuNiu/winlog
+
 # uv is installed from PyPI at a pinned version.
 RUN pip install --no-cache-dir --root-user-action=ignore uv==0.11.32
 

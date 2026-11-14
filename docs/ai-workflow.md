@@ -3340,3 +3340,105 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - `.github/workflows/ci.yml`: the Tempo lookup now prints `traceID.zfill(32)`, and a comment explains why. No other step changed; the check is as strict as before.
 - **How I verified it:** ran the changed Python one-liner locally on the 31-character ID from run 43505953281 (prints the backend's 32-character ID), on a full 32-character ID (unchanged), and on empty Tempo responses (prints nothing, as before). The workflow file still parses as YAML. The CI run on this branch is the end-to-end check; because the bug hits only about one run in 16, one green run does not prove the fix on its own, but the log evidence above does.
 - **Left open:** nothing.
+
+## 2026-11-14: Orchestrator: closed #38 (task 45, deploy to Render and Neon)
+
+- **Outcome:**
+  - Section A: the engineer's plan (6866482669) and build (6866839100), QA PASS (6866953885), merged into `main` with #96.
+  - Section B: done by the product owner (6876931277).
+  - Section C: QA PASS on the live app (6877467325).
+  - The task changes no screens, so there was no design note or review.
+  - Closed as completed; the last status label `implemented` stays. Close comment: 6877558957.
+- **Decisions and answers in this session:**
+  - **Network:** the Default environment allowed only the exact host `onrender.com`, which does not match subdomains, so the live app was blocked (403). The product owner approved adding the exact hosts `winlog-api.onrender.com` and `winlog-app.onrender.com` to the Default environment.
+  - **Demo-login per visitor (#46):** the product owner pressed "Try the demo" from mobile data while QA's address was refused. The demo opened, so no follow-up issue.
+  - **Real AI:** the product owner approved at most 2 suggestions and 1 summary, quoted at about $0.001 expected and about $0.011 at most (2026-11-09 prices; OpenRouter was not reachable for a re-check). QA made 1 suggestion and 1 summary. The summary confirms that the model accepts `max_tokens` 16000 (#17).
+  - **Node version:** the product owner confirmed `Node v26.13.0` in the static site's Render build log, the part of the static-site criterion that section A left to section B.
+  - **HSTS follow-up:** filed under the 2026-11-12 standing rule, taking QA's suggested option.
+- **Where each open point went:**
+  - Live summaries mostly repeat the entries' wording (product owner): new issue #98, at the product owner's request.
+  - No HSTS header on the backend (QA): new issue #99.
+  - `checksPass` already set; `ops/deployment.md` console wording and free-plan figures from memory; the image `.env` check not run on a built image; cloud-session traffic leaves from several addresses (engineer, QA): comment on #39 (6877556341).
+  - Live URLs, the working demo and the measured cold start of 43.7 s (QA): comment on #40 (6877556862).
+  - A demo token QA may not have revoked (never written down, expires within 7 days); the `render.yaml` host prediction, which turned out right; QA's scratch files, deleted after the check: left in this log.
+
+## 2026-11-14: Re-groom issue #39 (task 46, deploy to dev automatically and to production by hand)
+
+- **Task:** re-groom #39 following `docs/pm.md`, after #38 closed. The body was from 2026-11-01 ("Task 40 of 41", Render's `checksPass` as the whole task), and the product owner's fixed requirement of 2026-11-11 (comment 6805322615) had sent it back to grooming.
+- **What I did:**
+  - Rewrote the body with the task template, split into three parts as in #38: A for the engineer, B for the product owner by hand, C for QA live.
+  - Corrected the task line to 46 of 47, and the GitHub title to "46. Deploy to dev automatically and to production by hand", matching `docs/tasks.md`. Labels unchanged (none).
+  - Posted the PM comment with the decisions and fact checks (6877757263).
+  - **Scope:** §10.2 on its own asks only for deploys after CI passes, which #38 already meets. The product owner's 2026-11-11 decision asks for the pipeline and says this issue updates §10.2 and §10.4. So the issue follows that decision, and the spec edit (§10.2, §10.4, §14) is a criterion.
+  - **Decisions under the 2026-11-01 standing rule (the 2026-11-12 rule covered only #29–#38):**
+    - one backend image per `main` commit, built after every CI job passes and pushed to `ghcr.io/kittyniuniu/winlog-backend` with the SHA as its tag; deployed by digest through Render deploy hooks (`imgURL`);
+    - the GHCR package is public (the repository is public; no registry credential at Render). This cannot be undone, so the `.env` check runs in CI on every push;
+    - a tag per environment as each service's `image.url`, so a deploy that names no image never jumps ahead;
+    - dev: `winlog-api-dev` and `winlog-app-dev` in the same Blueprint, their own empty Neon project, and the mock AI;
+    - static sites: the same commit through hooks with `ref`, built per environment, because `VITE_API_BASE_URL` is built in (#25);
+    - production: a job behind the GitHub environment `production` with the product owner as required reviewer; the hooks are environment secrets;
+    - GitHub holds only the four hook URLs, with no Render API key or PAT;
+    - free plans only, with the shared 750 Render hours documented as a risk to production;
+    - the live `winlog-api` switches its source in place and keeps its URL, with a stop point if Render needs a new service or a paid plan.
+  - **#38 open points (comment 6877556341):**
+    - `checksPass`: replaced;
+    - console wording: corrected from the product owner's report during B;
+    - `.env` check: a CI step;
+    - cloud-session addresses: do not apply.
+- **How I verified it:**
+  - Read the issue and its two comments, #38's body, PM comment (6865852461) and close comment (6877558957), `docs/pm.md`, `docs/process.md`, `docs/task-template.md` and the spec (§9, §10, §12, §14).
+  - Read `render.yaml`, `ci.yml`, `backend/Dockerfile`, `.dockerignore`, `start.sh`, `settings.py`, the end-to-end test and `ops/deployment.md`.
+  - Facts:
+    - GitHub's environment and package rules: from the `github/docs` source files;
+    - Render's image fields and immutable `runtime`: from Render's `render-oss/skills` notes;
+    - Render deploy hooks, the source change, free hours and Neon limits: from search results only, because render.com and neon.com were not reachable. The issue asks for each to be checked in the current docs.
+  - Read the saved body back: it matches, with the four template sections.
+- **Left open:**
+  - The Render facts above still need checking. The engineer session needs render.com reachable for that.
+  - QA needs the dev hosts added to the session's allowed hosts.
+  - Both go to the orchestrator in the PM report.
+  - No follow-up issues were created.
+
+## 2026-11-14: Engineer: implement #39 section A (deploy to dev automatically and to production by hand)
+
+- **Task:** section A of #39 (what the engineer builds and checks without accounts), following `docs/software-engineer.md`, the re-grooming (comment 6877757263) and the product owner's answers (6877823492: public GHCR package, free dev backend in the same Render workspace). No screens change. Sections B (product owner) and C (QA, live) come later.
+- **Render facts, checked in Render's current docs** (render.com was reachable from this session; the Dashboard was not opened):
+  - Deploy hooks accept `imgURL` (tag or digest, URL-encoded; every part but the tag or digest must match the service's image URL) and `ref` (a commit SHA for Git-backed services, which also turns their auto-deploy off). Success is 200 (with the deploy ID) or 202 (queued behind a running deploy). An image service deployed with `imgURL` keeps its own tag for later deploys.
+  - Image services never auto-deploy (`autoDeployTrigger` has no effect on them); **Manual Deploy → Deploy latest reference** pulls the service's tag.
+  - Blueprint spec: "You can change a service's runtime after creation (except for static sites)". The Dashboard's **Update Source** dialog (changelog of 2026-05-11) also exists. So `winlog-api` keeps its service and URL: no stop point.
+  - Free instances: the Existing Image flow offers the Free plan; 750 free instance hours per workspace per month, and all free web services are suspended when they run out; usage under **Billing → Monthly Included Usage**. No paid plan: no stop point.
+  - `sync: false` values are asked for only when a Blueprint is first created, so the dev `DATABASE_URL` is added by hand after the sync.
+  - Blueprint **Auto Sync** is on by default and syncs on every push to the linked branch that changes `render.yaml`. A failed deploy leaves the previous one live. Rollbacks of image services reuse the digest; free services roll back only to the two most recent previous deploys.
+  - The render-oss agent notes the PM cited say `runtime` is immutable; the current Blueprint reference says otherwise, and the guide follows the reference, with a stop if the sync refuses.
+- **What I did:**
+  - `.github/workflows/ci.yml`: a new job **Backend image** on every push: `docker buildx build --platform linux/amd64 --provenance=false` of `backend/` with an `org.opencontainers.image.revision` label; fails if `find / -xdev -name '.env*'` finds anything (after checking it can see `/app/start.sh`); checks the source label. On `main` only, it saves the checked image as the `backend-image` artifact. No job has an `if`, and CI pushes nothing. Header comments updated.
+  - `.github/workflows/deploy.yml` (new), triggered by `workflow_run` of CI (completed, `main`) and by pushes to other branches (where every job is skipped, so GitHub checks the file there):
+    - **Publish image** (only when the CI run of a push to `main` in this repository succeeded; `actions: read`, `packages: write`): downloads the artifact, checks the revision label equals the CI run's commit, pushes `ghcr.io/kittyniuniu/winlog-backend:sha-<SHA>` with `GITHUB_TOKEN`, reads the digest back from GHCR, and writes commit, tag and digest into the summary. It builds nothing, so each `main` commit's image is built once, in CI.
+    - **Deploy to dev** (environment `dev`, concurrency `deploy-dev` without cancelling, `packages: write`) and **Deploy to production** (environment `production`, needs dev, concurrency `deploy-production`) run the same steps (a YAML anchor), with their own service names, URLs and tag: check both hook secrets (the message names a missing one); call the backend hook with `imgURL=<image>@<digest>`; move `:dev`/`:production` to that digest with `docker buildx imagetools create --prefer-index=false` and verify it; call the static site hook with `ref=<SHA>`; wait up to 10 minutes for `/health` and `/` to answer 200; summary (dev's names the commit and digest production will get). A hook URL goes to curl on standard input (`--config -`); only the HTTP status and Render's deploy ID are printed.
+    - No new third-party action: `actions/download-artifact@v8` (checked on its tags: v8.0.2 is the latest) downloads the artifact from the CI run; login, push and tagging use the docker CLI on the runner.
+    - Why `workflow_run`: CI keeps cancelling older runs per branch, so a cancelled `main` commit is never deployed, while a running deploy job sits in another workflow that a new push cannot cancel.
+  - `backend/Dockerfile`: only `LABEL org.opencontainers.image.source=https://github.com/KittyNiuNiu/winlog`.
+  - `render.yaml`: four services. `winlog-api` and `winlog-api-dev`: `runtime: image`, `image.url` `…:production` and `…:dev`, free, Frankfurt, `/health`, no creds. `winlog-app` and `winlog-app-dev`: `autoDeployTrigger: "off"` (quoted). Production values unchanged; dev differs only in `AI_PROVIDER=mock` (no AI key, base URL or model), its own `DATABASE_URL` (its only `sync: false`) and `CORS_ALLOWED_ORIGINS`; the dev site has the dev backend's `VITE_API_BASE_URL` and the same build, rewrite and `NODE_VERSION`. `checksPass` no longer appears.
+  - `docs/product-spec.md`: §10.2 CI/CD and Hosting rows, §10.4 with four environments, §14 entry of 14 November 2026.
+  - `ops/deployment.md` rewritten: the pipeline and where to see each step; promotion and what to check first; rollback (re-run an earlier production step, Render's rollback, deploying by hand when Actions is down; none undo migrations); the dev environment; secrets table; the ordered one-off migration; set-up from scratch; URLs; variable tables for all four services; free-plan limits (the shared 750 hours can suspend production); e2e against dev only.
+  - `backend/tests/unit/test_deployment.py`: the #38 tests asserted a Docker-built backend that deploys after `checksPass`, which this issue replaces, so they failed on the first push of this branch. I rewrote those Blueprint tests for the new criteria (the start-script, image and guide tests are unchanged) and added tests for the workflows and for the deploy steps. These run the step scripts from `deploy.yml` with a stand-in `docker` and a local HTTP server in place of Render's hooks: correct `imgURL` and `ref`, tag move between the two hooks, a 404 or no answer fails and deploys nothing more, a missing secret is named, and no hook URL or key is ever printed. The issue's file list does not name this test file, but the criteria cannot hold without changing it.
+- **What happens to production when this branch is merged into `main`:** if the product owner first sets the Blueprint's Auto Sync to No (migration step 1), nothing changes for production. The pipeline publishes the first image, and the dev job fails on the missing hook secrets. Render may also build the merge commit itself under the old `checksPass` setting, which is the same app. If Auto Sync stays on, Render syncs at once. The backends' image deploys then fail, because no `:dev`/`:production` tag exists yet, and the previous production deploy stays live.
+- **How I verified it:**
+  - Built the real backend image locally with the CI command (through a local base image that trusts this session's proxy CA, only for the build; the CI build uses the plain base image): the `.env*` check finds nothing; on an image with `/app/app/.env.production` added it finds it and fails; with `backend/.env.ci-probe` and `backend/app/.env` in the context, `.dockerignore` keeps both out; the source label check passes.
+  - Ran the workflow steps locally against a local registry (`registry:2`) and a stand-in hook server: save/load/push and the digest read-back; the revision check refuses a wrong commit; `imagetools create` without `--prefer-index=false` wraps the manifest in a new index (a new digest), and with it the tag keeps the exact digest; 200, 202, 404 and no answer; the health wait passes on 200 and fails at the deadline.
+  - `actionlint` 1.7.12 (Docker image): no findings in `deploy.yml`; two existing SC2034 warnings in `ci.yml` (unused `attempt` loops of earlier jobs).
+  - `render.yaml`: valid YAML, 0 errors against Render's current Blueprint JSON schema (downloaded from render.com today); a deliberately wrong field is reported, so the check is real.
+  - `./test-all.sh`: backend unit 1038 passed, backend integration 970 passed, frontend 1239 passed. `uv run ruff check .`, `uv run ruff format --check .` and `npm run lint` clean.
+  - CI on the branch: listed in the issue comment.
+- **Left open:**
+  - Section B by the product owner, in the order of `ops/deployment.md` ("The one-off migration of the live production"), **starting before the merge** with Blueprint Auto Sync off and the two GitHub environments. The proof comes from the next ordinary merge after the migration.
+  - Section C by QA; the dev hosts must be added to the session's allowed hosts.
+  - Not verifiable without accounts: whether Render's Blueprint sync accepts the runtime change while `:production` does not exist yet (the guide stops there if not), the exact Render, GHCR, Neon and OpenRouter page wording, and Neon's free-plan figures (neon.com was not reachable).
+  - `actions/download-artifact@v8` and the `workflow_run` path run only on `main`, so the first real run is the merge itself.
+- **2026-11-14, after QA FAIL (comment 6878529434):** the migration order broke "Production never runs an image that has not run in dev first". Before the merge only Blueprint Auto Sync was turned off, so `winlog-api` and `winlog-app` kept `checksPass` until the sync, and Render could deploy the merge commit to production without approval and without dev.
+  - **Render facts, checked in Render's current docs today:** each service's **Settings → Auto-Deploy** offers On Commit, After CI Checks Pass and Off; After CI Checks Pass deploys once the commit's checks have completed and passed (`success`, `neutral` or `skipped` count as passed), so the Deploy workflow's later checks cannot stop it. The skip phrases (`[skip render]`, `[render skip]`, also with `deploy` or `cd`) skip only the commit that carries them. The Blueprint reference: an omitted `autoDeployTrigger` keeps an existing service's value and has no effect on image services. A Blueprint sync redeploys the services it changes.
+  - **Fix in `ops/deployment.md`:** new step 1 before the merge sets **Auto-Deploy** to **Off** on `winlog-api` and `winlog-app` and checks it (safer than `[skip render]`, which covers one commit and depends on the merge message). Merge nothing else into `main` until the first production deploy (step 13). After the merge, check both production services' **Events** show no new deploy, with what to do if one does (cancel or roll back). The sync review now expects `winlog-app` not to be listed (its auto-deploy is already off, so the sync does not rebuild it from an unapproved commit); steps renumbered (14 now) and every cross-reference updated.
+  - **Small notes from QA, also fixed:** the by-hand hook call when GitHub Actions is down now passes the URL to curl on standard input (`printf … | curl --config -`), not on its command line; tested against a local stand-in. The guide now says what a failed static-site hook after a successful backend hook leaves behind.
+  - **Tests:** two new guide tests in `backend/tests/unit/test_deployment.py`: Auto-Deploy off for both production services is step 1, before the merge, Auto Sync off is step 2, the merge freeze until step 13, steps 1 to 14 without gaps; and the by-hand curl block keeps the URL off curl's command line. Both fail on the previous guide.
+  - **Verified:** `./test-all.sh`: backend unit 1040 passed, integration 970 passed, frontend 1239 passed. `uv run ruff check .`, `uv run ruff format --check .`, `npm run lint` clean. CI on the branch: in the issue comment.
+  - **Left open:** sections B and C as before. Whether the Dashboard labels match Render's docs exactly is checked in B.
