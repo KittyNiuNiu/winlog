@@ -3592,3 +3592,35 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - steps in the product owner's accounts;
   - merges and production approvals.
 - **What I did:** recorded the rule in `docs/process.md` under "Product decisions".
+
+## 2026-11-14: PM: groom #95 (task 48, limit how long requests wait for a database that stops answering)
+
+- **Task:** groom #95, which had no status label, following `docs/pm.md`. The product owner put it first among tasks 48 to 61, because it protects the live app.
+- **What I read:**
+  - the issue, which had no comments, and its sources: the #4 engineer and QA comments and the #38 comment;
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md`, `docs/product-spec.md`, `openapi.yaml`, `AGENTS.md`, `docs/tasks.md`, `ops/deployment.md`, `docs/observability.md`, `.env.example`, `docker-compose.yml` and `render.yaml`;
+  - the backend's database code (`backend/app/db.py`, `health.py`, `settings.py`, `main.py`, `auth.py`, `errors.py`), the database use in `summaries.py` and `suggestions.py`, `backend/migrations/env.py`, `scripts/seed_demo.py`, `tests/integration/test_health.py` and `tests/unit/test_deployment.py`;
+  - the frontend's API client: it sets no request timeout and treats a 500 as `UnknownError`.
+- **What I did:**
+  - Rewrote the body of #95 using the template.
+  - Posted the PM comment with the decisions (6886151429).
+  - Labels unchanged: the orchestrator sets the status.
+- **Decisions under the standing rule (2026-11-14), recorded in the issue:**
+  - A general limit is needed despite Render's health check. Render restarts only after 60 seconds of failed checks, and it never steps in for a single dead pooled connection while `/health` passes on another one.
+  - Approach: a client-side limit on every database call in the backend's database layer. Not `statement_timeout`, not TCP keepalives, not a per-request deadline. The engineer picks the mechanism, without a new thread per call.
+  - New setting `DATABASE_QUERY_TIMEOUT_SECONDS`, default 10, from 1 to 600. It also caps the pool wait. It goes into `.env.example`, Docker Compose, `render.yaml` (both backends) and `ops/deployment.md`.
+  - The user sees the existing 500 `internal_error`, so `openapi.yaml` and the frontend stay unchanged. No screen changes.
+  - `/health` keeps its own shorter limit. Migrations stay unlimited. A write cut off by the limit may still land; no idempotency or retries.
+  - No spec change. New tests start with `test_db_time_limit_`, because no requirement ID applies.
+- **How I verified it:**
+  - Checked in the installed psycopg 3.3.6 and SQLAlchemy 2.1.6 source:
+    - `Connection.wait` has an internal timeout that raises `errors._WaitTimeout`.
+    - The psycopg dialect's `is_disconnect` needs a `closed` or `broken` connection.
+    - The pool's defaults include `pool_timeout`, 30 seconds.
+  - Render's health check figures (traffic stops after 15 seconds of failures, restart after 60 seconds) come from a web search of render.com/docs/health-checks. render.com is not reachable from this session, so the issue asks the engineer to re-check them.
+  - `test_deployment.py` requires each `render.yaml` value to equal the setting's default, so the default (10) matches `render.yaml`.
+  - Read the saved issue body back: it matches what I wrote and has the four template sections.
+  - No code run, and no AI call.
+- **Left open:**
+  - The Blueprint's Manual Sync after the production deploy is the product owner's step. Until then the default, which is the same value, applies.
+  - No follow-up issues were created. Hosted telemetry is already #92.
