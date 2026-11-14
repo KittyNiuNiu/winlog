@@ -3581,3 +3581,14 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - **Left in this log, on the product owner's decision:**
     - the plain Compose build cannot run in cloud sessions because of the TLS interception; CI covers it;
     - the README's "What Winlog is" text has no heading of its own (not required).
+
+## 2026-11-14: Orchestrator: record the product owner's standing rule for tasks 48 to 61
+
+- **Decision (product owner, 2026-11-14):** the broad standing rule of 2026-11-12 is renewed for tasks 48 to 61 in `docs/tasks.md` and for #103. The orchestrator takes the option recommended by the role that raised a decision, including design and wording questions and where open points go.
+- **Still for the product owner:**
+  - severe or critical decisions;
+  - the stop points;
+  - real AI calls;
+  - steps in the product owner's accounts;
+  - merges and production approvals.
+- **What I did:** recorded the rule in `docs/process.md` under "Product decisions".
