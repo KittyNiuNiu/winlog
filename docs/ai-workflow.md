@@ -4592,3 +4592,37 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Open points and where they went:**
   - **The viewport tests take light-mode screenshots only:** a comment on #90.
   - **Left in this log under the standing rule:** the viewport server-text search looks for whole reasons only.
+
+## 2026-11-15: PM: groom #86 (task 58, feedback when a suggestion adds nothing or is dropped)
+
+- **Task:** groom #86, which had no status label, following `docs/pm.md`. It is task 58, an interface-polish task, and it changes screens: two new texts in the entry form's suggestion notice, and a suggestion that now arrives after a save that the form's own check stopped.
+- **What I read:**
+  - the issue and its comment (the #43 grooming input on the 10-tag case);
+  - the #28 design note, engineer comment and QA comment it cites, and #28's criteria;
+  - #72 and #88, as patterns for message rules and the muted live-region line;
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md`, `docs/tasks.md`, `docs/product-spec.md` (§7.2, §7.3), `AGENTS.md`, `DESIGN.md`, `PRODUCT.md` and `openapi.yaml` (`Suggestion`, `suggestCategoryAndTags`);
+  - in the frontend: `entries/EntryForm.tsx`, `suggestions.ts`, `tagNames.ts`, `entryTexts.ts`, `components/Message.tsx`, the suggestion and limit tests, and the viewport screens and `mockApi.ts`;
+  - `backend/app/ai/mock.py` and `limits.py`.
+- **What I did:**
+  - Rewrote the body of #86 with the template:
+    - sections A (nothing new), B (tags left out at 10), C (both notices), D (Save entry while a suggestion is on its way), E (unchanged) and F (tests);
+    - Out of scope;
+    - Constraints, with the decisions, the changes to #28's agreed behaviour, where in the code, the files and testing.
+  - Posted the PM comment with the decisions and the facts I checked (6898053939).
+  - Labels unchanged: the orchestrator sets the status. No follow-up issue, because nothing was moved out.
+- **Decisions under the standing rule (2026-11-14, extended 2026-11-15), recorded in the issue:**
+  - **One place for every outcome of a request.** Both new texts use the existing notice (the info `Message`, `role="status"`), not a muted line like #43's and #88's. Those lines describe a field's state; these texts are the outcome of a request, like the failure notices.
+  - **"Nothing new"** means that after the answer, the form shows no suggestion it did not show just before. This covers asking again with the same answer, which the deterministic mock provider gives for the same text.
+  - **The 10-tag case gets its own text** and also covers a partial add. That text wins over "No new suggestions".
+  - **A running request is dropped only once the entry is sent.** A save that the form's own check stops keeps the request, and its answer is applied (usually it fills the missing category). When a sent save fails, only the save error shows. Rejected: holding an answer through a sent save, and a "suggestions stopped" notice.
+  - **The notice keeps #28's behaviour** (it goes on the next tap and on Save entry).
+  - **Texts** (the design note may refine them): "No new suggestions for this text." and "Up to 10 tags per entry, so not every suggested tag was added."
+  - **Screens change:** the task needs a design note, and a design review after QA. `render.yaml` is unchanged, so no Blueprint sync is needed.
+- **How I verified it:**
+  - **The dropped answer:** `handleSubmit` calls `dropSuggestionRequest()` before the form's own check, so a save stopped by the check loses the answer.
+  - **The 10-tag case:** `applySuggestion` gets the tags from `addTagNamesWithin`. `addTagNamesWithin` returns `problems.tooMany` when a tag is left out at 10, but the form does not use it today.
+  - **The contract:** `Suggestion.tags` has `maxItems: 5`, no minimum, and names of at most 40 characters. So an answer can have 0 tags, and no suggested tag is ever left out for being too long.
+  - **The mock provider:** `mock.py` is deterministic, and `limits.py` counts every request, whichever provider answers it.
+  - **The issue on GitHub:** the saved body is identical to what I wrote, and the issue still has no labels.
+  - No change to project code, and no AI call.
+- **Left open:** nothing.
