@@ -837,10 +837,17 @@ export interface components {
     requestBodies: never;
     headers: {
         /**
-         * @description Marks the response as a file download and names the file (UTC date).
+         * @description Marks the response as a file download named
+         *     `winlog-export-YYYY-MM-DD.json`, with the UTC date of the export.
          * @example attachment; filename="winlog-export-2026-11-01.json"
          */
-        ContentDisposition: string;
+        ContentDispositionJson: string;
+        /**
+         * @description Marks the response as a file download named
+         *     `winlog-export-YYYY-MM-DD.md`, with the UTC date of the export.
+         * @example attachment; filename="winlog-export-2026-11-01.md"
+         */
+        ContentDispositionMarkdown: string;
         /**
          * @description Whole seconds until the request can be tried again, at least 1
          *     (FR-A4): until the attempt window ends.
@@ -1385,7 +1392,7 @@ export interface operations {
             /** @description The JSON export file. */
             200: {
                 headers: {
-                    "Content-Disposition": components["headers"]["ContentDisposition"];
+                    "Content-Disposition": components["headers"]["ContentDispositionJson"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -1408,7 +1415,7 @@ export interface operations {
             /** @description The Markdown export file. */
             200: {
                 headers: {
-                    "Content-Disposition": components["headers"]["ContentDisposition"];
+                    "Content-Disposition": components["headers"]["ContentDispositionMarkdown"];
                     [name: string]: unknown;
                 };
                 content: {

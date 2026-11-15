@@ -765,7 +765,7 @@ paths:
           description: The JSON export file.
           headers:
             Content-Disposition:
-              $ref: '#/components/headers/ContentDisposition'
+              $ref: '#/components/headers/ContentDispositionJson'
           content:
             application/json:
               schema:
@@ -789,7 +789,7 @@ paths:
           description: The Markdown export file.
           headers:
             Content-Disposition:
-              $ref: '#/components/headers/ContentDisposition'
+              $ref: '#/components/headers/ContentDispositionMarkdown'
           content:
             text/markdown:
               schema:
@@ -840,11 +840,20 @@ components:
         format: uuid
 
   headers:
-    ContentDisposition:
-      description: Marks the response as a file download and names the file (UTC date).
+    ContentDispositionJson:
+      description: |
+        Marks the response as a file download named
+        `winlog-export-YYYY-MM-DD.json`, with the UTC date of the export.
       schema:
         type: string
       example: attachment; filename="winlog-export-2026-11-01.json"
+    ContentDispositionMarkdown:
+      description: |
+        Marks the response as a file download named
+        `winlog-export-YYYY-MM-DD.md`, with the UTC date of the export.
+      schema:
+        type: string
+      example: attachment; filename="winlog-export-2026-11-01.md"
     RetryAfter:
       description: |
         Whole seconds until the request can be tried again, at least 1

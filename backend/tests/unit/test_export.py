@@ -330,6 +330,22 @@ def test_fr_d1_export_file_names_use_the_utc_date(exported_at: dt.datetime, date
     assert f"Exported on {date}" in render_markdown(data)
 
 
+@pytest.mark.parametrize(
+    ("path", "extension"),
+    [("/export/json", "json"), ("/export/markdown", "md")],
+    ids=["exportJson", "exportMarkdown"],
+)
+def test_fr_d1_export_file_name_examples_match_the_backend(path: str, extension: str):
+    """Each operation's Content-Disposition example in openapi.yaml names the file the
+    backend sends for an export at EXPORTED_AT (issue #64)."""
+    header = OPENAPI["paths"][path]["get"]["responses"]["200"]["headers"]["Content-Disposition"]
+    prefix = "#/components/headers/"
+    assert header["$ref"].startswith(prefix)
+    entry = OPENAPI["components"]["headers"][header["$ref"].removeprefix(prefix)]
+
+    assert entry["example"] == f'attachment; filename="{file_name(_data(), extension)}"'
+
+
 @pytest.mark.parametrize("path", OPERATIONS)
 @pytest.mark.parametrize("headers", [{}, {"Authorization": "Bearer"}, {"Authorization": "Basic x"}])
 def test_fr_a3_export_without_a_token_is_not_authenticated(
