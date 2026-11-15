@@ -4968,3 +4968,16 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - The saved body of #108 is identical to what I wrote. The issue still has no labels.
   - No change to project code, and no AI call.
 - **Left open:** nothing.
+
+## 2026-11-15: Orchestrator: close #87 and #91 as not planned, add #114 to the backlog
+
+- **Decisions (product owner, 2026-11-15):**
+  - close #87 and #91 (both skipped as out of scope on 2026-11-14) as not planned;
+  - add #114 (keep the spec's "Last updated" date in step) before #92.
+- **What I did:**
+  - Closed #87 and #91 as not planned, with a comment on each.
+  - `docs/tasks.md`:
+    - #114 is task 66, so #92 and #98 moved to tasks 67 and 68;
+    - "Skipped" became "Closed as not planned".
+  - `docs/process.md`: the standing rule covers tasks 48 to 68, the same issues plus #114.
+  - The running batch includes #114 and still stops before #92.
