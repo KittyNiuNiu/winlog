@@ -3799,3 +3799,26 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Read the saved body back: it matches what I wrote and has the four template sections.
   - No code run, and no AI call.
 - **Left open:** the engineer still has to make the contract's 16 KiB paragraph read as one statement and remove the limits from the `SavedSummaryFilter` property descriptions. QA findings 3 to 5 were not part of this amendment.
+
+## 2026-11-15: Engineer: fix #88 after QA FAIL (soft 16 KiB limit, `SavedSummaryFilter` descriptions)
+
+- **Task:** the QA FAIL on #88 (6888086115) and the criteria the PM amended on the product owner's decision (6890767874). Only the live check's last bullet had failed. QA had confirmed that uvicorn's 16 KiB limit is soft. PM decision 7 stands: no limit of our own.
+- **What I did:**
+  - `openapi.yaml` (afd16dc, before the other changes): the 16 KiB bullet in Size limits is now one statement of the soft limit (QA finding 1). Uvicorn answers a plain-text 400 only when more than 16 KiB of the request line and headers arrive before they are complete; complete ones reach the API and are validated as usual. The property descriptions of `SavedSummaryFilter` no longer state any maximum (QA finding 2). `frontend/src/api/schema.d.ts` regenerated; only two JSDoc lines changed.
+  - `ops/deployment.md` (63f664b): the request-size paragraph says the same as the contract.
+  - `backend/app/body_limit.py`: the module docstring describes the soft limit.
+  - Tests (e320a54):
+    - `tests/integration/test_request_body_limit.py`: about 17 KB (largest valid filter plus an unknown parameter) sent in two pieces, the first 16,500 bytes, gets the plain-text 400 with no `request finished` line and no span. The same in one piece answers 200 and ignores the unknown parameter. 45 `tag` values in one piece answer 422 naming `tag`.
+    - Unit tests check the contract's statement, the guide's matching paragraph, and that the `SavedSummaryFilter` property descriptions state no maximum. My own earlier test that wanted identical descriptions now checks this instead.
+- **How I verified it:**
+  - Contract lint with `@redocly/openapi-core` (recommended rules): 0 errors, the same 3 warnings.
+  - Backend: ruff check and format clean; unit 1183 passed; integration 1040 passed. The new raw-socket tests passed 5 runs in a row.
+  - Frontend: lint clean, build OK, `npm run test:viewport` 95 passed (9 skipped).
+  - `./test-all.sh`: all three suites passed (1183, 1040, 1257).
+  - Live check against `uvicorn app.main:app --port 8000` (h11, mock AI):
+    - A 16,979-byte request in two pieces got `HTTP/1.1 400 Bad Request`, `text/plain`, "Invalid HTTP request received.", and no new `request finished` line.
+    - The same in one piece got 200 (`{"entries":[]}`, the unknown parameter ignored), with one `request finished` line.
+    - 45 tags (22,074 bytes) in one piece got 422 naming `tag`.
+    - The other bullets passed again: 300,000-byte bodies got 413 with both framings, the 10,000-emoji edit got 200, and the largest filter got 200 (422 with a 21st tag).
+  - Docker was stopped in this session, so I started `dockerd` and `docker compose up -d db`.
+- **Left open:** QA findings 3 to 5 are outside the criteria and unchanged. Finding 3: a client still uploading a body when the 413 arrives may see the connection reset. Finding 4: 413 log lines have no `http.route`. Finding 5: QA's own data in the local database.
