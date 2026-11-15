@@ -5139,3 +5139,12 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Read the image's data source and Prometheus configuration: data source uid `prometheus`; `service.name` is promoted to the label `service_name`.
   - The saved issue body was compared with the text sent, and its labels are still empty. No AI call.
 - **Left open:** nothing.
+
+## 2026-11-15: Orchestrator: close #111 (one AI time limit, finish reasons)
+
+- **Task:** task 64, run with `/orchestrate all`. No screens change; `render.yaml` does not change.
+- **What happened:** PM grooming (6902049285); engineer (6902259325, CI 43768287481 passed); QA PASS (6902488631). Closed as completed.
+- **Open points, left in this log under the standing rule** (no work needed):
+  - a hanging DNS lookup cannot be cancelled, so the timeout can come late, bounded by the system resolver. It is not a regression, and QA judged it acceptable;
+  - the no-answer test passes on the old code too (the per-read limit); the slow-drip case shows the change;
+  - a timeout after the headers logs `status none`, as before.
