@@ -1,7 +1,7 @@
 # Winlog: Product Specification
 
 **Version:** 0.2 (draft)
-**Last updated:** 11 November 2026
+**Last updated:** 15 November 2026
 
 ---
 
@@ -194,7 +194,7 @@ React + TypeScript frontend ──── HTTPS / JSON ────► FastAPI ba
 | Frontend | React, TypeScript | Responsive UI; all backend calls go through one central API client |
 | Backend | Python, FastAPI | REST API, authentication with bearer tokens, business logic, AI adapter, AI usage limits, login attempt limits |
 | Database | PostgreSQL | Persistent storage in all environments, with schema migrations |
-| AI | LLM router service (OpenRouter planned) | Category and tag suggestions; summaries |
+| AI | LLM router service (OpenRouter) | Category and tag suggestions; summaries |
 | Containers | Docker, Docker Compose | Local development and integration testing of the full system |
 | Observability | OpenTelemetry (Python SDK, OTLP); Grafana's all-in-one otel-lgtm image (OpenTelemetry Collector, Prometheus, Tempo, Loki, Grafana) | The backend's traces, metrics and JSON logs, sent over OTLP when a collector is configured. Locally, collection, storage and the viewer UI run in Docker Compose. Deployed environments send no telemetry yet. |
 | CI/CD | GitHub Actions | Runs lint and tests on every push. After all CI checks for a commit on `main` have passed, it builds the backend image once, pushes it to GitHub Container Registry and deploys it, with the frontend of the same commit, to the dev environment. Production receives the same image and commit only through a manual approval step in the pipeline. |
@@ -264,6 +264,8 @@ Closed:
 - Default LLM model (closed 9 November 2026): `anthropic/claude-haiku-5.5`, chosen by a documented comparison (issue #14). The backup model is `deepseek/deepseek-v4.1-flash`: if the default becomes unavailable, too expensive or worse, the model setting is switched to it. It is not an automatic fallback. Details in `docs/decisions/default-model.md`.
 
 ## 14. Change log
+
+**0.2, updated 15 November 2026.** §10.2: the AI row says "OpenRouter" instead of "OpenRouter planned", because production has used OpenRouter since issue #38. The header's "Last updated" date, which had stayed at 11 November 2026 through the changes of 13 and 14 November, now shows the date of the latest change (issue #103). Nothing else changed.
 
 **0.2, updated 14 November 2026.** §10.2: the CI/CD row describes the pipeline (one backend image per `main` commit in GitHub Container Registry, an automatic deploy to dev, and production only through a manual approval step), and the Hosting row covers the dev and production environments. §10.4: four environments, with the new hosted Dev environment (issue #39). Nothing else changed.
 
