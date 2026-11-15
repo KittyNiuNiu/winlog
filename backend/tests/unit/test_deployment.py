@@ -565,6 +565,7 @@ def test_deploy_guide_says_the_wait_passes_only_when_both_services_name_the_run_
 def test_deploy_guide_says_what_to_do_when_the_wait_fails():
     section = _guide_section("## The pipeline").split("\n### When the wait fails\n")[1]
     section = section.split("\n### ")[0]
+    section, cache = section.split("\n**Render's CDN cache.**")
     dev = _flat(section.split("- **In dev:**")[1].split("- **In production:**")[0])
     production = _flat(section.split("- **In production:**")[1])
     assert "the run's production step is not offered" in dev
@@ -577,6 +578,27 @@ def test_deploy_guide_says_what_to_do_when_the_wait_fails():
     assert link in production
     assert "a deploy that names no image would now pull the failed image" in production
     assert "nothing more is needed once **Events** show it live" in production
+    # Render's CDN cache (amended 2026-11-15): the wait relies on Render clearing it on deploy,
+    # nothing gets past it, and a stale copy can only delay the pass.
+    cache = _flat(cache)
+    for phrase in (
+        "The wait relies on Render clearing the static site's CDN cache when it deploys",
+        '"As soon as a build succeeds, we deploy it and immediately invalidate our CDN caches" '
+        "([Render's static site docs](https://render.com/docs/static-sites))",
+        "No query string or request header gets past that cache (checked on 15 November 2026), "
+        "so the wait requests `/version.json` with no query string.",
+        "A stale copy is the previous build's `version.json` or `index.html`, so it names an "
+        "older commit or none.",
+        "Both sites send `/version.json` with `s-maxage=300`, so a stale copy can delay the pass "
+        "by at most 5 minutes, but it can never make the wait pass.",
+    ):
+        assert phrase in cache, phrase
+    # Neither the guide nor the workflow claims that the wait gets past the cache.
+    guide = (ROOT / "ops" / "deployment.md").read_text(encoding="utf-8")
+    for text in (_flat(guide), _flat(DEPLOY_TEXT)):
+        assert "no copy in Render's CDN can answer" not in text
+        assert "query string that differs" not in text.lower()
+        assert "?wait=" not in text
 
 
 def test_deploy_guide_promotion_keeps_the_events_check_for_a_new_reason():
@@ -683,7 +705,21 @@ def test_deploy_workflow_comments_describe_the_new_wait():
     step = DEPLOY_TEXT.split("- name: Wait until the backend and the static site answer\n")[1]
     comment = _comment_text(step.split("run: |")[0])
     assert "Passes only when both services answer with the run's commit (#102)" in comment
-    assert "a query string that differs on each request" in comment
+    # Render's CDN ignores the query string and the request's cache headers (QA, 2026-11-15):
+    # the wait relies on Render clearing the cache on deploy, and a stale copy only delays it.
+    assert "/version.json is requested with no query string." in comment
+    assert (
+        "The wait relies on Render clearing the static site's CDN cache when it deploys" in comment
+    )
+    assert "No query string or request header gets past that cache." in comment
+    assert (
+        "A stale copy is the previous build's version.json or index.html, so it names an older "
+        "commit or none: it can only delay the pass (by up to 5 minutes, its s-maxage), never "
+        "make it pass." in comment
+    )
+    assert "no copy in Render's CDN can answer" not in DEPLOY_TEXT
+    assert "query string that differs on each request" not in DEPLOY_TEXT.lower()
+    assert "?wait=" not in DEPLOY_TEXT
     assert "never a hook" in comment
 
 
@@ -1252,9 +1288,8 @@ def test_deploy_wait_passes_only_after_both_name_the_commit_and_logs_each_change
     assert len(_paths(api, "/health")) == 4
     versions = _paths(app, "/version.json")
     assert len(versions) == len(_paths(app, "/")) == 7
-    # Each request for /version.json has its own query string, so no CDN copy can answer it.
-    queries = [query for _, query in versions]
-    assert all(queries) and len(set(queries)) == len(queries)
+    # /version.json is requested with no query string: Render's CDN ignores it anyway (#102).
+    assert [query for _, query in versions] == [""] * 7
     assert [query for _, query in _paths(api, "/health")] == [""] * 4
     assert result.stdout.splitlines()[-1].startswith("After ")
 
@@ -1390,7 +1425,7 @@ def test_deploy_wait_calls_only_the_public_urls_and_prints_no_secret():
     curl_lines = [line for line in step["run"].splitlines() if "curl " in line]
     assert [re.findall(r'"([^"]+)"', line)[-1] for line in curl_lines] == ["$1", "$APP_URL/"]
     calls = re.findall(r'fetch "([^"]+)"', step["run"])
-    assert calls == ["$API_URL/health", "$APP_URL/version.json?wait=$(date +%s%N)"]
+    assert calls == ["$API_URL/health", "$APP_URL/version.json"]
     assert "set -x" not in step["run"] and "--verbose" not in step["run"]
 
 
@@ -1402,6 +1437,14 @@ def test_deploy_wait_has_the_same_time_limit_and_poll_interval_in_both_jobs():
         # Room for the whole wait after the hooks: two hook calls of up to 60 s each, the tag
         # move, and the last round of polls (three requests of up to 30 s each).
         assert job["timeout-minutes"] * 60 >= WAIT_TIMEOUT_SECONDS + 5 * 60, name
+    # The worst case (amended 2026-11-15): the wait checks its limit after each round of
+    # requests, so one more interval and one last round of three requests of up to 30 s each can
+    # follow the limit, about 16 minutes 40 seconds in all. The hooks (up to 60 s each) come
+    # before it, and the job's time limit still covers both.
+    worst_case = WAIT_TIMEOUT_SECONDS + WAIT_INTERVAL_SECONDS + 3 * 30
+    assert worst_case == 16 * 60 + 40
+    for name in ("deploy-dev", "deploy-production"):
+        assert DEPLOY["jobs"][name]["timeout-minutes"] * 60 >= worst_case + 2 * 60, name
     dev, production = DEPLOY["jobs"]["deploy-dev"], DEPLOY["jobs"]["deploy-production"]
     assert dev["timeout-minutes"] == production["timeout-minutes"]
     # The step reads them from the job's env, so the tests above can shorten them.

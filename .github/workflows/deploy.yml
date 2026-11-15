@@ -257,10 +257,14 @@ jobs:
         # matches, and then no longer. It polls every WAIT_INTERVAL_SECONDS and gives up after
         # WAIT_TIMEOUT_SECONDS with one error that names, for each service that did not match,
         # its URLs, its last answer and the commit expected. The log gets one line each time what
-        # a service answers changes, with the seconds since the wait started. /version.json is
-        # requested with a query string that differs on each request, so no copy in Render's CDN
-        # can answer for the new build. Only the services' public URLs are called, never a hook,
-        # and a commit from a body reaches the log only when it is a valid commit.
+        # a service answers changes, with the seconds since the wait started.
+        # /version.json is requested with no query string. The wait relies on Render clearing the
+        # static site's CDN cache when it deploys (ops/deployment.md, When the wait fails). No
+        # query string or request header gets past that cache. A stale copy is the previous
+        # build's version.json or index.html, so it names an older commit or none: it can only
+        # delay the pass (by up to 5 minutes, its s-maxage), never make it pass.
+        # Only the services' public URLs are called, never a hook, and a commit from a body
+        # reaches the log only when it is a valid commit.
         run: |
           body="$RUNNER_TEMP/wait-body"
 
@@ -326,8 +330,7 @@ jobs:
             if [ "$app_ok" = no ]; then
               index=$(curl --silent --max-time 30 --output /dev/null --write-out '%{http_code}' "$APP_URL/" || true)
               index=${index:-000}
-              # A query string that differs on each request, also from earlier runs' requests.
-              fetch "$APP_URL/version.json?wait=$(date +%s%N)"
+              fetch "$APP_URL/version.json"
               if [ "$index" = 200 ] && [ "$status" = 200 ] && [ "$commit" = "$SHA" ]; then app_ok=yes; fi
               if [ "$index" = 000 ]; then index_answer="no answer"; else index_answer="HTTP $index"; fi
               app_answer="GET $APP_URL/ -> $index_answer; GET $APP_URL/version.json -> $(answer "$status" "$commit")"

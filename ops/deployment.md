@@ -155,6 +155,15 @@ answered, with the seconds since the wait started.
   that names no image would now pull the failed image. If the deploy was only slower, nothing
   more is needed once **Events** show it live.
 
+**Render's CDN cache.** The static site's `/version.json` comes through Render's CDN. The wait
+relies on Render clearing the static site's CDN cache when it deploys: "As soon as a build
+succeeds, we deploy it and immediately invalidate our CDN caches"
+([Render's static site docs](https://render.com/docs/static-sites)). No query string or request
+header gets past that cache (checked on 15 November 2026), so the wait requests `/version.json`
+with no query string. A stale copy is the previous build's `version.json` or `index.html`, so it
+names an older commit or none. Both sites send `/version.json` with `s-maxage=300`, so a stale
+copy can delay the pass by at most 5 minutes, but it can never make the wait pass.
+
 ### Where to see each step
 
 | Step | GitHub | Render Dashboard |
