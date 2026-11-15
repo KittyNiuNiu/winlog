@@ -165,7 +165,7 @@ Individual professionals who want a lightweight record of their work so they can
 | Language | The user interface is in English. Entries can be written in any language. |
 | Security | Passwords are stored only as hashes. Logins use tokens that the server stores, so they can be revoked, and that expire. Repeated failed logins are slowed down (FR-A4). Secrets and keys come from environment variables and are never committed. All data access is scoped to the authenticated user. |
 | Privacy | Users can export and delete their data (see 7.6). AI providers do not retain request data (see 8). |
-| Observability | One key user journey, generating a summary (FR-R3), is instrumented with traces, metrics and structured logs that share a trace ID. Telemetry contains no customer data or credentials: no entry text, Result/Impact, tag names, summary text, AI request or response content, passwords, tokens, email addresses, user ids or IP addresses. Locally, the signals are collected, stored and viewable in a UI that starts with Docker Compose. The app works the same when no collector is running. |
+| Observability | One key user journey, generating a summary (FR-R3), is instrumented with traces, metrics and structured logs that share a trace ID. Telemetry contains no customer data or credentials: no entry text, Result/Impact, tag names, summary text, AI request or response content, passwords, tokens, email addresses, user ids or IP addresses. Locally, the signals are collected, stored and viewable in a UI that starts with Docker Compose. The app works the same when no collector is running. One alert on user impact, on the share of requests that fail with a server error, is defined as code and shows in the local UI. |
 | Reliability | The app stays usable if the AI provider is unavailable. |
 | Testability | Backend and frontend have automated unit and integration tests, and one command runs them all. AI calls are mocked in tests. |
 | Reproducibility | The full system (frontend, backend, database and the local telemetry stack) starts locally with Docker Compose. |
@@ -196,7 +196,7 @@ React + TypeScript frontend ──── HTTPS / JSON ────► FastAPI ba
 | Database | PostgreSQL | Persistent storage in all environments, with schema migrations |
 | AI | LLM router service (OpenRouter) | Category and tag suggestions; summaries |
 | Containers | Docker, Docker Compose | Local development and integration testing of the full system |
-| Observability | OpenTelemetry (Python SDK, OTLP); Grafana's all-in-one otel-lgtm image (OpenTelemetry Collector, Prometheus, Tempo, Loki, Grafana) | The backend's traces, metrics and JSON logs, sent over OTLP when a collector is configured. Locally, collection, storage and the viewer UI run in Docker Compose. Deployed environments send no telemetry yet. |
+| Observability | OpenTelemetry (Python SDK, OTLP); Grafana's all-in-one otel-lgtm image (OpenTelemetry Collector, Prometheus, Tempo, Loki, Grafana) | The backend's traces, metrics and JSON logs, sent over OTLP when a collector is configured. Locally, collection, storage and the viewer UI run in Docker Compose. Deployed environments send no telemetry yet. Locally, an alert rule on the share of server errors (5xx) is provisioned in Grafana from the repository. |
 | CI/CD | GitHub Actions | Runs lint and tests on every push. After all CI checks for a commit on `main` have passed, it builds the backend image once, pushes it to GitHub Container Registry and deploys it, with the frontend of the same commit, to the dev environment. Production receives the same image and commit only through a manual approval step in the pipeline. |
 | Hosting | Render (frontend as static sites, backend as web services running the image from GitHub Container Registry, all in one Render Blueprint), Neon (PostgreSQL) | Dev and production environments |
 
@@ -264,6 +264,8 @@ Closed:
 - Default LLM model (closed 9 November 2026): `anthropic/claude-haiku-5.5`, chosen by a documented comparison (issue #14). The backup model is `deepseek/deepseek-v4.1-flash`: if the default becomes unavailable, too expensive or worse, the model setting is switched to it. It is not an automatic fallback. Details in `docs/decisions/default-model.md`.
 
 ## 14. Change log
+
+**0.2, updated 15 November 2026.** §9: the Observability row adds an alert on user impact. §10.2: the Observability row adds the alert rule in local Grafana (issue #112). Nothing else changed.
 
 **0.2, updated 15 November 2026.** §10.2: the AI row says "OpenRouter" instead of "OpenRouter planned", because production has used OpenRouter since issue #38. The header's "Last updated" date, which had stayed at 11 November 2026 through the changes of 13 and 14 November, now shows the date of the latest change (issue #103). Nothing else changed.
 
