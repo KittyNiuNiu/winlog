@@ -652,12 +652,34 @@ Blueprint (Auto Sync stays off, [Blueprint syncs](#blueprint-syncs)).
 | `DEMO_LOGIN_WINDOW_MINUTES` | `60` | `render.yaml` | no |
 | `TOKEN_LIFETIME_DAYS` | `7` | `render.yaml` | no |
 | `DATABASE_CONNECT_TIMEOUT_SECONDS` | `3` | `render.yaml` | no |
+| `DATABASE_QUERY_TIMEOUT_SECONDS` | `10` | `render.yaml` | no |
+| `REQUEST_BODY_MAX_BYTES` | `262144` | `render.yaml` | no |
 | `DEMO_EMAIL` | `demo@example.com` (the reset creates it before the server accepts requests, so nobody can register it first) | `render.yaml` | no |
 | `PORT` | the port the server listens on | set by Render itself; not in `render.yaml` | no |
 
 Not set in production, on purpose: `OTEL_EXPORTER_OTLP_ENDPOINT` (no telemetry export, #92),
 and the variables only Docker Compose or the tests use (`POSTGRES_*`, `*_HOST_PORT`,
 `VITE_API_BASE_URL` on the backend, `TEST_DATABASE_URL`).
+
+**When the database stops answering** (#95): every request that waits on it ends with the app's
+"Something went wrong" error (500 `internal_error`) after at most about
+`DATABASE_QUERY_TIMEOUT_SECONDS` + `DATABASE_CONNECT_TIMEOUT_SECONDS`, 13 seconds with these
+values: up to 10 for a call on an open connection, then up to 3 to open a new one (3 for each
+address, if the database's host name has several). `/health` answers 503 `database_unreachable`
+after `DATABASE_CONNECT_TIMEOUT_SECONDS` (3 seconds). Render stops sending traffic to the
+instance after 15 seconds of failed health checks and restarts it after 60 seconds ([Render's
+health check docs](https://render.com/docs/health-checks), checked on 15 November 2026). Once
+the database answers again, the backend works without a restart. A single pooled connection that
+stops answering while the database is fine is replaced after at most 10 seconds, and the request
+still succeeds. Migrations at startup have no such limit.
+
+**Request size** (#88): a request body over `REQUEST_BODY_MAX_BYTES` (256 KiB) gets the app's
+413 `request_too_large` error in the shared JSON format, on every path, before the request is
+checked or anything is saved. The request line and headers have only uvicorn's soft limit of
+16 KiB: when more than 16 KiB of them arrive before they are complete, uvicorn answers a
+plain-text 400 ("Invalid HTTP request received.") before the app runs. When they arrive complete
+in one read, they are not checked against 16 KiB and the app gives its usual answer, for example
+422 for more than 20 `tag` values. No valid request from the app comes near either limit.
 
 
 ### Dev backend (`winlog-api-dev`)
@@ -671,8 +693,10 @@ The same as `winlog-api`, except these rows:
 | `AI_PROVIDER` | `mock` | `render.yaml` | no |
 | `AI_API_KEY`, `AI_BASE_URL`, `AI_MODEL` | not set: the mock needs none, and dev never calls a real AI | – | – |
 
-All other values (timeouts, AI usage limits, login limits, token lifetime, database timeout,
-`DEMO_EMAIL`) are the same as production's. Keep them the same when one changes.
+All other values (AI timeouts, AI usage limits, login limits, token lifetime, both database
+timeouts `DATABASE_CONNECT_TIMEOUT_SECONDS` and `DATABASE_QUERY_TIMEOUT_SECONDS`, the request
+body limit `REQUEST_BODY_MAX_BYTES`, `DEMO_EMAIL`) are the same as production's. Keep them the
+same when one changes.
 
 ### Static sites (`winlog-app`, `winlog-app-dev`)
 

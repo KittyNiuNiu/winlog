@@ -2,6 +2,10 @@
 
 Every error response has a machine-readable `code` and a human-readable `message`.
 Validation errors also list each failing field in `fields`.
+
+A request body over `REQUEST_BODY_MAX_BYTES` gets 413 `request_too_large`
+(`request_too_large_response`), on every path and method. app/body_limit.py sends it before
+the app routes the request, so before authentication and validation (issue #88).
 """
 
 from collections.abc import Sequence
@@ -74,6 +78,11 @@ async def _handle_http_error(request: Request, exc: StarletteHTTPException) -> J
 
 async def _handle_api_error(request: Request, exc: ApiError) -> JSONResponse:
     return error_response(exc.status_code, exc.code, exc.message, headers=exc.headers, **exc.extra)
+
+
+def request_too_large_response() -> JSONResponse:
+    """openapi.yaml's 413 `request_too_large` (`components.responses.RequestTooLarge`)."""
+    return error_response(413, "request_too_large", "The request body is too large.")
 
 
 def _internal_error_response() -> JSONResponse:

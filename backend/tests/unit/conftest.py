@@ -44,6 +44,8 @@ def no_env_file(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.delenv("CORS_ALLOWED_ORIGINS", raising=False)
     monkeypatch.delenv("DATABASE_CONNECT_TIMEOUT_SECONDS", raising=False)
+    monkeypatch.delenv("DATABASE_QUERY_TIMEOUT_SECONDS", raising=False)
+    monkeypatch.delenv("REQUEST_BODY_MAX_BYTES", raising=False)
     monkeypatch.delenv("TOKEN_LIFETIME_DAYS", raising=False)
     monkeypatch.delenv("AI_PROVIDER", raising=False)
     monkeypatch.delenv("AI_BASE_URL", raising=False)

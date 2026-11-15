@@ -3592,3 +3592,250 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - steps in the product owner's accounts;
   - merges and production approvals.
 - **What I did:** recorded the rule in `docs/process.md` under "Product decisions".
+
+## 2026-11-14: PM: groom #95 (task 48, limit how long requests wait for a database that stops answering)
+
+- **Task:** groom #95, which had no status label, following `docs/pm.md`. The product owner put it first among tasks 48 to 61, because it protects the live app.
+- **What I read:**
+  - the issue, which had no comments, and its sources: the #4 engineer and QA comments and the #38 comment;
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md`, `docs/product-spec.md`, `openapi.yaml`, `AGENTS.md`, `docs/tasks.md`, `ops/deployment.md`, `docs/observability.md`, `.env.example`, `docker-compose.yml` and `render.yaml`;
+  - the backend's database code (`backend/app/db.py`, `health.py`, `settings.py`, `main.py`, `auth.py`, `errors.py`), the database use in `summaries.py` and `suggestions.py`, `backend/migrations/env.py`, `scripts/seed_demo.py`, `tests/integration/test_health.py` and `tests/unit/test_deployment.py`;
+  - the frontend's API client: it sets no request timeout and treats a 500 as `UnknownError`.
+- **What I did:**
+  - Rewrote the body of #95 using the template.
+  - Posted the PM comment with the decisions (6886151429).
+  - Labels unchanged: the orchestrator sets the status.
+- **Decisions under the standing rule (2026-11-14), recorded in the issue:**
+  - A general limit is needed despite Render's health check. Render restarts only after 60 seconds of failed checks, and it never steps in for a single dead pooled connection while `/health` passes on another one.
+  - Approach: a client-side limit on every database call in the backend's database layer. Not `statement_timeout`, not TCP keepalives, not a per-request deadline. The engineer picks the mechanism, without a new thread per call.
+  - New setting `DATABASE_QUERY_TIMEOUT_SECONDS`, default 10, from 1 to 600. It also caps the pool wait. It goes into `.env.example`, Docker Compose, `render.yaml` (both backends) and `ops/deployment.md`.
+  - The user sees the existing 500 `internal_error`, so `openapi.yaml` and the frontend stay unchanged. No screen changes.
+  - `/health` keeps its own shorter limit. Migrations stay unlimited. A write cut off by the limit may still land; no idempotency or retries.
+  - No spec change. New tests start with `test_db_time_limit_`, because no requirement ID applies.
+- **How I verified it:**
+  - Checked in the installed psycopg 3.3.6 and SQLAlchemy 2.1.6 source:
+    - `Connection.wait` has an internal timeout that raises `errors._WaitTimeout`.
+    - The psycopg dialect's `is_disconnect` needs a `closed` or `broken` connection.
+    - The pool's defaults include `pool_timeout`, 30 seconds.
+  - Render's health check figures (traffic stops after 15 seconds of failures, restart after 60 seconds) come from a web search of render.com/docs/health-checks. render.com is not reachable from this session, so the issue asks the engineer to re-check them.
+  - `test_deployment.py` requires each `render.yaml` value to equal the setting's default, so the default (10) matches `render.yaml`.
+  - Read the saved issue body back: it matches what I wrote and has the four template sections.
+  - No code run, and no AI call.
+- **Left open:**
+  - The Blueprint's Manual Sync after the production deploy is the product owner's step. Until then the default, which is the same value, applies.
+  - No follow-up issues were created. Hosted telemetry is already #92.
+
+## 2026-11-15: Engineer: implement #95 (task 48, limit how long requests wait for a database that stops answering)
+
+- **Task:** #95 as groomed by the PM on 2026-11-14 (issue body and comment 6886151429). No screens change, so no design note or review. No real AI call (`AI_PROVIDER=mock` throughout).
+- **What I did:**
+  - `backend/app/db.py`: the engine opens its connections as `TimeLimitedConnection`, a subclass of `psycopg.Connection`. Its `wait` passes `DATABASE_QUERY_TIMEOUT_SECONDS` as the timeout of psycopg's own wait loop. That loop runs every database call: the pool's pre-ping, a statement with its result, a commit or a rollback. When the limit runs out, the connection is closed (`broken`) and `DatabaseCallTimeout` (an `OperationalError`) is raised, so SQLAlchemy treats it as a disconnect and discards the connection. The engine opens connections this way through SQLAlchemy's public `do_connect` event. `pool_timeout` is Q too. Migrations keep their own engine without the limit.
+  - `database_is_reachable` and `/health` behave as before. The docstring now says that the engine's limits also free the background check.
+  - `backend/app/settings.py`: the new setting (default 10, a whole number from 1 to 600, the existing "Invalid configuration" message otherwise). The comments explain both database settings.
+  - Tests:
+    - `tests/unit/test_db.py`: a small fake PostgreSQL server, so no database is needed. It covers each kind of call, the engine, slow answers, time between calls and the psycopg internals, plus `.env.example` and Compose.
+    - `tests/unit/test_settings.py`: the new setting.
+    - `tests/integration/test_db_time_limit.py`: 15 tests against real PostgreSQL.
+    - `PausableProxy` moved to `tests/integration/pausable_proxy.py` and gained `pause_open_connections()`. `test_health.py` now only imports it; its tests are unchanged.
+  - Configuration and guide:
+    - `.env.example`, `docker-compose.yml`, and `render.yaml` (both backends).
+    - `ops/deployment.md`: the table row, the dev sentence, and a paragraph on what happens when the database stops answering.
+    - `tests/unit/test_deployment.py`: the expected `render.yaml` value.
+- **Mechanism (the issue left the choice to me): psycopg's `Connection.wait` timeout, not a watchdog.**
+  - It starts no thread at all. psycopg already measures one deadline for the whole call, so time between calls does not count.
+  - A watchdog needs a shared thread, a registry of running calls, and a socket shut down from another thread while libpq uses it.
+  - It relies on two things psycopg does not document as public: `errors._WaitTimeout`, and every call going through `Connection.wait(gen, interval, timeout)`. Unit tests guard both. With the limit switched off on purpose, 5 unit tests fail after 10 seconds instead of hanging.
+  - SQLAlchemy's dialect counts a `closed` or `broken` connection as a disconnect. A unit test checks that too.
+- **Decisions (mine, within the issue):**
+  - **A "call" includes psycopg's `BEGIN`:** the first statement of a transaction counts together with the `BEGIN` psycopg sends before it.
+  - **Error type:** `error.type` in the `request finished` line is SQLAlchemy's `OperationalError`, the class that reaches the middleware.
+  - **Per-address connect attempts:** psycopg tries each address of the database's host name, each for up to C. The guide paragraph says so.
+  - **The new `/health` test fails without the change:** it uses Q = 10 and C = 2, as in production, and also checks that the checks that gave up free their connections while the database stays paused (PM decision 5).
+- **How I verified it:**
+  - **Lint and tests:** in `backend/`, `uv run ruff check .` and `uv run ruff format --check .` are clean.
+    - Unit tests: 1071 passed, also with PostgreSQL stopped.
+    - Integration tests: 985 passed.
+    - `./test-all.sh`: all three suites passed (frontend 1239).
+  - **CI on the branch:** run 43657914270 for 556ba24 passed all six jobs, including Full system: 1071 unit and 985 integration tests.
+  - **Without the change:** I ran the new integration tests against `backend/app` from `main` (f655bec). 13 failed and 2 passed. The two that pass are the slow call within the limit and the time between calls; they check that the limit does not cut, so they pass without it too.
+  - **Live check, without building an image:** root `.env` with Q = 3 and C = 2, `docker compose up -d db`, `alembic upgrade head`, `uvicorn app.main:app --port 8000`, with a registered user.
+    - After `docker compose pause db`: `GET /entries` answered 500 `internal_error` in 5.0 s (limit 8), with the CORS headers. A second one answered in 2.0 s. `/health` answered 503 in 2.0 s (limit 3). The `request finished` lines had `error.type` `OperationalError` and no SQL.
+    - After `docker compose unpause db`: `/health` 200, `GET /entries` 200 with the entry, `POST /entries` 201. No `active` or `idle in transaction` session was left.
+    - The demo seed then ran with `DEMO_EMAIL` set (26 entries). `.env` was restored afterwards.
+  - **Compose:** `docker compose config` shows `"10"` without the variable in `.env`, and `"3"` (also `"25"`, through `--env-file`) when it is set.
+  - **Render:**
+    - `render.yaml` validates against Render's Blueprint schema (downloaded with curl today) with 0 errors; a deliberately wrong copy gets 2 errors.
+    - Render's health check page (curl, 200) says traffic stops after 15 seconds of failed consecutive checks and the instance restarts after 60 seconds, as the issue quotes.
+- **Left open:**
+  - **Render sync:** the Blueprint's Manual Sync after the production deploy is the product owner's step. Until then the default, which is the same value, applies. Production gets the change only after the product owner approves the production step (#39).
+  - **Uvicorn's stderr:** as before, uvicorn's own error log on stderr keeps the traceback of an unexpected error, with the statement but no values (`docs/observability.md`). The app's telemetry stays within the allowlist.
+
+## 2026-11-15: Orchestrator: close #95 (time limit for database calls)
+
+- **Task:** task 48, run with `/orchestrate all` (tasks 48 to 59). No screens change.
+- **What happened:**
+  - PM grooming (6886151429). Its decisions were taken under the standing rule of 2026-11-14: one limit for every database call, the new `DATABASE_QUERY_TIMEOUT_SECONDS` (default 10, from 1 to 600), the existing 500 error, `/health` and migrations unchanged.
+  - Engineer (6886707529): a time limit in psycopg's wait loop, through `TimeLimitedConnection` in `backend/app/db.py`, with no extra threads, plus the setting in `.env.example`, Compose, `render.yaml` and `ops/deployment.md`.
+  - QA PASS (6887178143). It simulated six psycopg and SQLAlchemy changes, and the guard tests caught each one. Closed as completed.
+- **Decisions under the standing rule:** the engineer's four decisions within the issue (`BEGIN` counts with the first call; Q + n × C on hosts with several addresses; the health test also checks that connections are freed; `PausableProxy` in its own module). The mechanism relies on two non-public parts of psycopg, guarded by unit tests.
+- **For the product owner after the production approval:** a Manual Sync of the Render Blueprint, so the new value reaches both backends. Until then the default (the same value) applies.
+- **Open points, all left in this log under the standing rule** (no work needed now, no open issue fits):
+  - the psycopg guards do not cover `executemany` in pipeline mode (used by `POST /entries` with tags); the limit covers it today;
+  - a statement cut off by the limit keeps running on the server, because no cancel is sent (in line with PM decision 7);
+  - uvicorn's stderr traceback for a failed request is unchanged and documented in `docs/observability.md`.
+
+## 2026-11-15: PM: groom #88 (task 49, limit the number of filter values and the size of a request)
+
+- **Task:** groom #88, which had no status label, following `docs/pm.md`. It is task 49, in the group "protect the live app".
+- **What I read:**
+  - the issue and its one comment (QA notes 1 and 2 from #43), the #43 issue with its QA comment and the #11 open point, and #95 as the pattern for a new setting;
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md`, `docs/product-spec.md`, `openapi.yaml`, `AGENTS.md`, `docs/tasks.md` and `docs/observability.md`;
+  - the backend's `main.py`, `errors.py`, `settings.py`, `entries.py`, `summaries.py`, `tags.py` and `auth.py`, plus `tests/conftest.py` and `tests/unit/test_input_limits.py`;
+  - the frontend's review tag filter, `reviewFilter.ts`, `ReviewPage.tsx`, the API client's errors and operations, and `inputLimits.test.ts`.
+- **What I did:**
+  - Rewrote the body of #88 using the template.
+  - Posted the PM comment with the decisions and the facts I checked (6887330796).
+  - Labels unchanged: the orchestrator sets the status.
+- **Decisions under the standing rule (2026-11-14), recorded in the issue:**
+  - A filter holds at most 20 tag names and 4 categories, in both `GET /entries` and `POST /summaries`. Values are counted as sent, and the limits are fixed in `openapi.yaml` as `maxItems`.
+  - New setting `REQUEST_BODY_MAX_BYTES`, default 262144, allowed from 131072 to 10485760. A larger body gets the new 413 `request_too_large` in the shared format, on every path, before authentication and validation. It is listed in `.env.example`, Compose, `render.yaml` (both backends) and `ops/deployment.md`.
+  - Uvicorn's 16 KiB limit on the request line and headers stays, and the contract documents it.
+  - Tags over 40 characters saved before #43: no change, because no deployed database can hold one.
+  - `Summary.filter` gets its own response schema, `SavedSummaryFilter`, without the request limits.
+  - The review page stops at 20 tags and uses only the first 20 tags from a URL.
+  - No new frontend error class.
+  - The task changes one screen (the review page's tag filter), so it needs a design note and a design review.
+- **How I verified it:**
+  - **Library limits,** in the installed source and the projects' docs (fetched from GitHub; starlette.io could not be reached):
+    - Uvicorn 0.54.0 runs on h11 without httptools, with a 16384-byte limit on the request line and headers and a plain-text 400 above it. It has no body limit.
+    - FastAPI 0.162.0 does not pass Starlette's `max_body_size`.
+    - Starlette 1.10.0 documents `RequestBodyLimitMiddleware` (since 1.6.0), whose own responses are plain text and which replaces the app's response when `Content-Length` is over the limit.
+  - **Render:** a web search found no documented request size limit.
+  - **Sizes,** computed with Python's `json` and `urllib.parse`:
+    - the largest valid summary edit is 120,011 bytes;
+    - the largest entry update is 34,914 bytes;
+    - the largest valid list URL with 20 tags is 9,831 bytes.
+  - **When the limits reached `main`:** with git. PR #93 (2026-11-13) brought `maxLength: 40` into `main`, before the first deploys of #38 and #39.
+  - **The saved issue:** I read the body back. It matches what I wrote and has the four template sections.
+  - No code run, and no AI call.
+- **Left open:**
+  - The Blueprint's Manual Sync after the production deploy is the product owner's step. Until then the default applies, which is the same value.
+  - No follow-up issues were created. Non-UTF-8 bodies stay in #58.
+
+## 2026-11-15: Engineer: implement #88 (task 49, limit the number of filter values and the size of a request)
+
+- **Task:** #88 as groomed by the PM on 2026-11-15 (issue body and comment 6887330796), with the design note 6887394411 for the review page's tag filter. This task changes a screen. No real AI call (`AI_PROVIDER=mock` throughout).
+- **What I did:**
+  - **Contract first** (`openapi.yaml`, committed before any code, e00e0ee):
+    - `maxItems: 4` and `maxItems: 20` on the `category` and `tag` parameters of `listEntries` and on `SummaryFilter`;
+    - the new `SavedSummaryFilter`, used by `Summary.filter`;
+    - the new error code `request_too_large` and the shared 413 response `RequestTooLarge`, on the 8 operations with a request body;
+    - the "Size limits" and "Errors" sections.
+    - `frontend/src/api/schema.d.ts` regenerated.
+  - **Backend, filter counts:**
+    - `MAX_FILTER_TAG_NAMES = 20` and `FilterTagNames` in `app/tags.py`;
+    - `MAX_FILTER_CATEGORIES = 4` and `FilterCategories` in `app/entries.py`, next to `Category`.
+    - Both use a `BeforeValidator` that counts the values as sent, before each one is checked. `list_entries` and `SummaryFilter` use them. `SavedSummaryFilter` in `app/summaries.py` has no limits and is what `Summary.filter` returns.
+  - **Backend, body limit:**
+    - `REQUEST_BODY_MAX_BYTES` in `app/settings.py` (default 262144, a whole number from 131072 to 10485760, the existing "Invalid configuration" message otherwise).
+    - New `app/body_limit.py` with `RequestBodyLimitMiddleware`, added in `app/main.py` between the CORS middleware and `UnexpectedErrorMiddleware`, and `request_too_large_response()` in `app/errors.py`.
+  - **Configuration:** `.env.example`, `docker-compose.yml`, `render.yaml` (both backends) and `ops/deployment.md` (table row, dev sentence, a paragraph on request size).
+  - **Frontend:**
+    - `TAGS_PER_FILTER_MAX = 20` in `src/components/inputLimits.ts`, with a test that reads the value from `openapi.yaml`.
+    - `review/TagFilterField.tsx`: at 20 the search field stays usable but offers nothing. The note `TAG_FILTER_LIMIT_TEXT` is a polite live region that is always in the page, linked with `aria-describedby` only while it shows. Its CSS is in `TagFilterField.css`.
+    - `review/reviewFilter.ts`: `parseFilter` keeps the first 20 tags after the clean-up.
+  - **Tests:**
+    - Backend unit: `tests/unit/test_request_body_limit.py` and `tests/unit/test_filter_limits.py`.
+    - Backend integration: `tests/integration/test_request_body_limit.py` runs the app on a real uvicorn server (h11) and sends bodies with `Content-Length` and chunked. `tests/integration/test_filter_limits.py` covers the counts and the summaries saved before the limits.
+    - Frontend: `ReviewPage.test.tsx`, `ReviewSummary.test.tsx`, `reviewFilter.test.ts`, `inputLimits.test.ts`, one more case in `client.test.ts`.
+    - Viewport: the screen `review-tag-filter-full` and a spacing check, at 360×640 and 1280×800.
+- **Mechanism (the issue left the choice to me): my own ASGI middleware, not Starlette's `RequestBodyLimitMiddleware`.**
+  - A `Content-Length` over the limit gets the JSON 413 at once, and the body is not read.
+  - Any other body is read by the middleware itself before the app runs. As soon as more than the limit has arrived, it stops reading and answers 413. Otherwise it hands the body to the app as one message, so the app behaves as before. At most the limit plus one received chunk is held in memory.
+  - Why not Starlette's: its answers are plain text, and in a FastAPI route its error comes up while the body parses. There `AuthenticateFirstRoute` would answer 401 first, so a chunked body without a valid token would never get 413.
+- **Decisions (mine, within the issue, under the standing rule of 2026-11-14):**
+  - **The 16 KiB limit on the request line and headers:** uvicorn 0.54.0 with h11 0.16.0 checks it only while the head is still arriving. A larger head that arrives in one piece reaches the app. On localhost, curl sends it in one piece, so the live check got 422 (too many tags), not 400. The same request, with its first 16,500 bytes sent alone, got the plain-text 400. So I added one sentence to the contract's Size limits (d7bd89d) and to `ops/deployment.md`, and the integration tests cover both cases. I added no limit of my own, in line with PM decision 7.
+  - **Validation messages:** "A filter can have at most 20 tag names." and "A filter can have at most 4 categories.", like the entry form's tag message. The generated FastAPI schema is unchanged.
+  - **Order of the middleware:** the body limit runs inside CORS and telemetry and outside `UnexpectedErrorMiddleware`. A CORS preflight (`OPTIONS` with `Access-Control-Request-Method`) is still answered by the CORS middleware, which never reads a body. Any other `OPTIONS` gets the 413.
+  - **The 413 status line:** it reads `HTTP/1.1 413 Content Too Large`, the standard reason phrase that uvicorn and h11 send. The body is always the shared JSON error.
+  - **Escaped bodies in the tests:** only the values are escaped, not the keys, which matches the PM's 120,011 bytes for the summary edit. The largest entry update is 34,959 bytes in my test, because its tag names differ a little from the PM's.
+- **Existing tests changed on purpose** (each checks something this task changes):
+  - `tests/unit/test_demo.py`: `deleteAccount`'s list of statuses now includes 413.
+  - `tests/unit/test_settings.py`: the list of settings includes `request_body_max_bytes`.
+  - `tests/unit/test_export.py`: the helper builds `Summary.filter` with `SavedSummaryFilter`.
+  - `tests/unit/test_deployment.py`: the expected `render.yaml` values include `REQUEST_BODY_MAX_BYTES`.
+  - `tests/unit/conftest.py`: the `no_env_file` fixture also removes the new variable. This is a fixture, not a test.
+  - `frontend/src/api/client.test.ts`: one more case in the unknown-errors test, as the criterion asks.
+- **How I verified it:**
+  - **Contract:** Redocly lint, through the `@redocly/openapi-core` already in `frontend/node_modules` (`npx` could not download the CLI here), with the recommended rules: 0 errors and the same 3 warnings as before. CI runs the real CLI. `npm run generate:api` leaves `schema.d.ts` unchanged after the last contract commit.
+  - **Lint and tests:**
+    - Backend: `uv run ruff check .` and `uv run ruff format --check .` clean. Unit tests: 1182 passed. Integration tests: 1039 passed.
+    - Frontend: `npm run lint` clean; `npm test` 1257 passed; `npm run build` OK; `npm run test:viewport` 95 passed (9 skipped for one size only).
+    - `./test-all.sh`: all three suites passed (backend unit 1182, backend integration 1039, frontend 1239 before this task and 1257 now).
+  - **Live check, without building an image:** `docker compose up -d db`, `alembic upgrade head` and `uvicorn app.main:app --port 8000` (h11), with a registered user.
+    - A 300,000-byte `POST /entries` got 413 `request_too_large` (JSON), once with `Content-Length` and once chunked, with CORS headers for the allowed origin. No entry was saved, and the `request finished` lines had status 413 and no body.
+    - The escaped 10,000-emoji `PATCH /summaries/{id}` (120,011 bytes) got 200, with the 10,000 emoji saved.
+    - `GET /entries` with the largest valid filter (9,829 bytes of path and query) got 200, and with a 21st tag 422 naming `tag`.
+    - The over-16-KiB URL: see the decision above.
+  - **Compose:** `docker compose config` shows `"262144"` without the variable, and `"131072"` with it set (through `--env-file`).
+  - **Render:** `render.yaml` validates against Render's Blueprint schema (downloaded with curl today) with 0 errors; a deliberately wrong copy gets 2.
+- **Left open:**
+  - **Render sync:** the Blueprint's Manual Sync after the production deploy is the product owner's step. Until then the default applies, which is the same value. Production gets the change only after the product owner approves the production step (#39).
+  - **Uvicorn's head limit:** it is not a hard 16 KiB limit (see above). A head that arrives in one network read can be larger. Requests stay bounded by the filter counts and the body limit, and PM decision 7 asks for no further limit, so I made no change.
+
+## 2026-11-15: PM: amend #88 after QA FAIL (soft 16 KiB limit on the request line and headers)
+
+- **Task:** QA failed #88 on the last bullet of the live check (6888086115). Uvicorn's 16 KiB limit on the request line and headers is not hard. The product owner decided on 2026-11-15 to correct that criterion to the soft limit, and PM decision 7 stands (no limit of our own).
+- **What I did:**
+  - Amended the issue body:
+    - the live check's last bullet now uses raw-socket checks: two pieces get the plain-text 400; one piece reaches the app and is validated;
+    - the contract and `ops/deployment.md` criteria ask for one consistent statement of the soft limit (QA finding 1);
+    - the `SavedSummaryFilter` criterion no longer asks for the copied limit sentences (QA finding 2);
+    - decision 7, decision 2's reasoning and the uvicorn fact in Constraints are corrected.
+  - Posted comment 6890767874.
+  - Labels unchanged.
+- **How I verified it:**
+  - In the installed h11 source, `max_incomplete_event_size` is checked only for an incomplete event (`NEED_DATA`), and asyncio's socket transport reads 262,144 bytes at a time. This matches QA's measurements.
+  - Read the saved body back: it matches what I wrote and has the four template sections.
+  - No code run, and no AI call.
+- **Left open:** the engineer still has to make the contract's 16 KiB paragraph read as one statement and remove the limits from the `SavedSummaryFilter` property descriptions. QA findings 3 to 5 were not part of this amendment.
+
+## 2026-11-15: Engineer: fix #88 after QA FAIL (soft 16 KiB limit, `SavedSummaryFilter` descriptions)
+
+- **Task:** the QA FAIL on #88 (6888086115) and the criteria the PM amended on the product owner's decision (6890767874). Only the live check's last bullet had failed. QA had confirmed that uvicorn's 16 KiB limit is soft. PM decision 7 stands: no limit of our own.
+- **What I did:**
+  - `openapi.yaml` (afd16dc, before the other changes): the 16 KiB bullet in Size limits is now one statement of the soft limit (QA finding 1). Uvicorn answers a plain-text 400 only when more than 16 KiB of the request line and headers arrive before they are complete; complete ones reach the API and are validated as usual. The property descriptions of `SavedSummaryFilter` no longer state any maximum (QA finding 2). `frontend/src/api/schema.d.ts` regenerated; only two JSDoc lines changed.
+  - `ops/deployment.md` (63f664b): the request-size paragraph says the same as the contract.
+  - `backend/app/body_limit.py`: the module docstring describes the soft limit.
+  - Tests (e320a54):
+    - `tests/integration/test_request_body_limit.py`: about 17 KB (largest valid filter plus an unknown parameter) sent in two pieces, the first 16,500 bytes, gets the plain-text 400 with no `request finished` line and no span. The same in one piece answers 200 and ignores the unknown parameter. 45 `tag` values in one piece answer 422 naming `tag`.
+    - Unit tests check the contract's statement, the guide's matching paragraph, and that the `SavedSummaryFilter` property descriptions state no maximum. My own earlier test that wanted identical descriptions now checks this instead.
+- **How I verified it:**
+  - Contract lint with `@redocly/openapi-core` (recommended rules): 0 errors, the same 3 warnings.
+  - Backend: ruff check and format clean; unit 1183 passed; integration 1040 passed. The new raw-socket tests passed 5 runs in a row.
+  - Frontend: lint clean, build OK, `npm run test:viewport` 95 passed (9 skipped).
+  - `./test-all.sh`: all three suites passed (1183, 1040, 1257).
+  - Live check against `uvicorn app.main:app --port 8000` (h11, mock AI):
+    - A 16,979-byte request in two pieces got `HTTP/1.1 400 Bad Request`, `text/plain`, "Invalid HTTP request received.", and no new `request finished` line.
+    - The same in one piece got 200 (`{"entries":[]}`, the unknown parameter ignored), with one `request finished` line.
+    - 45 tags (22,074 bytes) in one piece got 422 naming `tag`.
+    - The other bullets passed again: 300,000-byte bodies got 413 with both framings, the 10,000-emoji edit got 200, and the largest filter got 200 (422 with a 21st tag).
+  - Docker was stopped in this session, so I started `dockerd` and `docker compose up -d db`.
+- **Left open:** QA findings 3 to 5 are outside the criteria and unchanged. Finding 3: a client still uploading a body when the 413 arrives may see the connection reset. Finding 4: 413 log lines have no `http.route`. Finding 5: QA's own data in the local database.
+
+## 2026-11-15: Orchestrator: close #88 (filter value counts and request size)
+
+- **Task:** task 49, run with `/orchestrate all`. It changes screens (the review page's tag filter), so it had a design note and a design review.
+- **What happened:**
+  - PM grooming (6887330796), under the standing rule of 2026-11-14: at most 20 tags and 4 categories per filter (`maxItems`), the new `REQUEST_BODY_MAX_BYTES` (default 256 KiB), a JSON 413 `request_too_large`, and `SavedSummaryFilter` for saved summaries.
+  - Design note (6887394411), with six decisions under the standing rule: at 20 the field stays focusable but its list stays closed; a muted, polite line "Up to 20 tags in a filter. Remove one to add another." under the hint; and others.
+  - Engineer (6887851578): contract first, then the backend with its own body-limit middleware (JSON 413 before authentication), then the frontend.
+  - **QA FAIL 1 (6888086115):** a criterion assumed uvicorn's 16 KiB head limit is hard, but h11 checks it only while the head is incomplete. This was a stop point (a wrong criterion), so the product owner decided on 2026-11-15 to correct the criterion to the soft limit, with no limit of our own (PM decision 7 stands). The PM amended the issue (6890767874), the engineer fixed the contract wording and tests (6890988681), and QA passed on the re-check (6891109813).
+  - Design review PASS (6891160211). Closed as completed.
+- **For the product owner after the production approval:** one Manual Sync of the Render Blueprint, for #95's and #88's new settings.
+- **Open points and where they went:**
+  - **`DESIGN.md` → Tag filter does not describe the capped state:** a comment on #90 (6891165920).
+  - **Left in this log under the standing rule:**
+    - a client still uploading when the 413 arrives may see a TCP reset;
+    - 413 log lines have no `http.route`;
+    - the tag chips measure 46px, as before.

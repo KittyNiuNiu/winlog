@@ -14,6 +14,11 @@ Name rules:
 - A name has at most `MAX_TAG_NAME_CHARACTERS` characters, measured as sent (issue #43).
   Cleaning only makes a name shorter, so a stored name is never longer. Filter names
   (`FilterTagName`) have the same limit.
+- A filter holds at most `MAX_FILTER_TAG_NAMES` names (`FilterTagNames`, issue #88), in
+  `GET /entries` and in `POST /summaries`. They are counted as sent, before any cleaning, so
+  duplicates, names that differ only in case and names that are empty after trimming all
+  count. A saved summary's filter is not checked: summaries saved before the limit can hold
+  more names.
 
 `resolve_tags` (entry create and update) and `lookup_tags` (suggestions) are the only places
 that turn names into tag records. Both only ever read or create the given user's tags.
@@ -24,7 +29,7 @@ from collections.abc import Sequence
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
-from pydantic import AfterValidator, BaseModel
+from pydantic import AfterValidator, BaseModel, BeforeValidator
 from pydantic_core import PydanticCustomError
 from sqlalchemy import Text, column, func, select, values
 from sqlalchemy.dialects.postgresql import insert
@@ -71,6 +76,28 @@ FilterTagName = Annotated[
 database cannot store or is longer than `MAX_TAG_NAME_CHARACTERS` as sent (#43).
 `lookup_tags` normalises it; a name that no tag has, including one that is empty after
 trimming, matches nothing and is not an error."""
+
+# openapi.yaml (`maxItems: 20` on the `tag` parameter of `listEntries` and on
+# `SummaryFilter.tags`): the most tag names one filter holds, counted as sent (issue #88). A
+# fixed rule of the contract, not a setting. Twice the tags of one entry, and the largest
+# valid `GET /entries` URL with it (about 9.8 KB) stays well within uvicorn's 16 KiB for the
+# request line and headers.
+MAX_FILTER_TAG_NAMES = 20
+
+
+def _check_filter_tag_count(value: object) -> object:
+    # Counted as sent, before each name is checked or cleaned, so `maxItems` is exact. A value
+    # that is not a list is left to the list validator.
+    if isinstance(value, list) and len(value) > MAX_FILTER_TAG_NAMES:
+        raise PydanticCustomError(
+            "too_many_tags", f"A filter can have at most {MAX_FILTER_TAG_NAMES} tag names."
+        )
+    return value
+
+
+FilterTagNames = Annotated[list[FilterTagName], BeforeValidator(_check_filter_tag_count)]
+"""The tag names of a filter (issue #88): at most `MAX_FILTER_TAG_NAMES` as sent, each a
+`FilterTagName`. Too many names is a validation error naming the whole list."""
 
 
 def match_keys(session: Session, names: Sequence[str]) -> dict[str, str]:

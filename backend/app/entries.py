@@ -52,6 +52,11 @@ List and filter (FR-R1, FR-A3):
   the frontend groups it by category (FR-R2, #31).
 - A start date after the end date is a validation error naming `end_date`, as `period_end`
   in openapi.yaml must not be before `period_start`.
+- A filter holds at most `MAX_FILTER_CATEGORIES` categories (4) and
+  `app.tags.MAX_FILTER_TAG_NAMES` tag names (20), in the list endpoint and in summary
+  generation (issue #88). They are counted as sent, so a repeated category, and duplicate,
+  differently cased or empty tag names, all count. More is the shared validation error naming
+  `category` or `tag` (`categories` or `tags` for a summary).
 
 The entry text and Result/Impact are never logged.
 """
@@ -76,13 +81,33 @@ from app import models
 from app.auth import AuthenticateFirstRoute, CurrentUser
 from app.db import get_session
 from app.errors import ApiError
-from app.tags import FilterTagName, TagName, lookup_tags, resolve_tags
+from app.tags import FilterTagNames, TagName, lookup_tags, resolve_tags
 from app.text_rules import at_most, is_blank, reject_unstorable_characters
 
 router = APIRouter(tags=["Entries"], route_class=AuthenticateFirstRoute)
 
 # The four categories of openapi.yaml (components.schemas.Category), as in models.CATEGORIES.
 Category = Literal["Achievement", "Learning", "Feedback", "Side project"]
+
+# openapi.yaml (`maxItems: 4` on the `category` parameter of `listEntries` and on
+# `SummaryFilter.categories`): the most categories one filter holds, counted as sent (issue
+# #88). The number of categories (product-spec.md §6). A fixed rule of the contract.
+MAX_FILTER_CATEGORIES = 4
+
+
+def _check_filter_category_count(value: object) -> object:
+    # Counted as sent, so a repeated category counts each time and `maxItems` is exact. A
+    # value that is not a list is left to the list validator.
+    if isinstance(value, list) and len(value) > MAX_FILTER_CATEGORIES:
+        raise PydanticCustomError(
+            "too_many_categories",
+            f"A filter can have at most {MAX_FILTER_CATEGORIES} categories.",
+        )
+    return value
+
+
+FilterCategories = Annotated[list[Category], BeforeValidator(_check_filter_category_count)]
+"""The categories of a filter (issue #88): at most `MAX_FILTER_CATEGORIES` as sent."""
 
 # product-spec.md §6 and openapi.yaml (`EntryInput`): counted in Unicode characters. Fixed rules
 # of the data model, not settings (#43).
@@ -362,8 +387,8 @@ def list_entries(
     start_date: Annotated[EntryDate | None, Query()] = None,
     end_date: Annotated[EntryDate | None, Query()] = None,
     # Repeated parameters (`?tag=a&tag=b`), because tag names can contain commas.
-    category: Annotated[list[Category] | None, Query()] = None,
-    tag: Annotated[list[FilterTagName] | None, Query()] = None,
+    category: Annotated[FilterCategories | None, Query()] = None,
+    tag: Annotated[FilterTagNames | None, Query()] = None,
 ) -> EntryList:
     if start_date is not None and end_date is not None and start_date > end_date:
         raise _period_out_of_order()

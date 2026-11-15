@@ -1,5 +1,13 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { EDIT_ENTRY, ENTRIES_WITHOUT_NUDGE, ENTRIES_WITH_NUDGE, LONG_SUMMARY, MISSING_ID, SUMMARIES } from './data.ts'
+import {
+  EDIT_ENTRY,
+  ENTRIES_WITHOUT_NUDGE,
+  ENTRIES_WITH_NUDGE,
+  LONG_SUMMARY,
+  MISSING_ID,
+  SUMMARIES,
+  TWENTY_FILTER_TAGS,
+} from './data.ts'
 import {
   checkScreen,
   expectOnlyMockedRequests,
@@ -302,6 +310,21 @@ const SCREENS: Screen[] = [
         await page.getByRole('button', { name: /^Filters/ }).click()
       }
       await expect(page.getByRole('button', { name: 'Clear filters' })).toBeVisible()
+    },
+  },
+  {
+    // #88: the tag filter holds as many tags as it can, with its note. The phone panel is open.
+    name: 'review-tag-filter-full',
+    session: 'user',
+    api: { entries: ENTRIES_WITHOUT_NUDGE },
+    path: `${REVIEW_RESULTS}&${TWENTY_FILTER_TAGS.map((tag) => `tag=${encodeURIComponent(tag)}`).join('&')}`,
+    ready: (page) => page.locator('.review-page__total').filter({ hasText: /entr/ }),
+    act: async (page, _api, size) => {
+      if (size === 'phone') {
+        await page.getByRole('button', { name: /^Filters/ }).click()
+      }
+      await expect(page.getByText('Up to 20 tags in a filter. Remove one to add another.')).toBeVisible()
+      await expect(page.getByRole('list', { name: 'Selected tags' }).getByRole('listitem')).toHaveCount(20)
     },
   },
   {

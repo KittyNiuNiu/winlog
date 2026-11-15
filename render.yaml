@@ -100,6 +100,14 @@ services:
       - key: DATABASE_CONNECT_TIMEOUT_SECONDS
         value: "3"
 
+      # Seconds a request waits for each database call before it fails with a 500 (#95).
+      - key: DATABASE_QUERY_TIMEOUT_SECONDS
+        value: "10"
+
+      # The largest request body in bytes; a larger one gets 413 request_too_large (#88).
+      - key: REQUEST_BODY_MAX_BYTES
+        value: "262144"
+
       # The shared demo account (FR-X1, #21). Not a secret. The start script resets it before
       # the server accepts requests, so nobody can register this address first.
       - key: DEMO_EMAIL
@@ -175,6 +183,14 @@ services:
       # Seconds the health check waits for the database (#4).
       - key: DATABASE_CONNECT_TIMEOUT_SECONDS
         value: "3"
+
+      # Seconds a request waits for each database call before it fails with a 500 (#95).
+      - key: DATABASE_QUERY_TIMEOUT_SECONDS
+        value: "10"
+
+      # The largest request body in bytes; a larger one gets 413 request_too_large (#88).
+      - key: REQUEST_BODY_MAX_BYTES
+        value: "262144"
 
       # The shared demo account (FR-X1, #21). Not a secret. The start script resets it before
       # the server accepts requests, so nobody can register this address first.

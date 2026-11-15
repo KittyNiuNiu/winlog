@@ -284,6 +284,29 @@ describe('when drafting is possible (FR-R3)', () => {
     })
   })
 
+  it('test_fr_r1_draft_from_a_url_with_more_than_20_tags_sends_the_first_20', async () => {
+    // #88: a hand-edited link with 25 tags and every category given twice.
+    const tags = Array.from({ length: 25 }, (_, index) => `tag-${index + 1}`)
+    const categories = ['Achievement', 'Learning', 'Feedback', 'Side project']
+    const query = [...categories, ...categories].map((name) => `category=${encodeURIComponent(name)}`)
+    await renderReview(`${PERIOD_PATH}&${query.join('&')}&${tags.map((name) => `tag=${name}`).join('&')}`)
+    generateSummary.mockResolvedValue(makeSummary(PERIOD))
+
+    await click(draftButton())
+
+    expect(generateSummary.mock.calls[0][0]).toStrictEqual({
+      ...PERIOD,
+      categories,
+      tags: tags.slice(0, 20),
+    })
+    expect(listEntries.mock.calls.at(-1)?.[0]).toStrictEqual({
+      start_date: '2026-01-01',
+      end_date: '2026-06-30',
+      category: categories,
+      tag: tags.slice(0, 20),
+    })
+  })
+
   it.each([
     ['no dates', '/review'],
     ['only a start date', '/review?start_date=2026-01-01'],

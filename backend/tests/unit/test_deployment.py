@@ -58,6 +58,8 @@ PLAIN_BACKEND_VALUES = {
     "DEMO_LOGIN_WINDOW_MINUTES": "60",
     "TOKEN_LIFETIME_DAYS": "7",
     "DATABASE_CONNECT_TIMEOUT_SECONDS": "3",
+    "DATABASE_QUERY_TIMEOUT_SECONDS": "10",
+    "REQUEST_BODY_MAX_BYTES": "262144",
     "DEMO_EMAIL": "demo@example.com",
 }
 # Dev differs from production only in these: the mock AI and no real AI settings (#39).

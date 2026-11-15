@@ -19,3 +19,20 @@
   font-size: var(--text-body-small-size);
   color: var(--color-muted-plum-grey);
 }
+
+/* The note while the filter holds 20 tags (design note on #88): a calm limit line like the
+   hint, never an error, 4px under the hint (or under "No tags yet." or the error message)
+   and 12px above the chips. Empty below the limit, so it takes no space. */
+
+.tag-filter__limit {
+  max-width: none;
+  margin: 0;
+  font-size: var(--text-body-small-size);
+  font-weight: 400;
+  line-height: var(--text-body-line-height);
+  color: var(--color-muted-plum-grey);
+}
+
+.tag-filter__limit:not(:empty) {
+  margin-top: var(--space-4);
+}

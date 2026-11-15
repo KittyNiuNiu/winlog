@@ -3,6 +3,7 @@
 // and the summary (#32) can use exactly the filter that is shown.
 import type { Category, EntryListQuery } from '../api/index.ts'
 import { CATEGORIES } from '../components/categories.ts'
+import { TAGS_PER_FILTER_MAX } from '../components/inputLimits.ts'
 import { addTagNames } from '../entries/tagNames.ts'
 
 export interface ReviewFilter {
@@ -12,7 +13,10 @@ export interface ReviewFilter {
   endDate: string | null
   /** The selected categories, in the fixed order. None means all categories. */
   categories: Category[]
-  /** The selected tags: trimmed, never empty, each once (ignoring case). None means all tags. */
+  /**
+   * The selected tags: trimmed, never empty, each once (ignoring case), at most
+   * `TAGS_PER_FILTER_MAX` (#88). None means all tags.
+   */
   tags: string[]
 }
 
@@ -48,14 +52,19 @@ function isCategory(value: string): value is Category {
   return (CATEGORIES as readonly string[]).includes(value)
 }
 
-/** The filter in the URL's query. Values the page cannot use are left out. */
+/**
+ * The filter in the URL's query. Values the page cannot use are left out: so are the tags
+ * after the first `TAGS_PER_FILTER_MAX`, counted in URL order after the clean-up (#88). Each
+ * category is used once, so there are never more than four. No request from the page can
+ * therefore carry more values than a filter holds.
+ */
 export function parseFilter(params: URLSearchParams): ReviewFilter {
   const categories = params.getAll('category').filter(isCategory)
   return {
     startDate: dateOrNull(params.get('start_date')),
     endDate: dateOrNull(params.get('end_date')),
     categories: CATEGORIES.filter((category) => categories.includes(category)),
-    tags: addTagNames([], params.getAll('tag')),
+    tags: addTagNames([], params.getAll('tag')).slice(0, TAGS_PER_FILTER_MAX),
   }
 }
 

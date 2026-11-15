@@ -4,6 +4,7 @@ import {
   RESULT_MAX_CHARACTERS,
   SUMMARY_TEXT_MAX_CHARACTERS,
   TAGS_PER_ENTRY_MAX,
+  TAGS_PER_FILTER_MAX,
   TAG_NAME_MAX_CHARACTERS,
   characterCount,
   characterCounter,
@@ -14,6 +15,26 @@ import {
 // The maximum input sizes (#43): the field limits of openapi.yaml, counted in Unicode
 // characters as the backend counts them.
 
+// The contract, read with Node's fs because Vite serves only files inside frontend/ (npm test
+// runs there), as in api/client.test.ts.
+const nodeFs: { readFileSync(path: string, encoding: 'utf8'): string } = await import(/* @vite-ignore */ `node:${'fs'}`)
+const nodeProcess = (globalThis as unknown as { process: { cwd(): string } }).process
+const openapiLines = nodeFs.readFileSync(`${nodeProcess.cwd()}/../openapi.yaml`, 'utf8').split('\n')
+
+/**
+ * The first `maxItems` in openapi.yaml after the lines that match `markers`, one after the
+ * other: for example the `SummaryFilter:` schema, then its `tags:` property.
+ */
+function contractMaxItems(...markers: RegExp[]): number {
+  let index = 0
+  for (const marker of markers) {
+    index = openapiLines.findIndex((line, at) => at >= index && marker.test(line))
+    expect(index, String(marker)).toBeGreaterThanOrEqual(0)
+  }
+  const line = openapiLines.slice(index).find((each) => /^\s+maxItems: \d+$/.test(each))
+  return Number(line?.trim().slice('maxItems: '.length))
+}
+
 describe('the limits (FR-E2, FR-R5)', () => {
   it('test_fr_e2_limits_are_the_contract_values', () => {
     expect(ENTRY_TEXT_MAX_CHARACTERS).toBe(2000)
@@ -21,6 +42,12 @@ describe('the limits (FR-E2, FR-R5)', () => {
     expect(TAG_NAME_MAX_CHARACTERS).toBe(40)
     expect(TAGS_PER_ENTRY_MAX).toBe(10)
     expect(SUMMARY_TEXT_MAX_CHARACTERS).toBe(10000)
+  })
+
+  it('test_fr_r1_filter_tag_limit_is_the_contract_value', () => {
+    expect(TAGS_PER_FILTER_MAX).toBe(20)
+    expect(contractMaxItems(/^ {4}SummaryFilter:$/, /^ {8}tags:$/)).toBe(TAGS_PER_FILTER_MAX)
+    expect(contractMaxItems(/^ {6}operationId: listEntries$/, /^ {8}- name: tag$/)).toBe(TAGS_PER_FILTER_MAX)
   })
 
   it('test_fr_e2_characters_are_code_points_not_utf16_units', () => {
