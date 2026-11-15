@@ -13,6 +13,7 @@ def test_settings_variables():
         "cors_allowed_origins",
         "database_connect_timeout_seconds",
         "database_query_timeout_seconds",
+        "request_body_max_bytes",
         "token_lifetime_days",
         "ai_provider",
         "ai_base_url",

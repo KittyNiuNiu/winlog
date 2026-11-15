@@ -45,6 +45,13 @@ MAX_ATTEMPT_WINDOW_MINUTES = 525_600
 # The longest DATABASE_QUERY_TIMEOUT_SECONDS (issue #95): ten minutes, like the AI timeouts.
 MAX_DATABASE_QUERY_TIMEOUT_SECONDS = 600
 
+# The range of REQUEST_BODY_MAX_BYTES (issue #88). The minimum, 128 KiB, keeps every valid
+# request accepted: the largest one is a 10,000-character summary edit, at most 120,011 bytes
+# when every character is an emoji sent as a JSON `\u` escape (12 bytes each). If a field
+# limit grows, check this minimum again. The maximum, 10 MiB, keeps the safeguard meaningful.
+MIN_REQUEST_BODY_MAX_BYTES = 131_072
+MAX_REQUEST_BODY_MAX_BYTES = 10_485_760
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -65,6 +72,14 @@ class Settings(BaseSettings):
     #   request waits for a free connection in the pool. When it runs out, the request fails
     #   with the shared 500 response. A whole number from 1 to 600.
     database_query_timeout_seconds: int = 10
+    # The largest request body the backend reads, in bytes (app/body_limit.py, issue #88),
+    # counted as received, after any chunked transfer encoding is removed. A larger body gets
+    # 413 `request_too_large` on every path and method, before authentication and validation.
+    # An operational limit that keeps a hostile body cheap, so it is a setting. Default 262144
+    # (256 KiB, about twice the largest valid request). A whole number from
+    # MIN_REQUEST_BODY_MAX_BYTES (131072, so every valid request still fits) to
+    # MAX_REQUEST_BODY_MAX_BYTES (10485760).
+    request_body_max_bytes: int = 262_144
     # Days a login token works before it expires (FR-A2).
     token_lifetime_days: int = Field(default=7, ge=1, le=365)
     # The AI provider (product-spec.md §8). Required with no default, so the app never uses a
@@ -163,6 +178,13 @@ class Settings(BaseSettings):
     @classmethod
     def _check_query_timeout(cls, value: object) -> int:
         return _whole_number(value, minimum=1, maximum=MAX_DATABASE_QUERY_TIMEOUT_SECONDS)
+
+    @field_validator("request_body_max_bytes", mode="before")
+    @classmethod
+    def _check_request_body_limit(cls, value: object) -> int:
+        return _whole_number(
+            value, minimum=MIN_REQUEST_BODY_MAX_BYTES, maximum=MAX_REQUEST_BODY_MAX_BYTES
+        )
 
     @field_validator(
         "ai_daily_suggestions_per_user",

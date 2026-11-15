@@ -653,6 +653,7 @@ Blueprint (Auto Sync stays off, [Blueprint syncs](#blueprint-syncs)).
 | `TOKEN_LIFETIME_DAYS` | `7` | `render.yaml` | no |
 | `DATABASE_CONNECT_TIMEOUT_SECONDS` | `3` | `render.yaml` | no |
 | `DATABASE_QUERY_TIMEOUT_SECONDS` | `10` | `render.yaml` | no |
+| `REQUEST_BODY_MAX_BYTES` | `262144` | `render.yaml` | no |
 | `DEMO_EMAIL` | `demo@example.com` (the reset creates it before the server accepts requests, so nobody can register it first) | `render.yaml` | no |
 | `PORT` | the port the server listens on | set by Render itself; not in `render.yaml` | no |
 
@@ -672,6 +673,13 @@ the database answers again, the backend works without a restart. A single pooled
 stops answering while the database is fine is replaced after at most 10 seconds, and the request
 still succeeds. Migrations at startup have no such limit.
 
+**Request size** (#88): a request body over `REQUEST_BODY_MAX_BYTES` (256 KiB) gets the app's
+413 `request_too_large` error in the shared JSON format, on every path, before the request is
+checked or anything is saved. A request line and headers over 16 KiB together are refused by
+uvicorn itself, before the app runs, with a plain-text 400 ("Invalid HTTP request received.").
+Uvicorn checks this while they are still arriving, so a larger one that arrives in one piece
+reaches the app, which answers as usual. No valid request from the app comes near either limit.
+
 
 ### Dev backend (`winlog-api-dev`)
 
@@ -685,8 +693,9 @@ The same as `winlog-api`, except these rows:
 | `AI_API_KEY`, `AI_BASE_URL`, `AI_MODEL` | not set: the mock needs none, and dev never calls a real AI | – | – |
 
 All other values (AI timeouts, AI usage limits, login limits, token lifetime, both database
-timeouts `DATABASE_CONNECT_TIMEOUT_SECONDS` and `DATABASE_QUERY_TIMEOUT_SECONDS`, `DEMO_EMAIL`)
-are the same as production's. Keep them the same when one changes.
+timeouts `DATABASE_CONNECT_TIMEOUT_SECONDS` and `DATABASE_QUERY_TIMEOUT_SECONDS`, the request
+body limit `REQUEST_BODY_MAX_BYTES`, `DEMO_EMAIL`) are the same as production's. Keep them the
+same when one changes.
 
 ### Static sites (`winlog-app`, `winlog-app-dev`)
 

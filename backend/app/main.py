@@ -8,6 +8,7 @@ from fastapi import FastAPI
 from app import accounts, demo, entries, export, health, suggestions, summaries, tags
 from app.ai import AILimits, create_ai_provider
 from app.attempt_limits import AttemptLimiter
+from app.body_limit import RequestBodyLimitMiddleware
 from app.cors import AllowedOriginsCORSMiddleware
 from app.db import create_db_engine
 from app.errors import UnexpectedErrorMiddleware, register_error_handlers
@@ -55,6 +56,10 @@ def create_app(settings: Settings | None = None, telemetry: Telemetry | None = N
     # The middleware added last runs first. UnexpectedErrorMiddleware runs inside the CORS
     # middleware, so the shared 500 response gets CORS headers like every other response.
     app.add_middleware(UnexpectedErrorMiddleware)
+    # The request body limit (issue #88) runs before routing, authentication and validation,
+    # and inside the CORS and telemetry middleware, so its 413 gets CORS headers and a
+    # `request finished` line. Inside it, UnexpectedErrorMiddleware covers the routes.
+    app.add_middleware(RequestBodyLimitMiddleware, max_body_bytes=settings.request_body_max_bytes)
     app.add_middleware(
         AllowedOriginsCORSMiddleware,
         allow_origins=settings.cors_allowed_origins,
