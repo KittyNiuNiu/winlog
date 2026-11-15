@@ -106,8 +106,10 @@ info:
     - Request line and headers: the server limits them together to 16 KiB
       (uvicorn's default for its h11 implementation). The server refuses a
       larger request before the API sees it, with a plain-text 400 that is
-      not the shared error format. The largest valid request stays well
-      within this limit.
+      not the shared error format. Uvicorn checks this limit while the
+      request line and headers are still arriving, so a larger request that
+      arrives in one piece can still reach the API, which then answers as
+      usual. The largest valid request stays well within this limit.
 
     Data saved before these limits existed can be longer. It can still be read,
     listed, exported and summarised, so response schemas (`Entry`, `Summary`)
