@@ -3993,3 +3993,12 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
     - `LOGIN_MAX_FAILED_ATTEMPTS=2147483648`, `DEMO_LOGIN_MAX_ATTEMPTS=9223372036854775808` and `AI_DAILY_REQUESTS_GLOBAL=100000000000000000000`: uvicorn exited with code 1 each time. The output showed "Invalid configuration: <VARIABLE> is invalid: Value error, must be a whole number from 1 (or 0) to 2147483647" for that variable.
     - All five at 2147483647: the backend started. A wrong-password login gave 401, a demo-login 200, and `POST /suggestions` with the demo token 200 (mock output). The `request finished` lines showed only 200 and 401, with no error and no traceback.
 - **Left open:** nothing from the criteria. The change reaches production only after the product owner approves the production step (#39). There is no new variable and no `render.yaml` change, so no Blueprint sync is needed.
+
+## 2026-11-15: Orchestrator: close #89 (upper bound for count limits)
+
+- **Task:** task 51, run with `/orchestrate all`. No screens change and `render.yaml` does not change.
+- **What happened:**
+  - PM grooming (6891960698), under the standing rule of 2026-11-14: one bound of 2,147,483,647 (the largest PostgreSQL `integer`) for `LOGIN_MAX_FAILED_ATTEMPTS`, `DEMO_LOGIN_MAX_ATTEMPTS` and the three AI daily limits; `AI_SUMMARY_MAX_INPUT_CHARACTERS` without a bound; the normal range message for very long values. The PM created #108 (five other whole-number settings accept `+5`, `1_0`, `10.0`), which is not listed in `docs/tasks.md`.
+  - Engineer (6892255021): the `MAX_COUNT_LIMIT` constant and the digit-length check in the shared helper. That helper choice was a decision under the standing rule.
+  - QA PASS (6892424066): 21 of 21 criteria, an old-and-new comparison over 10 settings, and every count taken to the bound over HTTP with no 500. Closed as completed.
+- **Open points:** none needs work. QA's notes (the branch also carries #58's commits; a global cap of 0 is covered by the integration tests) are information only.
