@@ -32,6 +32,11 @@ export interface MockApiOptions {
   suggestion?: Suggestion
   /** `POST /summaries` gets no answer until `releaseDraft()`, so the panel stays busy. */
   holdDraft?: boolean
+  /**
+   * `DELETE /entries/{id}` answers 404 `not_found`, as when the entry was already deleted
+   * elsewhere, so the page shows "This entry was already deleted." (#90).
+   */
+  entryAlreadyDeleted?: boolean
 }
 
 const CORS_HEADERS = {
@@ -141,7 +146,7 @@ export class MockApi {
       }
       case 'DELETE /entries/{id}':
         this.entries = this.entries.filter(({ id }) => id !== entryMatch?.[1])
-        return this.empty(route)
+        return this.options.entryAlreadyDeleted ? this.notFound(route) : this.empty(route)
       case 'GET /tags':
         return this.json(route, 200, { tags: this.tagNames() } satisfies Schemas['TagList'])
       case 'POST /suggestions':
