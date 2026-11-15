@@ -14,10 +14,14 @@
 #    sha-<commit SHA>. Nothing is built here, and nothing is built on Render.
 # 2. Deploy to dev (GitHub environment `dev`): deploys that image by digest to winlog-api-dev,
 #    moves the :dev tag to it, deploys the static site winlog-app-dev from the same commit, and
-#    waits until both answer.
+#    waits until both answer with that commit (#102): the backend's GET /health and the static
+#    site's /version.json name the commit they were built from. Render keeps the previous deploy
+#    live while the new one starts, so a 200 alone would not show that the new deploy is live.
+#    If they do not name the commit within WAIT_TIMEOUT_SECONDS (15 minutes), the job fails, and
+#    the production step of the run is not offered.
 # 3. Deploy to production (GitHub environment `production`): waits for the product owner's
 #    approval, then does the same with the same digest and commit for winlog-api, the
-#    :production tag and winlog-app. It builds nothing.
+#    :production tag and winlog-app, and waits the same way. It builds nothing.
 #
 # Secrets: each of the two environments holds two Render deploy hook URLs,
 # RENDER_API_DEPLOY_HOOK (the backend) and RENDER_APP_DEPLOY_HOOK (the static site). Environment
@@ -27,7 +31,7 @@
 # with packages: write only in the jobs that push or tag the image.
 #
 # No AI calls: the jobs call only Render's deploy hooks, GHCR, the backend's GET /health and the
-# static site's /.
+# static site's / and /version.json.
 #
 # Actions used, pinned to a major version:
 # - actions/download-artifact@v8: downloads the image artifact from the CI run that triggered
@@ -133,7 +137,8 @@ jobs:
     name: Deploy to dev
     needs: publish
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # Room for the hooks and the whole wait (WAIT_TIMEOUT_SECONDS) after them.
+    timeout-minutes: 25
     environment:
       name: dev
       url: https://winlog-app-dev.onrender.com
@@ -154,6 +159,10 @@ jobs:
       APP_URL: https://winlog-app-dev.onrender.com
       SHA: ${{ needs.publish.outputs.sha }}
       DIGEST: ${{ needs.publish.outputs.digest }}
+      # The wait for the new deploys (#102) gives up after WAIT_TIMEOUT_SECONDS and polls every
+      # WAIT_INTERVAL_SECONDS. The same values in both deploy jobs.
+      WAIT_TIMEOUT_SECONDS: 900
+      WAIT_INTERVAL_SECONDS: 10
     # The production job runs the same steps (the alias *deploy-steps), with its own env.
     steps: &deploy-steps
       - name: Check the deploy hook secrets
@@ -236,23 +245,116 @@ jobs:
         run: docker logout ghcr.io
 
       - name: Wait until the backend and the static site answer
-        # Up to 10 minutes, for a free instance's cold start. Render keeps the previous deploy
-        # live until the new one is healthy, so a 200 here does not prove which version is live:
-        # the service's Events in the Render Dashboard show that (ops/deployment.md).
+        # Passes only when both services answer with the run's commit (#102):
+        # - GET $API_URL/health answers 200 with "commit": "$SHA";
+        # - GET $APP_URL/ answers 200, and GET $APP_URL/version.json answers 200 with
+        #   "commit": "$SHA".
+        # Render keeps the previous deploy live until the new one is healthy, and the previous
+        # deploy answers 200 too, so only the commit tells the new deploy from the previous one.
+        # Any other answer means "not live yet": no answer, a status other than 200, a body that
+        # is not JSON (a static site without version.json answers with index.html), or JSON
+        # without "commit", with null or with another commit. Each service is checked until it
+        # matches, and then no longer. It polls every WAIT_INTERVAL_SECONDS and gives up after
+        # WAIT_TIMEOUT_SECONDS with one error that names, for each service that did not match,
+        # its URLs, its last answer and the commit expected. The log gets one line each time what
+        # a service answers changes, with the seconds since the wait started.
+        # /version.json is requested with no query string. The wait relies on Render clearing the
+        # static site's CDN cache when it deploys (ops/deployment.md, When the wait fails). No
+        # query string or request header gets past that cache. A stale copy is the previous
+        # build's version.json or index.html, so it names an older commit or none: it can only
+        # delay the pass (by up to 5 minutes, its s-maxage), never make it pass.
+        # Only the services' public URLs are called, never a hook, and a commit from a body
+        # reaches the log only when it is a valid commit.
         run: |
-          deadline=$((SECONDS + 600))
-          api=none app=none
+          body="$RUNNER_TEMP/wait-body"
+
+          # Prints what the JSON body in the file $1 names as "commit": the commit when it is a
+          # valid commit (exactly 40 lowercase hexadecimal characters), "none" when the body has
+          # no "commit" or null, "invalid" for any other value, and "not-json" when the body is
+          # not JSON.
+          read_commit='
+          import json, re, sys
+          try:
+              with open(sys.argv[1], encoding="utf-8") as file:
+                  data = json.load(file)
+          except Exception:
+              print("not-json")
+          else:
+              commit = data.get("commit") if isinstance(data, dict) else None
+              if commit is None:
+                  print("none")
+              elif isinstance(commit, str) and re.fullmatch("[0-9a-f]{40}", commit):
+                  print(commit)
+              else:
+                  print("invalid")
+          '
+
+          # fetch <url>: sets status (000 for no answer) and commit (see read_commit; "none"
+          # unless the status is 200).
+          fetch() {
+            rm -f "$body"
+            status=$(curl --silent --max-time 30 --output "$body" --write-out '%{http_code}' "$1" || true)
+            status=${status:-000}
+            commit=none
+            if [ "$status" = 200 ]; then
+              commit=$(python3 -c "$read_commit" "$body" 2>/dev/null) || commit=not-json
+            fi
+            rm -f "$body"
+          }
+
+          # answer <status> <commit>: one answer, as the log and the error show it.
+          answer() {
+            case "$1:$2" in
+              000:*) echo "no answer, no commit" ;;
+              200:none) echo "HTTP 200, no commit" ;;
+              200:not-json) echo "HTTP 200, no commit (the body is not JSON)" ;;
+              200:invalid) echo "HTTP 200, no valid commit" ;;
+              200:*) echo "HTTP 200, commit $2" ;;
+              *) echo "HTTP $1, no commit" ;;
+            esac
+          }
+
+          started=$SECONDS
+          deadline=$((SECONDS + WAIT_TIMEOUT_SECONDS))
+          api_ok=no app_ok=no api_seen='' app_seen=''
           while :; do
-            [ "$api" = 200 ] || api=$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 30 "$API_URL/health" || true)
-            [ "$app" = 200 ] || app=$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 30 "$APP_URL/" || true)
-            [ "$api$app" = 200200 ] && break
+            if [ "$api_ok" = no ]; then
+              fetch "$API_URL/health"
+              if [ "$status" = 200 ] && [ "$commit" = "$SHA" ]; then api_ok=yes; fi
+              api_answer="GET $API_URL/health -> $(answer "$status" "$commit")"
+              if [ "$api_answer" != "$api_seen" ]; then
+                echo "[+$((SECONDS - started)) s] $API_SERVICE: $api_answer"
+                api_seen=$api_answer
+              fi
+            fi
+            if [ "$app_ok" = no ]; then
+              index=$(curl --silent --max-time 30 --output /dev/null --write-out '%{http_code}' "$APP_URL/" || true)
+              index=${index:-000}
+              fetch "$APP_URL/version.json"
+              if [ "$index" = 200 ] && [ "$status" = 200 ] && [ "$commit" = "$SHA" ]; then app_ok=yes; fi
+              if [ "$index" = 000 ]; then index_answer="no answer"; else index_answer="HTTP $index"; fi
+              app_answer="GET $APP_URL/ -> $index_answer; GET $APP_URL/version.json -> $(answer "$status" "$commit")"
+              if [ "$app_answer" != "$app_seen" ]; then
+                echo "[+$((SECONDS - started)) s] $APP_SERVICE: $app_answer"
+                app_seen=$app_answer
+              fi
+            fi
+            if [ "$api_ok$app_ok" = yesyes ]; then break; fi
             if [ "$SECONDS" -ge "$deadline" ]; then
-              echo "::error::After 10 minutes: GET $API_URL/health -> $api, GET $APP_URL/ -> $app (both must be 200)"
+              if [ $((WAIT_TIMEOUT_SECONDS % 60)) = 0 ]; then
+                limit="$((WAIT_TIMEOUT_SECONDS / 60)) minutes"
+              else
+                limit="$WAIT_TIMEOUT_SECONDS seconds"
+              fi
+              error="After $limit, not every service answers with commit $SHA."
+              if [ "$api_ok" = no ]; then error="$error $API_SERVICE: $api_seen; expected commit $SHA."; fi
+              if [ "$app_ok" = no ]; then error="$error $APP_SERVICE: $app_seen; expected commit $SHA."; fi
+              echo "::error::$error See ops/deployment.md, When the wait fails."
               exit 1
             fi
-            sleep 10
+            sleep "$WAIT_INTERVAL_SECONDS"
           done
-          echo "GET $API_URL/health -> 200, GET $APP_URL/ -> 200"
+          echo "After $((SECONDS - started)) s, both services answer with commit $SHA: GET $API_URL/health and GET $APP_URL/version.json (and GET $APP_URL/ answers 200)."
 
       - name: Summary
         run: |
@@ -265,10 +367,15 @@ jobs:
             echo "| Backend image | \`$IMAGE@$DIGEST\` (now also \`:$TAG\`) on \`$API_SERVICE\` |"
             echo "| Static site | \`$APP_SERVICE\`, built from commit \`$SHA\` |"
             echo
+            echo "The backend and the static site answered with this commit: \`$API_URL/health\` and"
+            echo "\`$APP_URL/version.json\` named \`$SHA\`. The wait sees only the commit; Render's Events"
+            echo "also show the digest."
             if [ "$ENVIRONMENT" = dev ]; then
+              echo
               echo "**The production step of this run deploys exactly this commit and this digest.**"
-              echo "Before approving it, check that the Events of \`$API_SERVICE\` in the Render Dashboard"
-              echo "show the deploy of \`$DIGEST\` as live, and that $APP_URL works (ops/deployment.md)."
+              echo "Before approving it, check that the Events of \`$API_SERVICE\` and \`$APP_SERVICE\` in the"
+              echo "Render Dashboard show the deploy of \`$DIGEST\` and of commit \`$SHA\` as live, and that"
+              echo "$APP_URL works (ops/deployment.md)."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -277,12 +384,14 @@ jobs:
     # Only after this run's dev deploy succeeded, with the digest and commit it deployed.
     needs: [publish, deploy-dev]
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     # Waits for the product owner's approval (the environment's required reviewer).
     environment:
       name: production
       url: https://winlog-app.onrender.com
-    # One production deploy at a time. A newer run waits and never cancels a running deploy.
+    # One production deploy at a time. A newer run waits and never cancels a running deploy. A
+    # production step that waits for approval holds this group too, so approve only the newest
+    # run's production step and reject older ones that still wait (ops/deployment.md).
     concurrency:
       group: deploy-production
       cancel-in-progress: false
@@ -298,4 +407,7 @@ jobs:
       APP_URL: https://winlog-app.onrender.com
       SHA: ${{ needs.publish.outputs.sha }}
       DIGEST: ${{ needs.publish.outputs.digest }}
+      # The same as in the dev job.
+      WAIT_TIMEOUT_SECONDS: 900
+      WAIT_INTERVAL_SECONDS: 10
     steps: *deploy-steps

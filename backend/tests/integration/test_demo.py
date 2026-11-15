@@ -25,6 +25,7 @@ from app.passwords import hash_password, verify_password
 from app.settings import Settings
 from scripts import seed_demo
 from tests.integration.conftest import ALLOWED_ORIGIN, APP_TABLES
+from tests.integration.test_entries import unreadable_bodies
 
 DEMO = "demo@example.com"
 ALICE = "alice@example.com"
@@ -422,6 +423,24 @@ def test_fr_x1_deleting_the_demo_account_returns_the_demo_error_and_deletes_noth
     assert len(seeded.get("/entries", headers=_bearer(token)).json()["entries"]) == len(
         SAMPLE_ENTRIES
     )
+
+
+@unreadable_bodies()
+def test_fr_x1_deleting_the_demo_account_with_an_unreadable_body_returns_the_demo_error(
+    seeded: TestClient, migrated_db: Engine, contract, body: bytes
+):
+    """Issue #58: the demo error comes before the body error, for every such body."""
+    token = _demo_token(seeded)
+    before = _table_rows(migrated_db)
+    headers = {**_bearer(token), "Content-Type": "application/json"}
+
+    response = seeded.request("DELETE", "/account", headers=headers, content=body)
+
+    assert response.status_code == 409
+    contract("Error").validate(response.json())
+    assert response.json() == DEMO_ERROR
+    assert _table_rows(migrated_db) == before
+    assert seeded.get("/entries", headers=_bearer(token)).status_code == 200
 
 
 def test_fr_x1_deleting_with_an_invalid_token_returns_not_authenticated(

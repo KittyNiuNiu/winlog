@@ -3839,3 +3839,408 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
     - a client still uploading when the 413 arrives may see a TCP reset;
     - 413 log lines have no `http.route`;
     - the tag chips measure 46px, as before.
+
+## 2026-11-15: PM: groom #58 (task 50, non-UTF-8 request bodies and entry tag order)
+
+- **Task:** groom #58, which had no status label, following `docs/pm.md`. It is task 50, in the group "protect the live app".
+- **What I read:**
+  - the issue and its three comments: the #3, #10 and #18 notes on the numeric field name, and the two #11 points;
+  - the linked #9 and #10 comments, and #95 as the pattern for a groomed follow-up;
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md`, `docs/product-spec.md`, `openapi.yaml`, `AGENTS.md`, `docs/tasks.md`, `docs/qa-engineer.md` and `docs/observability.md`;
+  - the backend's `errors.py`, `body_limit.py`, `main.py`, `auth.py`, `entries.py`, `tags.py`, `accounts.py`, `demo.py`, `export.py` and `summaries.py`, and the tests on unreadable bodies and tag order;
+  - the frontend's `EntryForm.tsx`, `NewEntryPage.tsx`, `EditEntryPage.tsx`, `EntryRow.tsx`, `useKnownTags.ts`, `tagNames.ts` and the e2e test, and the CI workflow's contract and `schema.d.ts` checks.
+- **What I did:**
+  - Rewrote the body of #58 using the template.
+  - Posted the PM comment with the decisions and the facts I checked (6891278752).
+  - Created #106 for the two open points from #11.
+  - Labels unchanged: the orchestrator sets the status.
+- **Decisions under the standing rule (2026-11-14), recorded in the issue:**
+  - **Tag order:** `POST` and `PUT /entries` return tags in the same database order as `GET` (alphabetical, ignoring case). I rejected keeping the mixed order, and I rejected storing the typed order, which needs a migration and changes screens.
+  - **Unreadable bodies:** a body that is not valid UTF-8, not valid JSON, or nested too deeply to parse gets 422 `validation_failed` with one field error, `body`, reason "Body must be valid JSON in UTF-8.". This includes the #3 and #18 point about the numeric field name.
+  - **Encodings:** what `json.loads` detects (UTF-8 with a byte order mark, UTF-16, UTF-32) stays readable. The contract promises only UTF-8, and a `charset` parameter changes nothing.
+  - **The two #11 points** (date error wordings; nullable optional parameters in the generated schema) moved to #106.
+  - **Contract:** descriptions only, in four places, so `frontend/src/api/schema.d.ts` is regenerated.
+  - **Screens:** no screen changes, so no design note.
+- **How I verified it:**
+  - **Current behaviour,** with throwaway scripts in my scratchpad: FastAPI's test client, the mock AI provider and a dependency override for the user, on `7e9179b`, without a database.
+    - Bodies that are not UTF-8 still get 400 `internal_error` on all eight operations with a body, and so does `[` repeated 100,000 times.
+    - JSON syntax errors name the character position (`"0"`, `"8"`, `"3"`).
+    - UTF-16, UTF-32 and UTF-8 with a byte order mark are read.
+    - Date wordings: impossible dates get pydantic's text on `GET /entries`, the entry `date` and the summary `period_start`.
+  - **Library code,** in the installed versions: FastAPI 0.162.0 `fastapi/routing.py` (any error while reading the body except `JSONDecodeError` becomes `HTTPException(400, "There was an error parsing the body")`), Starlette 1.10.0 `Request.json`, and Python 3.13 `json.loads` with `json.detect_encoding` (`surrogatepass`).
+  - **The saved issue:** I read the body back. It matches what I wrote and has the four template sections. GitHub turns a literal backslash-u-0000 in an issue body into `\^@`, so I reworded that one example.
+  - No change to project code, and no AI call.
+- **Left open:**
+  - RFC 8259 (§8.1 UTF-8, §11 no `charset` parameter) is cited from the standard itself: rfc-editor.org is not in this session's allowed network domains.
+  - #106 is not in `docs/tasks.md`. The orchestrator or the product owner decides where it goes.
+
+## 2026-11-15: Engineer: implement #58 (task 50, non-UTF-8 request bodies and entry tag order)
+
+- **Task:** #58 as groomed by the PM on 2026-11-15 (issue body and comment 6891278752). No screens change, so no design note or review. No real AI call (`AI_PROVIDER=mock` throughout).
+- **What I did:**
+  - **Contract first** (`45b3bc1`): `openapi.yaml` changes in the four places the issue names, descriptions only: a paragraph in "Errors" on the body error and the order of the checks, a bullet in "Entries" on the tag order, `Entry.tags` and `FieldError.field`. `frontend/src/api/schema.d.ts` regenerated with `npm run generate:api`; only two description comments change.
+  - **Tag order** (`25b9616`): `create_entry` and `update_entry` in `backend/app/entries.py` read the names back with `_tag_names` (`ORDER BY lower(name), name`) before the commit, instead of returning `resolve_tags` in the order sent. No sorting in Python, no migration. The module docstring says so.
+  - **Body error** (`6a46734`):
+    - `backend/app/errors.py`: `unreadable_body()`, an `ApiError` 422 `validation_failed` with the single field error `body` / "Body must be valid JSON in UTF-8.". The validation handler shares its message constant. `_handle_http_error` is unchanged.
+    - `backend/app/auth.py`: `AuthenticateFirstRoute` now wraps every route, not only those that need a token. On FastAPI's `json_invalid` error or its 400 "There was an error parsing the body", it first solves the login dependencies where the route has them (401, and the demo account's 409 on `deleteAccount`), then raises the body error. The body is not read again, and the original error, which holds the body, is never sent back.
+  - **Tests:**
+    - `tests/unit/test_auth.py`: the FR-A3 tests now cover all ten unreadable bodies of the issue, `\x80` included, and the logged-in test covers all six protected operations with the exact body error.
+    - `tests/unit/test_unreadable_body.py` (new): the body error on all eight operations for every body and three content types, no part of the body in the response, 413 first (also for `\x80`), the demo account's 409 first, the unchanged answers to bodies the backend can read, the encodings `json.loads` detects, and telemetry with in-memory exporters.
+    - `tests/integration/test_unreadable_body.py` (new): every table compared before and after each of the eight operations and 13 bodies (with own, another user's and missing ids), no AI call, no failed-login count changed; 401 for no header, `Bearer garbage` and an expired token; UTF-16 and UTF-32 entries still saved.
+    - `tests/integration/test_demo.py`: the demo account's 409 for every unreadable body, nothing deleted.
+    - `tests/integration/test_entries.py` and `test_entry_changes.py`: `test_fr_e3_create_returns_tags_sorted_ignoring_case`, `test_fr_e3_create_returns_tags_in_the_order_of_get`, `test_fr_e4_update_returns_tags_sorted_ignoring_case` and `test_fr_e4_update_returns_tags_in_the_order_of_get` (with the collation names), compared with get, the list and the JSON export. The FR-A3 body tests cover every unreadable body. Four existing tests now expect the sorted order; only the expected order changed in them.
+    - `tests/integration/test_summary_management.py`: its body tests use the full list of unreadable bodies.
+- **Approach (the issue left it to me):** the conversion sits in `AuthenticateFirstRoute`, which already recognised both kinds of unreadable body and runs for every router (a unit test checks that every route uses it). So `_handle_http_error` keeps all its answers, the 401 and 409 still come first, and there is no code per endpoint.
+- **Decisions (mine, within the issue, none needing the product owner):**
+  - The two schema descriptions stay on one line each, as the other property descriptions in `openapi.yaml` do.
+  - The encoding tests also cover UTF-16 and UTF-32 without a byte order mark, which `json.loads` detects too, so they are read as before.
+- **How I verified it:**
+  - **Lint and tests:** in `backend/`, `uv run ruff check .` and `uv run ruff format --check .` are clean.
+    - Unit tests: 1287 passed, also with PostgreSQL stopped.
+    - Integration tests: 1184 passed.
+    - `./test-all.sh`: all three suites passed (1287, 1184, 1257).
+    - Frontend: `npm run lint` clean, `npm run build` OK, `npm test` 1257 passed. `npm run generate:api` leaves `schema.d.ts` unchanged.
+    - `npx --yes @redocly/cli@2 lint openapi.yaml`: valid, with the same 3 warnings as before the change.
+  - **CI on the branch:** run 43693022339 for `6a46734` passed all six jobs (Backend, Frontend, Tests, Contract, Backend image, Full system).
+  - **Without the change:** with `backend/app` from before the change (`git stash` of `backend/app`), 56 of the unit tests in `test_unreadable_body.py` and `test_auth.py` failed, and 59 of the integration tests for the body error and the tag order failed. The tests that still pass check behaviour that stays unchanged: 401 and 409 first, readable bodies, encodings, and the duplicate and no-tag cases of the order tests.
+  - **Live check, without building an image:** `docker compose up -d db`, `uv run alembic upgrade head`, `uv run uvicorn app.main:app --port 8000` with `AI_PROVIDER=mock`, and a registered user.
+    - `POST /auth/login` with `\x80`: the body error.
+    - `POST /entries` with `\x80`: the body error with the token; 401 `not_authenticated` with `www-authenticate: Bearer` without it.
+    - `POST /entries` with `["rust", "Python", "go", "Alpha"]`: 201 with `["Alpha", "go", "Python", "rust"]`, and `GET /entries/{entryId}` the same list.
+    - The `request finished` lines showed 422 and no `error.type`, and no traceback was logged.
+- **Left open:** nothing from the criteria. The change reaches production only after the product owner approves the production step (#39). There is no new setting, so no Blueprint sync.
+
+## 2026-11-15: Orchestrator: close #58 (unreadable request bodies, entry tag order)
+
+- **Task:** task 50, run with `/orchestrate all`. No screens change and no setting was added.
+- **What happened:**
+  - PM grooming (6891278752), under the standing rule of 2026-11-14: tags sorted everywhere, including the `POST` and `PUT` answers (no migration); a body that is not valid UTF-8, not valid JSON, or nested too deeply gets 422 `validation_failed` with `{"field":"body","reason":"Body must be valid JSON in UTF-8."}`; the order of checks unchanged (413, 401, 409, 422); contract descriptions only. The PM moved two old #11 points to the new issue #106, which is not listed in `docs/tasks.md`.
+  - Engineer (6891580695): the conversion lives in `AuthenticateFirstRoute`, and tags are read back in get's order.
+  - QA PASS (6891877971): 240 live requests checked, all routes covered (including `register` and `login`), and FastAPI changes simulated, which the tests caught. Closed as completed.
+- **Open points, left in this log under the standing rule** (QA notes outside the criteria; no work needed, no open issue fits):
+  - some other unreadable bodies also get the body error;
+  - JSON nested 5,000 deep inside a field still parses;
+  - `_is_body_parse_error` would accept two cases that cannot happen today.
+- **Session note:** the permission system denied QA's `docker compose stop db`, so QA ran the unit tests in a separate network namespace instead.
+
+## 2026-11-15: PM: groom #89 (task 51, very large login-attempt limits pass startup but break every login)
+
+- **Task:** groom #89, which had no status label, following `docs/pm.md`. It is task 51, in the group "protect the live app".
+- **What I read:**
+  - the issue (no comments) and QA's finding on #46 (6857401367), with #46 itself and how its other open points were placed;
+  - #95 and #58 as the pattern for a groomed follow-up;
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md`, `docs/product-spec.md` (FR-A4, §8), `openapi.yaml`, `AGENTS.md` and `docs/tasks.md`;
+  - the backend's `settings.py`, `attempt_limits.py`, `ai/limits.py`, `summaries.py` and `models.py`, and the settings tests in `tests/unit/test_attempt_limits.py`, `test_ai_limits.py` and `test_settings.py`;
+  - `.env.example`, `render.yaml`, `docker-compose.yml` and the variable table in `ops/deployment.md`.
+- **What I did:**
+  - Rewrote the body of #89 using the template.
+  - Posted the PM comment with the decisions and the facts I checked (6891960698).
+  - Created #108 for the five settings that still use pydantic's lax parsing.
+  - Labels unchanged: the orchestrator sets the status.
+- **Decisions under the standing rule (2026-11-14), recorded in the issue:**
+  - **Bound:** 2,147,483,647, the largest PostgreSQL `integer`, because the counts are `integer` columns. I rejected the `bigint` maximum (a count could still overflow its column) and a smaller round number (a new product rule nobody asked for).
+  - **AI daily limits:** the same bound in this task (range 0 to 2,147,483,647). They use the same comparison and had the same defect.
+  - **`AI_SUMMARY_MAX_INPUT_CHARACTERS`:** no upper bound. It is compared only in Python, so no value can break a request.
+  - **Long numbers:** a 5,000-digit value gets the normal range message instead of Python's digit-limit text.
+  - **Scope:** only the settings check changes. There is no migration and no contract change.
+  - **Screens:** no screen changes, so no design note.
+  - **Blueprint sync:** none needed, because `render.yaml` does not change.
+  - **Lax parsing:** the five `Field(ge, le)` settings that accept `+5`, `1_0` and `10.0` moved to #108.
+- **How I verified it:**
+  - **Database ranges:** read-only queries against the Compose `postgres:18` test database, in the shape the code uses. A `bigint` limit of 2^63 fails with `bigint out of range`, 2^63 − 1 works, and `integer` 2,147,483,647 + 1 fails with `integer out of range`.
+  - **Current settings check:** on `a0b380b`, `_whole_number` accepts 2^63, and a 5,000-digit string raises Python's digit-limit error. The five `Field(ge, le)` settings read `+5` as 5, `1_0` as 10 and `10.0` as 10.
+  - **The saved issue:** I read the body back. It matches what I wrote and has the four template sections.
+  - No change to project code, and no AI call.
+- **Left open:**
+  - The PostgreSQL documentation could not be read: `postgresql.org` is not in this session's allowed network domains. The ranges were checked against the running database instead.
+  - #108 is not in `docs/tasks.md`. The orchestrator or the product owner decides where it goes.
+
+## 2026-11-15: Engineer: implement #89 (task 51, an upper bound for the five count limits)
+
+- **Task:** implement #89 as groomed (PM comment 6891960698), following `docs/software-engineer.md`. No screens change, so there is no design note.
+- **What I did** (commit `c42b1f2`):
+  - **Settings:** `backend/app/settings.py` has one new constant, `MAX_COUNT_LIMIT = 2_147_483_647`. Its comment says it is the largest PostgreSQL `integer` and names `login_attempts.attempt_count`, `ai_usage.request_count` and `ai_usage_global.request_count`.
+    - `LOGIN_MAX_FAILED_ATTEMPTS` and `DEMO_LOGIN_MAX_ATTEMPTS` now accept 1 to 2147483647.
+    - The three AI daily limits now accept 0 to 2147483647; 0 still blocks.
+    - The defaults and the comments' other text are unchanged. The comments state the new ranges.
+  - **Long numbers:** `_whole_number` drops leading zeros, then refuses a number with more digits than the maximum before calling `int()`. A 5,000-digit value therefore gets "must be a whole number from … to 2147483647", not Python's digit-limit text.
+  - **`.env.example`:** the AI daily limits block and the login-attempt block state the new ranges. The variables and defaults are unchanged.
+  - **Tests, attempt counts (FR-A4):** in `tests/unit/test_attempt_limits.py`, `test_fr_a4_attempt_counts_have_no_upper_bound` is replaced (the issue asks for this) by:
+    - `test_fr_a4_attempt_count_up_to_the_bound_starts_the_app`: 2147483646 and 2147483647 (also with spaces) are read as numbers, through `load_settings` and `create_app`.
+    - `test_fr_a4_attempt_count_over_the_bound_stops_the_app`: the five values from the issue stop `create_app()` with the message. The value is not repeated, and Python's "4300" text does not appear.
+    - `test_fr_a4_attempt_count_bound_applies_in_code`: `2**31 - 1` is accepted in code; `2**31` and `2**63` are refused.
+    - `test_fr_a4_count_bound_is_the_largest_value_of_the_integer_count_columns`: the three columns are exactly `Integer` (not `isinstance`, because `BigInteger` is a subclass), and the constant is `2**31 - 1`.
+  - **Tests, AI daily limits:** in `tests/unit/test_ai_limits.py`, the same three tests named in the file's style (`test_daily_limit_up_to_the_bound_starts_the_app`, `test_daily_limit_over_the_bound_stops_the_app`, `test_daily_limit_bound_applies_in_code_too`). The two tests the issue names now expect "whole number from 0 to 2147483647". Every other assertion in them is unchanged.
+  - **Integration tests at the bound:**
+    - `test_fr_a4_failed_login_count_at_the_bound_is_refused_without_error`: count 2147483646 in an open window, a wrong password gives 401 and the count becomes 2147483647. The correct password then gives 429 with `Retry-After: 900`.
+    - `test_fr_a4_demo_login_count_at_the_bound_is_refused_without_error`: 200, then 429 with `Retry-After: 3600`.
+    - `test_user_limit_at_the_bound_is_reached_without_error` (suggestions and summaries): one more mock call and the count becomes 2147483647. The next call raises `AILimitReachedError` naming `user_suggestions` or `user_summaries`, with no AI call.
+    - `test_global_cap_at_the_bound_is_reached_without_error`: the same for `global`, for a suggestion and a summary.
+  - No change to `attempt_limits.py`, `ai/limits.py`, the models, `openapi.yaml`, `render.yaml`, `docker-compose.yml`, `ops/deployment.md` or `frontend/`. No migration and no new dependency.
+- **Decision I took (under the standing rule of 2026-11-14):** the digit check is in the shared `_whole_number`, so it applies to every setting that has a maximum.
+  - The two attempt windows, `DATABASE_QUERY_TIMEOUT_SECONDS` and `REQUEST_BODY_MAX_BYTES` also give their range message for a value of thousands of digits, where they used to give Python's text.
+  - A zero-padded value longer than 4,300 characters but inside the range is read as its number.
+  - `AI_SUMMARY_MAX_INPUT_CHARACTERS` has no maximum, so it is unchanged, as decision 3 says.
+- **How I verified it:**
+  - **Lint and tests:** in `backend/`, `uv run ruff check .` and `uv run ruff format --check .` are clean.
+    - Unit tests: 1331 passed, with PostgreSQL stopped.
+    - Integration tests: 1189 passed.
+    - `./test-all.sh`: all three suites passed (1331, 1189, 1257).
+  - **CI on the branch:** run 43698062401 for `c42b1f2` passed all six jobs (Backend, Frontend, Tests, Contract, Backend image, Full system).
+  - **Without the change:** I ran the new bound tests against `settings.py` from `9b5fd23`, with only the constant appended so the tests can import it. All 30 over-the-bound and in-code tests failed. The 16 that passed check what was already true: values up to the bound are accepted, and the column types.
+  - **The failure the bound prevents:** a throwaway probe (not committed) gave the limiter a limit of `2**31` and then `2**63`, with the stored count at 2147483647. PostgreSQL raised `integer out of range` and `bigint out of range`.
+  - **Live check, without building an image, `AI_PROVIDER=mock`:** `docker compose up -d db`, then `uv run alembic upgrade head` and `uv run python -m scripts.seed_demo` with `DEMO_EMAIL=demo@example.com` set in the shell (`.env` unchanged), then `uv run uvicorn app.main:app --port 8000`.
+    - `LOGIN_MAX_FAILED_ATTEMPTS=2147483648`, `DEMO_LOGIN_MAX_ATTEMPTS=9223372036854775808` and `AI_DAILY_REQUESTS_GLOBAL=100000000000000000000`: uvicorn exited with code 1 each time. The output showed "Invalid configuration: <VARIABLE> is invalid: Value error, must be a whole number from 1 (or 0) to 2147483647" for that variable.
+    - All five at 2147483647: the backend started. A wrong-password login gave 401, a demo-login 200, and `POST /suggestions` with the demo token 200 (mock output). The `request finished` lines showed only 200 and 401, with no error and no traceback.
+- **Left open:** nothing from the criteria. The change reaches production only after the product owner approves the production step (#39). There is no new variable and no `render.yaml` change, so no Blueprint sync is needed.
+
+## 2026-11-15: Orchestrator: close #89 (upper bound for count limits)
+
+- **Task:** task 51, run with `/orchestrate all`. No screens change and `render.yaml` does not change.
+- **What happened:**
+  - PM grooming (6891960698), under the standing rule of 2026-11-14: one bound of 2,147,483,647 (the largest PostgreSQL `integer`) for `LOGIN_MAX_FAILED_ATTEMPTS`, `DEMO_LOGIN_MAX_ATTEMPTS` and the three AI daily limits; `AI_SUMMARY_MAX_INPUT_CHARACTERS` without a bound; the normal range message for very long values. The PM created #108 (five other whole-number settings accept `+5`, `1_0`, `10.0`), which is not listed in `docs/tasks.md`.
+  - Engineer (6892255021): the `MAX_COUNT_LIMIT` constant and the digit-length check in the shared helper. That helper choice was a decision under the standing rule.
+  - QA PASS (6892424066): 21 of 21 criteria, an old-and-new comparison over 10 settings, and every count taken to the bound over HTTP with no 500. Closed as completed.
+- **Open points:** none needs work. QA's notes (the branch also carries #58's commits; a global cap of 0 is covered by the integration tests) are information only.
+
+## 2026-11-15: PM: groom #99 (task 52, the production backend sends no HSTS header)
+
+- **Task:** groom #99, which had no status label, following `docs/pm.md`. It is task 52, in the group "protect the live app".
+- **What I read:**
+  - the issue, its one comment (the input from #39 about the dev hosts), and the QA comments on #38 and #39 it points to;
+  - #95, #88 and #89 as the pattern for a new setting and a groomed follow-up;
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md`, `docs/product-spec.md`, `openapi.yaml`, `AGENTS.md` and `docs/tasks.md`;
+  - the backend's `main.py`, `settings.py`, `body_limit.py` and `cors.py`, `tests/unit/conftest.py` and `tests/unit/test_deployment.py`;
+  - `.env.example`, `docker-compose.yml`, `render.yaml` and `ops/deployment.md`.
+- **What I did:**
+  - Rewrote the body of #99 using the template.
+  - Posted the PM comment with the decisions and the facts I checked (6892539245).
+  - Labels unchanged: the orchestrator sets the status.
+- **Decisions under the standing rule (2026-11-14), recorded in the issue:**
+  - **HSTS on the API host: yes.** The host is opened directly in browsers: `/docs` is an HTML page, and the guide links `/health`. OWASP ASVS 4.0 item 14.4.5 asks for the header on all responses. The cost is small. It is hardening, not a fix for an open hole: the token is not a cookie, and mixed content already blocks `http://` fetches.
+  - **The backend sets it:** Render offers custom headers only for static sites.
+  - **Value:** `max-age=31536000; includeSubDomains`, with no `preload`.
+  - **New setting `HSTS_MAX_AGE_SECONDS`:**
+    - Default 31536000, a whole number from 0 to 63072000 with the strict check. 0 sends no header.
+    - It goes into `.env.example` (0), Compose (`${HSTS_MAX_AGE_SECONDS:-0}`), `render.yaml` for both backends (31536000) and `ops/deployment.md`.
+    - Compose and local use 0, because the backend serves plain HTTP there (RFC 6797 §7.2 and §8.1).
+  - **No scheme check:** the backend decides only by the setting, not by `X-Forwarded-Proto` or the request's scheme.
+  - **Dev hosts:**
+    - They get the same header.
+    - The dev `http://` redirect rests on Render's docs and #38's production observation. The guide records that. No follow-up, because a cloud session cannot send plain HTTP.
+  - **No contract, spec or screen change.**
+  - **Tests:** names start with `test_hsts_`.
+  - **Blueprint sync:** a Manual Sync after the production deploy (the product owner's step). It is not needed for the header to appear, because the default is the same value.
+- **How I verified it:**
+  - **Live headers,** read-only `curl` `GET /health` on the four hosts:
+    - Both backends: no HSTS.
+    - Both static sites: `max-age=315360000; includeSubdomains; preload`, from Render.
+    - `https://winlog-api.onrender.com/docs`: 200 `text/html`.
+    - Plain `http://` to the dev backend does not leave the session (the host does not resolve).
+  - **Render docs,** fetched with `curl` today: static site headers, Blueprint spec (`headers` is static-only), web services (TLS ends at Render's load balancer; HTTP is redirected to HTTPS) and TLS ("automatically redirects all HTTP requests to HTTPS").
+  - **The pattern a new setting must follow:** `test_deployment.py` requires each `render.yaml` value to equal its setting's default, or to be entered by hand in the guide. So the default is 31536000, and Compose and `.env.example` set 0.
+  - **The saved issue:** I read the body back. It matches what I wrote and has the four template sections.
+  - No change to project code, and no AI call.
+- **Left open:**
+  - `rfc-editor.org` and `owasp.org` are not in this session's allowed network domains. RFC 6797 §7.2 and §8.1, ASVS 14.4.5 and OWASP's one-year example were confirmed only through web search results. The issue links the RFC sections for the engineer.
+  - No follow-up issues were created.
+
+## 2026-11-15: Engineer: implement #99 (task 52, the HSTS header on the backend)
+
+- **Task:** implement #99 as groomed (PM comment 6892539245), following `docs/software-engineer.md`. No screens change, so there is no design note.
+- **What I did** (commits `c579814` and `b4d3eb4`):
+  - **Setting:** `HSTS_MAX_AGE_SECONDS` in `backend/app/settings.py`, default 31536000, checked with the strict `_whole_number` helper from 0 to `MAX_HSTS_MAX_AGE_SECONDS` (63072000), like `REQUEST_BODY_MAX_BYTES`. A wrong value stops the backend with "Invalid configuration: HSTS_MAX_AGE_SECONDS is invalid: … whole number from 0 to 63072000".
+  - **Middleware:** `backend/app/hsts.py`, a pure ASGI middleware. It adds `Strict-Transport-Security: max-age=<H>; includeSubDomains` to the `http.response.start` message, in a new header list, so the app's own message is not changed.
+    - With 0 it hands the request on untouched.
+    - A response that already has the header, in any letter case, keeps its own.
+    - It never reads the scheme or `X-Forwarded-Proto`.
+  - **Place in the stack** (`create_app`): outside the CORS middleware and inside `TelemetryMiddleware`. So it covers the routes and their errors, the 413 of `body_limit.py`, the shared 500 and the preflight answers the CORS middleware sends itself. `TelemetryMiddleware` stays the outermost, as its docstring requires.
+  - **Configuration:**
+    - `.env.example`: `HSTS_MAX_AGE_SECONDS=0` after `REQUEST_BODY_MAX_BYTES`.
+    - Docker Compose: `${HSTS_MAX_AGE_SECONDS:-0}` after `REQUEST_BODY_MAX_BYTES`.
+    - `render.yaml`: `"31536000"` with a one-line comment for both backends. The static sites are unchanged.
+    - `ops/deployment.md`: the table row, the dev sentence, the **HTTPS (#99)** paragraph and the live check after each deploy.
+  - **Tests:** every new test starts with `test_hsts_`.
+    - `tests/unit/test_hsts.py` (138 tests, no database):
+      - the setting: default, accepted values, the issue's invalid values and more, values given in code;
+      - every response the issue names that needs no database, at H = 1, 31536000 and 63072000 (exactly one header) and at H = 0 (none). I added a 429 with `Retry-After`;
+      - each of those compared with H = 0, with no Origin, the allowed origin and another origin: status, body and every other header are the same;
+      - logs and spans are the same with and without the header;
+      - the middleware on its own;
+      - `.env.example`, Compose, `render.yaml` and the guide.
+    - `tests/integration/test_hsts.py` (9 tests, real PostgreSQL):
+      - `GET /health` 200, `POST /entries` 201, `GET /entries` 200 and the Markdown download, each compared with H = 0;
+      - a real 503 from a database port that refuses connections;
+      - a real uvicorn server: the header goes out once on the wire, and uvicorn's own 400 for an over-long request head has none.
+    - Existing tests: `PLAIN_BACKEND_VALUES` in `test_deployment.py` and the `no_env_file` fixture, as the issue says. Also `test_settings_variables` in `test_settings.py`, see below.
+  - No change to `openapi.yaml`, `docs/product-spec.md`, `frontend/`, migrations, `start.sh`, Dockerfiles or workflows. No new dependency.
+- **Decisions I took (under the standing rule of 2026-11-14):**
+  - **The middleware's place:** between CORS and telemetry, as above. Outermost would also work, but it would break `TelemetryMiddleware`'s rule that it is added last.
+  - **The middleware is always added** and does nothing with 0. That keeps `create_app` simple and lets the middleware be tested on its own.
+  - **`test_settings_variables`:** I added `hsts_max_age_seconds` to its expected field list. The criterion lists only `test_deployment.py` and the fixture as changed tests, but the list holds every setting, so a new setting needs this line. The issue allows changes to `test_settings.py`. Nothing in the test is weakened.
+  - **`.env.example`:** one more sentence, for PM decision 5. An older `.env` without the line gets the default, so the header then goes out over plain HTTP, where browsers ignore it.
+  - **Dates in the guide:** "15 November 2026", in the guide's style.
+- **How I verified it:**
+  - **Lint and tests:** in `backend/`, `uv run ruff check .` and `uv run ruff format --check .` are clean.
+    - Unit tests: 1469 passed, also in a network namespace where PostgreSQL could not be reached.
+    - Integration tests: 1198 passed.
+    - `./test-all.sh`: all three suites passed (1469, 1198, 1257).
+  - **CI on the branch:** run 43702516126 for `b4d3eb4` passed all six jobs (Backend, Frontend, Tests, Contract, Backend image, Full system).
+  - **Without the change:** I ran the new tests against `backend/app` from `origin/main`.
+    - As they are, they stop at collection, because `app.hsts` does not exist.
+    - With stub names only (a middleware that does nothing, and the constant), 120 failed and 27 passed. The passing ones check what was already true: no header at H = 0, no new log fields, and the stub passing messages through. The files under test in the configuration tests were my new ones.
+  - **`docker compose config`:** `"0"` with the local `.env`, which does not set the variable. `"86400"` with a temporary copy of `.env` that sets it. No image was built.
+  - **`render.yaml`:** 0 errors against Render's Blueprint JSON schema, downloaded with curl today. A copy with one key misspelt gets 3 errors.
+  - **Live check, without building an image, `AI_PROVIDER=mock`:** `docker compose up -d db`, then `uv run alembic upgrade head`.
+    - With `HSTS_MAX_AGE_SECONDS=31536000 uv run uvicorn app.main:app --port 8000`, `curl -sS -D - -o /dev/null http://localhost:8000/health` showed `strict-transport-security: max-age=31536000; includeSubDomains`. `/docs` and a preflight from the allowed origin showed it too.
+    - With `HSTS_MAX_AGE_SECONDS=0`, the same `curl` showed no such header.
+    - With `63072001`, uvicorn exited with code 1 and the "Invalid configuration" message.
+  - **Live hosts,** read-only `curl` of `/health`: both backends still send no HSTS. Both static sites send `max-age=315360000; includeSubdomains; preload`.
+- **Left open:**
+  - Starlette's last-resort 500 has no header, and no CORS headers either. It answers an error raised in a middleware outside `UnexpectedErrorMiddleware`, and it is sent from outside every middleware the app adds. `app/hsts.py` says so. The shared 500 for an error in a route has the header. No criterion names this case.
+  - The header reaches dev with the automatic deploy after the merge, and production only after the product owner approves the production step. Then the Blueprint's Manual Sync is the product owner's step. The header does not need it, because the default is the same value.
+
+## 2026-11-15: Orchestrator: close #99 (HSTS header on the API)
+
+- **Task:** task 52, run with `/orchestrate all`. No screens change.
+- **What happened:**
+  - PM grooming (6892539245), under the standing rule of 2026-11-14: the API gets HSTS, set by the backend (Render sets custom headers only for static sites), `max-age=31536000; includeSubDomains` without `preload`, and the new `HSTS_MAX_AGE_SECONDS` (0 to 63072000; 0 sends nothing; 0 in Compose and `.env.example`). The setting alone decides.
+  - Engineer (6892865841): a pure ASGI middleware (`backend/app/hsts.py`) between telemetry and CORS, with the setting in all config files and the guide.
+  - QA PASS (6893166574): about 30 kinds of response carry exactly one header, none at 0, and the only difference is that header line. Closed as completed.
+- **For the product owner after the production approval:** a Manual Sync of the Render Blueprint for `HSTS_MAX_AGE_SECONDS`. The header does not depend on it.
+- **Open points, left in this log under the standing rule** (no work needed, no open issue fits):
+  - Starlette's last-resort 500 (only from a bug in an outer middleware) has neither the HSTS nor the CORS headers;
+  - leading zeros are accepted, as for the other settings;
+  - one unit test depends on the variable not being exported in the shell, the same pattern as the existing settings tests.
+
+## 2026-11-15: PM: groom #102 (task 53, the deploy health wait can pass on the previous deploy)
+
+- **Task:** groom #102, which had no status label, following `docs/pm.md`. It is task 53, in the group "pipeline and developer set-up".
+- **What I read:**
+  - the issue and its one comment (the orchestrator's two inputs from the deploys of 14 and 15 November 2026);
+  - on #39: the engineer's "Left open", QA's notes, the migration record and the proof run;
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md`, `docs/product-spec.md`, `openapi.yaml`, `AGENTS.md` and `docs/tasks.md`;
+  - `.github/workflows/deploy.yml` and `ci.yml`, `render.yaml`, `ops/deployment.md`;
+  - `backend/Dockerfile`, `backend/app/health.py`, `main.py` and `settings.py`;
+  - `backend/tests/unit/test_deployment.py` and `test_health.py`;
+  - `frontend/vite.config.ts` and `frontend/src/api/`.
+- **What I did:**
+  - Rewrote the body of #102 using the template. It has sections A to F, checked on the branch, and G, checked after the merge from the first real deploy.
+  - Posted the PM comment with the decisions and the facts I checked (6893342798).
+  - Created the follow-up issue #109 ("every Manual Sync lists the same three Blueprint changes").
+  - Labels unchanged on both issues: the orchestrator sets the status.
+- **Decisions under the standing rule (2026-11-14), recorded in the issue.** None changes what reaches production or how the approval works:
+  - **The gap is closed with the commit in `GET /health`, not with a Render API key.** #39 excluded the key.
+  - **The contract:** `Health` gets a required `commit`, a string of 40 lowercase hexadecimal characters or `null`. The exact YAML is in the issue.
+  - **The commit is build metadata:** CI passes `$GITHUB_SHA` into the image build. The image records it, and the backend reads no environment variable for it. The **Backend image** job checks it.
+  - **The static site is checked too:** the Vite build writes `/version.json` from Render's `RENDER_GIT_COMMIT`. `render.yaml` stays unchanged, so no Blueprint sync is needed.
+  - **The wait** passes only when both services name the run's commit. It polls every 10 s and gives up after 15 minutes instead of 10. It logs each change of what a service answers.
+  - **The approval checks** stay as they are, including Render's **Events**.
+  - **Superseded production steps:** a guide rule (approve only the newest, reject the older waiting ones). No pipeline guard, because it would block the deliberate re-run used to roll back. No `queue: max`.
+  - **The three repeated sync changes** are documented as harmless. Trying a `render.yaml` form that Render stops listing moved to #109.
+  - **The proof paragraph** becomes a past-tense record.
+  - **No screen, spec or `render.yaml` change.**
+- **How I verified it:**
+  - **Live, with read-only `curl`, no AI call:**
+    - Both backends' `/health` return the two fields today.
+    - Both static sites answer `/version.json` with 200 and `index.html` (the SPA rewrite), with `cache-control: public, max-age=0, s-maxage=300`.
+  - **Render docs, fetched with `curl`:**
+    - default environment variables: `RENDER_GIT_COMMIT` for all runtimes, at build time too;
+    - static sites: the CDN cache is invalidated on deploy;
+    - Blueprint reference: `autoDeployTrigger` and `staticPublishPath`.
+  - **GitHub's concurrency docs,** from the `github/docs` repository's raw files.
+  - **The three Deploy runs** from the orchestrator's comment, through the REST API.
+  - **The saved issue:** I read the body back. It has the four template sections and matches what I wrote.
+  - No change to project code, and no AI call.
+- **Left open:**
+  - WebFetch cannot reach `render.com` or `docs.github.com` in this session. `curl` through the proxy reached `render.com`, and the GitHub docs came from `raw.githubusercontent.com`.
+  - Only the first real deploy after the merge can prove three things: that Render sets `RENDER_GIT_COMMIT` in static builds, that the wait first sees the previous deploys, and that 15 minutes is enough. That is section G of the issue: QA reads the run afterwards, and the product owner merges and approves as usual.
+
+## 2026-11-15: Engineer: implement #102 (task 53, the deploy wait checks the deployed commit)
+
+- **Task:** implement #102 as groomed (PM comment 6893342798, product owner decision 6893378317), following `docs/software-engineer.md`. No screens change, so there is no design note.
+- **What I did** (commits `3676239`, `7c95457`, `b7c1e4c`, `a19a899`, `7f33265`, `88ac58c`, `b6d4b37` and `faa71d2`):
+  - **Contract first** (`openapi.yaml`): `Health` gets the required `commit` exactly as in section A, and `getHealth` gets the one sentence. `frontend/src/api/schema.d.ts` is regenerated; the health mock in `client.test.ts` has a `commit`.
+  - **Backend:** `backend/app/git_commit.py` reads the file `/app/git-commit` (next to the `app` package) on each call and returns it only when it is exactly 40 lowercase hexadecimal characters, else `None`. It reads no environment variable. `backend/app/health.py` adds `commit` to the 200 body; the 503 is unchanged.
+  - **Image:** `backend/Dockerfile` takes the build argument `GIT_COMMIT` (empty by default) and writes it with `printf '%s'` into `/app/git-commit`, after the dependency install, the code and `useradd`, so a new commit rebuilds only that layer. The file is owned by root and read-only for the app's user. A Compose build writes an empty file, so `/health` reports null.
+  - **CI, Backend image job:** `--build-arg "GIT_COMMIT=$GITHUB_SHA"`, and the new step "The image records its commit" right after the build, on every branch. It runs `docker run --rm --entrypoint python winlog-backend:ci -c 'from app.git_commit import recorded_commit; print(recorded_commit())'`, so it checks what `/health` would report, without a database, and compares it and the revision label with `$GITHUB_SHA`.
+  - **Static sites:** `frontend/vite-plugins/versionFile.ts`, a Vite plugin (`apply: 'build'`) that emits `version.json` (`{"commit": "<sha>"}` or `{"commit": null}`) from `RENDER_GIT_COMMIT`, which `frontend/vite.config.ts` passes in. `render.yaml` is unchanged.
+  - **The wait** (`.github/workflows/deploy.yml`): still a bash step with `curl` and `python3`, run by both jobs through the alias. It passes only when `GET $API_URL/health` answers 200 with the run's commit, `GET $APP_URL/` answers 200, and `GET $APP_URL/version.json?wait=<nanoseconds>` answers 200 with the run's commit. Each service is checked until it matches. `WAIT_TIMEOUT_SECONDS: 900` and `WAIT_INTERVAL_SECONDS: 10` are job `env` values in both jobs, and `timeout-minutes` went from 20 to 25. The log gets one line per change, with the seconds since the wait started; on timeout, one `::error::` names each service that did not match, its URLs, its last answer and the expected commit. A commit from a body reaches the log only when it is valid, so a body cannot inject a workflow command. The Summary step says both services answered with the commit; the dev summary still names commit and digest and points to the **Events** check (now of both dev services). The header comments, the wait's comment and the "No AI calls" list describe the new wait, and the production job's concurrency comment names the approval rule.
+  - **`ops/deployment.md`:** the pipeline steps 2 and 3, the history sentence, **What the pipeline cannot see**, a new **When the wait fails** subsection, the approval rule with the example runs in **One deploy per environment at a time** and in **Promote to production** (steps 1, 3 and 5 too), the three repeated sync changes in **Blueprint syncs**, the proof paragraph as a past-tense record with its link, and the commit check in **Live checks after a deploy**.
+- **Decisions I made** (open questions, decided with my recommended option):
+  - **Names:** build argument `GIT_COMMIT`, file `/app/git-commit`, module `app/git_commit.py`, plugin folder `frontend/vite-plugins/`.
+  - **Strict file content:** no stripping, so a trailing newline gives null. The Dockerfile writes with `printf '%s'`, and the CI check would catch a newline.
+  - **The CI check runs the backend's own reader** rather than `cat`, so it also proves the value is valid.
+  - **Wording of log and error lines:** for example `[+40 s] winlog-api-dev: GET https://winlog-api-dev.onrender.com/health -> HTTP 200, no commit`.
+  - **Three small guide fixes the issue does not list,** because they became wrong: the CI step in **The pipeline** mentions the new image check; **Free-plan limits** said the jobs wait "up to 10 minutes"; **Set up from scratch** step 5.3 quoted the old two-field `/health` body. The `/health` bodies in the migration record stay, because they are history. The old sentence in **One deploy per environment at a time** called the queued job "waiting"; it now says *pending*, as the new rule does, so the two words do not clash.
+  - **The frontend test is not type-checked by `tsc -b`:** `tsconfig.node.json` includes only `vite.config.ts` (which pulls in the plugin), and changing it is not in the issue's file list. ESLint checks the test, and Vitest runs it.
+- **Changed existing tests:**
+  - `test_deploy_guide_says_the_health_wait_can_pass_on_the_previous_deploy` (with its `deploy.yml` assertion "does not prove which version is live") is replaced by tests of the new wording: `test_deploy_guide_says_the_wait_passes_only_when_both_services_name_the_run_commit`, `..._says_what_to_do_when_the_wait_fails`, `..._promotion_keeps_the_events_check_for_a_new_reason`, `..._approve_only_the_newest_production_step`, `..._proof_paragraph_is_the_record_of_the_proof_run`, `..._live_checks_show_the_commit_of_the_deploy_run` and `test_deploy_workflow_comments_describe_the_new_wait`.
+  - `test_deploy_guide_blueprint_syncs_stay_manual_and_explain_the_backends_trigger` keeps every assertion and also checks the three repeated changes.
+  - The exact `/health` body gets `"commit": None` in `tests/unit/test_health.py`, `tests/integration/test_health.py` and `tests/integration/test_hsts.py`.
+  - No other existing test needed a change; no test was weakened or deleted.
+- **New tests:**
+  - `backend/tests/unit/test_health.py`: `test_health_commit_…` for null (no file), a recorded commit, each invalid value (empty, 39 and 41 characters, upper case, a `g`, a trailing newline, a leading space, a prefix), an unreadable file, environment variables that must not count, the schema rule, and the unchanged 503. Every 200 body is validated against `Health`.
+  - `backend/tests/unit/test_deployment.py`: `test_deploy_wait_…` runs the wait step with bash, a 1 to 20 second limit and a 0.05 s interval against two local stand-in servers: both at once; the state before the first deploy then both matching, with each change logged once and a different query on every `/version.json` request; 503 then the commit; the static site keeping an older commit; neither matching; ten other "not live yet" backend answers (including a body that tries a workflow command); no answer; the page `/` failing. Also the same limits in both jobs, no secret in the step, the CI build argument and check (and the check itself, run with a stand-in for docker), and the Dockerfile order.
+  - `frontend/vite-plugins/versionFile.test.ts`: the content for a valid, a missing and eight invalid values, a real `vite build` that writes the file, and `vite.config.ts` passing `RENDER_GIT_COMMIT`.
+- **How I verified it:**
+  - **Without the change:** with `deploy.yml` from `origin/main`, all 19 new wait tests fail (174 s, because the old wait only stops after its 10 minutes or the test's limit).
+  - **The image check, locally:** Docker Hub was reachable, but `pip install uv` is not (TLS interception), so I built a copy of `backend/Dockerfile` without the two install lines and ran the CI step's script on it: it passed for the built commit, failed with the error for another, and the file was `-rw-r--r-- root`, not writable by `winlog`. A build without the argument reported `None`. Nothing of this is committed.
+  - **`npm run build`:** `dist/version.json` is `{"commit":null}`; with `RENDER_GIT_COMMIT=<valid commit>` it is that commit; with an invalid value null. `vite preview` serves it as `application/json`.
+  - **`actionlint` v1.7.12** (built with Go in the scratchpad): no error for both workflows. With shellcheck 0.11.0 (from the `shellcheck-py` wheel through `uv tool run`), `deploy.yml` is clean after one fix (empty assignments); `ci.yml` has two SC2034 warnings for the unused loop variable `attempt` in the Full system job, which `main` has too and this task may not change. actionlint v1.7.7 does not understand YAML anchors, so it needs v1.7.8 or newer.
+  - **Live check, `AI_PROVIDER=mock`, no image built:** `docker compose up -d db`, `uv run alembic upgrade head`, `uv run uvicorn app.main:app --port 8000`: `curl -sS http://localhost:8000/health` showed `{"status":"ok","database":"ok","commit":null}`, also with `GIT_COMMIT` and `RENDER_GIT_COMMIT` set to a valid commit.
+  - **Lint and tests:**
+    - in `backend/`: `uv run ruff check .` and `uv run ruff format --check .` are clean;
+    - in `frontend/`: `npm run lint` is clean and `npm run build` passes;
+    - `npx --yes @redocly/cli@2 lint openapi.yaml`: valid, with the same 3 warnings as on `main`;
+    - `./test-all.sh`: all three suites passed (backend unit 1512, backend integration 1198, frontend 1274).
+  - **CI on the branch:** run 43708908266 for `faa71d2` passed all six jobs (Contract, Backend, Frontend, Tests, Backend image, Full system). Its Backend image log shows "The image records commit faa71d25019f0286ab7fb47ac65010035dc63230, the same as its revision label." Deploy run 43708908226 for the same commit shows no workflow error, and its three jobs are skipped.
+- **Left open:**
+  - Section G can only be proven by the first real Deploy run after the merge: that Render sets `RENDER_GIT_COMMIT` in the static build, that the wait first sees the previous deploys, and that 15 minutes is enough. No hook was called and no run started here.
+  - The two SC2034 warnings in `ci.yml`'s Full system job (pre-existing, outside this task's files).
+
+## 2026-11-15: PM: amend #102 after QA's FAIL (task 53, the wait cannot get past Render's CDN cache)
+
+- **Task:** correct the one criterion in section D of #102 that QA failed (comment 6894012626), following `docs/pm.md` and the product owner's decision of 2026-11-15: rely on Render clearing its CDN cache on deploy, add no `headers` rule, and leave `render.yaml` unchanged. Sections A to F otherwise passed. Section G waits for the first real deploy after the merge.
+- **What I read:** the issue and all five comments (the orchestrator's inputs, my grooming, the product owner's decision, the engineer's report and QA's FAIL); `docs/pm.md`, `docs/process.md` and `docs/task-template.md`; the wait step in `.github/workflows/deploy.yml`; **The pipeline** and **When the wait fails** in `ops/deployment.md`; and the wait tests in `backend/tests/unit/test_deployment.py`.
+- **What I did:**
+  - **Amended the body of #102.** Each changed passage is marked _amended 2026-11-15_ or _added 2026-11-15_, and a note at the top of the criteria points to QA's comment:
+    - D: the CDN criterion is rewritten. The wait relies on Render clearing its CDN cache on deploy and requests `/version.json` with no query string. A stale copy can only name an older commit or none, so it can delay the pass by at most 5 minutes (`s-maxage=300`) but never make it pass. The wrong comment on the wait step must be corrected, and neither `deploy.yml` nor the guide may claim that the cache is bypassed.
+    - D: the time-limit criterion gets one clarifying sentence. The wait can last about 16 minutes 40 seconds, and `timeout-minutes: 25` covers it.
+    - E: **When the wait fails** gets a short passage on the cache.
+    - F: the three assertions in the task's own tests that change on purpose are listed, plus a guide test for the new passage.
+    - **Out of scope** and **Constraints:** no `headers` rule in `render.yaml`.
+  - **Amended PM decision 5** in the grooming comment (6893342798). The old sentence "read past Render's CDN cache" is struck through, and the amendment follows it.
+  - **Posted a comment** with what changed and why (6894130886). Labels unchanged. No follow-up issue.
+- **Decisions under the standing rule of 2026-11-14, recorded in the issue:**
+  - **The cache-busting query string goes.** It does nothing on Render, and the safety argument does not depend on it.
+  - **QA's note 2** (a missing `commit` and `commit: null` give the same log line) **is not a criterion.** Both mean "no commit".
+  - **QA's note 3** (a longer wait on curl timeouts) **becomes one clarifying sentence** in the existing time-limit criterion. It is already met and needs no new work.
+- **How I verified it:**
+  - **Render's static site docs, fetched with `curl`:** "As soon as a build succeeds, we deploy it and immediately invalidate our CDN caches".
+  - **Live, read-only `curl` on `winlog-app-dev`, no AI call:** a bare `/version.json` came back `cf-cache-status: EXPIRED`. The next two requests, each with a never-used `?wait=` query string, came back `HIT`. Both had `cache-control: public, max-age=0, s-maxage=300`. This matches QA's finding.
+  - **The repository at `880e574`:** the only wrong CDN claims are in the wait step of `deploy.yml`, in its comment and in the code comment on the query string. `ops/deployment.md` makes no such claim.
+  - **The saved issue body:** read back, and it matches what I wrote. The labels are still `qa-failed`.
+  - No change to project code, and no AI call.
+- **Left open:** section G of #102, unchanged: the first real deploy after the merge.
+
+## 2026-11-15: Engineer: fix #102 after QA's FAIL (task 53, no query string on /version.json)
+
+- **Task:** fix the one criterion in section D of #102 that QA failed (comment 6894012626), as amended by the PM (comment 6894130886) with the product owner's decision: rely on Render clearing its CDN cache on deploy, add no `headers` rule, and leave `render.yaml` unchanged. Nothing that QA passed changes.
+- **What I did** (commit `88c5cc3`):
+  - **`.github/workflows/deploy.yml`:** the wait requests `GET $APP_URL/version.json` with no query string. The `?wait=<nanoseconds>` query string and its code comment are gone. The wait step's comment now says that the wait relies on Render clearing the static site's CDN cache when it deploys, that no query string or request header gets past that cache, and that a stale copy names an older commit or none, so it can only delay the pass (by up to 5 minutes, its `s-maxage`), never make it pass. The sentence "so no copy in Render's CDN can answer for the new build" is gone.
+  - **`ops/deployment.md`, When the wait fails:** a new paragraph, **Render's CDN cache**, says the same, quotes Render's static site docs on the invalidation and names `s-maxage=300`.
+  - **No code change for the time limit:** the worst case is about 16 minutes 40 seconds (one more 10 s interval and one last round of three requests of up to 30 s each after the 15 minutes), within `timeout-minutes: 25`.
+- **Changed assertions in this task's own tests** (`backend/tests/unit/test_deployment.py`), as section F lists:
+  - `test_deploy_workflow_comments_describe_the_new_wait`: instead of "a query string that differs on each request", it checks the new comment. It also checks that "no copy in Render's CDN can answer", "query string that differs on each request" and `?wait=` no longer appear in `deploy.yml`.
+  - `test_deploy_wait_calls_only_the_public_urls_and_prints_no_secret`: the wait's calls are `$API_URL/health` and `$APP_URL/version.json`.
+  - `test_deploy_wait_passes_only_after_both_name_the_commit_and_logs_each_change_once`: instead of a different query string on each request, all seven `/version.json` requests have no query string.
+  - Added, not weakened: `test_deploy_guide_says_what_to_do_when_the_wait_fails` also checks the new cache paragraph, and that neither the guide nor `deploy.yml` has the old claims. `test_deploy_wait_has_the_same_time_limit_and_poll_interval_in_both_jobs` also checks the worst case (1000 s) plus two hook calls against `timeout-minutes`.
+  - No other assertion changed.
+- **How I verified it:**
+  - **Against the old files:** with `deploy.yml` and `ops/deployment.md` from `836619d`, the four changed tests fail and the time-limit test passes (that code did not change). With the new files, all pass.
+  - **Live, read-only `curl`:** both static sites still send `/version.json` with `cache-control: public, max-age=0, s-maxage=300`.
+  - **Lint and tests:** in `backend/`, `uv run ruff check .` and `uv run ruff format --check .` are clean. In `frontend/`, `npm run lint` is clean and `npm run build` passes (`dist/version.json` is `{"commit":null}`). `./test-all.sh` passed all three suites: backend unit 1512, backend integration 1198, frontend 1274.
+  - **`actionlint` v1.7.12** (built with Go in the scratchpad): no error for both workflows. With shellcheck 0.11.0, `deploy.yml` is clean. `ci.yml` still has the two SC2034 warnings in the Full system job, which `main` has too.
+  - No hook was called, no Deploy run was started, and no real AI call was made.
+- **Left open:** section G of #102, unchanged: only the first real deploy after the merge can prove it. QA reads that run afterwards.

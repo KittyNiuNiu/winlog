@@ -196,15 +196,32 @@ jobs:
       - name: Build the image
         # For linux/amd64, the platform Render runs. Without a provenance attestation the image
         # is a single manifest, so its digest is the one deployed. The revision label names the
-        # commit, which the Deploy workflow checks before it pushes the image.
+        # commit, which the Deploy workflow checks before it pushes the image. The build
+        # argument GIT_COMMIT passes the same commit into the image as build metadata, so the
+        # backend's GET /health names it (#102).
         run: >-
           docker buildx build
           --platform linux/amd64
           --provenance=false
           --label "org.opencontainers.image.revision=$GITHUB_SHA"
+          --build-arg "GIT_COMMIT=$GITHUB_SHA"
           --load
           --tag winlog-backend:ci
           backend
+
+      - name: The image records its commit
+        # The Deploy workflow waits until GET /health names the commit it deployed (#102), so
+        # the image must record exactly the commit it is built from: $GITHUB_SHA, the same as
+        # its revision label. This asks the backend's own code what /health would report
+        # (app/git_commit.py), without a database.
+        run: |
+          recorded=$(docker run --rm --entrypoint python winlog-backend:ci -c 'from app.git_commit import recorded_commit; print(recorded_commit())')
+          revision=$(docker inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' winlog-backend:ci)
+          if [ "$recorded" != "$GITHUB_SHA" ] || [ "$revision" != "$GITHUB_SHA" ]; then
+            echo "::error::The image records commit '$recorded' and the revision label '$revision', not $GITHUB_SHA. Check the build argument GIT_COMMIT here and in backend/Dockerfile."
+            exit 1
+          fi
+          echo "The image records commit $recorded, the same as its revision label."
 
       - name: The image holds no .env file
         # No file named .env or .env.<anything> anywhere in the image's file system (#38 open

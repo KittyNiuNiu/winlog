@@ -28,6 +28,18 @@ COPY start.sh ./
 
 # Run as an unprivileged user.
 RUN useradd --create-home --uid 10001 winlog
+
+# The Git commit this image is built from, as build metadata (#102). CI's Backend image job
+# passes it as the build argument GIT_COMMIT (the same commit as the revision label), and
+# GET /health reports it (app/git_commit.py), so the Deploy workflow can tell the new deploy
+# from the previous one. It is written into the file /app/git-commit, owned by root and
+# read-only for the app's user, and the backend reads no environment variable for it: no value
+# on Render, in Docker Compose or in .env can change it. A build without the argument (Docker
+# Compose) writes an empty file, and /health then reports null. These lines come after the
+# dependency install and the code, so a new commit rebuilds only this small layer.
+ARG GIT_COMMIT=
+RUN printf '%s' "$GIT_COMMIT" > /app/git-commit
+
 USER winlog
 
 # The default port. Render sets PORT, and start.sh then listens on that port instead.

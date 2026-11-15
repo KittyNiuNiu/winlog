@@ -1,9 +1,12 @@
 import react from '@vitejs/plugin-react'
 import { configDefaults, defineConfig } from 'vitest/config'
+import { versionFile } from './vite-plugins/versionFile.ts'
 
 // https://vite.dev/config/ and https://vitest.dev/config/
 export default defineConfig({
-  plugins: [react()],
+  // versionFile writes dist/version.json with the commit of the build (#102). Render sets
+  // RENDER_GIT_COMMIT to the deploy's commit at build time; elsewhere the file names null.
+  plugins: [react(), versionFile(process.env.RENDER_GIT_COMMIT)],
   // Read VITE_ variables from the repository-root .env, next to the backend's settings.
   // Only VITE_-prefixed variables reach the browser bundle.
   envDir: '..',

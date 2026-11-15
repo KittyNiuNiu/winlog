@@ -14,7 +14,9 @@ export interface paths {
         /**
          * Check that the API and the database are up.
          * @description Covers no functional requirement; supports reliability (§9) and the
-         *     health check from issue #4. Needs no authentication.
+         *     health check from issue #4. Needs no authentication. The `commit` field
+         *     names the commit the backend was built from, so the Deploy workflow can
+         *     tell a new deploy from the previous one (#102).
          */
         get: operations["getHealth"];
         put?: never;
@@ -404,6 +406,14 @@ export interface components {
             status: "ok";
             /** @enum {string} */
             database: "ok";
+            /**
+             * @description The Git commit the running backend was built from: the full
+             *     40-character SHA in lower case. `null` when the backend was built
+             *     without one, for example with Docker Compose or `uv run uvicorn`.
+             *     The Deploy workflow compares it with the commit it deployed (#102).
+             * @example 0123456789abcdef0123456789abcdef01234567
+             */
+            commit: string | null;
         };
         Registration: {
             /**
@@ -505,7 +515,7 @@ export interface components {
             date: string;
             text: string;
             category: components["schemas"]["Category"];
-            /** @description Tag names, with their stored spelling. */
+            /** @description Tag names, with their stored spelling, sorted alphabetically, ignoring case, in every response. */
             tags: string[];
             result_impact: string | null;
             /** Format: date-time */
@@ -614,7 +624,7 @@ export interface components {
             limit?: "user_suggestions" | "user_summaries" | "global";
         };
         FieldError: {
-            /** @description The failing field, for example `text` or `period_end`. */
+            /** @description The failing field, for example `text` or `period_end`. `body` means the request body as a whole, for example when it is missing or cannot be read as JSON. */
             field: string;
             /** @description Why it failed. */
             reason: string;

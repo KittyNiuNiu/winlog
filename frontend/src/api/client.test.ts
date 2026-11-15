@@ -109,7 +109,10 @@ const exportHeaders = (name: string, type: string) => ({
 
 // Keyed by operationId: the type makes TypeScript require exactly the generated operations.
 const operationCases: Record<keyof ContractOperations, OperationCase> = {
-  getHealth: { call: (a) => a.getHealth(), response: () => jsonResponse(200, { status: 'ok', database: 'ok' }) },
+  getHealth: {
+    call: (a) => a.getHealth(),
+    response: () => jsonResponse(200, { status: 'ok', database: 'ok', commit: '0123456789abcdef0123456789abcdef01234567' }),
+  },
   register: {
     call: (a) => a.register({ email: 'alice@example.com', password: 'Correct-Horse-7' }),
     response: () => jsonResponse(201, { id: ENTRY_ID, email: 'alice@example.com', created_at: FUTURE }),

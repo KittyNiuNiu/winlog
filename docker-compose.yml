@@ -35,6 +35,8 @@ services:
       DATABASE_CONNECT_TIMEOUT_SECONDS: ${DATABASE_CONNECT_TIMEOUT_SECONDS:-3}
       DATABASE_QUERY_TIMEOUT_SECONDS: ${DATABASE_QUERY_TIMEOUT_SECONDS:-10}
       REQUEST_BODY_MAX_BYTES: ${REQUEST_BODY_MAX_BYTES:-262144}
+      # 0: no HSTS header, because the backend serves plain HTTP here (issue #99).
+      HSTS_MAX_AGE_SECONDS: ${HSTS_MAX_AGE_SECONDS:-0}
       AI_PROVIDER: ${AI_PROVIDER:?set AI_PROVIDER in .env}
       # Traces, metrics and logs go to the lgtm service over OTLP/HTTP (issue #74). There is
       # deliberately no depends_on on lgtm: the backend works the same while it is down.

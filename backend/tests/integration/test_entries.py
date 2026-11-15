@@ -323,7 +323,11 @@ def test_fr_e2_entry_with_every_field_is_saved(
 
     assert response.status_code == 201
     contract("Entry").validate(response.json())
-    assert {key: response.json()[key] for key in body} == body
+    # The tags come sorted alphabetically, ignoring case, as in get (issue #58).
+    assert {key: response.json()[key] for key in body} == {
+        **body,
+        "tags": ["Public speaking", "Testing"],
+    }
     [row] = _entries(migrated_db)
     assert (row.text, row.date, row.category, row.result_impact) == (
         "Gave a talk on testing.",
@@ -360,7 +364,7 @@ def test_fr_e3_new_tag_created_on_save(
     response = _create(client, alice_token, {**VALID, "tags": ["  machine   learning ", "Go"]})
 
     assert response.status_code == 201
-    assert response.json()["tags"] == ["machine learning", "Go"]
+    assert response.json()["tags"] == ["Go", "machine learning"]
     stored = _tags(migrated_db)
     assert [(user_id, name) for _, user_id, name in stored] == [
         (alice, "Go"),
@@ -428,6 +432,74 @@ def test_fr_a3_another_users_tag_is_never_reused_and_the_user_gets_their_own(
     assert (user_id, name) == (alice, "Python")
     assert tag_id != bobs_python
     assert (bobs_python, bob, "PYTHON") in _tags(migrated_db)
+
+
+# --- The order of an entry's tags (issue #58) ---------------------------------------------
+
+COLLATION_NAMES = ["Zebra", "émigré", "Éclair", "apple", "_draft", "ä"]
+"""Tag names whose order depends on the database's collation: accents, case and punctuation."""
+
+
+def tags_everywhere(client: TestClient, token: str, entry_id: str) -> dict[str, list[str]]:
+    """The entry's tags in `getEntry`, in its item of `listEntries` and in the JSON export."""
+    headers = {"Authorization": f"Bearer {token}"}
+    got = client.get(f"/entries/{entry_id}", headers=headers)
+    listed = client.get("/entries", headers=headers)
+    exported = client.get("/export/json", headers=headers)
+    assert (got.status_code, listed.status_code, exported.status_code) == (200, 200, 200)
+    [item] = [entry for entry in listed.json()["entries"] if entry["id"] == entry_id]
+    [in_export] = [entry for entry in exported.json()["entries"] if entry["id"] == entry_id]
+    return {"get": got.json()["tags"], "list": item["tags"], "export": in_export["tags"]}
+
+
+def test_fr_e3_create_returns_tags_sorted_ignoring_case(
+    client: TestClient, migrated_db: Engine, alice: uuid.UUID, alice_token: str, contract
+):
+    _tag(migrated_db, alice, "Python")
+    # Another user's spellings are never used.
+    bob = _user(migrated_db, "bob@example.com")
+    _tag(migrated_db, bob, "RUST")
+    _tag(migrated_db, bob, "alpha")
+
+    response = _create(client, alice_token, {**VALID, "tags": ["rust", "python", "go", "Alpha"]})
+
+    assert response.status_code == 201
+    contract("Entry").validate(response.json())
+    assert response.json()["tags"] == ["Alpha", "go", "Python", "rust"]
+    assert tags_everywhere(client, alice_token, response.json()["id"]) == {
+        "get": ["Alpha", "go", "Python", "rust"],
+        "list": ["Alpha", "go", "Python", "rust"],
+        "export": ["Alpha", "go", "Python", "rust"],
+    }
+
+
+@pytest.mark.parametrize(
+    "names",
+    [
+        ["rust", "python", "go", "Alpha"],
+        COLLATION_NAMES,
+        list(reversed(COLLATION_NAMES)),
+        ["go", "GO", " go ", "Go"],
+        [],
+    ],
+    ids=["example", "collation", "collation-reversed", "duplicates", "no-tags"],
+)
+def test_fr_e3_create_returns_tags_in_the_order_of_get(
+    client: TestClient, migrated_db: Engine, alice: uuid.UUID, alice_token: str, names
+):
+    _tag(migrated_db, alice, "Python")
+
+    response = _create(client, alice_token, {**VALID, "tags": names})
+
+    assert response.status_code == 201
+    created = response.json()["tags"]
+    everywhere = tags_everywhere(client, alice_token, response.json()["id"])
+    assert everywhere == {"get": created, "list": created, "export": created}
+    # Which tags the entry gets is unchanged: each once, with its stored spelling.
+    assert sorted(created) == sorted(
+        name for _, _, name in _linked_tags(migrated_db, response.json()["id"])
+    )
+    assert len(created) == len({name.strip().lower() for name in names})
 
 
 def test_fr_e3_failed_save_stores_neither_the_entry_nor_any_new_tag(
@@ -701,8 +773,32 @@ def test_fr_a3_create_without_a_valid_token_is_not_authenticated(
     assert _entries(migrated_db) == []
 
 
-NOT_JSON = [b"junk", b'{"text":', b"\xff\xfe", b"\x80"]
-"""Bodies FastAPI cannot read: not JSON, cut off, a UTF-16 mark only, and not UTF-8."""
+UNREADABLE_BODIES = {
+    "byte-80": b"\x80",
+    "latin-1-text": b'{"text": "caf\xe9"}',
+    "overlong-encoding": b"\xc0\x80",
+    "stray-byte-after-json": b'{"text": "a"}\x80',
+    "utf-16-mark-and-odd-length": b"\xff\xfe{",
+    "nested-too-deeply": b"[" * 100_000,
+    "junk": b"junk",
+    "cut-off": b'{"text":',
+    "utf-16-mark-only": b"\xff\xfe",
+    "three-spaces": b"   ",
+}
+"""Bodies that cannot be read as JSON (issue #58): not valid UTF-8, nested too deeply to
+parse, and not JSON. Each is far below `REQUEST_BODY_MAX_BYTES`."""
+BODY_ERROR = {
+    "code": "validation_failed",
+    "message": "The request has invalid fields.",
+    "fields": [{"field": "body", "reason": "Body must be valid JSON in UTF-8."}],
+}
+"""The body error (issue #58), the only answer to such a body after the token check."""
+
+
+def unreadable_bodies(name: str = "body", **extra: bytes):
+    """Parametrize a test with every unreadable body (and `extra`), with short test ids."""
+    bodies = {**UNREADABLE_BODIES, **extra}
+    return pytest.mark.parametrize(name, list(bodies.values()), ids=list(bodies))
 
 
 def _create_bytes(client: TestClient, token: str | None, body: bytes):
@@ -712,7 +808,7 @@ def _create_bytes(client: TestClient, token: str | None, body: bytes):
     )
 
 
-@pytest.mark.parametrize("body", NOT_JSON)
+@unreadable_bodies()
 @pytest.mark.parametrize("token", [None, "not-a-real-token", "expired"])
 def test_fr_a3_create_with_a_body_that_is_not_json_and_no_valid_token_is_not_authenticated(
     client: TestClient, migrated_db: Engine, alice: uuid.UUID, contract, token, body: bytes
@@ -731,7 +827,7 @@ def test_fr_a3_create_with_a_body_that_is_not_json_and_no_valid_token_is_not_aut
     assert _tags(migrated_db) == []
 
 
-@pytest.mark.parametrize("body", NOT_JSON[:3])
+@unreadable_bodies()
 def test_fr_a3_create_with_a_valid_token_and_a_body_that_is_not_json_is_a_validation_error(
     client: TestClient, migrated_db: Engine, alice_token: str, contract, body: bytes
 ):
@@ -739,8 +835,9 @@ def test_fr_a3_create_with_a_valid_token_and_a_body_that_is_not_json_is_a_valida
 
     assert response.status_code == 422
     contract("Error").validate(response.json())
-    assert response.json()["code"] == "validation_failed"
+    assert response.json() == BODY_ERROR
     assert _entries(migrated_db) == []
+    assert _tags(migrated_db) == []
 
 
 def test_fr_a3_create_with_an_expired_token_is_not_authenticated(
