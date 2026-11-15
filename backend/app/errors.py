@@ -6,6 +6,14 @@ Validation errors also list each failing field in `fields`.
 A request body over `REQUEST_BODY_MAX_BYTES` gets 413 `request_too_large`
 (`request_too_large_response`), on every path and method. app/body_limit.py sends it before
 the app routes the request, so before authentication and validation (issue #88).
+
+A request body the backend cannot read as JSON gets the body error (`unreadable_body`, issue
+#58): 422 `validation_failed` with one field error, `body` with the fixed reason
+`UNREADABLE_BODY_REASON`. That covers a body that is not valid UTF-8, not valid JSON, or
+nested too deeply to parse. The reason never repeats any part of the body, and never names a
+character position. `AuthenticateFirstRoute` (app/auth.py) raises it for every operation,
+after the token check and the demo account's 409, so neither FastAPI's 400 nor its
+`json_invalid` error reaches a client.
 """
 
 from collections.abc import Sequence
@@ -18,6 +26,9 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 _REQUEST_PARTS = {"body", "query", "path", "header", "cookie"}
+
+VALIDATION_FAILED_MESSAGE = "The request has invalid fields."
+UNREADABLE_BODY_REASON = "Body must be valid JSON in UTF-8."
 
 
 def error_response(
@@ -61,8 +72,21 @@ def _field_name(location: Sequence[Any]) -> str:
 async def _handle_validation_error(request: Request, exc: RequestValidationError) -> JSONResponse:
     # Only the location and message are used. The submitted values are never echoed or logged.
     fields = [{"field": _field_name(err["loc"]), "reason": err["msg"]} for err in exc.errors()]
-    return error_response(
-        422, "validation_failed", "The request has invalid fields.", fields=fields
+    return error_response(422, "validation_failed", VALIDATION_FAILED_MESSAGE, fields=fields)
+
+
+def unreadable_body() -> ApiError:
+    """The body error: a request body that cannot be read as JSON (issue #58).
+
+    The same 422 `validation_failed` as any other invalid field, with exactly one field error
+    naming `body`. Its reason is fixed, so nothing of the body, such as a password in a login
+    body, and no parser position or exception message is ever sent back.
+    """
+    return ApiError(
+        422,
+        "validation_failed",
+        VALIDATION_FAILED_MESSAGE,
+        fields=[{"field": "body", "reason": UNREADABLE_BODY_REASON}],
     )
 
 

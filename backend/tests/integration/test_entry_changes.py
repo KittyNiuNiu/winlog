@@ -16,8 +16,8 @@ from sqlalchemy.orm import Session
 from app import entries
 from app.models import Entry, EntryTag, Summary
 from tests.integration.test_entries import (
+    BODY_ERROR,
     COLLATION_NAMES,
-    NOT_JSON,
     VALID,
     _assert_validation_error,
     _create,
@@ -28,6 +28,7 @@ from tests.integration.test_entries import (
     _token,
     _user,
     tags_everywhere,
+    unreadable_bodies,
 )
 
 FULL = {
@@ -828,7 +829,7 @@ def _put_bytes(client: TestClient, token: str | None, entry_id: str, body: bytes
     )
 
 
-@pytest.mark.parametrize("body", NOT_JSON)
+@unreadable_bodies()
 @pytest.mark.parametrize("token", [None, "not-a-real-token", "expired"])
 @pytest.mark.parametrize("which", ["own", "missing"])
 def test_fr_a3_update_with_a_body_that_is_not_json_and_no_valid_token_is_not_authenticated(
@@ -858,18 +859,30 @@ def test_fr_a3_update_with_a_body_that_is_not_json_and_no_valid_token_is_not_aut
     assert _tags(migrated_db) == tags
 
 
-@pytest.mark.parametrize("body", NOT_JSON[:3])
+@unreadable_bodies()
+@pytest.mark.parametrize("which", ["own", "other-users", "missing"])
 def test_fr_a3_update_with_a_valid_token_and_a_body_that_is_not_json_is_a_validation_error(
-    client: TestClient, migrated_db: Engine, alice_token: str, entry, contract, body: bytes
+    client: TestClient,
+    migrated_db: Engine,
+    alice_token: str,
+    bob_token: str,
+    entry,
+    contract,
+    which,
+    body: bytes,
 ):
-    before = _snapshot(migrated_db, entry["id"])
+    bobs_entry = _create(client, bob_token, FULL).json()
+    entry_id = {"own": entry["id"], "other-users": bobs_entry["id"], "missing": MISSING_ID}[which]
+    before = (_snapshot(migrated_db, entry["id"]), _snapshot(migrated_db, bobs_entry["id"]))
+    tags = _tags(migrated_db)
 
-    response = _put_bytes(client, alice_token, entry["id"], body)
+    response = _put_bytes(client, alice_token, entry_id, body)
 
     assert response.status_code == 422
     contract("Error").validate(response.json())
-    assert response.json()["code"] == "validation_failed"
-    assert _snapshot(migrated_db, entry["id"]) == before
+    assert response.json() == BODY_ERROR
+    assert (_snapshot(migrated_db, entry["id"]), _snapshot(migrated_db, bobs_entry["id"])) == before
+    assert _tags(migrated_db) == tags
 
 
 # --- Privacy ------------------------------------------------------------------------------

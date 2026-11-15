@@ -16,11 +16,13 @@ from sqlalchemy import Engine, insert, select
 
 from app.models import Entry, EntryTag, Summary, Tag
 from tests.integration.test_entries import (
-    NOT_JSON,
+    BODY_ERROR,
+    UNREADABLE_BODIES,
     _assert_validation_error,
     _create,
     _token,
     _user,
+    unreadable_bodies,
 )
 
 MISSING_ID = "00000000-0000-4000-8000-000000000000"
@@ -357,7 +359,7 @@ def test_fr_r5_missing_or_blank_text_is_a_validation_error_and_changes_nothing(
     assert _state(migrated_db) == before
 
 
-@pytest.mark.parametrize("body", [*NOT_JSON[:3], b'["text"]', b'"text"'])
+@unreadable_bodies(array=b'["text"]', string=b'"text"')
 def test_fr_r5_edit_body_must_be_a_json_object(
     client: TestClient, migrated_db: Engine, alice_token: str, summary, contract, body: bytes
 ):
@@ -368,6 +370,8 @@ def test_fr_r5_edit_body_must_be_a_json_object(
     assert response.status_code == 422
     contract("Error").validate(response.json())
     assert response.json()["code"] == "validation_failed"
+    if body in UNREADABLE_BODIES.values():
+        assert response.json() == BODY_ERROR
     assert _state(migrated_db) == before
 
 
@@ -619,7 +623,7 @@ def test_fr_a3_without_a_valid_token_all_four_are_not_authenticated(
     assert _state(migrated_db) == before
 
 
-@pytest.mark.parametrize("body", [*NOT_JSON, b"{}", b'{"text": ""}'])
+@unreadable_bodies(empty_object=b"{}", empty_text=b'{"text": ""}')
 @pytest.mark.parametrize("token", [None, "not-a-real-token", "expired"])
 def test_fr_a3_edit_with_an_invalid_body_and_no_valid_token_is_not_authenticated(
     client: TestClient, migrated_db: Engine, alice: uuid.UUID, summary, contract, token, body

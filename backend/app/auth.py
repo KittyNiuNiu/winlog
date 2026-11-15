@@ -6,7 +6,8 @@ database cannot be used to log in. Clients send the token as `Authorization: Bea
 
 Every operation that needs authentication depends on `get_current_user`, and every router
 uses `AuthenticateFirstRoute`, so a request without a valid token is rejected with 401 even
-when its body is not valid JSON.
+when its body cannot be read as JSON. With a valid token, or on an operation without
+authentication, such a body gets the body error (`app.errors.unreadable_body`, issue #58).
 """
 
 import datetime as dt
@@ -28,7 +29,7 @@ from sqlalchemy.orm import Session
 from starlette.exceptions import HTTPException
 
 from app.db import get_session
-from app.errors import ApiError
+from app.errors import ApiError, unreadable_body
 from app.models import Token, User
 
 # 32 random bytes, as the token from `secrets.token_urlsafe` (43 characters).
@@ -113,10 +114,17 @@ def get_current_user(login: Annotated[CurrentLogin, Depends(get_current_login)])
 CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
-# FastAPI reads the request body before it runs any dependency. A body it cannot read ends
-# the request with one of these two errors, before `get_current_login` has checked the token:
-# a RequestValidationError for JSON it cannot decode, or Starlette's HTTPException (not
-# FastAPI's subclass) for anything else, such as bytes that are not UTF-8.
+# FastAPI reads the request body before it runs any dependency. A JSON body it cannot read
+# ends the request with one of these two errors, before `get_current_login` has checked the
+# token (FastAPI 0.162.0, `fastapi/routing.py`):
+# - a RequestValidationError of type `json_invalid` for text that is not JSON
+#   (`json.JSONDecodeError`). It names the parser's character position as its location;
+# - Starlette's HTTPException 400 (not FastAPI's subclass) with this detail for any other
+#   error while reading, such as bytes that are not valid UTF-8 (`UnicodeDecodeError`) or JSON
+#   nested too deeply to parse (`RecursionError`).
+# `AuthenticateFirstRoute` answers both with the body error, so neither reaches a client. If a
+# FastAPI upgrade reports such a body differently, the tests with `\x80` in
+# tests/unit/test_auth.py fail.
 _BODY_PARSE_ERROR_DETAIL = "There was an error parsing the body"
 
 
@@ -138,18 +146,23 @@ def _calls(dependant: Dependant) -> set[Callable[..., Any]]:
 
 
 class AuthenticateFirstRoute(APIRoute):
-    """A route that checks the token before it reports a body it cannot read (FR-A3).
+    """A route that checks the token before it reports a body it cannot read (FR-A3), and
+    reports every such body with the one body error (issue #58).
 
-    FastAPI parses a JSON body before it runs the route's dependencies, so a body that is not
-    valid JSON would get 422 `validation_failed` (or 400) even without a valid token. On such
-    an error, an operation that needs authentication first solves the dependencies that lead
-    to `get_current_login`: without a valid token they raise `not_authenticated`. With a
-    valid token, the original body error is raised again, so it keeps its response.
+    FastAPI parses a JSON body before it runs the route's dependencies, so a body it cannot
+    read would be reported even without a valid token. On such an error (`_is_body_parse_error`),
+    an operation that needs authentication first solves the dependencies that lead to
+    `get_current_login`: without a valid token they raise `not_authenticated` (401), and for
+    the demo account `deleteAccount`'s `refuse_demo_account` raises its 409. Otherwise, and on
+    every operation without authentication, such as login, the request gets the body error
+    (`app.errors.unreadable_body`): 422 `validation_failed` naming `body`, the same for every
+    operation and every reason the body could not be read. The 413 for a body over the limit
+    comes before all of this, from app/body_limit.py.
 
     Only the error path runs the check, so a valid request still checks its token once.
-    Nothing has run yet when the body fails to parse, so the request changes nothing.
-    Operations without authentication, such as login, keep the body error. Only the route's
-    own dependencies count, so authentication must not be added as a router-level dependency.
+    Nothing has run yet when the body fails to parse, so the request changes nothing. The body
+    is not read or decoded again. Only the route's own dependencies count, so authentication
+    must not be added as a router-level dependency.
     """
 
     def get_route_handler(self) -> Callable[[Request], Coroutine[Any, Any, Response]]:
@@ -157,9 +170,11 @@ class AuthenticateFirstRoute(APIRoute):
         login_dependencies = [
             sub for sub in self.dependant.dependencies if get_current_login in _calls(sub)
         ]
-        if not login_dependencies:
-            return handler
-        login_check = Dependant(dependencies=login_dependencies, path=self.path_format)
+        login_check = (
+            Dependant(dependencies=login_dependencies, path=self.path_format)
+            if login_dependencies
+            else None
+        )
 
         async def handler_checking_the_token_first(request: Request) -> Response:
             try:
@@ -167,15 +182,17 @@ class AuthenticateFirstRoute(APIRoute):
             except (RequestValidationError, HTTPException) as error:
                 if not _is_body_parse_error(error):
                     raise
-                # Raises `not_authenticated` if the token is missing or not valid. Test
-                # overrides of these dependencies apply, as for the route itself.
-                await solve_dependencies(
-                    request=request,
-                    dependant=login_check,
-                    dependency_overrides_provider=request.app,
-                    async_exit_stack=request.scope["fastapi_inner_astack"],
-                    embed_body_fields=False,
-                )
-                raise
+                if login_check is not None:
+                    # Raises `not_authenticated` if the token is missing or not valid. Test
+                    # overrides of these dependencies apply, as for the route itself.
+                    await solve_dependencies(
+                        request=request,
+                        dependant=login_check,
+                        dependency_overrides_provider=request.app,
+                        async_exit_stack=request.scope["fastapi_inner_astack"],
+                        embed_body_fields=False,
+                    )
+                # A fixed answer: the original error holds the body, which is never sent back.
+                raise unreadable_body() from None
 
         return handler_checking_the_token_first

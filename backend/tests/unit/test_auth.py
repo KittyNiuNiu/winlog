@@ -202,13 +202,38 @@ def test_fr_a3_every_operation_that_needs_authentication_rejects_a_request_witho
         assert response.json()["code"] == "not_authenticated"
 
 
-# --- The token is checked before a body that is not valid JSON ------------------------------
-# FastAPI reads a JSON body before it runs the dependencies. Without AuthenticateFirstRoute, a
-# body it cannot read got 422 (or 400) even without a valid token.
+# --- The token is checked before a body that cannot be read as JSON -------------------------
+# FastAPI reads a JSON body before it runs the dependencies. AuthenticateFirstRoute checks the
+# token first, and then answers such a body with the body error (issue #58). These tests fail
+# if a FastAPI upgrade changes how it reports a body it cannot read.
 
-NOT_JSON = [b"junk", b'{"text":', b"\xff\xfe", b"\x80"]
-"""Bodies FastAPI cannot read: not JSON, cut off, a UTF-16 mark only, and not UTF-8."""
-NOT_JSON_WITH_VALID_UTF8 = NOT_JSON[:3]
+UNREADABLE_BODIES = {
+    "byte-80": b"\x80",
+    "latin-1-text": b'{"text": "caf\xe9"}',
+    "overlong-encoding": b"\xc0\x80",
+    "stray-byte-after-json": b'{"text": "a"}\x80',
+    "utf-16-mark-and-odd-length": b"\xff\xfe{",
+    "nested-too-deeply": b"[" * 100_000,
+    "junk": b"junk",
+    "cut-off": b'{"text":',
+    "utf-16-mark-only": b"\xff\xfe",
+    "three-spaces": b"   ",
+}
+"""Bodies that cannot be read as JSON (issue #58): not valid UTF-8, nested too deeply to
+parse, and not JSON. Each is far below `REQUEST_BODY_MAX_BYTES`."""
+BODY_ERROR = {
+    "code": "validation_failed",
+    "message": "The request has invalid fields.",
+    "fields": [{"field": "body", "reason": "Body must be valid JSON in UTF-8."}],
+}
+"""The body error (issue #58), the only answer to such a body after the token check."""
+
+
+def unreadable_bodies(name: str = "body"):
+    """Parametrize a test with every unreadable body, named so the test ids stay short."""
+    return pytest.mark.parametrize(
+        name, list(UNREADABLE_BODIES.values()), ids=list(UNREADABLE_BODIES)
+    )
 
 
 def _url(path: str) -> str:
@@ -230,12 +255,13 @@ def _send_raw(client: TestClient, method: str, path: str, body: bytes, headers: 
     )
 
 
-@pytest.mark.parametrize("body", NOT_JSON)
+@unreadable_bodies()
 @pytest.mark.parametrize("headers", [{}, {"Authorization": "Bearer"}, {"Authorization": "Basic x"}])
 def test_fr_a3_body_that_is_not_json_without_token_is_not_authenticated(
     client: TestClient, contract, body: bytes, headers: dict
 ):
     operations = _operations_with_a_body(client.app.openapi(), needs_auth=True)
+    assert len(operations) == 6
     assert ("post", "/entries") in operations
     assert ("put", "/entries/{entryId}") in operations
 
@@ -248,36 +274,38 @@ def test_fr_a3_body_that_is_not_json_without_token_is_not_authenticated(
         assert response.headers["WWW-Authenticate"] == "Bearer"
 
 
-@pytest.mark.parametrize("body", NOT_JSON_WITH_VALID_UTF8)
+@unreadable_bodies()
 def test_fr_a3_logged_in_body_that_is_not_json_is_still_a_validation_error(
     settings, contract, body: bytes
 ):
+    """With a valid token (an ordinary user, not the demo account), the body error."""
     app = create_app(settings)
     app.dependency_overrides[get_current_user] = lambda: User(id=uuid.uuid4(), email="a@b.c")
     client = TestClient(app)
+    operations = _operations_with_a_body(client.app.openapi(), needs_auth=True)
+    assert len(operations) == 6
 
-    for method, path in [("post", "/entries"), ("put", "/entries/{entryId}")]:
+    for method, path in operations:
         response = _send_raw(client, method, path, body, {"Authorization": "Bearer stand-in"})
 
         assert response.status_code == 422, f"{method} {path}"
         contract("Error").validate(response.json())
-        assert response.json()["code"] == "validation_failed"
+        assert response.json() == BODY_ERROR, f"{method} {path}"
 
 
-@pytest.mark.parametrize("body", NOT_JSON_WITH_VALID_UTF8)
+@unreadable_bodies()
 def test_fr_a3_public_operations_keep_the_validation_error_for_a_body_that_is_not_json(
     client: TestClient, contract, body: bytes
 ):
     operations = _operations_with_a_body(client.app.openapi(), needs_auth=False)
-    assert ("post", "/auth/register") in operations
-    assert ("post", "/auth/login") in operations
+    assert sorted(operations) == [("post", "/auth/login"), ("post", "/auth/register")]
 
     for method, path in operations:
         response = _send_raw(client, method, path, body, {})
 
         assert response.status_code == 422, f"{method} {path}"
         contract("Error").validate(response.json())
-        assert response.json()["code"] == "validation_failed"
+        assert response.json() == BODY_ERROR, f"{method} {path}"
 
 
 def test_fr_a3_every_route_checks_the_token_before_the_body(settings):

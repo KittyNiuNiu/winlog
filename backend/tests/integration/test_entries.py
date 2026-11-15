@@ -773,8 +773,32 @@ def test_fr_a3_create_without_a_valid_token_is_not_authenticated(
     assert _entries(migrated_db) == []
 
 
-NOT_JSON = [b"junk", b'{"text":', b"\xff\xfe", b"\x80"]
-"""Bodies FastAPI cannot read: not JSON, cut off, a UTF-16 mark only, and not UTF-8."""
+UNREADABLE_BODIES = {
+    "byte-80": b"\x80",
+    "latin-1-text": b'{"text": "caf\xe9"}',
+    "overlong-encoding": b"\xc0\x80",
+    "stray-byte-after-json": b'{"text": "a"}\x80',
+    "utf-16-mark-and-odd-length": b"\xff\xfe{",
+    "nested-too-deeply": b"[" * 100_000,
+    "junk": b"junk",
+    "cut-off": b'{"text":',
+    "utf-16-mark-only": b"\xff\xfe",
+    "three-spaces": b"   ",
+}
+"""Bodies that cannot be read as JSON (issue #58): not valid UTF-8, nested too deeply to
+parse, and not JSON. Each is far below `REQUEST_BODY_MAX_BYTES`."""
+BODY_ERROR = {
+    "code": "validation_failed",
+    "message": "The request has invalid fields.",
+    "fields": [{"field": "body", "reason": "Body must be valid JSON in UTF-8."}],
+}
+"""The body error (issue #58), the only answer to such a body after the token check."""
+
+
+def unreadable_bodies(name: str = "body", **extra: bytes):
+    """Parametrize a test with every unreadable body (and `extra`), with short test ids."""
+    bodies = {**UNREADABLE_BODIES, **extra}
+    return pytest.mark.parametrize(name, list(bodies.values()), ids=list(bodies))
 
 
 def _create_bytes(client: TestClient, token: str | None, body: bytes):
@@ -784,7 +808,7 @@ def _create_bytes(client: TestClient, token: str | None, body: bytes):
     )
 
 
-@pytest.mark.parametrize("body", NOT_JSON)
+@unreadable_bodies()
 @pytest.mark.parametrize("token", [None, "not-a-real-token", "expired"])
 def test_fr_a3_create_with_a_body_that_is_not_json_and_no_valid_token_is_not_authenticated(
     client: TestClient, migrated_db: Engine, alice: uuid.UUID, contract, token, body: bytes
@@ -803,7 +827,7 @@ def test_fr_a3_create_with_a_body_that_is_not_json_and_no_valid_token_is_not_aut
     assert _tags(migrated_db) == []
 
 
-@pytest.mark.parametrize("body", NOT_JSON[:3])
+@unreadable_bodies()
 def test_fr_a3_create_with_a_valid_token_and_a_body_that_is_not_json_is_a_validation_error(
     client: TestClient, migrated_db: Engine, alice_token: str, contract, body: bytes
 ):
@@ -811,8 +835,9 @@ def test_fr_a3_create_with_a_valid_token_and_a_body_that_is_not_json_is_a_valida
 
     assert response.status_code == 422
     contract("Error").validate(response.json())
-    assert response.json()["code"] == "validation_failed"
+    assert response.json() == BODY_ERROR
     assert _entries(migrated_db) == []
+    assert _tags(migrated_db) == []
 
 
 def test_fr_a3_create_with_an_expired_token_is_not_authenticated(
