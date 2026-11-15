@@ -4768,3 +4768,18 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - I looked at the new and changed screenshots in light and dark: the nudge and the info message side by side, the dark disabled and ready buttons, the hovered controls, and the rows at 768, 1024 and 1280. Measured: the one-line row is 59px at 1280×800, the text column 224px at 768, 368px at 1024 and 624px at 1280.
   - No backend, contract, `render.yaml` or `docs/product-spec.md` change. No real AI call.
 - **Left open:** nothing.
+
+## 2026-11-15: Orchestrator: close #90 (dark-mode fills, the writing nudge, the laptop entry row)
+
+- **Task:** task 59, run with `/orchestrate all`. It changes screens, so it had a design note and a design review.
+- **What happened:**
+  - PM grooming (6898988075): six visual points (two from #36's comment) and three inputs (#88, #72, #86).
+  - Design note (6899206051): dark hover and disabled fill #2E262D; `--color-nudge-fill`; the laptop row from 64rem with Edit/Delete as a fourth column (59px); the `DESIGN.md` text, including Messages and the tag filter cap.
+  - Engineer (6899588008), with dark-mode viewport screens.
+  - QA PASS (6899791602).
+  - Design review PASS (6900048440). Light mode and widths below 1024px are pixel-identical.
+  - Closed as completed.
+- **Open points, left in this log under the standing rule** (no work needed):
+  - the phone focus outline of Edit/Delete touches the row divider (existing since #29);
+  - the 1px phone tap-area overlap (existing);
+  - full-page screenshots cut the sticky sidebar's fill (a capture artefact).
