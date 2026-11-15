@@ -5006,3 +5006,11 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Live check with `.env` identical to `.env.example` (`AI_PROVIDER=mock`), after `docker compose up -d --wait db` and `uv run alembic upgrade head`: `uv run uvicorn app.main:app --port 8000` stopped at startup with `TOKEN_LIFETIME_DAYS=1_0` ("must be a whole number from 1 to 365"), `DATABASE_CONNECT_TIMEOUT_SECONDS=+5` ("from 2 to 60") and `AI_SUMMARY_MAX_TOKENS=16000.0` ("from 1 to 100000"). Without overrides it started and `GET /health` answered 200.
   - No AI call.
 - **Left open:** nothing.
+
+## 2026-11-15: Orchestrator: close #108 (strict check for five whole-number settings)
+
+- **Task:** task 62, run with `/orchestrate all`. No screens change.
+- **What happened:** PM grooming (6901243024); engineer (6901510533, one push); QA PASS (6901634018). Closed as completed.
+- **Open points, left in this log under the standing rule** (no work needed):
+  - the every-`int` test finds only fields typed exactly `int`;
+  - the startup message includes pydantic's "Value error, ", as for the other settings.
