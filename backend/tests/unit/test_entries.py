@@ -4,10 +4,11 @@ Covers FR-E1, FR-E2, FR-E3 and FR-A3. Storage, tags and access by another user a
 against PostgreSQL in tests/integration/test_entries.py.
 """
 
+import datetime as dt
 import typing
 import uuid
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 import pytest
 import yaml
@@ -16,9 +17,11 @@ from pydantic import TypeAdapter, ValidationError
 
 from app import entries
 from app.auth import get_current_user
-from app.entries import EntryInput
+from app.entries import EntryDate, EntryInput
+from app.errors import VALIDATION_FAILED_MESSAGE
 from app.main import create_app
 from app.models import CATEGORIES, User
+from app.summaries import SummaryFilter
 from app.tags import FilterTagName
 from app.text_rules import has_unstorable_characters, is_blank
 
@@ -464,3 +467,113 @@ def test_fr_r1_entry_filter_defaults_to_no_restriction():
     assert entries.EntryFilter() == entries.EntryFilter(
         start_date=None, end_date=None, categories=(), tags=()
     )
+
+
+# --- One reason for every invalid date (issue #106) ---------------------------------------
+
+INVALID_DATE_REASON = "Date must be a real calendar date in the format YYYY-MM-DD."
+WRONG_FORMAT_DATES = [
+    "2026-1-5",
+    "26-01-05",
+    "2026/01/05",
+    "05.01.2026",
+    "20260105",
+    "2026-01-05T00:00:00",
+    " 2026-01-05",
+    "yesterday",
+]
+NOT_REAL_DATES = [
+    "2026-02-30",
+    "2025-02-29",
+    "1900-02-29",
+    "2026-04-31",
+    "2026-12-00",
+    "2026-13-01",
+    "2026-00-10",
+    "0000-01-01",
+]
+# A number and null can only be sent in a JSON body, an empty value only in a query.
+INVALID_BODY_DATES = [*WRONG_FORMAT_DATES, 1767225600, None, *NOT_REAL_DATES]
+INVALID_QUERY_DATES = [*WRONG_FORMAT_DATES, "", *NOT_REAL_DATES]
+ACCEPTED_DATES = ["2024-02-29", "2000-02-29", "0001-01-01", "9999-12-31", "2099-12-31"]
+
+
+def invalid_dates_error(*fields: str) -> dict:
+    """The whole 422 body for invalid dates in these fields: one fixed reason for each."""
+    return {
+        "code": "validation_failed",
+        "message": VALIDATION_FAILED_MESSAGE,
+        "fields": [{"field": field, "reason": INVALID_DATE_REASON} for field in fields],
+    }
+
+
+@pytest.mark.parametrize("method", ["post", "put"])
+@pytest.mark.parametrize("value", INVALID_BODY_DATES)
+def test_fr_e2_invalid_date_has_one_reason(
+    logged_in_client: TestClient, contract, method: str, value
+):
+    """createEntry and updateEntry: every invalid date gets the same fixed reason."""
+    path = "/entries" if method == "post" else f"/entries/{ENTRY_ID}"
+
+    response = logged_in_client.request(method.upper(), path, json={**VALID, "date": value})
+
+    assert response.status_code == 422
+    contract("Error").validate(response.json())
+    # The whole body, so the reason never repeats the value and never says "datetime".
+    assert response.json() == invalid_dates_error("date")
+
+
+@pytest.mark.parametrize(
+    "dates",
+    [
+        *({field: value} for field in ("start_date", "end_date") for value in INVALID_QUERY_DATES),
+        {"start_date": "2026-02-30", "end_date": "26-01-05"},
+        {"start_date": "yesterday", "end_date": "0000-01-01"},
+    ],
+    ids=str,
+)
+def test_fr_r1_invalid_filter_date_has_one_reason(
+    logged_in_client: TestClient, contract, dates: dict[str, str]
+):
+    """listEntries: every invalid filter date gets the same fixed reason, each one named."""
+    response = logged_in_client.get(f"/entries?{urlencode(dates, quote_via=quote)}")
+
+    assert response.status_code == 422
+    contract("Error").validate(response.json())
+    assert response.json() == invalid_dates_error(*dates)
+
+
+@pytest.mark.parametrize("value", ACCEPTED_DATES)
+def test_fr_e2_real_dates_stay_accepted(value: str):
+    """Every real date in the contract format is still read as that same date (#106)."""
+    expected = dt.date.fromisoformat(value)
+    entry_input = EntryInput.model_validate({**VALID, "date": value})
+    summary_filter = SummaryFilter.model_validate({"period_start": value, "period_end": value})
+    # The type of listEntries' `start_date` and `end_date`.
+    filter_date = TypeAdapter(EntryDate | None).validate_python(value)
+
+    for date in (entry_input.date, summary_filter.period_start, summary_filter.period_end):
+        assert type(date) is dt.date
+        assert date == expected
+    assert filter_date == expected
+
+
+@pytest.mark.parametrize("value", ACCEPTED_DATES)
+def test_fr_r1_real_filter_dates_stay_accepted(
+    logged_in_client: TestClient, monkeypatch: pytest.MonkeyPatch, contract, value: str
+):
+    """listEntries reads both filter dates as the date sent. The filter itself is a stand-in."""
+    filters: list[entries.EntryFilter] = []
+
+    def record(session, user, entry_filter: entries.EntryFilter) -> list[entries.Entry]:
+        filters.append(entry_filter)
+        return []
+
+    monkeypatch.setattr(entries, "filter_entries", record)
+
+    response = logged_in_client.get(f"/entries?start_date={value}&end_date={value}")
+
+    assert response.status_code == 200
+    contract("EntryList").validate(response.json())
+    expected = dt.date.fromisoformat(value)
+    assert filters == [entries.EntryFilter(start_date=expected, end_date=expected)]
