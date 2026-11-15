@@ -312,7 +312,7 @@ jobs:
 
           started=$SECONDS
           deadline=$((SECONDS + WAIT_TIMEOUT_SECONDS))
-          api_ok=no app_ok=no api_seen= app_seen=
+          api_ok=no app_ok=no api_seen='' app_seen=''
           while :; do
             if [ "$api_ok" = no ]; then
               fetch "$API_URL/health"
