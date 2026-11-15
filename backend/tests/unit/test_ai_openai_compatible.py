@@ -4,12 +4,15 @@ No test here calls a real AI API: every provider gets an httpx mock transport th
 SDK's `http_client`, which answers with stubbed responses and records the requests.
 """
 
+import asyncio
 import datetime as dt
 import json
 import logging
+import threading
+import time
 import tomllib
 import uuid
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 from pathlib import Path
 
 import httpx2
@@ -65,7 +68,12 @@ class StubAI:
 
 def completion(content: object, status: int = 200, finish_reason: str = "stop") -> Handler:
     """A Chat Completions answer whose message has this content."""
-    body = {
+    body = completion_body(content, finish_reason)
+    return lambda request: httpx2.Response(status, json=body)
+
+
+def completion_body(content: object, finish_reason: str | None = "stop") -> dict:
+    return {
         "id": "gen-1",
         "object": "chat.completion",
         "created": 1_700_000_000,
@@ -78,7 +86,6 @@ def completion(content: object, status: int = 200, finish_reason: str = "stop") 
             }
         ],
     }
-    return lambda request: httpx2.Response(status, json=body)
 
 
 def suggestion_answer(category: object = "Learning", tags: object = ("Rust",)) -> Handler:
@@ -108,9 +115,12 @@ def provider(stub: StubAI, **changes) -> OpenAICompatibleProvider:
         "summary_timeout_seconds": 60,
         "summary_max_tokens": SUMMARY_MAX_TOKENS,
     }
-    return OpenAICompatibleProvider(
-        **(values | changes), http_client=httpx2.Client(transport=httpx2.MockTransport(stub))
-    )
+    return OpenAICompatibleProvider(**(values | changes), http_client_factory=stub_client(stub))
+
+
+def stub_client(handler: Callable) -> Callable[[], httpx2.AsyncClient]:
+    """A new HTTP client for each request, which the handler answers (no network)."""
+    return lambda: httpx2.AsyncClient(transport=httpx2.MockTransport(handler))
 
 
 def summary_entry(**changes) -> SummaryEntry:
@@ -339,7 +349,7 @@ def test_ai_openai_provider_from_settings_uses_the_settings():
     )
 
     OpenAICompatibleProvider.from_settings(
-        settings, http_client=httpx2.Client(transport=httpx2.MockTransport(stub))
+        settings, http_client_factory=stub_client(stub)
     ).summarise([summary_entry()])
 
     [request] = stub.requests
@@ -695,6 +705,272 @@ def test_ai_openai_summarise_prompt_names_the_summary_length_limit():
     assert "shorter than 10,000 characters" in SUMMARISE_PROMPT
 
 
+@pytest.mark.parametrize(
+    "finish_reason",
+    ["length", "content_filter", "error", "tool_calls", "function_call", "something_new"],
+)
+def test_ai_openai_answer_not_finished_normally_raises_the_provider_failure_error(finish_reason):
+    """Only "stop" or no finish reason is a normally finished answer (issue #111)."""
+    suggestion = json.dumps({"category": "Learning", "tags": ["Rust"]})
+    suggest_stub = StubAI(completion(suggestion, finish_reason=finish_reason))
+    summary_stub = StubAI(completion("A strong quarter.", finish_reason=finish_reason))
+
+    # Both answers would be valid with finish_reason "stop".
+    with pytest.raises(AIProviderError) as suggest_error:
+        provider(suggest_stub).suggest("Learned Rust")
+    with pytest.raises(AIProviderError) as summary_error:
+        provider(summary_stub).summarise([summary_entry()])
+
+    for error in (suggest_error.value, summary_error.value):
+        assert not isinstance(error, AITimeoutError)
+        assert finish_reason not in str(error) and finish_reason not in repr(error)
+        assert "Rust" not in str(error) and "strong quarter" not in str(error)
+    assert len(suggest_stub.requests) == len(summary_stub.requests) == 1
+
+
+@pytest.mark.parametrize("finish_reason", ["stop", None, "missing"])
+def test_ai_openai_answer_with_stop_or_no_finish_reason_is_used(finish_reason):
+    def answer(content: str) -> Handler:
+        body = completion_body(content, finish_reason)
+        if finish_reason == "missing":
+            del body["choices"][0]["finish_reason"]
+        return lambda request: httpx2.Response(200, json=body)
+
+    suggestion = json.dumps({"category": "Learning", "tags": ["Rust"]})
+
+    assert provider(StubAI(answer(suggestion))).suggest("Learned Rust") == Suggestion(
+        category="Learning", tags=["Rust"]
+    )
+    assert provider(StubAI(answer("A strong quarter."))).summarise([summary_entry()]) == (
+        "A strong quarter."
+    )
+    # And then checked as usual: JSON and category for suggestions, length for summaries.
+    with pytest.raises(AIProviderError):
+        provider(StubAI(answer("not json"))).suggest("Learned Rust")
+    with pytest.raises(AIProviderError):
+        provider(StubAI(answer('{"category": "Hobby", "tags": []}'))).suggest("Learned Rust")
+    with pytest.raises(AIProviderError):
+        provider(StubAI(answer("a" * (MAX_SUMMARY_CHARACTERS + 1)))).summarise([summary_entry()])
+
+
+# --- One time limit for the whole request (issue #111) ---
+
+# How much later than the limit the timeout may be raised.
+LATEST_AFTER_LIMIT = 0.5
+
+
+class DripBody(httpx2.AsyncByteStream):
+    """A response body that arrives in small pieces, one every `every` seconds.
+
+    It records the pieces it sent and whether it was closed or cancelled, so a test can see
+    that the request stopped.
+    """
+
+    def __init__(self, content: bytes, *, every: float, pieces: int) -> None:
+        size = -(-len(content) // pieces)
+        self.pieces = [content[i : i + size] for i in range(0, len(content), size)]
+        self.every = every
+        self.sent = 0
+        self.closed = False
+        self.loop: asyncio.AbstractEventLoop | None = None
+
+    async def __aiter__(self) -> AsyncIterator[bytes]:
+        self.loop = asyncio.get_running_loop()
+        try:
+            for piece in self.pieces:
+                await asyncio.sleep(self.every)
+                self.sent += 1
+                yield piece
+        finally:
+            self.closed = True
+
+    async def aclose(self) -> None:
+        self.closed = True
+
+
+class Drip:
+    """A fake provider whose answer drips in: 30 pieces, one every 0.05 s, so 1.5 s in all."""
+
+    def __init__(self, content: str, *, every: float = 0.05, pieces: int = 30) -> None:
+        self.content = content
+        self.every = every
+        self.pieces = pieces
+        self.bodies: list[DripBody] = []
+
+    def __call__(self, request: httpx2.Request) -> httpx2.Response:
+        body = DripBody(
+            json.dumps(completion_body(self.content)).encode(),
+            every=self.every,
+            pieces=self.pieces,
+        )
+        self.bodies.append(body)
+        return httpx2.Response(200, headers={"content-type": "application/json"}, stream=body)
+
+
+class Silent:
+    """A fake provider that sends nothing at all until it is cancelled."""
+
+    def __init__(self) -> None:
+        self.cancelled = False
+        self.finished = False
+        self.loop: asyncio.AbstractEventLoop | None = None
+
+    async def __call__(self, request: httpx2.Request) -> httpx2.Response:
+        self.loop = asyncio.get_running_loop()
+        try:
+            await asyncio.sleep(10)
+        except asyncio.CancelledError:
+            self.cancelled = True
+            raise
+        self.finished = True
+        return completion("A summary.")(request)
+
+
+SUGGESTION_JSON = json.dumps({"category": "Learning", "tags": ["Rust"]})
+
+
+def timed(call: Callable[[], object]) -> tuple[BaseException, float]:
+    """Run the call, which must raise, and return its error and how long it took."""
+    started = time.monotonic()
+    with pytest.raises(AIError) as error:
+        call()
+    return error.value, time.monotonic() - started
+
+
+def test_ai_openai_slow_drip_raises_the_timeout_error_at_the_limit():
+    """Each piece arrives well inside the limit, but the whole answer takes longer."""
+    limit = 0.5
+    suggest_stub = StubAI(Drip(SUGGESTION_JSON))
+    summary_stub = StubAI(Drip("A strong quarter."))
+    ai_suggest = provider(suggest_stub, suggestion_timeout_seconds=limit)
+    ai_summary = provider(summary_stub, summary_timeout_seconds=limit)
+
+    for call in (
+        lambda: ai_suggest.suggest("Learned Rust"),
+        lambda: ai_summary.summarise([summary_entry()]),
+    ):
+        error, took = timed(call)
+
+        assert isinstance(error, AITimeoutError)
+        assert limit <= took <= limit + LATEST_AFTER_LIMIT
+
+
+def test_ai_openai_slow_drip_within_the_limit_is_returned():
+    """The same answer, dripping in faster than the limit, is returned as before."""
+    stub = StubAI(Drip("A strong quarter.", every=0.01, pieces=10))
+
+    assert provider(stub, summary_timeout_seconds=1).summarise([summary_entry()]) == (
+        "A strong quarter."
+    )
+
+
+@pytest.mark.parametrize("operation", ["suggest", "summarise"])
+def test_ai_openai_no_answer_at_all_raises_the_timeout_error_at_the_limit(operation):
+    limit = 0.5
+    silent = Silent()
+    ai = provider(StubAI(silent), suggestion_timeout_seconds=limit, summary_timeout_seconds=limit)
+    call = {
+        "suggest": lambda: ai.suggest("Learned Rust"),
+        "summarise": lambda: ai.summarise([summary_entry()]),
+    }[operation]
+
+    error, took = timed(call)
+
+    assert isinstance(error, AITimeoutError)
+    assert limit <= took <= limit + LATEST_AFTER_LIMIT
+    # The fake provider's handler was cancelled, not left waiting.
+    assert silent.cancelled and not silent.finished
+    assert silent.loop is not None and silent.loop.is_closed()
+
+
+def test_ai_openai_request_stops_when_the_limit_runs_out():
+    """The answer's stream is closed by the time the error is raised, and nothing reads on."""
+    threads_before = set(threading.enumerate())
+    drip = Drip("A strong quarter.")
+    stub = StubAI(drip)
+
+    error, _ = timed(
+        lambda: provider(stub, summary_timeout_seconds=0.3).summarise([summary_entry()])
+    )
+
+    assert isinstance(error, AITimeoutError)
+    [body] = drip.bodies
+    assert body.closed
+    sent = body.sent
+    assert 0 < sent < len(body.pieces)
+    # The request's event loop is closed, so no task of it can still run, and no thread of
+    # the request is left over.
+    assert body.loop is not None and body.loop.is_closed()
+    assert set(threading.enumerate()) <= threads_before
+    time.sleep(5 * drip.every)
+    assert body.sent == sent
+    assert len(stub.requests) == 1  # no retry after the limit ran out
+
+
+def test_ai_openai_each_operation_has_its_own_whole_request_limit():
+    suggest_limit, summary_limit = 0.3, 0.8
+    ai = provider(
+        StubAI(Drip(SUGGESTION_JSON)),
+        suggestion_timeout_seconds=suggest_limit,
+        summary_timeout_seconds=summary_limit,
+    )
+    summary_ai = provider(
+        StubAI(Drip("A strong quarter.")),
+        suggestion_timeout_seconds=suggest_limit,
+        summary_timeout_seconds=summary_limit,
+    )
+
+    error, took = timed(lambda: ai.suggest("Learned Rust"))
+    assert isinstance(error, AITimeoutError)
+    assert suggest_limit <= took <= suggest_limit + LATEST_AFTER_LIMIT
+    assert took < summary_limit
+
+    error, took = timed(lambda: summary_ai.summarise([summary_entry()]))
+    assert isinstance(error, AITimeoutError)
+    assert summary_limit <= took <= summary_limit + LATEST_AFTER_LIMIT
+
+
+def test_ai_openai_whole_request_limits_come_from_the_settings():
+    """AI_SUGGESTION_TIMEOUT_SECONDS for suggestions, AI_SUMMARY_TIMEOUT_SECONDS for summaries."""
+    settings = openai_settings(ai_suggestion_timeout_seconds=1, ai_summary_timeout_seconds=2)
+    # 3 s in all, longer than either limit.
+    suggest_ai = OpenAICompatibleProvider.from_settings(
+        settings, http_client_factory=stub_client(Drip(SUGGESTION_JSON, every=0.1))
+    )
+    summary_ai = OpenAICompatibleProvider.from_settings(
+        settings, http_client_factory=stub_client(Drip("A strong quarter.", every=0.1))
+    )
+
+    error, took = timed(lambda: suggest_ai.suggest("Learned Rust"))
+    assert isinstance(error, AITimeoutError)
+    assert 1 <= took <= 1 + LATEST_AFTER_LIMIT
+
+    error, took = timed(lambda: summary_ai.summarise([summary_entry()]))
+    assert isinstance(error, AITimeoutError)
+    assert 2 <= took <= 2 + LATEST_AFTER_LIMIT
+
+
+def test_ai_openai_timeout_writes_one_log_line_with_model_status_none_and_duration(caplog):
+    caplog.set_level(logging.DEBUG)
+    standard = set(logging.makeLogRecord({}).__dict__) | {"message", "asctime"}
+
+    error, _ = timed(
+        lambda: provider(StubAI(Drip(SUGGESTION_JSON)), suggestion_timeout_seconds=0.3).suggest(
+            "Learned Rust"
+        )
+    )
+
+    assert isinstance(error, AITimeoutError)
+    assert error.__cause__ is None and error.__suppress_context__
+    [record] = [r for r in caplog.records if r.name == "app.ai.openai_compatible"]
+    duration_ms = record.__dict__["duration_ms"]
+    assert 300 <= duration_ms <= 300 + LATEST_AFTER_LIMIT * 1000
+    assert record.getMessage() == (
+        f"AI request to model {MODEL} answered with status none in {duration_ms} ms"
+    )
+    assert set(record.__dict__) - standard == {"winlog.ai.provider", "duration_ms"}
+
+
 # --- Errors ---
 
 
@@ -810,6 +1086,7 @@ def test_ai_openai_logs_model_status_and_duration_but_no_key_or_content(caplog):
         suggestion_answer(ENTRY_TEXT, SUGGESTED_TAGS),
         completion(SUMMARY_TEXT + " not json"),
         completion(SUMMARY_TEXT, finish_reason="length"),
+        completion(SUMMARY_TEXT, finish_reason="content_filter"),
         raises(httpx2.ReadTimeout),
         raises(httpx2.ConnectError),
         status(401),
@@ -827,7 +1104,7 @@ def test_ai_openai_logs_model_status_and_duration_but_no_key_or_content(caplog):
                 errors.append(error)
 
     # Every call fails except summarise with the first two answers, which are valid summaries.
-    # The third is a summary text too, but cut off at the output limit.
+    # The third and fourth are summary texts too, but cut off at the output limit or filtered.
     assert len(errors) == 2 * len(answers) - 2
     provider_logs = [r for r in caplog.records if r.name == "app.ai.openai_compatible"]
     assert len(provider_logs) == 2 + 2 * len(answers)

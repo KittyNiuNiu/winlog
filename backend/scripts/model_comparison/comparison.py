@@ -366,6 +366,11 @@ class AnswerRecorder:
             body = None
         self.answer = {"status": response.status_code, "body": body}
 
+    async def hook(self, response: httpx2.Response) -> None:
+        """The same, as an event hook of the provider's async HTTP client (issue #111)."""
+        await response.aread()
+        self(response)
+
     def take(self) -> dict[str, Any]:
         """The last answer's text, usage, model and provider, then forget it."""
         answer, self.answer = self.answer, None
@@ -415,11 +420,11 @@ def make_provider(
     base_url: str,
     api_key: str,
     recorder: AnswerRecorder,
-    transport: httpx2.BaseTransport | None = None,
+    transport: httpx2.AsyncBaseTransport | None = None,
 ) -> OpenAICompatibleProvider:
     """The production provider for this model, with the SDK's default HTTP client plus the
-    recorder. Tests pass a mock transport."""
-    options: dict[str, Any] = {"event_hooks": {"response": [recorder]}}
+    recorder. Tests pass a mock transport, which serves sync and async clients alike."""
+    options: dict[str, Any] = {"event_hooks": {"response": [recorder.hook]}}
     if transport is not None:
         options["transport"] = transport
     return OpenAICompatibleProvider(
@@ -429,7 +434,8 @@ def make_provider(
         suggestion_timeout_seconds=SUGGESTION_TIMEOUT_SECONDS,
         summary_timeout_seconds=SUMMARY_TIMEOUT_SECONDS,
         summary_max_tokens=SUMMARY_MAX_TOKENS,
-        http_client=openai.DefaultHttpxClient(**options),
+        # The provider makes a new HTTP client for each request (issue #111).
+        http_client_factory=lambda: openai.DefaultAsyncHttpxClient(**options),
     )
 
 
