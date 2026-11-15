@@ -1,7 +1,8 @@
 /* Phone: the date in a 64px column; the label, text and result stacked beside it.
-   Laptop: date (64px), category label (120px) and text in three columns.
+   From 48rem: date (64px), category label (120px) and text in three columns.
    Optional (#29 design note): the Edit and Delete actions sit right of the label on the
-   phone and under it on the laptop; read-only tags sit under the text. */
+   phone and under it from 48rem; read-only tags sit under the text. From 64rem (#90
+   design note) the actions take a fourth column at the row's right end. */
 
 .entry-row {
   display: grid;
@@ -89,10 +90,9 @@
   cursor: pointer;
 }
 
-/* Peach wash, not the secondary hover token: in dark mode that equals the page ground. */
 .entry-row__action:hover {
   color: var(--color-plum);
-  background: var(--color-peach-wash);
+  background: var(--color-secondary-hover);
 }
 
 /* Read-only tags: small quiet pills, no tint, no plum, no remove button. */
@@ -140,5 +140,33 @@
 
   .entry-row__actions {
     margin: 0 0 0 calc(-1 * var(--space-12));
+  }
+}
+
+/* From 64rem (#90 design note): a row with actions gets a fourth column for Edit and Delete,
+   on the line of the date and the label. The label-and-actions wrapper gives its children
+   to the grid, so the DOM order (date, label, Edit, Delete, text) stays. The actions reach
+   9px into the row's padding, as on the phone, so a one-line row is as tall as one
+   without actions (59px). Rows without actions do not change. */
+@media (min-width: 64rem) {
+  .entry-row--with-actions {
+    grid-template-columns: 64px 120px minmax(0, 1fr) auto;
+    grid-template-areas: 'date category body actions';
+  }
+
+  .entry-row--with-actions .entry-row__category--with-actions {
+    display: contents;
+  }
+
+  /* As a grid item the label would stretch its tint across the 120px column. */
+  .entry-row--with-actions .category-label {
+    grid-area: category;
+    justify-self: start;
+  }
+
+  /* Also resets the 48rem margin-left. */
+  .entry-row--with-actions .entry-row__actions {
+    grid-area: actions;
+    margin: calc((26px - var(--tap-target)) / 2) 0;
   }
 }
