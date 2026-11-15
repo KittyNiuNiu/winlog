@@ -4438,3 +4438,30 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Task:** task 55, run with `/orchestrate all`. No screens change.
 - **What happened:** PM grooming (6896248267): each export gets its own `Content-Disposition` header entry with its own example. Engineer (6896491857): the contract, the regenerated types, and one test tying each example to the backend's file name. QA PASS (6896647009), on 16 of 16 criteria. Closed as completed.
 - **Open points:** none.
+
+## 2026-11-15: PM: groom #68 (task 56, CI's checks and the repository's paths in AGENTS.md, and the README's shell-variable note)
+
+- **Task:** groom #68, which had no status label, following `docs/pm.md`. It is task 56, a docs-accuracy task.
+- **What I read:**
+  - the issue and its three input comments (from #25, #40 and #61), the #24 engineer and QA comments it cites, and the PM re-grooming comment on #40;
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md`, `docs/tasks.md`, `AGENTS.md`, `README.md`, #64 as the pattern for a groomed follow-up;
+  - `.github/workflows/ci.yml` as it is now, `test-all.sh`, `docker-compose.yml`, `.env.example`, `frontend/package.json`, `backend/app/settings.py` and the test that reads `AGENTS.md`.
+- **What I did:**
+  - Compared every CI step that runs a project command with `AGENTS.md` → Commands and the README's Quick start and "Development and tests".
+  - Rewrote the body of #68 using the template, with sections A (CI's checks in "Commands"), B (paths that exist), C (README) and D (checks).
+  - Posted the PM comment with the comparison table, the decisions and the facts I checked (6896760339).
+  - Labels unchanged: the orchestrator sets the status. No follow-up issue.
+- **Decisions under the standing rule (2026-11-14, extended 2026-11-15), recorded in the issue:**
+  - **Added to `AGENTS.md`:** CI's contract lint (`npx --yes @redocly/cli@2 lint openapi.yaml`) and `npm run generate:api`. The README only names them, as #40 settled.
+  - **CI forms named next to the local command:** `uv sync --locked`, `uv run ruff format --check .` and `npx playwright install --with-deps chromium`. `uv sync`, `uv run ruff format .` and `npx playwright install chromium` stay.
+  - **Replaced:** `docker compose up -d db` becomes `docker compose up -d --wait db` in `AGENTS.md` and the README, as in CI and `test-all.sh`.
+  - **Paths:** "Repository layout" drops `security/` and `mcp-server/`, which never existed; `product-spec.md` becomes `docs/product-spec.md`.
+  - **README:** the shell-variable bullet names the values a shell variable overrides under Compose (`AI_PROVIDER`, `CORS_ALLOWED_ORIGINS`, `HSTS_MAX_AGE_SECONDS` and the `POSTGRES_*` values in `DATABASE_URL`).
+  - **Also:** the Docker Compose 2.23.1 minimum covers every Compose command, and `AGENTS.md` says that a task that changes a CI check's command updates its line. No new test.
+  - **No screen change**, no `render.yaml` change and no Blueprint sync, no spec or contract change.
+- **How I verified it:**
+  - Ran the commands the issue adds or changes, without changing any file: Redocly CLI 2.78.0 lint (0 errors, 3 warnings, exit 0); `npm run generate:api` (no diff); `uv sync --locked` and `uv run ruff format --check .` (uv 0.11.32, both exit 0); `docker compose up --help` and `npx playwright install --help` for `--wait` and `--with-deps`.
+  - Checked the shell-variable precedence with `docker compose config --format json` (Compose v5.6.1, `.env` from `.env.example`, printing only the keys checked): shell values win for `AI_PROVIDER`, `CORS_ALLOWED_ORIGINS`, `HSTS_MAX_AGE_SECONDS` and `POSTGRES_USER` (in `DATABASE_URL`), not for `AI_MODEL` or `AI_DAILY_REQUESTS_GLOBAL`. docs.docker.com is not reachable from this session, so I checked the behaviour by running Compose.
+  - `ls` and `git log --all` for `mcp-server/` and `security/`: neither exists or ever existed.
+  - The saved issue body is identical to what I wrote, and the issue still has no labels. No AI call.
+- **Left open:** nothing.
