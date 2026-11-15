@@ -654,6 +654,7 @@ Blueprint (Auto Sync stays off, [Blueprint syncs](#blueprint-syncs)).
 | `DATABASE_CONNECT_TIMEOUT_SECONDS` | `3` | `render.yaml` | no |
 | `DATABASE_QUERY_TIMEOUT_SECONDS` | `10` | `render.yaml` | no |
 | `REQUEST_BODY_MAX_BYTES` | `262144` | `render.yaml` | no |
+| `HSTS_MAX_AGE_SECONDS` | `31536000` | `render.yaml` | no |
 | `DEMO_EMAIL` | `demo@example.com` (the reset creates it before the server accepts requests, so nobody can register it first) | `render.yaml` | no |
 | `PORT` | the port the server listens on | set by Render itself; not in `render.yaml` | no |
 
@@ -681,6 +682,18 @@ plain-text 400 ("Invalid HTTP request received.") before the app runs. When they
 in one read, they are not checked against 16 KiB and the app gives its usual answer, for example
 422 for more than 20 `tag` values. No valid request from the app comes near either limit.
 
+**HTTPS (#99)**: Render redirects every plain `http://` request to `https://` for all four
+services, before it reaches them ([Render's TLS docs](https://render.com/docs/tls),
+[web services docs](https://render.com/docs/web-services)). #38 saw the redirect on production.
+Nobody has checked it on dev, because a cloud session cannot send plain HTTP. The static sites
+get their `Strict-Transport-Security` header from Render:
+`max-age=315360000; includeSubdomains; preload` on 15 November 2026. The backends set their own
+header from `HSTS_MAX_AGE_SECONDS`, on every response the app sends:
+`max-age=31536000; includeSubDomains`. Responses that do not come from the app have no header:
+Render's redirect and its own error pages, and uvicorn's plain-text 400 for request headers over
+16 KiB. Setting the value to 0 does not make browsers forget the header: they keep using HTTPS
+for the host until `max-age` runs out. That is harmless on Render, which always serves HTTPS.
+
 
 ### Dev backend (`winlog-api-dev`)
 
@@ -695,8 +708,8 @@ The same as `winlog-api`, except these rows:
 
 All other values (AI timeouts, AI usage limits, login limits, token lifetime, both database
 timeouts `DATABASE_CONNECT_TIMEOUT_SECONDS` and `DATABASE_QUERY_TIMEOUT_SECONDS`, the request
-body limit `REQUEST_BODY_MAX_BYTES`, `DEMO_EMAIL`) are the same as production's. Keep them the
-same when one changes.
+body limit `REQUEST_BODY_MAX_BYTES`, the HSTS header's `HSTS_MAX_AGE_SECONDS`, `DEMO_EMAIL`) are
+the same as production's. Keep them the same when one changes.
 
 ### Static sites (`winlog-app`, `winlog-app-dev`)
 
@@ -786,3 +799,9 @@ Section C of issue #38 lists the checks on the live production app (health, HTTP
 main flows, the demo reset on start, demo-login counts per visitor), and section C of issue #39
 the checks of dev, of the promotion and of the pipeline. Real AI calls in those checks need the
 product owner's explicit approval in that session, with a cost estimate.
+
+One more check, of the backend's HSTS header (#99, [HTTPS](#backend-winlog-api)):
+
+- After a dev deploy, `curl -sS -D - -o /dev/null https://winlog-api-dev.onrender.com/health`
+  shows `strict-transport-security: max-age=31536000; includeSubDomains`.
+- The same check runs on `https://winlog-api.onrender.com/health` after the production deploy.

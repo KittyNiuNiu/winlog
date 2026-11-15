@@ -108,6 +108,10 @@ services:
       - key: REQUEST_BODY_MAX_BYTES
         value: "262144"
 
+      # The max-age in seconds of the HSTS header on every response; 0 would send none (#99).
+      - key: HSTS_MAX_AGE_SECONDS
+        value: "31536000"
+
       # The shared demo account (FR-X1, #21). Not a secret. The start script resets it before
       # the server accepts requests, so nobody can register this address first.
       - key: DEMO_EMAIL
@@ -191,6 +195,10 @@ services:
       # The largest request body in bytes; a larger one gets 413 request_too_large (#88).
       - key: REQUEST_BODY_MAX_BYTES
         value: "262144"
+
+      # The max-age in seconds of the HSTS header on every response; 0 would send none (#99).
+      - key: HSTS_MAX_AGE_SECONDS
+        value: "31536000"
 
       # The shared demo account (FR-X1, #21). Not a secret. The start script resets it before
       # the server accepts requests, so nobody can register this address first.

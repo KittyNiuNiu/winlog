@@ -60,6 +60,7 @@ PLAIN_BACKEND_VALUES = {
     "DATABASE_CONNECT_TIMEOUT_SECONDS": "3",
     "DATABASE_QUERY_TIMEOUT_SECONDS": "10",
     "REQUEST_BODY_MAX_BYTES": "262144",
+    "HSTS_MAX_AGE_SECONDS": "31536000",
     "DEMO_EMAIL": "demo@example.com",
 }
 # Dev differs from production only in these: the mock AI and no real AI settings (#39).
