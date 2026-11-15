@@ -4929,3 +4929,15 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - CI run 43758375626 on 013fab5: Contract, Backend, Backend image and Frontend passed. The Tests job was still running when I handed back; the orchestrator or QA confirms it.
   - No AI call.
 - **Left open:** point 2 of #106, which the orchestrator can close as not planned (decision 6). Nothing else.
+
+## 2026-11-15: Orchestrator: close #106 (one reason for every invalid date)
+
+- **Task:** task 61, run with `/orchestrate all`. No screens change.
+- **What happened:**
+  - PM grooming (6900697689): one reason, `Date must be a real calendar date in the format YYYY-MM-DD.`, for all five date fields. Point 2 (nullable optional parameters in FastAPI's generated schema) is out of scope and not planned.
+  - Engineer (6900979389, commit 013fab5).
+  - QA PASS (6901187426).
+  - CI run 43759029300 passed.
+  - Closed as completed.
+- **Correction:** the engineer's log entry above names CI run 43758375626 as still running. That run was cancelled by the next push. The run that counts is 43759029300, which passed.
+- **Open points:** none needs work.
