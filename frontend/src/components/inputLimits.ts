@@ -1,13 +1,16 @@
 // The maximum input sizes of the forms (#43, product-spec.md §6 and §7.4). They are the
-// field limits of `openapi.yaml` (EntryInput, SummaryUpdate), fixed in the contract; the
-// backend stays the authority. The summary input limit (AI_SUMMARY_MAX_INPUT_CHARACTERS) is
-// a server setting and is not checked here.
+// field limits of `openapi.yaml` (EntryInput, SummaryUpdate, SummaryFilter), fixed in the
+// contract; the backend stays the authority. The summary input limit
+// (AI_SUMMARY_MAX_INPUT_CHARACTERS) and the request body limit (REQUEST_BODY_MAX_BYTES) are
+// server settings and are not checked here.
 
 export const ENTRY_TEXT_MAX_CHARACTERS = 2000
 export const RESULT_MAX_CHARACTERS = 500
 export const TAG_NAME_MAX_CHARACTERS = 40
 export const TAGS_PER_ENTRY_MAX = 10
 export const SUMMARY_TEXT_MAX_CHARACTERS = 10000
+/** Tag names in one filter (#88): `maxItems` of `listEntries`' `tag` and `SummaryFilter.tags`. */
+export const TAGS_PER_FILTER_MAX = 20
 
 /** The counter under a field shows from this share of its limit (the #43 design note). */
 const COUNTER_FROM = 0.8

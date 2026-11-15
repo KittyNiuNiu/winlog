@@ -23,6 +23,24 @@ export const TEN_TAGS = [
   'quarterly-goals',
 ]
 
+/**
+ * 20 tag names for the review page's tag filter, as many as a filter holds (#88): the ten
+ * above, with the 40-character one, and ten short ones.
+ */
+export const TWENTY_FILTER_TAGS = [
+  ...TEN_TAGS,
+  'go',
+  'python',
+  'ux',
+  'hiring',
+  'security',
+  'docs',
+  'testing',
+  'api',
+  'design',
+  'on-call',
+]
+
 let counter = 0
 
 function entry(fields: Pick<Entry, 'date' | 'text' | 'category'> & Partial<Entry>): Entry {

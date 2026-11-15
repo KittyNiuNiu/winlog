@@ -1,6 +1,7 @@
 import { X } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import Icon from '../components/Icon.tsx'
+import { TAGS_PER_FILTER_MAX } from '../components/inputLimits.ts'
 import Message from '../components/Message.tsx'
 import { TextField } from '../components/TextField.tsx'
 import '../entries/TagField.css'
@@ -13,6 +14,8 @@ export type TagsLoad = { status: 'loading' } | { status: 'loaded'; tags: string[
 export const TAG_FILTER_HINT = 'Shows entries with any of the selected tags'
 export const NO_TAGS_TEXT = 'No tags yet.'
 export const TAGS_FAILED_TEXT = "Tags couldn't be loaded. Reload the page to try again."
+/** Shown while the filter holds as many tags as it can (#88 and its design note). */
+export const TAG_FILTER_LIMIT_TEXT = `Up to ${TAGS_PER_FILTER_MAX} tags in a filter. Remove one to add another.`
 
 interface TagFilterFieldProps {
   id: string
@@ -30,6 +33,11 @@ interface TagFilterFieldProps {
  * remove button. It looks like the entry form's tag field, but only offered tags can be
  * chosen (typed text alone selects nothing), and its hint sits under the input. Typing
  * changes nothing outside this field.
+ *
+ * A filter holds at most `TAGS_PER_FILTER_MAX` tags (#88 and its design note). With that many
+ * selected, the search field stays usable but offers nothing, so no click or Enter can add
+ * another, and a muted note under the hint says so. The note is a polite live region that is
+ * always in the page, so choosing the last tag announces it once; it is no error.
  */
 export default function TagFilterField({ id, known, selected, onChange, onFocusElsewhere }: TagFilterFieldProps) {
   const [input, setInput] = useState('')
@@ -42,10 +50,20 @@ export default function TagFilterField({ id, known, selected, onChange, onFocusE
   const fieldHadFocus = useRef(false)
   const listId = `${id}-list`
   const hintId = `${id}-hint`
-  const offered = known.status === 'loaded' ? matchingTags(known.tags, selected, input) : []
+  const limitId = `${id}-limit`
+  // The filter is full: nothing more is offered, so nothing more can be chosen.
+  const full = selected.length >= TAGS_PER_FILTER_MAX
+  const offered = known.status === 'loaded' && !full ? matchingTags(known.tags, selected, input) : []
   const expanded = listOpen && offered.length > 0
   const active = expanded && highlight < offered.length ? highlight : -1
   const optionId = (index: number) => `${id}-option-${index}`
+
+  // A full filter closes the list, so it does not pop open by itself once a tag is removed
+  // (adjusted while rendering, as React suggests).
+  if (full && (listOpen || highlight !== -1)) {
+    setListOpen(false)
+    setHighlight(-1)
+  }
 
   // The tag list arrived empty or failed while the search field had focus.
   useEffect(() => {
@@ -61,6 +79,9 @@ export default function TagFilterField({ id, known, selected, onChange, onFocusE
   }
 
   function choose(name: string) {
+    if (full) {
+      return
+    }
     onChange(addTagNames(selected, [name]))
     setInput('')
     closeList()
@@ -149,7 +170,7 @@ export default function TagFilterField({ id, known, selected, onChange, onFocusE
           <TextField
             id={id}
             label="Tags"
-            describedBy={hintId}
+            describedBy={full ? `${hintId} ${limitId}` : hintId}
             ref={inputRef}
             type="text"
             role="combobox"
@@ -164,7 +185,7 @@ export default function TagFilterField({ id, known, selected, onChange, onFocusE
             onChange={(event) => {
               setInput(event.target.value)
               setHighlight(-1)
-              setListOpen(true)
+              setListOpen(!full)
             }}
             onKeyDown={handleKeyDown}
             onFocus={() => {
@@ -197,6 +218,10 @@ export default function TagFilterField({ id, known, selected, onChange, onFocusE
           )}
         </>
       )}
+      {/* Always in the page, empty below the limit, so screen readers announce the change. */}
+      <p className="tag-filter__limit" id={limitId} role="status">
+        {full ? TAG_FILTER_LIMIT_TEXT : ''}
+      </p>
       {selected.length > 0 && (
         <ul className="tag-chips" aria-label="Selected tags">
           {selected.map((tag) => (

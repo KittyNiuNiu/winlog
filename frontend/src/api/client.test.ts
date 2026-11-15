@@ -630,6 +630,7 @@ describe('network and unknown errors', () => {
     ['internal_error', 500],
     ['database_unreachable', 503],
     ['method_not_allowed', 405],
+    ['request_too_large', 413],
   ])('turns "%s" into an unknown error with its status and code', async (code, status) => {
     fetchMock.mockResolvedValueOnce(errorResponse(status, code))
     const error = await api.getHealth().catch((e: unknown) => e)

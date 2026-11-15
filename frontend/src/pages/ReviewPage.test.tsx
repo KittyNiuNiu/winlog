@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as api from '../api/index.ts'
 import type { Entry, EntryList, EntryListQuery } from '../api/index.ts'
 import { connectLoginRedirect } from '../auth/loginRedirect.ts'
-import { NO_TAGS_TEXT, TAGS_FAILED_TEXT, TAG_FILTER_HINT } from '../review/TagFilterField.tsx'
+import { NO_TAGS_TEXT, TAGS_FAILED_TEXT, TAG_FILTER_HINT, TAG_FILTER_LIMIT_TEXT } from '../review/TagFilterField.tsx'
 import { DATE_ORDER_ERROR, NO_ENTRIES_TEXT, NO_MATCH_TEXT } from '../review/reviewTexts.ts'
 import { routes } from '../routes.tsx'
 import { renderRoute } from '../test/renderRoute.tsx'
@@ -862,6 +862,200 @@ describe('the tag filter (FR-R1)', () => {
 
     expect(offered()).toEqual([])
     expect(screen.getByText(TAG_FILTER_HINT)).toBeTruthy()
+  })
+})
+
+describe('the tag filter holds at most 20 tags (FR-R1, #88)', () => {
+  // 25 tags the user has: "tag-01" to "tag-25".
+  const MANY_TAGS = Array.from({ length: 25 }, (_, index) => `tag-${String(index + 1).padStart(2, '0')}`)
+  const LIMIT_TEXT = 'Up to 20 tags in a filter. Remove one to add another.'
+
+  function reviewWithTags(count: number, first = 1): string {
+    const names = MANY_TAGS.slice(first - 1, first - 1 + count)
+    return `/review?${names.map((name) => `tag=${name}`).join('&')}`
+  }
+
+  function limitNote(): HTMLElement {
+    return document.querySelector('.tag-filter__limit') as HTMLElement
+  }
+
+  beforeEach(() => {
+    setViewport('laptop')
+    listTags.mockResolvedValue({ tags: MANY_TAGS })
+  })
+
+  it('test_fr_r1_with_19_tags_choosing_an_offered_tag_adds_it', async () => {
+    await renderReview(reviewWithTags(19))
+
+    tagInput().focus()
+    await typeTag('tag-2')
+    expect(offered()).toEqual(['tag-20', 'tag-21', 'tag-22', 'tag-23', 'tag-24', 'tag-25'])
+    await click(screen.getByRole('option', { name: 'tag-20' }))
+
+    expect(selectedTags()).toHaveLength(20)
+    expect(selectedTags().at(-1)).toBe('tag-20')
+    expect(lastQuery()?.tag).toEqual(MANY_TAGS.slice(0, 20))
+    expect(document.activeElement).toBe(tagInput())
+  })
+
+  it('test_fr_r1_with_20_tags_no_tag_can_be_added_by_click_or_enter', async () => {
+    await renderReview(reviewWithTags(20))
+    const requests = listEntries.mock.calls.length
+
+    tagInput().focus()
+    await typeTag('tag-2')
+    expect(offered()).toEqual([])
+    expect(tagInput().getAttribute('aria-expanded')).toBe('false')
+    await key('ArrowDown')
+    expect(offered()).toEqual([])
+    expect(tagInput().getAttribute('aria-activedescendant')).toBeNull()
+    await key('Enter')
+    await key('Escape')
+
+    // Typed text stays in the field, and nothing was added or requested.
+    expect(tagInput().value).toBe('tag-2')
+    expect(selectedTags()).toEqual(MANY_TAGS.slice(0, 20))
+    expect(listEntries.mock.calls.length).toBe(requests)
+  })
+
+  it('test_fr_r1_choosing_the_20th_tag_with_enter_closes_the_list_and_offers_no_more', async () => {
+    await renderReview(reviewWithTags(19))
+
+    tagInput().focus()
+    await typeTag('tag-2')
+    await key('ArrowDown')
+    await key('ArrowDown')
+    expect(screen.getByRole('option', { selected: true }).textContent).toBe('tag-21')
+    await key('Enter')
+    expect(selectedTags()).toHaveLength(20)
+
+    // The list that was open offers nothing now: Enter again and Down Arrow add nothing.
+    await key('Enter')
+    await typeTag('tag-2')
+    await key('ArrowDown')
+    await key('Enter')
+    expect(offered()).toEqual([])
+    expect(selectedTags()).toEqual([...MANY_TAGS.slice(0, 19), 'tag-21'])
+    expect(lastQuery()?.tag).toEqual([...MANY_TAGS.slice(0, 19), 'tag-21'])
+  })
+
+  it('test_fr_r1_with_20_tags_the_note_shows_under_the_hint_and_describes_the_field', async () => {
+    await renderReview(reviewWithTags(20))
+
+    const note = screen.getByText(LIMIT_TEXT)
+    expect(TAG_FILTER_LIMIT_TEXT).toBe(LIMIT_TEXT)
+    const hint = screen.getByText(TAG_FILTER_HINT)
+    expect(tagInput().getAttribute('aria-describedby')).toBe(`${hint.id} ${note.id}`)
+    // A calm status line, not an error: no alert and no invalid field.
+    expect(note.getAttribute('role')).toBe('status')
+    expect(note.closest('[role="alert"]')).toBeNull()
+    expect(tagInput().getAttribute('aria-invalid')).toBe('false')
+    // Under the hint, above the chips.
+    const chips = screen.getByRole('list', { name: 'Selected tags' })
+    expect(hint.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(note.compareDocumentPosition(chips) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('test_fr_r1_the_note_region_is_in_the_page_and_empty_below_20', async () => {
+    await renderReview(reviewWithTags(19))
+
+    expect(limitNote().getAttribute('role')).toBe('status')
+    expect(limitNote().textContent).toBe('')
+    expect(screen.queryByText(LIMIT_TEXT)).toBeNull()
+    expect(tagInput().getAttribute('aria-describedby')).toBe(screen.getByText(TAG_FILTER_HINT).id)
+
+    // The same element gets the text when the 20th tag is chosen, so it is announced.
+    const region = limitNote()
+    await typeTag('tag-20')
+    await click(screen.getByRole('option', { name: 'tag-20' }))
+    expect(limitNote()).toBe(region)
+    expect(region.textContent).toBe(LIMIT_TEXT)
+  })
+
+  it('test_fr_r1_removing_a_tag_at_20_allows_adding_again_and_the_note_goes', async () => {
+    await renderReview(reviewWithTags(20))
+    tagInput().focus()
+    await typeTag('tag-2')
+
+    await click(screen.getByRole('button', { name: 'Remove tag-03' }))
+
+    expect(selectedTags()).toHaveLength(19)
+    expect(limitNote().textContent).toBe('')
+    expect(tagInput().getAttribute('aria-describedby')).toBe(screen.getByText(TAG_FILTER_HINT).id)
+    expect(document.activeElement).toBe(tagInput())
+    // The list does not pop open by itself, even with text in the field.
+    expect(offered()).toEqual([])
+    await key('ArrowDown')
+    expect(offered()).toEqual(['tag-21', 'tag-22', 'tag-23', 'tag-24', 'tag-25'])
+    await key('Enter')
+    expect(selectedTags()).toHaveLength(20)
+    expect(selectedTags().at(-1)).toBe('tag-21')
+  })
+
+  it('test_fr_r1_url_with_more_than_20_tags_shows_and_sends_only_the_first_20', async () => {
+    const { router } = await renderReview(reviewWithTags(25))
+
+    expect(selectedTags()).toEqual(MANY_TAGS.slice(0, 20))
+    expect(listEntries).toHaveBeenCalledTimes(1)
+    expect(lastQuery()).toEqual({ tag: MANY_TAGS.slice(0, 20) })
+    expect(screen.getByText(LIMIT_TEXT)).toBeTruthy()
+    // Nothing tells the user about the tags left out, as for other values.
+    expect(screen.queryByRole('alert', { name: /tag/i })).toBeNull()
+
+    // The next change writes only the tags in use.
+    await click(screen.getByRole('button', { name: 'Remove tag-01' }))
+    expect(router.state.location.search).toBe(`?${MANY_TAGS.slice(1, 20).map((name) => `tag=${name}`).join('&')}`)
+    expect(lastQuery()).toEqual({ tag: MANY_TAGS.slice(1, 20) })
+  })
+
+  it('test_fr_r1_url_tags_are_counted_after_the_clean_up', async () => {
+    const first = ['TAG-01', '%20tag-01%20', 'TAG-02', '', '%20%20'].map((name) => `tag=${name}`).join('&')
+    await renderReview(`/review?${first}&${reviewWithTags(21).slice('/review?'.length)}`)
+
+    // "TAG-01" and "TAG-02" come first, with their spelling; repeats, empty names and the
+    // tags after the 20th are left out.
+    expect(selectedTags()).toEqual(['TAG-01', 'TAG-02', ...MANY_TAGS.slice(2, 20)])
+    expect(lastQuery()?.tag).toHaveLength(20)
+  })
+
+  it.each([
+    ['no tags yet', () => listTags.mockResolvedValue({ tags: [] }), NO_TAGS_TEXT],
+    ['the tag list failed', () => listTags.mockRejectedValue(new api.NetworkError()), TAGS_FAILED_TEXT],
+  ])('test_fr_r1_with_20_tags_and_%s_the_note_sits_under_that_line', async (_label, setUp, text) => {
+    setUp()
+    await renderReview(reviewWithTags(20))
+
+    expect(screen.queryByRole('combobox')).toBeNull()
+    const line = screen.getByText(text)
+    const note = screen.getByText(LIMIT_TEXT)
+    expect(line.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(selectedTags()).toHaveLength(20)
+  })
+
+  it('test_fr_r1_with_20_tags_the_note_shows_while_the_tag_list_loads', async () => {
+    listTags.mockReturnValue(new Promise(() => {}))
+    await renderReview(reviewWithTags(20))
+
+    expect(screen.getByText(LIMIT_TEXT)).toBeTruthy()
+    await typeTag('tag')
+    expect(offered()).toEqual([])
+  })
+
+  it('test_fr_r1_clear_filters_at_20_removes_every_tag_and_the_note', async () => {
+    await renderReview(reviewWithTags(20))
+
+    await click(clearButtons()[0])
+
+    expect(selectedTags()).toEqual([])
+    expect(limitNote().textContent).toBe('')
+    expect(lastQuery()).toEqual({})
+  })
+
+  it('test_fr_r1_the_phone_badge_counts_the_20_tags', async () => {
+    setViewport('phone')
+    await renderReview(`${reviewWithTags(25)}&category=Learning&start_date=2026-01-01`)
+
+    expect(filtersToggle().textContent).toBe('Filters 22 in use')
   })
 })
 

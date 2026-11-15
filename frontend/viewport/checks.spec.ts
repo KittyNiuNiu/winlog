@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test'
-import { ENTRIES_WITHOUT_NUDGE, LONG_SUMMARY, SUMMARIES } from './data.ts'
+import { ENTRIES_WITHOUT_NUDGE, LONG_SUMMARY, SUMMARIES, TWENTY_FILTER_TAGS } from './data.ts'
 import { expectOnlyMockedRequests, prepare, screenshot, settle, sizeOf } from './helpers.ts'
 import type { EntryInput } from './mockApi.ts'
 import { SCREENSHOT_DIR, TODAY } from './settings.ts'
@@ -138,6 +138,48 @@ test.describe('review page from 48rem (#31 design review)', () => {
       return target !== null && element.contains(target)
     })
     expect(hit, 'Save summary is not covered').toBe(true)
+    expectOnlyMockedRequests(page, api)
+  })
+})
+
+test.describe('the full tag filter (#88 design note)', () => {
+  test('test_fr_r1_note_sits_4px_under_the_hint_and_12px_above_the_chips', async ({ page }, testInfo) => {
+    const size = sizeOf(testInfo)
+    const api = await prepare(page, 'user', { entries: ENTRIES_WITHOUT_NUDGE })
+    const tags = TWENTY_FILTER_TAGS.map((tag) => `tag=${encodeURIComponent(tag)}`).join('&')
+    await page.goto(`${REVIEW_RESULTS}&${tags}`)
+    await expect(page.locator('.review-page__total')).toHaveText(/entr/)
+    if (size === 'phone') {
+      await page.getByRole('button', { name: /^Filters/ }).click()
+    }
+    const note = page.getByText('Up to 20 tags in a filter. Remove one to add another.')
+    await expect(note).toBeVisible()
+    await settle(page)
+
+    const field = page.getByRole('combobox', { name: 'Tags' })
+    const hint = page.getByText('Shows entries with any of the selected tags')
+    const hintBox = await box(hint)
+    const noteBox = await box(note)
+    const chipsBox = await box(page.getByRole('list', { name: 'Selected tags' }))
+    expect(noteBox.y - (hintBox.y + hintBox.height), 'note 4px under the hint').toBeCloseTo(4, 1)
+    expect(chipsBox.y - (noteBox.y + noteBox.height), 'chips 12px under the note').toBeCloseTo(12, 1)
+    expect((await box(field)).height, 'search field keeps its tap target').toBeGreaterThanOrEqual(48)
+    // Muted like the hint: no error colour, and the field is not invalid.
+    const colours = await Promise.all([note, hint].map((each) => each.evaluate((el) => getComputedStyle(el).color)))
+    expect(colours[0]).toBe(colours[1])
+    await expect(field).toHaveAttribute('aria-invalid', 'false')
+    // One line on the laptop; it may wrap on the phone.
+    if (size === 'laptop') {
+      expect(noteBox.height).toBeLessThan(30)
+    }
+
+    // The search field takes typing but offers nothing.
+    await field.fill('a')
+    await field.press('ArrowDown')
+    await field.press('Enter')
+    await expect(field).toHaveAttribute('aria-expanded', 'false')
+    await expect(page.getByRole('option')).toHaveCount(0)
+    await expect(page.getByRole('list', { name: 'Selected tags' }).getByRole('listitem')).toHaveCount(20)
     expectOnlyMockedRequests(page, api)
   })
 })

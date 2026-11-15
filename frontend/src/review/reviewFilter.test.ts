@@ -61,6 +61,26 @@ describe('the review filter (FR-R1)', () => {
     })
   })
 
+  it('test_fr_r1_url_with_more_than_20_tags_keeps_the_first_20_after_the_clean_up', () => {
+    // #88: names trimmed, empty names dropped, each name once ignoring case, then 20 in URL order.
+    const names = Array.from({ length: 25 }, (_, index) => `t${index + 1}`)
+    const query = ['T1', '%20t1%20', '', '%20', ...names].map((name) => `tag=${name}`).join('&')
+
+    const filter = parse(query)
+
+    expect(filter.tags).toEqual(['T1', ...names.slice(1, 20)])
+    expect(entryQuery(filter).tag).toHaveLength(20)
+    expect(parse(names.slice(0, 20).map((name) => `tag=${name}`).join('&')).tags).toEqual(names.slice(0, 20))
+  })
+
+  it('test_fr_r1_url_never_gives_more_than_4_categories', () => {
+    const all = ['Achievement', 'Learning', 'Feedback', 'Side%20project']
+    const filter = parse([...all, ...all, 'Learning'].map((name) => `category=${name}`).join('&'))
+
+    expect(filter.categories).toEqual(['Achievement', 'Learning', 'Feedback', 'Side project'])
+    expect(entryQuery(filter).category).toHaveLength(4)
+  })
+
   it('test_fr_r1_url_category_given_twice_is_used_once', () => {
     expect(parse('category=Feedback&category=Feedback').categories).toEqual(['Feedback'])
   })
