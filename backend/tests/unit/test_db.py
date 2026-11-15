@@ -1,4 +1,5 @@
 import inspect
+import re
 import socket
 import struct
 import threading
@@ -8,6 +9,7 @@ from pathlib import Path
 
 import psycopg
 import pytest
+import yaml
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 
@@ -37,6 +39,7 @@ def test_database_errors_hide_the_values_of_the_statement(settings):
 
 # --- The time limit for each database call (issue #95) ---------------------------------------
 
+ROOT = Path(__file__).resolve().parents[3]
 # A connection the fake database does not answer is closed after this long, so a test of code
 # without a time limit fails instead of hanging.
 SILENCE_LIMIT_SECONDS = 10
@@ -285,8 +288,49 @@ def test_db_time_limit_without_a_limit_set_waits_like_psycopg(fake_database: Fak
 
 def test_db_time_limit_migrations_keep_their_own_engine_without_the_limit():
     """A deploy or a wake-up is never cut off halfway through a migration."""
-    env = (Path(__file__).resolve().parents[2] / "migrations" / "env.py").read_text("utf-8")
+    env = (ROOT / "backend" / "migrations" / "env.py").read_text(encoding="utf-8")
 
     assert "create_db_engine" not in env
     assert "TimeLimitedConnection" not in env
     assert "engine = create_engine(_database_url(), poolclass=pool.NullPool)" in env
+
+
+def _comment_above(lines: list[str], line: str) -> str:
+    """The comment lines right above `line` in .env.example, as one text."""
+    end = lines.index(line)
+    start = end
+    while lines[start - 1].startswith("#"):
+        start -= 1
+    return " ".join(comment.removeprefix("#").strip() for comment in lines[start:end])
+
+
+def test_db_time_limit_setting_is_documented_in_env_example():
+    lines = (ROOT / ".env.example").read_text(encoding="utf-8").splitlines()
+    variables = [line for line in lines if re.match(r"[A-Z_]+=", line)]
+
+    # Right after DATABASE_CONNECT_TIMEOUT_SECONDS, with the default as its value.
+    position = variables.index("DATABASE_CONNECT_TIMEOUT_SECONDS=3")
+    assert variables[position + 1] == "DATABASE_QUERY_TIMEOUT_SECONDS=10"
+    query = _comment_above(lines, "DATABASE_QUERY_TIMEOUT_SECONDS=10")
+    assert query.startswith("Optional, default 10. ")
+    for phrase in (
+        "one database call",
+        "a statement with its result, a commit or a rollback",
+        "free connection in the pool",
+        '"Something went wrong" error',
+        "Whole number from 1 to 600.",
+        "Opening a connection and the health check use DATABASE_CONNECT_TIMEOUT_SECONDS.",
+    ):
+        assert phrase in query
+    connect = _comment_above(lines, "DATABASE_CONNECT_TIMEOUT_SECONDS=3")
+    assert "limits opening every new connection" in connect
+
+
+def test_db_time_limit_setting_is_passed_by_docker_compose():
+    compose = yaml.safe_load((ROOT / "docker-compose.yml").read_text(encoding="utf-8"))
+    environment = compose["services"]["backend"]["environment"]
+    names = list(environment)
+
+    assert environment["DATABASE_QUERY_TIMEOUT_SECONDS"] == "${DATABASE_QUERY_TIMEOUT_SECONDS:-10}"
+    position = names.index("DATABASE_CONNECT_TIMEOUT_SECONDS")
+    assert names[position + 1] == "DATABASE_QUERY_TIMEOUT_SECONDS"
