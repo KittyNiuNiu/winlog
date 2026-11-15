@@ -12,6 +12,7 @@ from app.body_limit import RequestBodyLimitMiddleware
 from app.cors import AllowedOriginsCORSMiddleware
 from app.db import create_db_engine
 from app.errors import UnexpectedErrorMiddleware, register_error_handlers
+from app.hsts import StrictTransportSecurityMiddleware
 from app.settings import Settings, load_settings
 from app.telemetry import Telemetry, TelemetryMiddleware, configure_logging
 
@@ -69,6 +70,14 @@ def create_app(settings: Settings | None = None, telemetry: Telemetry | None = N
         # Lets the frontend read the export file name and, after too many login attempts,
         # the seconds to wait (FR-A4) from cross-origin responses.
         expose_headers=["Content-Disposition", "Retry-After"],
+    )
+    # The HSTS header (issue #99) goes on outside the CORS middleware, so it is on every
+    # response the app builds: the routes and their errors, the 413 of the body limit, the
+    # shared 500 and the preflight answers the CORS middleware sends itself. It only adds one
+    # header to the response start, so it can sit inside TelemetryMiddleware, which stays the
+    # outermost and reads only the status. With HSTS_MAX_AGE_SECONDS=0 it adds nothing.
+    app.add_middleware(
+        StrictTransportSecurityMiddleware, max_age_seconds=settings.hsts_max_age_seconds
     )
     # Added last, so it runs first: its SERVER span and `request finished` line cover every
     # response, including the CORS answers and the shared 500 response.

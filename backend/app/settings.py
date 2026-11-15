@@ -62,6 +62,9 @@ MAX_DATABASE_QUERY_TIMEOUT_SECONDS = 600
 MIN_REQUEST_BODY_MAX_BYTES = 131_072
 MAX_REQUEST_BODY_MAX_BYTES = 10_485_760
 
+# The longest HSTS_MAX_AGE_SECONDS (issue #99): two years, a sanity bound like the others.
+MAX_HSTS_MAX_AGE_SECONDS = 63_072_000
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -90,6 +93,14 @@ class Settings(BaseSettings):
     # MIN_REQUEST_BODY_MAX_BYTES (131072, so every valid request still fits) to
     # MAX_REQUEST_BODY_MAX_BYTES (10485760).
     request_body_max_bytes: int = 262_144
+    # The `max-age` in seconds of the `Strict-Transport-Security` header on every response
+    # (app/hsts.py, issue #99): a browser that has reached the backend over HTTPS then uses
+    # only HTTPS for it, for that many seconds. 0 sends no header. Default 31536000 (one year),
+    # the value on Render, where every request reaches the app over HTTPS. Docker Compose and
+    # `.env.example` set 0, because the backend serves plain HTTP there, where the header must
+    # not be sent (RFC 6797 §7.2). Only this setting decides, never the request's scheme. A
+    # whole number from 0 to MAX_HSTS_MAX_AGE_SECONDS (63072000, two years).
+    hsts_max_age_seconds: int = 31_536_000
     # Days a login token works before it expires (FR-A2).
     token_lifetime_days: int = Field(default=7, ge=1, le=365)
     # The AI provider (product-spec.md §8). Required with no default, so the app never uses a
@@ -197,6 +208,11 @@ class Settings(BaseSettings):
         return _whole_number(
             value, minimum=MIN_REQUEST_BODY_MAX_BYTES, maximum=MAX_REQUEST_BODY_MAX_BYTES
         )
+
+    @field_validator("hsts_max_age_seconds", mode="before")
+    @classmethod
+    def _check_hsts_max_age(cls, value: object) -> int:
+        return _whole_number(value, minimum=0, maximum=MAX_HSTS_MAX_AGE_SECONDS)
 
     @field_validator(
         "ai_daily_suggestions_per_user",
