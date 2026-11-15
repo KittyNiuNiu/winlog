@@ -205,13 +205,14 @@ def test_request_body_limit_is_documented_in_env_example():
 
 
 def test_request_body_limit_is_passed_by_docker_compose():
+    """Through the backend's `env_file` (issue #61), with the default from .env.example."""
     compose = yaml.safe_load((ROOT / "docker-compose.yml").read_text(encoding="utf-8"))
-    environment = compose["services"]["backend"]["environment"]
-    names = list(environment)
+    backend = compose["services"]["backend"]
+    lines = (ROOT / ".env.example").read_text(encoding="utf-8").splitlines()
 
-    assert environment[VARIABLE] == "${REQUEST_BODY_MAX_BYTES:-262144}"
-    position = names.index("DATABASE_QUERY_TIMEOUT_SECONDS")
-    assert names[position + 1] == VARIABLE
+    assert backend["env_file"] == ".env"
+    assert VARIABLE not in backend["environment"]
+    assert f"{VARIABLE}=262144" in lines
 
 
 # --- The contract ------------------------------------------------------------------------

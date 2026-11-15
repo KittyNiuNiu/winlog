@@ -398,10 +398,8 @@ def test_hsts_is_documented_in_env_example_with_zero():
 def test_hsts_is_passed_by_docker_compose_with_zero():
     compose = yaml.safe_load((ROOT / "docker-compose.yml").read_text(encoding="utf-8"))
     environment = compose["services"]["backend"]["environment"]
-    names = list(environment)
 
     assert environment[VARIABLE] == "${HSTS_MAX_AGE_SECONDS:-0}"
-    assert names[names.index("REQUEST_BODY_MAX_BYTES") + 1] == VARIABLE
 
 
 def test_hsts_render_yaml_sets_one_year_on_both_backends_and_nothing_on_the_static_sites():
