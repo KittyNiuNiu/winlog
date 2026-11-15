@@ -4368,3 +4368,17 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - The saved issue body matches what I wrote, apart from one blank line before the footer that GitHub dropped. The labels are still `qa-failed`.
   - No change to project code, and no AI call.
 - **Left open:** nothing for the engineer. The orchestrator decides the next status from this amendment and QA's results on section G.
+
+## 2026-11-15: Orchestrator: close #102 (deploy wait checks the deployed commit)
+
+- **Task:** task 53, run with `/orchestrate all`. No screens change and `render.yaml` does not change.
+- **What happened:**
+  - **Grooming:** PM grooming (6893342798). The product owner accepted the new gate (6893378317): a dev deploy that does not name the run's commit within 15 minutes offers no production step.
+  - **Sections A to F:** the engineer built it (6893721938). QA FAIL 6894012626: Render's CDN ignores query strings. The product owner decided to correct the criterion, with no `headers` rule, and the PM amended it (6894130886). The engineer fixed it (6894376359), and QA passed on the branch (6894563106).
+  - **The first real deploy:** the product owner merged PR #110 (c78bd08), approved production and ran a Manual Sync for #99's setting. The wait passed only once both services named c78bd08 (dev 41 s, production 51 s).
+  - **Section G:** QA FAIL 6895536851. G1 and G3 failed only because the log did not show the previous deploys; there was no code defect. This was the second QA FAIL, a stop point. The product owner decided to accept and close. The PM amended G1 and G3 to accept QA's own evidence (6896176545). Closed as completed, with no further QA round, by that decision.
+- **Open points, left in this log under the standing rule:**
+  - the wait asks the backend first, so it rarely sees a previous static site;
+  - Render's CDN clearing is consistent with the runs but not proven;
+  - the existing SC2034 warnings in `ci.yml`;
+  - a missing `commit` and `null` give the same log line.
