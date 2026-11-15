@@ -4,22 +4,33 @@ Covers FR-S1, FR-S2, FR-S3 and FR-A3, and the acceptance criteria in product-spe
 §8, against real PostgreSQL. Every AI call goes to the mock provider.
 """
 
+import asyncio
 import datetime as dt
 import logging
+import time
 import uuid
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Callable
 
+import httpx2
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import Engine, func, insert, select
 
-from app.ai import AIProvider, MockProvider, Suggestion, SummaryEntry, get_ai_provider
+from app.ai import (
+    AIProvider,
+    MockProvider,
+    OpenAICompatibleProvider,
+    Suggestion,
+    SummaryEntry,
+    get_ai_provider,
+)
 from app.ai.limits import LIMIT_MESSAGES
 from app.auth import hash_token
 from app.main import create_app
 from app.models import AiUsage, AiUsageGlobal, Entry, EntryTag, Tag, Token, User
 from app.settings import Settings
 from tests.integration.conftest import ALLOWED_ORIGIN
+from tests.telemetry_capture import CapturedTelemetry
 
 TEXT = "Shipped the release and wrote the runbook."
 AI_UNAVAILABLE = {"code": "ai_unavailable", "message": "The AI is not available right now."}
@@ -470,3 +481,114 @@ def test_privacy_provider_error_that_repeats_the_text_is_not_logged(client, toke
     assert "AIProviderError" in logged  # the adapter logs the error type only
     assert TEXT not in logged
     assert "could not handle" not in logged
+
+
+# --- The OpenAI-compatible provider, with stubbed HTTP (issue #111) -------------------------
+
+# The provider's whole-request time limit in these tests: short, so the tests stay fast.
+OPENAI_LIMIT = 0.3
+
+
+class _NeverEnding(httpx2.AsyncByteStream):
+    """An answer body that drips in for far longer than the provider's time limit."""
+
+    def __init__(self) -> None:
+        self.closed = False
+
+    async def __aiter__(self) -> AsyncIterator[bytes]:
+        try:
+            for _ in range(100):
+                await asyncio.sleep(0.05)
+                yield b" "
+        finally:
+            self.closed = True
+
+
+class _StubbedHTTP:
+    """Answers the provider's one HTTP request (no network) and records it."""
+
+    def __init__(self, failure: str, content: str) -> None:
+        self.failure = failure
+        self.content = content
+        self.requests: list[httpx2.Request] = []
+        self.bodies: list[_NeverEnding] = []
+
+    def __call__(self, request: httpx2.Request) -> httpx2.Response:
+        self.requests.append(request)
+        if self.failure == "timeout":
+            body = _NeverEnding()
+            self.bodies.append(body)
+            return httpx2.Response(200, headers={"content-type": "application/json"}, stream=body)
+        message = {"role": "assistant", "content": self.content}
+        choice = {"index": 0, "finish_reason": "content_filter", "message": message}
+        return httpx2.Response(
+            200,
+            json={"id": "gen-1", "object": "chat.completion", "created": 1, "choices": [choice]},
+        )
+
+
+def _openai_client(
+    test_database_url: str, http: _StubbedHTTP, captured: CapturedTelemetry
+) -> TestClient:
+    """The app with in-memory telemetry and the OpenAI-compatible provider on stubbed HTTP."""
+    client = TestClient(
+        create_app(
+            Settings(
+                _env_file=None,
+                database_url=test_database_url,
+                cors_allowed_origins=[ALLOWED_ORIGIN],
+                ai_provider="mock",
+            ),
+            telemetry=captured.telemetry,
+        )
+    )
+    provider = OpenAICompatibleProvider(
+        base_url="https://ai.example.test/api/v1",
+        api_key="test-only-key",
+        model="vendor/test-model",
+        suggestion_timeout_seconds=OPENAI_LIMIT,
+        summary_timeout_seconds=OPENAI_LIMIT,
+        summary_max_tokens=1_000,
+        http_client_factory=lambda: httpx2.AsyncClient(transport=httpx2.MockTransport(http)),
+    )
+    client.app.dependency_overrides[get_ai_provider] = lambda: provider
+    return client
+
+
+OPENAI_FAILURES = [
+    ("timeout", "timeout", "AITimeoutError"),
+    ("content_filter", "provider_error", "AIProviderError"),
+]
+
+
+@pytest.mark.parametrize(("failure", "outcome", "error_class"), OPENAI_FAILURES)
+def test_fr_s1_openai_provider_timeout_or_filtered_answer_returns_ai_unavailable_and_counts(
+    test_database_url, migrated_db, contract, failure, outcome, error_class
+):
+    """A suggestion that runs out of time, or whose answer was filtered, gives 503."""
+    captured = CapturedTelemetry()
+    http = _StubbedHTTP(failure, '{"category": "Learning", "tags": ["Release"]}')
+    client = _openai_client(test_database_url, http, captured)
+    user = _user(migrated_db)
+    token = _token(migrated_db, user)
+    before = _counts(migrated_db)
+
+    started = time.monotonic()
+    response = _suggest(client, token)
+
+    assert response.status_code == 503
+    contract("Error").validate(response.json())
+    assert response.json() == AI_UNAVAILABLE
+    assert len(http.requests) == 1
+    if failure == "timeout":
+        assert time.monotonic() - started < OPENAI_LIMIT + 2
+        assert all(body.closed for body in http.bodies)
+    # The attempted call still counts for the user and globally (§8); nothing else changed.
+    after = _counts(migrated_db)
+    assert after == {**before, "ai_usage": before["ai_usage"] + 1, "ai_usage_global": 1}
+    assert _usage(migrated_db, user) == (1, 1)
+    span = captured.span("ai.suggest")
+    assert span.attributes["winlog.ai.outcome"] == outcome
+    assert span.status.description == error_class
+    [point] = captured.points("winlog.ai.request.duration")
+    assert point.attributes["winlog.ai.outcome"] == outcome
