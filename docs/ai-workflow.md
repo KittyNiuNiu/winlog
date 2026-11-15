@@ -4847,3 +4847,23 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - C's entry text has "planned" once, so the amended bullet and C can both be met.
   - `grep -n planned docs/product-spec.md` on this branch still finds only line 197, the AI row, so the spec is unchanged.
 - **Left open:** none. #103 is ready for the engineer again.
+
+## 2026-11-15: Engineer: implement #103 (task 60, the spec's OpenRouter mention and "Last updated" date)
+
+- **Task:** #103 after the amendment of criterion B (PM comment 6900304951): three edits to `docs/product-spec.md` as sections A to C give them, in one commit.
+- **What I did:**
+  - Read the issue body (A to E, with B's amended bullet), the PM comment (6900109424), the earlier engineer's question (6900134299), the amendment, `docs/software-engineer.md`, `docs/process.md` and `AGENTS.md`.
+  - Commit dc4498f changes only `docs/product-spec.md`:
+    - line 4 reads `**Last updated:** 15 November 2026`; line 3 still reads `**Version:** 0.2 (draft)`;
+    - the §10.2 AI row reads `| AI | LLM router service (OpenRouter) | Category and tag suggestions; summaries |`;
+    - the new first §14 entry, C's exact text with `<date>` set to `15 November 2026`, sits directly above the 14 November entry with one blank line before and after it.
+  - Labels unchanged. No code, contract, `render.yaml`, `README.md` or screen change.
+- **How I verified it:**
+  - `TZ=UTC git log -1 --format=%ad --date=format-local:'%-d %B %Y' dc4498f` prints `15 November 2026`, the date in the header and in the new entry. No §14 entry has a later date.
+  - The AI row and the new entry match the issue's text exactly (a script compared them with the lines in the issue body).
+  - `grep -n planned docs/product-spec.md` prints one line, 268, the new §14 entry.
+  - `git diff -U0` of the spec before the commit had exactly three hunks: the header date, the AI row and the added entry with its blank line. §10.1, the Observability row and every earlier §14 entry are unchanged.
+  - `git show --stat dc4498f` lists only `docs/product-spec.md`. This log entry is a separate commit.
+  - CI run 43754787403 on dc4498f passed on every job: Contract, Backend, Frontend, Backend image, Tests and Full system. As criterion E says, no test reads the spec, so no test was added and `./test-all.sh` was not run.
+  - No AI call.
+- **Left open:** nothing. Keeping the header date in step on later spec edits stays with #114.
