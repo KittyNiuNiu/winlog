@@ -114,12 +114,12 @@ Backend, in `backend/`:
 | Task | Command |
 |---|---|
 | Install dependencies | `uv sync` |
-| Apply migrations (start PostgreSQL first with `docker compose up -d db` in the repository root) | `uv run alembic upgrade head` |
+| Apply migrations (start PostgreSQL first with `docker compose up -d --wait db` in the repository root) | `uv run alembic upgrade head` |
 | Dev server | `uv run uvicorn app.main:app --reload` |
 | Lint | `uv run ruff check .` |
 | Format | `uv run ruff format .` |
 | Unit tests | `uv run pytest tests/unit` |
-| Integration tests (real PostgreSQL: `docker compose up -d db` in the repository root, and `TEST_DATABASE_URL` in `.env`) | `uv run pytest tests/integration` |
+| Integration tests (real PostgreSQL: `docker compose up -d --wait db` in the repository root, and `TEST_DATABASE_URL` in `.env`) | `uv run pytest tests/integration` |
 
 Frontend, in `frontend/`:
 
@@ -148,7 +148,9 @@ the test database if needed, and exits with 0 only when all pass. It needs `.env
 and `npm ci` done in `frontend/` first.
 
 [`AGENTS.md`](AGENTS.md) is the full command reference, including new migrations, the demo seed
-script and both ways to start the system for the end-to-end test.
+script and both ways to start the system for the end-to-end test. It also lists every check CI
+runs, with CI's own command, among them the contract lint of `openapi.yaml` and the generation
+of the frontend's API types from it.
 
 ## Configuration
 
@@ -168,9 +170,12 @@ backend setting there applies in the same way. Compose sets only these itself:
 
 Under Docker Compose:
 
-- Change backend settings in `.env`, not in the shell: a shell variable does not replace a value
-  the backend gets from `.env`. After a change, `docker compose up` again recreates the backend
-  container with the new values.
+- Change backend settings in `.env`, not in the shell. A shell variable does not change a value
+  the backend gets straight from `.env` (through `env_file`), but it does win over `.env` for the
+  values `docker-compose.yml` fills in with `${...}`: for the backend, `AI_PROVIDER`,
+  `CORS_ALLOWED_ORIGINS` and `HSTS_MAX_AGE_SECONDS`, and `POSTGRES_USER`, `POSTGRES_PASSWORD` and
+  `POSTGRES_DB`, from which Compose builds the backend's `DATABASE_URL`. After a change,
+  `docker compose up` again recreates the backend container with the new values.
 - With `AI_PROVIDER=openai-compatible` and a real `AI_API_KEY`, every suggestion and summary is
   a real AI call that costs money. The end-to-end test needs the mock (`AI_PROVIDER=mock`).
 - `docker compose config` prints the values from `.env`, including `AI_API_KEY`, so do not
