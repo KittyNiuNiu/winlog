@@ -4941,3 +4941,30 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Closed as completed.
 - **Correction:** the engineer's log entry above names CI run 43758375626 as still running. That run was cancelled by the next push. The run that counts is 43759029300, which passed.
 - **Open points:** none needs work.
+
+## 2026-11-15: PM: groom #108 (task 62, five whole-number settings still accept `+5`, `1_0` and `10.0`)
+
+- **Task:** groom #108 following `docs/pm.md`. It had no status label. It is task 62, a small backend follow-up from #89.
+- **What I read:**
+  - the issue (no comments), and #89 as the pattern for a groomed settings follow-up;
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md`, `docs/tasks.md`, `docs/product-spec.md` (FR-A2, §8), `openapi.yaml` and `AGENTS.md`;
+  - `backend/app/settings.py`, the settings tests in `tests/unit/test_settings.py`, `test_auth.py` and `test_ai_openai_compatible.py`, and the code that reads the defaults (`scripts/model_comparison/comparison.py`, `tests/unit/test_deployment.py`);
+  - `.env.example`, `render.yaml`, `docker-compose.yml` and the variable table in `ops/deployment.md`.
+- **What I did:**
+  - Rewrote the body of #108 using the template.
+  - Posted the PM comment with the decisions, the facts checked and the original text (6901243024).
+  - Labels unchanged: the orchestrator sets the status. No follow-up issue.
+- **Decisions under the standing rule (2026-11-14, extended 2026-11-15), recorded in the issue:**
+  - **Strict check:** `DATABASE_CONNECT_TIMEOUT_SECONDS`, `TOKEN_LIFETIME_DAYS`, both AI timeouts and `AI_SUMMARY_MAX_TOKENS` use `_whole_number`, so `+5`, `1_0`, `10.0` and a 5,000-digit value stop startup with "must be a whole number from MIN to MAX".
+  - **Ranges and defaults stay** (2 to 60, 1 to 365, 1 to 600 twice, 1 to 100000). None is wrong; 2 is libpq's real minimum for `connect_timeout`.
+  - **Spaces and leading zeros stay accepted, empty stays refused,** as for the other eleven whole-number settings.
+  - **One unit test covers every `int` field of `Settings`** (`+<default>`, `<default>.0`, `0_<default>`), so a later setting cannot drift back to lax parsing unnoticed.
+  - **No screen change**, so no design note. No change to `openapi.yaml`, `.env.example`, `docker-compose.yml` or `render.yaml`, so no Blueprint sync.
+- **How I verified it:**
+  - With the backend's own `load_settings()` (`AI_PROVIDER=mock`, no `.env`, no database) on `fd69233`, pydantic 2.14.2: each of the five accepts `+5`, `1_0`, `10.0` and `0_<default>`, and refuses empty, `7.5`, `1e1`, `٣`, `True`, `0x10`, `-0` and 5,000 digits with pydantic's wording. The table is in the PM comment.
+  - `Settings.model_fields` has 16 `int` fields; the other eleven use `_whole_number`.
+  - `grep` finds no test that matches pydantic's wording. The four existing refusal tests match "VARIABLE is invalid", so they pass unchanged.
+  - The values in `.env.example` and `render.yaml` (3, 7, 15, 60, 16000) are inside the ranges. `docker-compose.yml` reads `.env` and overrides none of the five.
+  - The saved body of #108 is identical to what I wrote. The issue still has no labels.
+  - No change to project code, and no AI call.
+- **Left open:** nothing.
