@@ -101,7 +101,7 @@ def test_hsts_header_on_responses_that_need_the_database(make_client, token, max
         "list_entries_200": 200,
         "export_markdown_200": 200,
     }
-    assert responses["health_200"].json() == {"status": "ok", "database": "ok"}
+    assert responses["health_200"].json() == {"status": "ok", "database": "ok", "commit": None}
     assert [entry["text"] for entry in responses["list_entries_200"].json()["entries"]] == [
         ENTRY["text"]
     ]
