@@ -9,7 +9,9 @@ import {
   dateInput,
   entryFrom,
   foldButton,
+  formError,
   key,
+  messagesOf,
   openFold,
   resultInput,
   save,
@@ -948,5 +950,641 @@ describe('when suggestions fail (§7.3, §8)', () => {
 
     expect(router.state.location.pathname).toBe('/login')
     expect(dialogOpen()).toBe(false)
+  })
+})
+
+// --- #86: feedback when a suggestion adds nothing or is dropped ---
+
+const NOTHING_NEW = 'No new suggestions for this text.'
+const TAGS_LEFT_OUT = 'Up to 10 tags per entry, so not every suggested tag was added.'
+const TOO_MANY_TAGS = 'Up to 10 tags per entry.'
+const CATEGORY_MESSAGE = 'Choose a category, then save.'
+const ENTRY_GONE = "This entry no longer exists, so it can't be saved."
+const TEN_TAGS = Array.from({ length: 10 }, (_, index) => `Tag ${index}`)
+const EIGHT_TAGS = TEN_TAGS.slice(0, 8)
+
+function noticeRegion(): HTMLElement {
+  return document.querySelector('.entry-form__notice') as HTMLElement
+}
+
+/** Adds tags through the tag input, each ended by a comma, so none comes from the list. */
+function addTags(names: readonly string[]): void {
+  openFold()
+  type(tagInput(), `${names.join(',')},`)
+}
+
+/** The notice shows `text` in the existing polite live region, with the info look (#28). */
+function expectInfoNotice(text: string): void {
+  const region = noticeRegion()
+  expect(region.textContent).toBe(text)
+  expect(region.getAttribute('role')).toBe('status')
+  expect(region.className).toContain('message--info')
+  expect(region.className).not.toContain('message--error')
+  expect(document.querySelectorAll('.entry-form__notice')).toHaveLength(1)
+  // Never in an alert.
+  for (const alert of document.querySelectorAll('[role="alert"]')) {
+    expect(alert.textContent).not.toContain(text)
+  }
+}
+
+/** A suggestion never gives the tag field a message or the error state (#43). */
+function expectNoTagMessage(): void {
+  expect(messagesOf('entry-tags')).toEqual([])
+  expect(tagInput().getAttribute('aria-invalid')).toBe('false')
+}
+
+function expectSuggestReady(): void {
+  expect(suggestButton().textContent).toBe('Suggest category and tags')
+  expect(suggestButton().disabled).toBe(false)
+  expect(suggestButton().getAttribute('aria-busy')).toBe('false')
+}
+
+function expectSuggestBusy(): void {
+  expect(suggestButton().textContent).toBe('Suggesting…')
+  expect(suggestButton().getAttribute('aria-busy')).toBe('true')
+  expect(suggestButton().getAttribute('aria-disabled')).toBe('true')
+}
+
+function firstChip(): HTMLButtonElement {
+  return categoryGroup().querySelector('button') as HTMLButtonElement
+}
+
+describe('an answer that brings nothing new (#86 A, FR-S2)', () => {
+  it('test_fr_s2_an_answer_with_nothing_new_shows_a_notice', async () => {
+    suggest.mockResolvedValue({ category: 'Learning', tags: ['PYTHON', 'ci'] })
+    await renderAt('/entries/new')
+    type(textArea(), 'Learned about pytest')
+    fireEvent.click(categoryChip('Learning'))
+    addTags(['python', 'ci'])
+    const region = noticeRegion()
+    suggestButton().focus()
+
+    await tapSuggest()
+
+    expectInfoNotice(NOTHING_NEW)
+    // The same element as before: it was already in the page, so it is announced.
+    expect(noticeRegion()).toBe(region)
+    // The answer is applied by #28's rules: here it changes nothing.
+    expect(selected()).toEqual(['Learning'])
+    expect(hintButton()).toBeNull()
+    expect(spokenTags()).toEqual(['python', 'ci'])
+    expect(discardButton()).toBeNull()
+    expectNoTagMessage()
+    // Focus is back on the button (#84).
+    expect(document.activeElement).toBe(suggestButton())
+    expect(createEntry).not.toHaveBeenCalled()
+  })
+
+  it('test_fr_s2_the_chosen_category_with_no_tags_shows_the_nothing_new_notice', async () => {
+    // The contract allows an answer with 0 tags.
+    suggest.mockResolvedValue({ category: 'Learning', tags: [] })
+    await renderAt('/entries/new')
+    type(textArea(), 'Learned about pytest')
+    fireEvent.click(categoryChip('Learning'))
+
+    await tapSuggest()
+
+    expectInfoNotice(NOTHING_NEW)
+    expect(selected()).toEqual(['Learning'])
+    expect(addedTags()).toEqual([])
+    expect(foldButton().getAttribute('aria-expanded')).toBe('false')
+  })
+
+  it('test_fr_s2_the_entrys_own_category_and_tags_on_the_edit_page_show_the_nothing_new_notice', async () => {
+    suggest.mockResolvedValue({ category: 'Feedback', tags: ['leadership', 'INCIDENT'] })
+    await renderAt(EDIT_PATH)
+
+    await tapSuggest()
+
+    expectInfoNotice(NOTHING_NEW)
+    expect(selected()).toEqual(['Feedback'])
+    expect(hintButton()).toBeNull()
+    expect(spokenTags()).toEqual(['Leadership', 'incident'])
+    expect(discardButton()).toBeNull()
+    expect(updateEntry).not.toHaveBeenCalled()
+  })
+
+  it('test_fr_s2_asking_again_with_the_same_answer_shows_the_notice_again', async () => {
+    await renderAt('/entries/new')
+    type(textArea(), 'Learned about pytest')
+    await tapSuggest()
+    expect(notice()).toBe('')
+    expect(selected()).toEqual(['Learning, suggested'])
+
+    for (let round = 0; round < 2; round += 1) {
+      const answer = pendingSuggestion()
+      await tapSuggest()
+      // The notice empties on the tap, so the same text is announced again.
+      expect(notice()).toBe('')
+      expectSuggestBusy()
+
+      await answer.resolve({ category: 'Learning', tags: ['Python', 'Mock tag'] })
+
+      // The same marks and "Discard suggestions" come back, then the notice shows.
+      expect(selected()).toEqual(['Learning, suggested'])
+      expect(spokenTags()).toEqual(['Python, suggested', 'Mock tag, suggested'])
+      expect(discardButton()).not.toBeNull()
+      expectInfoNotice(NOTHING_NEW)
+    }
+  })
+
+  it('test_fr_s2_asking_again_when_the_new_answer_adds_nothing_shows_the_notice', async () => {
+    suggest.mockResolvedValueOnce({ category: 'Learning', tags: ['Python'] })
+    suggest.mockResolvedValueOnce({ category: 'Feedback', tags: ['MINE'] })
+    await renderAt('/entries/new')
+    type(textArea(), 'Learned about pytest')
+    fireEvent.click(categoryChip('Feedback'))
+    addTags(['mine'])
+    await tapSuggest()
+    expect(hintButton()?.textContent).toBe('Suggested: Learning')
+    expect(spokenTags()).toEqual(['mine', 'Python, suggested'])
+    expect(notice()).toBe('')
+
+    await tapSuggest()
+
+    // The earlier suggestions are removed first (#28), then the notice shows.
+    expect(hintButton()).toBeNull()
+    expect(spokenTags()).toEqual(['mine'])
+    expect(discardButton()).toBeNull()
+    expect(selected()).toEqual(['Feedback'])
+    expectInfoNotice(NOTHING_NEW)
+  })
+
+  it.each([
+    ['an empty category filled', null, { category: 'Learning' as const, tags: [] }],
+    ['a new hint', 'Feedback', { category: 'Learning' as const, tags: [] }],
+    ['a new tag', 'Learning', { category: 'Learning' as const, tags: ['python', 'Rust'] }],
+  ])('test_fr_s2_an_answer_with_%s_shows_no_notice', async (_case, chosen, suggestion) => {
+    suggest.mockResolvedValue(suggestion)
+    await renderAt('/entries/new')
+    type(textArea(), 'Learned about pytest')
+    if (chosen !== null) {
+      fireEvent.click(categoryChip(chosen))
+    }
+    addTags(['python'])
+
+    await tapSuggest()
+
+    expect(discardButton()).not.toBeNull()
+    expect(notice()).toBe('')
+  })
+})
+
+describe('suggested tags left out at 10 (#86 B, FR-S2)', () => {
+  it('test_fr_s2_tags_left_out_at_10_show_a_notice', async () => {
+    suggest.mockResolvedValue({ category: 'Learning', tags: ['One', 'Two', 'Three'] })
+    await renderAt('/entries/new')
+    type(textArea(), 'Learned about pytest')
+    fireEvent.click(categoryChip('Learning'))
+    addTags(EIGHT_TAGS)
+    fireEvent.click(foldButton())
+    suggestButton().focus()
+
+    await tapSuggest()
+
+    // The first 2 are added and marked, as #43 says, and the fold opens for them.
+    expect(foldButton().getAttribute('aria-expanded')).toBe('true')
+    expect(spokenTags()).toEqual([...EIGHT_TAGS, 'One, suggested', 'Two, suggested'])
+    expect(discardButton()).not.toBeNull()
+    expectInfoNotice(TAGS_LEFT_OUT)
+    expectNoTagMessage()
+    expect(document.activeElement).toBe(suggestButton())
+  })
+
+  it.each([
+    ['an empty category, which is filled and marked', null, ['Learning, suggested'], null],
+    ['another chosen category, which gets the hint', 'Feedback', ['Feedback'], 'Suggested: Learning'],
+    ['the same chosen category, so nothing else is new', 'Learning', ['Learning'], null],
+  ])('test_fr_s2_at_10_tags_no_tag_is_added_and_the_notice_shows_with_%s', async (_case, chosen, chips, hint) => {
+    suggest.mockResolvedValue({ category: 'Learning', tags: ['tag 0', 'One'] })
+    await renderAt('/entries/new')
+    type(textArea(), 'Learned about pytest')
+    if (chosen !== null) {
+      fireEvent.click(categoryChip(chosen))
+    }
+    addTags(TEN_TAGS)
+
+    await tapSuggest()
+
+    expect(spokenTags()).toEqual(TEN_TAGS)
+    expect(selected()).toEqual(chips)
+    expect(hintButton()?.textContent ?? null).toBe(hint)
+    expect(discardButton() !== null).toBe(chosen !== 'Learning')
+    // The tag-limit text wins over "No new suggestions for this text.".
+    expectInfoNotice(TAGS_LEFT_OUT)
+    expectNoTagMessage()
+  })
+
+  it('test_fr_s2_at_10_tags_suggested_tags_already_on_the_entry_show_the_nothing_new_notice', async () => {
+    suggest.mockResolvedValue({ category: 'Learning', tags: ['TAG 0', 'tag 9'] })
+    await renderAt('/entries/new')
+    type(textArea(), 'Learned about pytest')
+    fireEvent.click(categoryChip('Learning'))
+    addTags(TEN_TAGS)
+
+    await tapSuggest()
+
+    expect(spokenTags()).toEqual(TEN_TAGS)
+    expectInfoNotice(NOTHING_NEW)
+    expectNoTagMessage()
+  })
+
+  it('test_fr_s2_asking_again_with_8_own_tags_and_2_earlier_suggested_tags', async () => {
+    suggest.mockResolvedValueOnce({ category: 'Learning', tags: ['One', 'Two'] })
+    suggest.mockResolvedValueOnce({ category: 'Learning', tags: ['Three', 'Four'] })
+    suggest.mockResolvedValueOnce({ category: 'Learning', tags: ['Five', 'Six', 'Seven'] })
+    await renderAt('/entries/new')
+    type(textArea(), 'Learned about pytest')
+    fireEvent.click(categoryChip('Learning'))
+    addTags(EIGHT_TAGS)
+    await tapSuggest()
+    expect(addedTags()).toEqual([...EIGHT_TAGS, 'One', 'Two'])
+    expect(notice()).toBe('')
+
+    // The 2 earlier ones are removed first, so 2 new tags fit: no notice.
+    await tapSuggest()
+    expect(spokenTags()).toEqual([...EIGHT_TAGS, 'Three, suggested', 'Four, suggested'])
+    expect(notice()).toBe('')
+
+    // A third new tag is left out.
+    await tapSuggest()
+    expect(spokenTags()).toEqual([...EIGHT_TAGS, 'Five, suggested', 'Six, suggested'])
+    expectInfoNotice(TAGS_LEFT_OUT)
+    expectNoTagMessage()
+  })
+})
+
+describe('the answer notices (#86 C)', () => {
+  it('test_fr_s2_one_notice_element_for_every_outcome_one_text_at_a_time', async () => {
+    suggest.mockResolvedValueOnce({ category: 'Learning', tags: [] })
+    suggest.mockRejectedValueOnce(new api.AiUnavailableError('x', 503))
+    suggest.mockResolvedValueOnce({ category: 'Learning', tags: ['One'] })
+    suggest.mockResolvedValueOnce({ category: 'Feedback', tags: [] })
+    await renderAt('/entries/new')
+    type(textArea(), 'Learned about pytest')
+    fireEvent.click(categoryChip('Learning'))
+    addTags(TEN_TAGS)
+    const region = noticeRegion()
+    expect(region.textContent).toBe('')
+
+    await tapSuggest()
+    expectInfoNotice(NOTHING_NEW)
+    // The next outcome replaces it: a failure shows only its own text.
+    await tapSuggest()
+    expectInfoNotice(UNAVAILABLE)
+    await tapSuggest()
+    expectInfoNotice(TAGS_LEFT_OUT)
+    // Something new: no notice.
+    await tapSuggest()
+    expect(hintButton()?.textContent).toBe('Suggested: Feedback')
+    expect(notice()).toBe('')
+    expect(noticeRegion()).toBe(region)
+  })
+
+  it.each([
+    ['nothing new', { category: 'Learning' as const, tags: [] }, NOTHING_NEW],
+    ['a tag left out', { category: 'Learning' as const, tags: ['One'] }, TAGS_LEFT_OUT],
+  ])('test_fr_s2_the_notice_for_%s_never_moves_focus', async (_case, suggestion, text) => {
+    await renderAt('/entries/new')
+    type(textArea(), 'Learned about pytest')
+    fireEvent.click(categoryChip('Learning'))
+    addTags(TEN_TAGS)
+
+    // On the button: back on it after the answer.
+    suggestButton().focus()
+    let answer = pendingSuggestion()
+    await tapSuggest()
+    expect(document.activeElement).toBe(suggestButton())
+    await answer.resolve(suggestion)
+    expect(notice()).toBe(text)
+    expect(document.activeElement).toBe(suggestButton())
+
+    // Moved elsewhere while waiting: it stays there.
+    answer = pendingSuggestion()
+    await tapSuggest()
+    dateInput().focus()
+    await answer.resolve(suggestion)
+    expect(notice()).toBe(text)
+    expect(document.activeElement).toBe(dateInput())
+  })
+
+  it('test_fr_s2_the_answer_notice_goes_on_the_next_tap_and_on_save_entry', async () => {
+    suggest.mockResolvedValue({ category: 'Learning', tags: [] })
+    await renderAt('/entries/new')
+    type(textArea(), 'Learned about pytest')
+    fireEvent.click(categoryChip('Learning'))
+    await tapSuggest()
+    expect(notice()).toBe(NOTHING_NEW)
+
+    const answer = pendingSuggestion()
+    await tapSuggest()
+    expect(notice()).toBe('')
+    await answer.resolve({ category: 'Learning', tags: [] })
+    expect(notice()).toBe(NOTHING_NEW)
+
+    // Save entry: the notice goes, even when the check stops the save.
+    type(dateInput(), '')
+    await save()
+    expect(createEntry).not.toHaveBeenCalled()
+    expect(notice()).toBe('')
+  })
+
+  it('test_fr_s2_discard_editing_and_changing_tags_or_category_leave_the_notice', async () => {
+    suggest.mockResolvedValue({ category: 'Learning', tags: ['One', 'Two', 'Three'] })
+    await renderAt('/entries/new')
+    type(textArea(), 'Learned about pytest')
+    addTags(EIGHT_TAGS)
+    await tapSuggest()
+    expect(selected()).toEqual(['Learning, suggested'])
+    expect(notice()).toBe(TAGS_LEFT_OUT)
+
+    await click(discardButton() as HTMLButtonElement)
+    expect(addedTags()).toEqual(EIGHT_TAGS)
+    expect(notice()).toBe(TAGS_LEFT_OUT)
+
+    type(textArea(), 'Learned about pytest fixtures')
+    expect(notice()).toBe(TAGS_LEFT_OUT)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Tag 0' }))
+    type(tagInput(), 'new tag,')
+    expect(notice()).toBe(TAGS_LEFT_OUT)
+
+    fireEvent.click(categoryChip('Feedback'))
+    expect(notice()).toBe(TAGS_LEFT_OUT)
+    expect(suggest).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    ['nothing new', 'Learning'],
+    ['a tag left out', null],
+  ])('test_fr_s1_a_failed_request_shows_only_its_failure_notice_where_%s_would_apply', async (_case, chosen) => {
+    suggest.mockResolvedValueOnce({ category: 'Learning', tags: ['One'] })
+    suggest.mockRejectedValueOnce(new api.LimitReachedError('Limit reached.', 429, 'user_suggestions'))
+    await renderAt('/entries/new')
+    type(textArea(), 'Learned about pytest')
+    if (chosen !== null) {
+      fireEvent.click(categoryChip(chosen))
+    }
+    addTags(chosen === null ? TEN_TAGS : [])
+    await tapSuggest()
+
+    await tapSuggest()
+
+    expectInfoNotice(USER_LIMIT)
+  })
+})
+
+describe('Save entry while a suggestion is on its way (#86 D, FR-S1)', () => {
+  it('test_fr_s1_a_save_stopped_by_the_check_keeps_the_suggestion_coming', async () => {
+    const answer = pendingSuggestion()
+    await renderAt('/entries/new')
+    type(textArea(), 'Learned about pytest')
+    await tapSuggest()
+
+    // No category chosen: the check stops the save.
+    await save()
+
+    expect(createEntry).not.toHaveBeenCalled()
+    expect(messagesOf('entry-category')).toEqual([CATEGORY_MESSAGE])
+    expect(document.activeElement).toBe(firstChip())
+    expect(notice()).toBe('')
+    // The request keeps running: the button stays busy, and Save entry is ready.
+    expectSuggestBusy()
+    expect(saveButton().textContent).toBe('Save entry')
+    expect(saveButton().getAttribute('aria-busy')).toBe('false')
+
+    await answer.resolve({ category: 'Learning', tags: ['Python', 'Mock tag'] })
+
+    // Applied by #28's rules to the form as it is now.
+    expect(selected()).toEqual(['Learning, suggested'])
+    expect(spokenTags()).toEqual(['Python, suggested', 'Mock tag, suggested'])
+    expect(foldButton().getAttribute('aria-expanded')).toBe('true')
+    expect(discardButton()).not.toBeNull()
+    // A category is chosen now, so its message goes; the category is new, so no notice.
+    expect(messagesOf('entry-category')).toEqual([])
+    expect(notice()).toBe('')
+    expectSuggestReady()
+    // Focus stays on the chip the check focused.
+    expect(document.activeElement).toBe(firstChip())
+    // Nothing is saved until Save entry is tapped again.
+    expect(createEntry).not.toHaveBeenCalled()
+
+    await save()
+
+    expect(createEntry).toHaveBeenCalledTimes(1)
+    expect(createEntry.mock.calls[0]?.[0]).toEqual({
+      text: 'Learned about pytest',
+      date: expect.any(String),
+      category: 'Learning',
+      tags: ['Python', 'Mock tag'],
+      result_impact: '',
+    })
+    expect(savedBand()).toBe('Entry saved.')
+  })
+
+  it.each([
+    [
+      'the text is over 2,000 characters',
+      'entry-text',
+      'Shorten the text to 2,000 characters, then save.',
+      () => type(textArea(), 'a'.repeat(2001)),
+      textArea,
+    ],
+    ['the date is incomplete', 'entry-date', 'Choose a date, then save.', () => type(dateInput(), ''), dateInput],
+    [
+      'a tag limit is broken',
+      'entry-tags',
+      TOO_MANY_TAGS,
+      () => {
+        addTags(TEN_TAGS)
+        type(tagInput(), 'Eleventh')
+      },
+      tagInput,
+    ],
+    [
+      'the result is over 500 characters',
+      'entry-result',
+      'Shorten the result to 500 characters, then save.',
+      () => {
+        openFold()
+        type(resultInput(), 'r'.repeat(501))
+      },
+      resultInput,
+    ],
+  ])('test_fr_s1_a_save_stopped_because_%s_keeps_the_suggestion_coming', async (_case, field, message, breakIt, focused) => {
+    const answer = pendingSuggestion()
+    await renderAt('/entries/new')
+    type(textArea(), 'Learned about pytest')
+    fireEvent.click(categoryChip('Feedback'))
+    await tapSuggest()
+    breakIt()
+
+    await save()
+
+    expect(createEntry).not.toHaveBeenCalled()
+    expect(messagesOf(field)).toEqual([message])
+    expect(document.activeElement).toBe(focused())
+    // Busy wins over disabled, even with the text over 2,000 characters.
+    expectSuggestBusy()
+
+    await answer.resolve({ category: 'Learning', tags: ['Mock tag'] })
+
+    expect(selected()).toEqual(['Feedback'])
+    expect(hintButton()?.textContent).toBe('Suggested: Learning')
+    expect(messagesOf(field)).toEqual([message])
+    expect(document.activeElement).toBe(focused())
+    if (field === 'entry-tags') {
+      // The tag is left out at 10: the notice says the field's rule in the same words.
+      expect(addedTags()).toEqual(TEN_TAGS)
+      expectInfoNotice(TAGS_LEFT_OUT)
+    } else {
+      expect(spokenTags()).toEqual(['Mock tag, suggested'])
+      expect(notice()).toBe('')
+    }
+    if (field === 'entry-text') {
+      // Ready again, but disabled with its hint over 2,000 characters (#43).
+      expect(suggestButton().disabled).toBe(true)
+      expect(suggestButton().getAttribute('aria-busy')).toBe('false')
+      expect(document.getElementById('entry-suggest-hint')?.textContent).toBe(
+        'Suggestions work on up to 2,000 characters.',
+      )
+    } else {
+      expectSuggestReady()
+    }
+    expect(createEntry).not.toHaveBeenCalled()
+  })
+
+  it('test_fr_s2_an_answer_after_a_stopped_save_shows_the_nothing_new_notice', async () => {
+    const answer = pendingSuggestion()
+    await renderAt('/entries/new')
+    type(textArea(), 'Learned about pytest')
+    fireEvent.click(categoryChip('Learning'))
+    await tapSuggest()
+    type(dateInput(), '')
+    await save()
+    expect(notice()).toBe('')
+
+    await answer.resolve({ category: 'Learning', tags: [] })
+
+    expectInfoNotice(NOTHING_NEW)
+    expect(messagesOf('entry-date')).toEqual(['Choose a date, then save.'])
+    expect(document.activeElement).toBe(dateInput())
+    expect(createEntry).not.toHaveBeenCalled()
+  })
+
+  it('test_fr_s1_a_request_that_fails_after_a_stopped_save_shows_its_failure_notice', async () => {
+    const answer = pendingSuggestion()
+    await renderAt('/entries/new')
+    type(textArea(), 'Learned about pytest')
+    await tapSuggest()
+    await save()
+    expect(messagesOf('entry-category')).toEqual([CATEGORY_MESSAGE])
+
+    await answer.reject(new api.AiUnavailableError('The AI provider timed out.', 503))
+
+    expectInfoNotice(UNAVAILABLE)
+    expect(messagesOf('entry-category')).toEqual([CATEGORY_MESSAGE])
+    expect(selected()).toEqual([])
+    expect(document.activeElement).toBe(firstChip())
+    expectSuggestReady()
+    expect(createEntry).not.toHaveBeenCalled()
+  })
+
+  const SAVE_ERRORS: [string, string, unknown, () => void][] = [
+    [
+      'a server validation error',
+      '/entries/new',
+      new api.ValidationError('Bad text.', 422, [{ field: 'text', reason: 'x' }]),
+      () => expect(messagesOf('entry-text')).toEqual(['Write what happened, then save.']),
+    ],
+    ['a network error', '/entries/new', new api.NetworkError(), () => expect(formError()).toBe(NETWORK_MESSAGE)],
+    ['a deleted entry', EDIT_PATH, new api.NotFoundError('Not found.', 404), () => expect(formError()).toBe(ENTRY_GONE)],
+    [
+      'another error',
+      EDIT_PATH,
+      new api.UnknownError('Internal error.', 500, 'internal_error'),
+      () => expect(formError()).toBe(GENERIC_MESSAGE),
+    ],
+  ]
+
+  describe.each(['while saving', 'after the failure'])('the dropped answer arrives %s', (when) => {
+    it.each(SAVE_ERRORS)(
+      'test_fr_s1_a_sent_save_that_fails_drops_the_suggestion_without_a_notice: %s',
+      async (_case, path, error, expectSaveError) => {
+        const answer = pendingSuggestion()
+        const saving = deferred<api.Entry>()
+        createEntry.mockImplementation(() => saving.promise)
+        updateEntry.mockImplementation(() => saving.promise)
+        await renderAt(path)
+        if (path === '/entries/new') {
+          type(textArea(), 'Learned about pytest')
+          fireEvent.click(categoryChip('Feedback'))
+        }
+        await tapSuggest()
+
+        await save()
+
+        // Sent: the request is dropped at once, and the suggest button has the disabled look.
+        expect(createEntry.mock.calls.length + updateEntry.mock.calls.length).toBe(1)
+        expect(saveButton().textContent).toBe('Saving…')
+        expect(suggestButton().textContent).toBe('Suggest category and tags')
+        expect(suggestButton().disabled).toBe(true)
+        expect(suggestButton().getAttribute('aria-busy')).toBe('false')
+
+        if (when === 'while saving') {
+          await answer.resolve({ category: 'Learning', tags: ['Mock tag'] })
+        }
+        await act(async () => {
+          saving.reject(error)
+        })
+        if (when === 'after the failure') {
+          await answer.resolve({ category: 'Learning', tags: ['Mock tag'] })
+        }
+
+        // Only the save error; the dropped answer changes nothing.
+        expectSaveError()
+        expect(selected()).toEqual(['Feedback'])
+        expect(hintButton()).toBeNull()
+        expect(document.querySelectorAll('.chip--suggested, .tag-chip--suggested')).toHaveLength(0)
+        expect(discardButton()).toBeNull()
+        expect(notice()).toBe('')
+        // The suggest button is ready again, so the user can ask again.
+        expectSuggestReady()
+        suggest.mockResolvedValue({ category: 'Learning', tags: [] })
+        await tapSuggest()
+        expect(hintButton()?.textContent).toBe('Suggested: Learning')
+        expect(suggest).toHaveBeenCalledTimes(2)
+      },
+    )
+  })
+
+  it('test_fr_s1_a_dropped_request_that_fails_after_a_failed_save_shows_no_notice', async () => {
+    const answer = pendingSuggestion()
+    createEntry.mockRejectedValue(new api.NetworkError())
+    await renderAt('/entries/new')
+    type(textArea(), 'Learned about pytest')
+    fireEvent.click(categoryChip('Feedback'))
+    await tapSuggest()
+    await save()
+    expect(formError()).toBe(NETWORK_MESSAGE)
+
+    await answer.reject(new api.AiUnavailableError('x', 503))
+
+    expect(notice()).toBe('')
+    expect(formError()).toBe(NETWORK_MESSAGE)
+    expectSuggestReady()
+  })
+
+  it('test_fr_s1_a_late_failure_does_not_reach_the_page_the_user_went_to', async () => {
+    const answer = pendingSuggestion()
+    const { router } = await renderAt(EDIT_PATH)
+    await tapSuggest()
+    await save()
+    expect(router.state.location.pathname).toBe('/')
+
+    await answer.reject(new api.AiUnavailableError('x', 503))
+
+    expect(router.state.location.pathname).toBe('/')
+    expect(document.body.textContent).not.toContain(UNAVAILABLE)
   })
 })
