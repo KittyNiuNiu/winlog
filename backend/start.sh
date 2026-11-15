@@ -9,9 +9,10 @@
 # If step 1 or 2 fails, the script exits with a non-zero code and the server never starts.
 # Render then marks the deploy as failed and keeps serving the previous one.
 #
-# It reads PORT and DEMO_EMAIL from the process environment only (Render or `docker run -e`),
-# never from a .env file. Docker Compose sets neither, so there the backend migrates and then
-# serves on 8000, without a demo reset.
+# It reads PORT and DEMO_EMAIL from the process environment only (Render, `docker run -e` or
+# Docker Compose), never from a .env file itself. Docker Compose sets PORT to 8000 and passes
+# DEMO_EMAIL from .env, so there, with DEMO_EMAIL set, the demo account is reset at every
+# container start.
 #
 # Logging: the lines printed here are fixed texts with no customer data. The reset's own
 # summary line names the demo email address, so its standard output is not printed; its

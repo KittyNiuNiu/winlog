@@ -1,5 +1,6 @@
-// The texts the login and registration forms show for errors that no field explains, and
-// the notices the login page shows above its form.
+// The texts the login and registration forms show for errors that no field explains, the
+// notices the login page shows above its form, and how a server validation error maps to
+// the forms' own texts (#72).
 import { NetworkError, type ValidationError } from '../api/index.ts'
 
 export const NETWORK_ERROR_MESSAGE = "Can't reach Winlog. Check your connection and try again."
@@ -38,28 +39,34 @@ export function unexpectedErrorMessage(error: unknown): string {
   return error instanceof NetworkError ? NETWORK_ERROR_MESSAGE : UNEXPECTED_ERROR_MESSAGE
 }
 
-/** A server validation error, split into the messages for each form field and the rest. */
+/** A form's fields that a server validation error can name. */
+type FormField = 'email' | 'password'
+
+/** The text each field shows when a server validation error names it. Each page has its own. */
+export type FieldTexts = Record<FormField, string>
+
+/** A server validation error as the form shows it: at most one message per field, and the rest. */
 export interface ValidationMessages {
-  email: string[]
-  password: string[]
-  /** For errors that name no field on the form, or null. */
+  /** The message under Email, or null. */
+  email: string | null
+  /** The message under Password, or null. */
+  password: string | null
+  /** The alert above the form, for errors that name another field or no field, or null. */
   form: string | null
 }
 
-export function validationMessages(error: ValidationError): ValidationMessages {
-  const messages: ValidationMessages = { email: [], password: [], form: null }
-  const other: string[] = []
-  for (const { field, reason } of error.fields) {
-    if (field === 'email' || field === 'password') {
-      messages[field].push(reason)
-    } else {
-      other.push(reason)
-    }
+/**
+ * Maps a server validation error to the page's own texts (#72). It reads only the field
+ * names and never a `reason`, so no server text reaches the page: each named field gets its
+ * one fixed text, however often and for whatever reason the answer names it, and any other
+ * field, or no field, gets the one generic alert.
+ */
+export function validationMessages(error: ValidationError, texts: FieldTexts): ValidationMessages {
+  const named = new Set(error.fields.map(({ field }) => field))
+  const other = named.size === 0 || [...named].some((field) => field !== 'email' && field !== 'password')
+  return {
+    email: named.has('email') ? texts.email : null,
+    password: named.has('password') ? texts.password : null,
+    form: other ? UNEXPECTED_ERROR_MESSAGE : null,
   }
-  if (other.length > 0) {
-    messages.form = other.join(' ')
-  } else if (error.fields.length === 0) {
-    messages.form = UNEXPECTED_ERROR_MESSAGE
-  }
-  return messages
 }

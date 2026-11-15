@@ -294,7 +294,10 @@ describe('the suggest button (FR-S1)', () => {
     })
 
     expect(addedTags()).toEqual([...TEN_TAGS.slice(0, 8), 'One', 'Two'])
-    // That feedback is #86: no tag message here.
+    // The left-out tag is told in the suggestion notice (#86), never as a tag message.
+    expect(document.querySelector('.entry-form__notice')?.textContent).toBe(
+      'Up to 10 tags per entry, so not every suggested tag was added.',
+    )
     expect(messagesOf('entry-tags')).toEqual([])
   })
 })

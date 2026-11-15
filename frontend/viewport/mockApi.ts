@@ -15,6 +15,7 @@ export type SummaryFilter = Schemas['SummaryFilter']
 export type Suggestion = Schemas['Suggestion']
 type ApiError = Schemas['Error']
 type Category = Schemas['Category']
+export type FieldError = Schemas['FieldError']
 
 export interface MockApiOptions {
   entries?: Entry[]
@@ -23,6 +24,10 @@ export interface MockApiOptions {
   failEntryList?: boolean
   /** `POST /auth/login` answers 401 `invalid_credentials`. */
   rejectLogin?: boolean
+  /** `POST /auth/login` answers 422 `validation_failed` naming these fields. */
+  loginFieldErrors?: FieldError[]
+  /** `POST /auth/register` answers 422 `validation_failed` naming these fields, instead of 201. */
+  registerFieldErrors?: FieldError[]
   /** What `POST /suggestions` answers. */
   suggestion?: Suggestion
   /** `POST /summaries` gets no answer until `releaseDraft()`, so the panel stays busy. */
@@ -85,9 +90,21 @@ export class MockApi {
     const key = `${method} ${entryMatch ? '/entries/{id}' : summaryMatch ? '/summaries/{id}' : path}`
 
     switch (key) {
+      case 'POST /auth/register':
+        if (this.options.registerFieldErrors !== undefined) {
+          return this.validationFailed(route, this.options.registerFieldErrors)
+        }
+        return this.json(route, 201, {
+          id: '00000000-0000-4000-a000-000000000001',
+          email: bodyOf<Schemas['Registration']>(request).email,
+          created_at: new Date().toISOString(),
+        } satisfies Schemas['User'])
       case 'POST /auth/login':
         if (this.options.rejectLogin) {
           return this.error(route, 401, { code: 'invalid_credentials', message: 'Wrong email or password.' })
+        }
+        if (this.options.loginFieldErrors !== undefined) {
+          return this.validationFailed(route, this.options.loginFieldErrors)
         }
         return this.json(route, 200, { token: 'test-token', expires_at: TOKEN_EXPIRES_AT } satisfies Schemas['LoginResult'])
       case 'POST /auth/demo':
@@ -219,6 +236,11 @@ export class MockApi {
 
   private error(route: Route, status: number, body: ApiError): Promise<void> {
     return this.json(route, status, body)
+  }
+
+  /** A 422 `validation_failed` as the backend sends it (backend/app/errors.py). */
+  private validationFailed(route: Route, fields: FieldError[]): Promise<void> {
+    return this.error(route, 422, { code: 'validation_failed', message: 'The request has invalid fields.', fields })
   }
 
   private notFound(route: Route): Promise<void> {

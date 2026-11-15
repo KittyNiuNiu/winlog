@@ -1,5 +1,5 @@
 import { Sparkles } from 'lucide-react'
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from 'react'
 import { flushSync } from 'react-dom'
 import {
   NotAuthenticatedError,
@@ -42,6 +42,7 @@ import {
   NO_MARKS,
   SUGGESTING_LABEL,
   SUGGEST_LABEL,
+  answerNoticeOf,
   applySuggestion,
   discardSuggestions,
   hasSuggestions,
@@ -195,6 +196,14 @@ export default function EntryForm({ entry, knownTags, onSaved, onCancel }: Entry
     foldOpen: initial.tags.length > 0 || initial.result !== '',
   }))
   const { values, marks, foldOpen } = form
+  /**
+   * The form as last rendered. An answer's notice is worked out from it when the answer
+   * arrives, outside the `setForm` updater (#86), because React may run updaters twice.
+   */
+  const formRef = useRef(form)
+  useLayoutEffect(() => {
+    formRef.current = form
+  })
   const [tagInput, setTagInput] = useState('')
   const [checked, setChecked] = useState(false)
   /**
@@ -352,6 +361,9 @@ export default function EntryForm({ entry, knownTags, onSaved, onCancel }: Entry
     }
     suggestingRef.current = false
     setSuggesting(false)
+    // An answer that brings nothing new, or leaves a tag out at 10, says so (#86). Worked
+    // out from the form the answer is applied to; a new suggestion shows no notice.
+    setNotice(answerNoticeOf(formRef.current, suggestion))
     // Applied to the form as it is now, not as it was when the button was pressed.
     setForm((current) => {
       const applied = applySuggestion(current, suggestion)
@@ -433,8 +445,7 @@ export default function EntryForm({ entry, knownTags, onSaved, onCancel }: Entry
     if (savingRef.current) {
       return
     }
-    // A suggestion answer after this changes nothing, and the notice goes.
-    dropSuggestionRequest()
+    // The notice goes. A running suggestion request goes on unless the entry is sent (#86).
     setNotice(null)
     // Text still in the tag input becomes a tag, so nothing typed is lost. Names that break
     // a tag limit (#43) stay in the input. A comma in it only comes from such names.
@@ -461,9 +472,14 @@ export default function EntryForm({ entry, knownTags, onSaved, onCancel }: Entry
         flushSync(() => setForm((current) => ({ ...current, foldOpen: true })))
       }
       focusField(firstProblem)
+      // Nothing is sent, so a running suggestion request goes on and its answer is applied
+      // to the form as it is then (#86).
       return
     }
 
+    // The entry is sent: a suggestion answer after this changes nothing and shows no notice,
+    // whether the save works or fails.
+    dropSuggestionRequest()
     const body: EntryInput = {
       text: toSave.text,
       date: toSave.date,

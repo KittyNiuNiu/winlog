@@ -1,6 +1,6 @@
 // Checks the login and registration forms run before they send a request. The password
 // rule is the backend's rule from #6 (backend/app/passwords.py, openapi.yaml Registration);
-// the backend stays the authority and its validation errors are shown too.
+// the backend stays the authority, and its validation errors show the app's own texts below.
 
 export const PASSWORD_MIN_LENGTH = 10
 export const PASSWORD_MAX_LENGTH = 128
@@ -65,3 +65,13 @@ export function emailProblem(email: string): string | null {
 }
 
 export const PASSWORD_MISSING = 'Enter your password.'
+
+// The texts for a server validation error that names a field (#72). The form shows one of
+// these whatever the server's reason was, and never the reason itself.
+
+/** Email, on both forms: the backend rejected an address the form let through. */
+export const EMAIL_REJECTED = 'Enter a valid email address, such as name@example.com.'
+/** Password, registration: the backend refused a password that passed the form's rule. */
+export const NEW_PASSWORD_REJECTED = "This password can't be used. Choose a different one."
+/** Password, login: too long, or a character that cannot be sent. Login checks no rule (#26). */
+export const LOGIN_PASSWORD_REJECTED = `Check your password. It can have at most ${PASSWORD_MAX_LENGTH} characters.`

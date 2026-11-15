@@ -8,14 +8,14 @@ Winlog is a personal success diary web app. Users capture work achievements, lea
 
 Sources of truth (read them before starting any task):
 
-- `product-spec.md`: scope, requirements, acceptance criteria
+- `docs/product-spec.md`: scope, requirements, acceptance criteria
 - `openapi.yaml`: the API contract between frontend and backend
 
 ## Working rules
 
-- Implement only what `product-spec.md` describes. If a task needs behaviour the spec does not cover, stop and ask. Do not invent requirements.
+- Implement only what `docs/product-spec.md` describes. If a task needs behaviour the spec does not cover, stop and ask. Do not invent requirements.
 - Contract first: every API change starts in `openapi.yaml`, then the backend, then the frontend.
-- Do not edit `product-spec.md` or `openapi.yaml` unless the task explicitly says so.
+- Do not edit `docs/product-spec.md` or `openapi.yaml` unless the task explicitly says so.
 - For a task that touches more than one module, propose a plan before editing.
 - Keep changes small and focused on the task. Do not refactor unrelated code.
 - A task is done only when lint and all tests pass.
@@ -35,9 +35,7 @@ backend/              FastAPI app (Python)
   tests/integration/  integration tests (real PostgreSQL)
 frontend/             React + TypeScript app (Vite)
   src/api/            the only place that calls the backend
-mcp-server/           developer MCP server for coding agents
 docs/                 architecture and process docs
-security/             scan reports and security notes
 ops/                  operational notes
 .github/workflows/    CI/CD pipelines
 openapi.yaml          API contract
@@ -49,14 +47,22 @@ test-all.sh           runs all unit and integration tests with one command
 
 Keep these commands working. If you change one, update this file.
 
+CI (`.github/workflows/ci.yml`) runs its checks with these commands. Where CI runs a command in another form, its line names CI's form, so you can run every check locally before you push. A task that changes the command of a CI check updates its line here in the same task.
+
+Every `docker compose` command here needs Docker Compose 2.23.1 or later (`docker compose version` shows yours), including the one that starts the test database and the ones `./test-all.sh` runs: they all read `docker-compose.yml`, whose inline `configs:` `content:` needs that version.
+
+Contract (run in the repo root):
+
+- Lint `openapi.yaml` (CI's Contract job; run it after every change to `openapi.yaml`; needs Node.js, the version in `frontend/.nvmrc`, and network access the first time, when `npx` downloads Redocly CLI; warnings are reported and only errors fail, as in CI): `npx --yes @redocly/cli@2 lint openapi.yaml`
+
 Backend (run in `backend/`):
 
-- Install dependencies: `uv sync`
+- Install dependencies (CI runs `uv sync --locked`, which also fails when `uv.lock` is out of date with `pyproject.toml`; run that before you push a change to `pyproject.toml` or `uv.lock`): `uv sync`
 - Dev server: `uv run uvicorn app.main:app --reload`
 - Lint: `uv run ruff check .`
-- Format: `uv run ruff format .`
+- Format (CI runs `uv run ruff format --check .`, which changes no file and fails when a file needs formatting): `uv run ruff format .`
 - Unit tests: `uv run pytest tests/unit`
-- Integration tests (needs PostgreSQL and `TEST_DATABASE_URL` in `.env`; start it first with `docker compose up -d db` in the repo root): `uv run pytest tests/integration`
+- Integration tests (needs PostgreSQL and `TEST_DATABASE_URL` in `.env`; start it first with `docker compose up -d --wait db` in the repo root): `uv run pytest tests/integration`
 - Apply migrations: `uv run alembic upgrade head`
 - New migration: `uv run alembic revision --autogenerate -m "<message>"`
 - Seed or reset the demo account (needs `DEMO_EMAIL` and a migrated database; changes nothing when `DEMO_EMAIL` is empty): `uv run python -m scripts.seed_demo`
@@ -68,14 +74,15 @@ Frontend (run in `frontend/`):
 - Lint: `npm run lint`
 - Tests: `npm test`
 - Build: `npm run build`
-- End-to-end smoke test (one Playwright test of the main user flow at 1280×800, `e2e/`, config `playwright.e2e.config.ts`): `npm run test:e2e`. It starts nothing itself: it runs against a running system at `E2E_BASE_URL` (default `http://localhost:8080`) with `AI_PROVIDER=mock`. First copy `.env.example` to `.env` in the repo root, then start the system in one of two ways:
+- API types (run it after every change to `openapi.yaml` and commit the result; it regenerates `src/api/schema.d.ts` from `../openapi.yaml`, so never edit that file by hand; CI regenerates the file and fails when it differs from the committed one): `npm run generate:api`
+- End-to-end smoke test (one Playwright test of the main user flow at 1280×800, `e2e/`, config `playwright.e2e.config.ts`; needs Chromium, installed as for the viewport tests below): `npm run test:e2e`. It starts nothing itself: it runs against a running system at `E2E_BASE_URL` (default `http://localhost:8080`) with `AI_PROVIDER=mock`. First copy `.env.example` to `.env` in the repo root, then start the system in one of two ways:
   - Full system: `docker compose up --build -d` in the repo root.
-  - Without the app containers (for example in a cloud session): `docker compose up -d db` in the repo root; `uv run alembic upgrade head` and `uv run uvicorn app.main:app --port 8000` in `backend/`; `npm run build` and then `npx vite preview --port 8080 --strictPort` in `frontend/`.
+  - Without the app containers (for example in a cloud session): `docker compose up -d --wait db` in the repo root; `uv run alembic upgrade head` and `uv run uvicorn app.main:app --port 8000` in `backend/`; `npm run build` and then `npx vite preview --port 8080 --strictPort` in `frontend/`.
 
   Each run drafts one summary, which counts against the global daily AI limit (`AI_DAILY_REQUESTS_GLOBAL`); `docker compose down -v` resets a local database. Traces and screenshots of a failed run go to `frontend/e2e-results/`.
-- Viewport tests (Playwright, 360×640 and 1280×800, every API call mocked; builds the app and serves it with `vite preview`; screenshots go to `viewport-screenshots/`; needs Chromium once: `npx playwright install chromium`): `npm run test:viewport`
+- Viewport tests (Playwright, 360×640 and 1280×800, every API call mocked; builds the app and serves it with `vite preview`; screenshots go to `viewport-screenshots/`; needs Chromium once: `npx playwright install chromium`; CI runs `npx playwright install --with-deps chromium`, which also installs the browser's system libraries): `npm run test:viewport`
 
-Full system (repo root): `docker compose up --build`. It also starts the local telemetry stack (the `lgtm` service), with Grafana at http://localhost:3000 (no login, see `docs/observability.md`).
+Full system (repo root, needs Docker Compose 2.23.1 or later): `docker compose up --build`. It also starts the local telemetry stack (the `lgtm` service), with Grafana at http://localhost:3000 (no login, see `docs/observability.md`).
 
 All unit and integration tests (repo root): `./test-all.sh`. It runs the three suites in order: backend unit tests, backend integration tests and frontend tests (`npm test`), runs every suite even after one fails, prints a summary and exits with 0 only when all pass. It starts the test database with `docker compose up -d --wait db` if needed and stops it again with `docker compose stop db` only if it started it. It needs `.env` in the repo root, Docker, uv and `npm ci` done in `frontend/` first. The separate commands above stay.
 
@@ -110,7 +117,7 @@ All unit and integration tests (repo root): `./test-all.sh`. It runs the three s
 - Tests never need a running telemetry collector. They capture telemetry with in-memory exporters.
 - Frontend tests never reach a real backend: unmocked requests fail in the shared test set-up.
 - Every new endpoint gets tests for the success case, validation errors, and access by another user.
-- Cover each acceptance criterion in `product-spec.md` with at least one test, and name the test after its requirement ID (for example `test_fr_e1_one_text_creates_one_entry`).
+- Cover each acceptance criterion in `docs/product-spec.md` with at least one test, and name the test after its requirement ID (for example `test_fr_e1_one_text_creates_one_entry`).
 - Never weaken or delete a failing test to make it pass. Fix the code or ask.
 
 ## Security

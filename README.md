@@ -74,7 +74,10 @@ The full overview, the components and the environments are in §10 of
 
 ## Quick start
 
-You need Docker with Docker Compose. In the root of a clone of this repository:
+You need Docker with Docker Compose 2.23.1 or later; `docker compose version` shows yours.
+`docker-compose.yml` writes the test database's set-up script inline, with the `content:` of a
+`configs:` entry, which Docker Compose supports from version 2.23.1 on. In the root of a clone of
+this repository:
 
 ```sh
 cp .env.example .env
@@ -91,8 +94,11 @@ Then open:
 `.env.example` sets `AI_PROVIDER=mock`, so suggestions and summaries come from the mock AI
 provider, which needs no API key.
 
-The local system has no demo account: **Try the demo** shows "The demo isn't available right
-now." Click **Create an account** on the login page and register instead.
+With `.env` from `.env.example` there is no demo account (`DEMO_EMAIL` is empty), so **Try the
+demo** shows "The demo isn't available right now." Click **Create an account** on the login page
+and register instead. To turn the demo on, set `DEMO_EMAIL` in `.env` (for example
+`demo@example.com`) and run `docker compose up` again. The backend then resets the demo account
+to the sample data at every start.
 
 Ctrl+C stops the system. `docker compose down -v` removes the containers and deletes the local
 data (the database and the telemetry).
@@ -108,12 +114,12 @@ Backend, in `backend/`:
 | Task | Command |
 |---|---|
 | Install dependencies | `uv sync` |
-| Apply migrations (start PostgreSQL first with `docker compose up -d db` in the repository root) | `uv run alembic upgrade head` |
+| Apply migrations (start PostgreSQL first with `docker compose up -d --wait db` in the repository root) | `uv run alembic upgrade head` |
 | Dev server | `uv run uvicorn app.main:app --reload` |
 | Lint | `uv run ruff check .` |
 | Format | `uv run ruff format .` |
 | Unit tests | `uv run pytest tests/unit` |
-| Integration tests (real PostgreSQL: `docker compose up -d db` in the repository root, and `TEST_DATABASE_URL` in `.env`) | `uv run pytest tests/integration` |
+| Integration tests (real PostgreSQL: `docker compose up -d --wait db` in the repository root, and `TEST_DATABASE_URL` in `.env`) | `uv run pytest tests/integration` |
 
 Frontend, in `frontend/`:
 
@@ -142,7 +148,9 @@ the test database if needed, and exits with 0 only when all pass. It needs `.env
 and `npm ci` done in `frontend/` first.
 
 [`AGENTS.md`](AGENTS.md) is the full command reference, including new migrations, the demo seed
-script and both ways to start the system for the end-to-end test.
+script and both ways to start the system for the end-to-end test. It also lists every check CI
+runs, with CI's own command, among them the contract lint of `openapi.yaml` and the generation
+of the frontend's API types from it.
 
 ## Configuration
 
@@ -150,16 +158,28 @@ All configuration comes from environment variables. [`.env.example`](.env.exampl
 list, with each variable's default and what it does. Copy it to `.env` (git-ignored) and never
 commit real secrets.
 
-Under Docker Compose, the backend container gets only some of these variables (see the
-`backend` service in [`docker-compose.yml`](docker-compose.yml)). So there:
-
-- the demo is off;
-- the daily AI limits and the login limits keep their defaults;
-- a real AI provider does not start: Compose does not pass its settings, so the backend stops
-  at startup with `AI_PROVIDER=openai-compatible`.
-
 A backend you run on your computer (`uv run uvicorn app.main:app --reload` in `backend/`) reads
-its settings from `.env` itself, so there every backend setting in it applies.
+its settings from `.env` itself. Under Docker Compose, the backend container gets every variable
+in `.env` (see the `backend` service in [`docker-compose.yml`](docker-compose.yml)), so every
+backend setting there applies in the same way. Compose sets only these itself:
+
+- `DATABASE_URL`: the `db` service;
+- `OTEL_EXPORTER_OTLP_ENDPOINT`: the `lgtm` service;
+- `PORT`: 8000;
+- `HSTS_MAX_AGE_SECONDS`: 0 when `.env` has no value.
+
+Under Docker Compose:
+
+- Change backend settings in `.env`, not in the shell. A shell variable does not change a value
+  the backend gets straight from `.env` (through `env_file`), but it does win over `.env` for the
+  values `docker-compose.yml` fills in with `${...}`: for the backend, `AI_PROVIDER`,
+  `CORS_ALLOWED_ORIGINS` and `HSTS_MAX_AGE_SECONDS`, and `POSTGRES_USER`, `POSTGRES_PASSWORD` and
+  `POSTGRES_DB`, from which Compose builds the backend's `DATABASE_URL`. After a change,
+  `docker compose up` again recreates the backend container with the new values.
+- With `AI_PROVIDER=openai-compatible` and a real `AI_API_KEY`, every suggestion and summary is
+  a real AI call that costs money. The end-to-end test needs the mock (`AI_PROVIDER=mock`).
+- `docker compose config` prints the values from `.env`, including `AI_API_KEY`, so do not
+  share its output.
 
 ## AI
 

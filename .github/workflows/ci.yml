@@ -436,6 +436,55 @@ jobs:
           fi
           grep -q '"message": "request finished"' backend.log || { echo "::error::No request finished line in the backend log"; exit 1; }
 
+      - name: Backend starts with the openai-compatible settings and the demo
+        # Compose passes every variable in .env to the backend (#61). This changes four lines of
+        # .env and recreates only the backend container, from the image built above. The backend
+        # stops at startup with AI_PROVIDER=openai-compatible unless AI_BASE_URL, AI_API_KEY and
+        # AI_MODEL all reach it, and it resets the demo account only when DEMO_EMAIL reaches it.
+        # So it must log the demo reset, answer GET /health with 200, and log in to the demo.
+        # No AI request: the step requests nothing from the backend except GET /health and
+        # POST /auth/demo, so no suggestion or summary is requested, and neither the start nor the
+        # demo reset calls the AI. AI_BASE_URL is a local address where nothing listens and
+        # AI_API_KEY is not a key, so no request could reach an AI provider either. The product
+        # owner approved exactly this step on #61 (2026-11-15): any change that lets it send an AI
+        # request, or points it at a real provider or key, needs that approval again.
+        run: |
+          sed -i \
+            -e 's|^AI_PROVIDER=.*|AI_PROVIDER=openai-compatible|' \
+            -e 's|^AI_API_KEY=.*|AI_API_KEY=not-a-real-key|' \
+            -e 's|^AI_BASE_URL=.*|AI_BASE_URL=http://127.0.0.1:9/v1|' \
+            -e 's|^DEMO_EMAIL=.*|DEMO_EMAIL=demo@example.com|' \
+            .env
+          diff .env.example .env || true
+          changed=$(diff .env.example .env | grep -c '^>' || true)
+          [ "$changed" = 4 ] || { echo "::error::Expected 4 changed lines in .env, found $changed"; exit 1; }
+          # Only the backend, without a build: the db container keeps running as it is.
+          docker compose up -d --no-build --no-deps --force-recreate backend
+          status=none
+          for _ in $(seq 1 60); do
+            status=$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 http://localhost:8000/health || true)
+            [ "$status" = "200" ] && break
+            sleep 2
+          done
+          # The recreated container's log: the container from before the restart is removed.
+          docker compose logs --no-color backend > backend-restart.log
+          grep 'start: ' backend-restart.log || true
+          reset=no
+          grep -q 'start: demo account reset' backend-restart.log && reset=yes
+          # The response holds a login token, so only its demo field is printed.
+          demo_status=$(curl -s -o demo.json -w '%{http_code}' --max-time 10 -X POST http://localhost:8000/auth/demo || true)
+          demo=$(python3 -c 'import json, sys; print(json.dumps(json.load(open(sys.argv[1])).get("demo")))' demo.json 2>/dev/null || echo none)
+          rm -f demo.json
+          echo "Backend log after the restart shows 'start: demo account reset': $reset"
+          echo "GET /health -> $status"
+          echo "POST /auth/demo -> $demo_status, demo: $demo"
+          [ "$reset" = yes ] || { echo "::error::The backend log has no 'start: demo account reset' after the restart"; exit 1; }
+          [ "$status" = "200" ] || { echo "::error::GET /health did not return 200 after the restart (last status: $status)"; exit 1; }
+          if [ "$demo_status" != "200" ] || [ "$demo" != true ]; then
+            echo "::error::POST /auth/demo returned $demo_status with demo: $demo"
+            exit 1
+          fi
+
       - name: Upload the end-to-end test output
         # The trace and the screenshot of a failed test.
         if: failure()

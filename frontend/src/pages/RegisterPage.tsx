@@ -2,14 +2,24 @@ import { useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { EmailAlreadyRegisteredError, ValidationError, login, register } from '../api/index.ts'
 import { EmailField, FormAlert, PasswordField, SubmitButton } from '../auth/AuthFields.tsx'
-import { unexpectedErrorMessage, validationMessages } from '../auth/requestErrors.ts'
+import { unexpectedErrorMessage, validationMessages, type FieldTexts } from '../auth/requestErrors.ts'
 import { useWakingUpHint } from '../auth/useWakingUpHint.ts'
-import { PASSWORD_HINT, PASSWORD_MESSAGES, emailProblem, passwordProblems } from '../auth/validation.ts'
+import {
+  EMAIL_REJECTED,
+  NEW_PASSWORD_REJECTED,
+  PASSWORD_HINT,
+  PASSWORD_MESSAGES,
+  emailProblem,
+  passwordProblems,
+} from '../auth/validation.ts'
 import { LOGIN_PATH, type LoginPageState } from '../auth/wantedPage.ts'
 import { LoginIllustration } from '../components/Illustrations.tsx'
 import '../auth/AuthForm.css'
 
 type Field = 'email' | 'password'
+
+/** What a field shows when a server validation error names it (#72). The server's text is never shown. */
+const SERVER_FIELD_TEXTS: FieldTexts = { email: EMAIL_REJECTED, password: NEW_PASSWORD_REJECTED }
 
 // FR-A1: register with an email and a password, then log in with the same details. The
 // form checks the password rule from #6 first; the backend stays the authority.
@@ -21,7 +31,8 @@ export default function RegisterPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [checked, setChecked] = useState<Record<Field, boolean>>({ email: false, password: false })
-  const [serverMessages, setServerMessages] = useState<Record<Field, string[]>>({ email: [], password: [] })
+  // At most one server message per field (#72).
+  const [serverMessages, setServerMessages] = useState<Record<Field, string | null>>({ email: null, password: null })
   const [emailTaken, setEmailTaken] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
@@ -32,7 +43,7 @@ export default function RegisterPage() {
 
   const emailMessages: ReactNode[] = [
     ...(checked.email && emailError !== null ? [emailError] : []),
-    ...serverMessages.email,
+    ...(serverMessages.email !== null ? [serverMessages.email] : []),
   ]
   if (emailTaken) {
     emailMessages.push(
@@ -41,7 +52,10 @@ export default function RegisterPage() {
       </>,
     )
   }
-  const passwordMessages = [...(checked.password ? passwordErrors : []), ...serverMessages.password]
+  const passwordMessages = [
+    ...(checked.password ? passwordErrors : []),
+    ...(serverMessages.password !== null ? [serverMessages.password] : []),
+  ]
 
   function change(field: Field, value: string) {
     if (field === 'email') {
@@ -50,7 +64,7 @@ export default function RegisterPage() {
     } else {
       setPassword(value)
     }
-    setServerMessages((current) => ({ ...current, [field]: [] }))
+    setServerMessages((current) => ({ ...current, [field]: null }))
   }
 
   function check(field: Field) {
@@ -73,7 +87,7 @@ export default function RegisterPage() {
     }
 
     setFormError(null)
-    setServerMessages({ email: [], password: [] })
+    setServerMessages({ email: null, password: null })
     setEmailTaken(false)
     setPending(true)
     try {
@@ -103,13 +117,13 @@ export default function RegisterPage() {
   }
 
   function showValidationError(error: ValidationError) {
-    const { email: emailReasons, password: passwordReasons, form } = validationMessages(error)
-    setServerMessages({ email: emailReasons, password: passwordReasons })
+    const { email: emailMessage, password: passwordMessage, form } = validationMessages(error, SERVER_FIELD_TEXTS)
+    setServerMessages({ email: emailMessage, password: passwordMessage })
     setFormError(form)
     // The cursor goes to the first field with a message, as the form's own check does (#84).
-    if (emailReasons.length > 0) {
+    if (emailMessage !== null) {
       emailRef.current?.focus()
-    } else if (passwordReasons.length > 0) {
+    } else if (passwordMessage !== null) {
       passwordRef.current?.focus()
     }
   }

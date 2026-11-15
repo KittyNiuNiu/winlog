@@ -4,7 +4,7 @@ The backlog lives in GitHub issues. Each task below links to its issue, which ho
 
 Tasks follow `product-spec.md` (v0.2) and are listed in build order. Each issue title starts with the same number as below, so the order is also visible in the GitHub issue list. Issue numbers and task numbers differ: #1 is a pull request, and #43, #46, #73, #74, #75, #77, #78 and #79 were added later. References such as FR-E1 or §8 in the issues point to the spec.
 
-Tasks 48 to 61 are follow-up issues created from open points of earlier tasks. The product owner set their order on 2026-11-14: first what protects the live app, then the pipeline and developer set-up, then interface polish, and last the larger tasks that need an account or real AI calls. They keep their original titles, without a task number.
+Tasks 48 to 67 are follow-up issues created from open points of earlier tasks, plus one new task (65). The product owner set their order on 2026-11-14: first what protects the live app, then the pipeline and developer set-up, then interface polish, and last the larger tasks that need an account or real AI calls. On 2026-11-15 the product owner added five small follow-ups (tasks 60 to 64) before those larger tasks, and asked for an alert on user impact (task 65, #112). They keep their original titles, without a task number.
 
 1. [Write the OpenAPI contract](https://github.com/KittyNiuNiu/winlog/issues/2) (#2)
 2. [Set up the backend project skeleton](https://github.com/KittyNiuNiu/winlog/issues/3) (#3)
@@ -65,8 +65,14 @@ Tasks 48 to 61 are follow-up issues created from open points of earlier tasks. T
 57. [Follow-up from #26: technical server validation messages on the login and registration forms](https://github.com/KittyNiuNiu/winlog/issues/72) (#72)
 58. [Follow-up from #28: feedback when a suggestion adds nothing or is dropped](https://github.com/KittyNiuNiu/winlog/issues/86) (#86)
 59. [Follow-up from #83: dark-mode hover and disabled fills, the writing nudge's look, and the laptop entry row height](https://github.com/KittyNiuNiu/winlog/issues/90) (#90)
-60. [Follow-up from #74: send telemetry from the deployed dev and production environments to a hosted UI](https://github.com/KittyNiuNiu/winlog/issues/92) (#92)
-61. [Follow-up from #38: AI summaries mostly repeat the entries' own wording](https://github.com/KittyNiuNiu/winlog/issues/98) (#98)
+60. [Follow-up from #40: bring the spec's OpenRouter mention and "Last updated" date up to date](https://github.com/KittyNiuNiu/winlog/issues/103) (#103)
+61. [Follow-ups from #11: two wordings for invalid dates, and optional filter parameters in the generated schema](https://github.com/KittyNiuNiu/winlog/issues/106) (#106)
+62. [Follow-up from #89: five whole-number settings still accept `+5`, `1_0` and `10.0`](https://github.com/KittyNiuNiu/winlog/issues/108) (#108)
+63. [Follow-up from #102: every Manual Sync lists the same three Blueprint changes](https://github.com/KittyNiuNiu/winlog/issues/109) (#109)
+64. [Follow-ups from #14 and #17: an overall time limit for AI requests, and finish reasons other than "length"](https://github.com/KittyNiuNiu/winlog/issues/111) (#111)
+65. [Alert on user impact in the local telemetry stack](https://github.com/KittyNiuNiu/winlog/issues/112) (#112)
+66. [Follow-up from #74: send telemetry from the deployed dev and production environments to a hosted UI](https://github.com/KittyNiuNiu/winlog/issues/92) (#92)
+67. [Follow-up from #38: AI summaries mostly repeat the entries' own wording](https://github.com/KittyNiuNiu/winlog/issues/98) (#98)
 
 ## Skipped
 

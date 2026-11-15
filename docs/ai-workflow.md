@@ -4244,3 +4244,492 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - **`actionlint` v1.7.12** (built with Go in the scratchpad): no error for both workflows. With shellcheck 0.11.0, `deploy.yml` is clean. `ci.yml` still has the two SC2034 warnings in the Full system job, which `main` has too.
   - No hook was called, no Deploy run was started, and no real AI call was made.
 - **Left open:** section G of #102, unchanged: only the first real deploy after the merge can prove it. QA reads that run afterwards.
+
+## 2026-11-15: PM: groom #61 (task 54, Docker Compose passes every backend setting, and `httpx2` as a runtime dependency)
+
+- **Task:** groom #61, which had no status label, following `docs/pm.md`. It is task 54, in the group "pipeline and developer set-up".
+- **What I read:**
+  - the issue and all nine of its comments: inputs from #15 (two), #14, #17 (two), #43, #38, and #40 (the PM's and QA's);
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md`, `docs/product-spec.md`, `openapi.yaml`, `AGENTS.md` and `docs/tasks.md`;
+  - `docker-compose.yml`, `.env.example`, `README.md` (Quick start, Configuration), `backend/app/settings.py`, `backend/start.sh` and `backend/Dockerfile`;
+  - `backend/pyproject.toml`, `backend/uv.lock` and `backend/app/ai/openai_compatible.py`;
+  - CI's Backend and Full system jobs, `render.yaml` and `ops/deployment.md`;
+  - the unit tests that read `docker-compose.yml`;
+  - #89, to confirm that the bigint input is done.
+- **What I did:**
+  - Rewrote the body of #61 using the template. Sections A to F hold the criteria:
+    - A: Compose passes `.env` (checked with `docker compose config`);
+    - B: a CI step for the real provider's settings and the demo under Compose;
+    - C: unit tests;
+    - D: `httpx2`;
+    - E: documentation;
+    - F: the checks.
+  - Posted the PM comment (6894700537). It maps each input to where it went, gives the decisions and the facts checked, and keeps the original body.
+  - Created the follow-up issue #111 ("an overall time limit for AI requests, and finish reasons other than \"length\"").
+  - Labels unchanged on both issues: the orchestrator sets the status.
+- **Decisions under the standing rule (2026-11-14), recorded in the issue:**
+  - **`env_file: .env` plus six overrides**, not a list of every variable. The overrides are `DATABASE_URL`, `CORS_ALLOWED_ORIGINS`, `HSTS_MAX_AGE_SECONDS` (0 by default), `AI_PROVIDER`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and the new `PORT: "8000"`.
+  - **The three redundant entries are removed** (`DATABASE_CONNECT_TIMEOUT_SECONDS`, `DATABASE_QUERY_TIMEOUT_SECONDS`, `REQUEST_BODY_MAX_BYTES`). The three tests that assert them change on purpose.
+  - **The real-provider path is checked only up to a started backend.** CI's Full system job restarts the backend with `openai-compatible`, a placeholder key, a local base URL where nothing listens, and `DEMO_EMAIL`. It requests only `/health` and `/auth/demo`, so no AI call is made.
+  - **Minimum Docker Compose 2.23.1,** in the README's Quick start and `AGENTS.md`'s Full system line.
+  - **Only `httpx2` becomes a declared dependency.** `starlette` and `pydantic_core` stay undeclared.
+  - **#14's deadline and #17's finish reasons move to #111.**
+  - **The bigint input is already done in #89.**
+  - **No screen, spec, contract or `render.yaml` change,** so no Blueprint sync.
+- **How I verified it:**
+  - **Docker's Compose file reference** (its source in `docker/docs` on raw.githubusercontent.com; docs.docker.com is blocked here):
+    - `configs` `content` was introduced in Compose 2.23.1;
+    - `environment` takes precedence over `env_file`.
+  - **Compose v5.6.1 in this session,** on a scratch copy of the Compose file with `env_file` (not committed):
+    - `docker compose config` shows every `.env` variable under the backend, and the overrides win, `PORT=9000` included.
+    - Shell variables do not replace `env_file` values.
+    - Without `.env`, Compose stops with the existing messages.
+    - A throwaway `python:3.13-slim` container was recreated with the new value after `.env` changed.
+  - **`uv` 0.11.32:**
+    - `uv lock --check` passes;
+    - `uv tree --no-dev --depth 1` does not list `httpx2` today;
+    - the lock has `openai` 3.46.0 depending on `httpx2` 2.16.0.
+  - **All 24 `Settings` fields** have a `NAME=` line in `.env.example`.
+  - **The saved issue body,** read back: it has the four template sections and 32 criteria, and the labels are still empty.
+  - No change to project code, and no AI call.
+- **Left open:**
+  - Whether the CI start-only check falls under the `AGENTS.md` rule on running the app with a provider other than `mock` is for the orchestrator to confirm. It makes no AI call and cannot reach a provider. The fallback is to drop that step.
+  - WebFetch cannot reach docs.docker.com in this session.
+
+## 2026-11-15: Engineer: implement #61 (task 54, Docker Compose passes every backend setting, and `httpx2` as a runtime dependency)
+
+- **Task:** implement #61 as groomed (PM comment 6894700537), with the product owner's approval of exactly one CI step (comment 6894720974), following `docs/software-engineer.md`. No screens change, so there is no design note.
+- **What I did** (commits `a7f513d`, `05e0daa`, `e2e1923` and `fcc55be`):
+  - **`docker-compose.yml`:** the `backend` service gets `env_file: .env` (short form). Its `environment:` keeps exactly the six overrides: `DATABASE_URL`, `CORS_ALLOWED_ORIGINS`, `HSTS_MAX_AGE_SECONDS` (`${HSTS_MAX_AGE_SECONDS:-0}`), `AI_PROVIDER`, `OTEL_EXPORTER_OTLP_ENDPOINT` and the new `PORT: "8000"`. The entries for `DATABASE_CONNECT_TIMEOUT_SECONDS`, `DATABASE_QUERY_TIMEOUT_SECONDS` and `REQUEST_BODY_MAX_BYTES` are removed. One comment on the service gives the reason for each override and says that a new setting needs only its line in `.env.example`. `db`, `lgtm` and `frontend` are unchanged.
+  - **`httpx2`:** moved from the `dev` group to `[project] dependencies` (`"httpx2>=2.16"`, in alphabetical order). `uv lock` changed only the declaration in `uv.lock`; no locked version changed (`httpx2` stays 2.16.0).
+  - **CI, Full system job:** one new step after "Telemetry reached the local stack", "Backend starts with the openai-compatible settings and the demo". It changes four lines of `.env` with one `sed` (`AI_PROVIDER=openai-compatible`, `AI_API_KEY=not-a-real-key`, `AI_BASE_URL=http://127.0.0.1:9/v1`, `DEMO_EMAIL=demo@example.com`), prints the diff to `.env.example` and fails unless exactly four lines differ. It runs `docker compose up -d --no-build --no-deps --force-recreate backend`, waits for `GET /health` 200, reads the recreated container's log for `start: demo account reset`, and sends `POST /auth/demo`, printing only the response's `demo` field (the body holds a token). It prints one line per check. Its comment says why no AI request is made or possible and that a change needs the product owner's approval again. The existing steps are unchanged.
+  - **Docs:** README Quick start (Docker Compose 2.23.1 or later, with `docker compose version` and the `configs:` `content:` reason; the demo with `DEMO_EMAIL`), README Configuration (what Compose sets itself, settings in `.env` not the shell, `docker compose up` again, the cost of a real provider, `docker compose config` prints `AI_API_KEY`), `AGENTS.md`'s Full system line, the `.env.example` header and `PORT` comments, the `backend/start.sh` header comment and step 3 in `ops/deployment.md`.
+- **Decisions I made** (open questions, decided with my recommended option):
+  - **The README had no link to #61** to remove (the criterion expected one); the replaced paragraph and bullets are gone.
+  - **Extra guard tests** beyond section C: one pins the CI step (its place, its four `.env` changes, `--no-build`, its only two requests and URLs), so a change that could send an AI request fails a test; one checks that `httpx2>=2.16` is a runtime dependency, not a dev one, and that the provider imports it.
+  - **Local `.env`:** the session's git-ignored `.env` was an older copy of `.env.example` with the same values (only comments and three newer lines differed), and it still held the old "Docker Compose does not set it" comment. I replaced it with a fresh copy of the new `.env.example`, so the search check and local runs match CI.
+- **Changed existing tests** (section C, on purpose; this is a mechanism change, not a weaker test):
+  - `test_db_time_limit_setting_is_passed_by_docker_compose` and `test_request_body_limit_is_passed_by_docker_compose`: the backend has `env_file: .env`, does not override the variable, and `.env.example` has `DATABASE_QUERY_TIMEOUT_SECONDS=10` or `REQUEST_BODY_MAX_BYTES=262144`.
+  - `test_hsts_is_passed_by_docker_compose_with_zero`: keeps its value check and drops only the position check.
+  - No other assertion in an existing test changed.
+- **New tests:** `backend/tests/unit/test_docker_compose.py` (`test_docker_compose_passes_env_file_to_the_backend`, `test_docker_compose_backend_overrides_only_what_compose_sets_or_requires`, `test_every_backend_setting_has_a_line_in_env_example`, `test_docker_compose_ci_check_of_the_openai_compatible_settings_makes_no_ai_request`) and `test_ai_openai_httpx2_is_a_runtime_dependency` in `test_ai_openai_compatible.py`.
+- **How I verified it:**
+  - **`docker compose config`** (Compose v5.6.1, on a scratch copy, no image build): with `.env` from `.env.example`, the backend shows `AI_PROVIDER: mock`, empty `AI_API_KEY` and `DEMO_EMAIL`, `HSTS_MAX_AGE_SECONDS: "0"`, `PORT: "8000"`, `DATABASE_URL` on `db`, `OTEL_EXPORTER_OTLP_ENDPOINT: http://lgtm:4318`, and every other `.env.example` variable with its value. With the issue's test `.env`, it shows the eight values from `.env` and the four from Compose. Without `.env`, the error output is identical to the old Compose file's.
+  - **Against the old files:** with `docker-compose.yml`, `pyproject.toml` and `ci.yml` from the parent commit, the three new Compose tests, the `httpx2` test and the two reworked tests fail.
+  - **The step's checks, locally with `AI_PROVIDER=mock`:** `start.sh` with `DEMO_EMAIL=demo@example.com` on a throwaway database, then the step's check commands: `start: demo account reset` in the log, `GET /health` 200, `POST /auth/demo` 200 with `demo: true`. The step's `sed` changes exactly four lines of a copy of `.env.example`.
+  - **`uv`:** `uv lock --check` passes; `uv tree --no-dev --depth 1` lists `httpx2 v2.16.0` under `winlog-backend`; the locked names and versions are the same as in the parent commit.
+  - **Lint and tests:** in `backend/`, `uv run ruff check .` and `uv run ruff format --check .` are clean; `uv run pytest tests/unit` passed 1517 in a network namespace where PostgreSQL is unreachable; `./test-all.sh` passed all three suites (backend unit 1517, backend integration 1198, frontend 1274). `npm run lint` in `frontend/` is clean.
+  - **`actionlint` v1.7.12** with shellcheck 0.11.0: only the two existing SC2034 warnings in the Full system job; shellcheck at style level is clean for the new step's script.
+  - **CI on the branch:** run 43717841450 for `fcc55be` passed all six jobs. The new step's log shows the four `.env` changes, the backend recreated, `start: demo account reset`, `GET /health -> 200` and `POST /auth/demo -> 200, demo: true`.
+  - No AI call was made: every local check used `AI_PROVIDER=mock`, and the CI step requests only `/health` and `/auth/demo` with a placeholder key and a local address where nothing listens.
+- **Left open:**
+  - `render.yaml` is unchanged, so no Blueprint sync is needed; the change reaches production only with the production approval (#39).
+  - The two SC2034 warnings in `ci.yml`'s Full system job (pre-existing, outside this task).
+
+## 2026-11-15: Orchestrator: close #61 (Compose passes `.env` to the backend, httpx2 as a runtime dependency)
+
+- **Task:** task 54, run with `/orchestrate all`. No screens change and `render.yaml` does not change.
+- **What happened:**
+  - **PM grooming (6894700537):** `env_file: .env` plus six overrides, including `PORT: "8000"`; Docker Compose 2.23.1 as the minimum; `httpx2` in runtime dependencies. The PM moved two AI points to the new issue #111, which is not listed in `docs/tasks.md`.
+  - **Product owner approval (6894720974),** under the `AGENTS.md` rule on real AI calls: one CI step may restart the Compose backend with `AI_PROVIDER=openai-compatible`, a fake key, `AI_BASE_URL=http://127.0.0.1:9/v1` and `DEMO_EMAIL`, and request only `/health` and `/auth/demo`. Any change beyond that needs approval again.
+  - **Engineer (6895018383)** and **QA PASS (6895390241)**, on all 32 criteria. Closed as completed.
+  - F4 was checked without actionlint: the session denied QA the download, and the orchestrator did not run it on QA's behalf. The engineer's actionlint v1.7.12 run on the same commits found no new warning.
+- **Open points and where they went:**
+  - **The README's shell-variable sentence is imprecise for the three overrides:** a comment on #68.
+  - **Left in this log under the standing rule:**
+    - the CI-step guard test checks `curl` only;
+    - unit tests in `unshare -n` need the loopback interface up.
+
+## 2026-11-15: Orchestrator: add five small follow-ups to the backlog order and extend the standing rule
+
+- **Task:** the product owner asked to add the five small unlisted follow-ups to `docs/tasks.md`, before #92 and #98.
+- **What I did:**
+  - `docs/tasks.md`: added #103, #106, #108, #109 and #111 as tasks 60 to 64, oldest first. #92 and #98 moved to tasks 65 and 66, and the intro says so.
+  - `docs/process.md`: the standing rule of 2026-11-14 now covers tasks 48 to 66.
+- **Decisions (product owner, 2026-11-15):**
+  - the standing rule covers tasks 48 to 66;
+  - the running `/orchestrate` batch continues through tasks 60 to 64 and stops before #92 (task 65).
+
+## 2026-11-15: PM: amend section G of #102 after QA's FAIL (task 53, accept the first real deploy's evidence)
+
+- **Task:** amend the first and third criteria of section G of #102, after QA's FAIL on section G (comment 6895536851), following `docs/pm.md` and the product owner's decision of 2026-11-15: accept the first real deploy's evidence and close, with no code change and no new deploy. It was the second QA FAIL for this issue, a stop point, so the orchestrator asked the product owner.
+- **What I read:** the issue body and all ten comments, especially QA's FAIL on section G and the orchestrator's handoff (6894570095); `docs/pm.md`, `docs/process.md` and `docs/task-template.md`; the wait step in `.github/workflows/deploy.yml`; and the named wait test in `backend/tests/unit/test_deployment.py`.
+- **What I did:**
+  - **Amended the body of #102.** The note at the top of the criteria says that section G was amended again, and both changed criteria are marked _amended 2026-11-15 (section G)_:
+    - G1 (dev) accepts what Deploy run 43717031913 shows: the wait passed only after both dev services named `c78bd08`, within 15 minutes, and no log line names another commit. The evidence for the rest: the previous deploys of `578cfad` had no `commit` field and no `version.json`; a request with no answer counts as "no commit", as section D already says; a log without the previous static site is accepted, because the backend is asked first and a request can take up to 30 s (QA's note 1); and `test_deploy_wait_passes_only_after_both_name_the_commit_and_logs_each_change_once` covers the previous deploys answering first, against a local stand-in.
+    - G3 (production): the same for `winlog-api` and `winlog-app`, and their `/health` and `/version.json` must still show the same commit.
+    - G2 and G4 are unchanged.
+  - **Posted a comment** naming the decision and what changed (6896176545). Labels unchanged. No follow-up issue.
+- **Decisions:** none of my own. The amendment carries out the product owner's decision.
+- **How I verified it:**
+  - `git show 578cfad:backend/app/health.py` returns `Health(status="ok", database="ok")`. `git grep` at `578cfad` finds no `version.json` and no `RENDER_GIT_COMMIT`.
+  - The wait step in `deploy.yml` asks `$API_URL/health` first, uses `curl --max-time 30`, and logs a request with no answer as "no answer, no commit".
+  - `uv run pytest tests/unit/test_deployment.py -k test_deploy_wait_passes_only_after_both_name_the_commit_and_logs_each_change_once` in `backend/`: 1 passed.
+  - The saved issue body matches what I wrote, apart from one blank line before the footer that GitHub dropped. The labels are still `qa-failed`.
+  - No change to project code, and no AI call.
+- **Left open:** nothing for the engineer. The orchestrator decides the next status from this amendment and QA's results on section G.
+
+## 2026-11-15: Orchestrator: close #102 (deploy wait checks the deployed commit)
+
+- **Task:** task 53, run with `/orchestrate all`. No screens change and `render.yaml` does not change.
+- **What happened:**
+  - **Grooming:** PM grooming (6893342798). The product owner accepted the new gate (6893378317): a dev deploy that does not name the run's commit within 15 minutes offers no production step.
+  - **Sections A to F:** the engineer built it (6893721938). QA FAIL 6894012626: Render's CDN ignores query strings. The product owner decided to correct the criterion, with no `headers` rule, and the PM amended it (6894130886). The engineer fixed it (6894376359), and QA passed on the branch (6894563106).
+  - **The first real deploy:** the product owner merged PR #110 (c78bd08), approved production and ran a Manual Sync for #99's setting. The wait passed only once both services named c78bd08 (dev 41 s, production 51 s).
+  - **Section G:** QA FAIL 6895536851. G1 and G3 failed only because the log did not show the previous deploys; there was no code defect. This was the second QA FAIL, a stop point. The product owner decided to accept and close. The PM amended G1 and G3 to accept QA's own evidence (6896176545). Closed as completed, with no further QA round, by that decision.
+- **Open points, left in this log under the standing rule:**
+  - the wait asks the backend first, so it rarely sees a previous static site;
+  - Render's CDN clearing is consistent with the runs but not proven;
+  - the existing SC2034 warnings in `ci.yml`;
+  - a missing `commit` and `null` give the same log line.
+
+## 2026-11-15: PM: groom #64 (task 55, the Markdown export's file name example in openapi.yaml)
+
+- **Task:** groom #64, which had no status label, following `docs/pm.md`. It is task 55, a small contract-documentation fix.
+- **What I read:**
+  - the issue (no comments yet) and the four comments it cites: QA on #2 (note 2), the orchestrator, the engineer and QA on #19;
+  - #61 as the pattern for a groomed follow-up;
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md`, `docs/product-spec.md` (FR-D1), `docs/tasks.md`, `AGENTS.md` and `openapi.yaml` (both export operations, `components.headers`);
+  - `backend/app/export.py`, `backend/tests/unit/test_export.py` and `backend/tests/integration/test_export.py`;
+  - `frontend/src/api/schema.d.ts`, `operations.ts`, `contentDisposition.ts`, `client.test.ts`, and the CI contract and generated-types steps.
+- **What I did:**
+  - Rewrote the body of #64 using the template, with sections A (contract), B (generated types), C (a new test), D (no behaviour change) and E (checks).
+  - Posted the PM comment with the decisions and the facts I checked (6896248267).
+  - Labels unchanged: the orchestrator sets the status. No follow-up issue.
+- **Decisions under the standing rule (2026-11-14, extended 2026-11-15), recorded in the issue:**
+  - **Own header entry per export:** `ContentDispositionJson` and `ContentDispositionMarkdown` in `components.headers`, each with its own description and example. The shared `ContentDisposition` is removed. An `example` next to a `$ref` is ignored in OpenAPI 3.1, an `examples` map would show both names on both operations, and inline headers would break the file's habit of keeping headers in components.
+  - **Date:** both examples use 2026-11-01, like the Markdown body example and the backend tests.
+  - **Test:** one new backend unit test, `test_fr_d1_export_file_name_examples_match_the_backend`, compares each operation's example with the backend's `file_name`. It fails on today's contract.
+  - **Unchanged:** the backend's own OpenAPI (`_CONTENT_DISPOSITION`, no example, correct description), `info.description` and `info.version`.
+  - **No screen change** (only generated types in `frontend/`), no `render.yaml` change and no Blueprint sync, no spec change.
+- **How I verified it:**
+  - **OpenAPI 3.1.0,** read from `versions/3.1.0.md` in the OAI/OpenAPI-Specification repository (spec.openapis.org is blocked here): a Reference Object ignores any field other than `$ref`, `summary` and `description`; a Header Object has `example`.
+  - **A scratch copy of the change,** not committed:
+    - Redocly CLI 2.78.0 reports the same 3 warnings and 0 errors before and after. An unused header entry adds no warning, so the issue states the removal itself.
+    - openapi-typescript 7.13.0 regenerates today's `schema.d.ts` exactly. With the change, the diff touches only the header entries and the two export operations' header types.
+  - `grep` finds no frontend code outside `schema.d.ts` that uses `components["headers"]`.
+  - The saved issue body is identical to what I wrote, and the issue still has no labels.
+  - No change to project code, and no AI call.
+- **Left open:** nothing.
+
+## 2026-11-15: Engineer: implement #64 (task 55, the Markdown export's file name example in openapi.yaml)
+
+- **Task:** implement #64 as groomed (sections A to E, PM comment 6896248267). No screens change; in `frontend/` only the generated types change.
+- **What I read:** the issue and the PM comment; `docs/software-engineer.md`, `docs/process.md`, `AGENTS.md`; both export operations and `components.headers` in `openapi.yaml`; `file_name` in `backend/app/export.py`; `backend/tests/unit/test_export.py`; the CI step "Generated API types match openapi.yaml".
+- **What I did** (commit 9cba82d):
+  - **Test first:** added `test_fr_d1_export_file_name_examples_match_the_backend` to `backend/tests/unit/test_export.py`, run once per operation (`exportJson`, `exportMarkdown`). It follows the `$ref` of the `200` `Content-Disposition` header to its entry in `components.headers` and compares the `example` with `attachment; filename="<name>"`, where `<name>` is `file_name(_data(), "json" | "md")` at `EXPORTED_AT`. On the old contract it failed for `exportMarkdown` (`.json` instead of `.md`) and passed for `exportJson`.
+  - **Contract (`openapi.yaml`):** replaced `components.headers.ContentDisposition` with `ContentDispositionJson` and `ContentDispositionMarkdown`, exactly as section A gives them, before `RetryAfter`. `exportJson` and `exportMarkdown` now `$ref` their own entry. Nothing else in the file changed.
+  - **Types:** regenerated `frontend/src/api/schema.d.ts` with `npm run generate:api` (openapi-typescript 7.13.0).
+- **Decisions:** none of my own. The test sits next to `test_fr_d1_export_file_names_use_the_utc_date` in the Downloads section, with the operation ids as test ids.
+- **How I verified it:**
+  - `npx --yes @redocly/cli@2 lint openapi.yaml`: valid, 0 errors and the same 3 warnings before and after (`info-license`, `no-server-example.com`, `operation-4xx-response` on `/health`).
+  - `git diff` of `openapi.yaml` shows only the two `$ref` lines and the header entries; `components.headers` keys are `ContentDispositionJson`, `ContentDispositionMarkdown`, `RetryAfter`.
+  - The `schema.d.ts` diff shows only the two header entries (new descriptions, `.json` and `.md` examples) and the two operations' header types. Running `npm run generate:api` again leaves the file byte-identical.
+  - `git diff` shows no change in `backend/app/` or in any other file in `frontend/`. No existing test changed.
+  - `backend/`: `uv run ruff check .` and `uv run ruff format --check .` pass; `uv run pytest tests/unit`: 1519 passed.
+  - `frontend/`: `npm run lint`, `npm test` (1274 passed) and `npm run build` pass.
+  - `./test-all.sh`: all three suites passed (backend unit 1519, integration 1198, frontend 1274).
+  - CI on the pushed branch: see the issue comment.
+  - No AI call.
+- **Left open:** nothing.
+
+## 2026-11-15: Orchestrator: close #64 (Markdown export file name example in openapi.yaml)
+
+- **Task:** task 55, run with `/orchestrate all`. No screens change.
+- **What happened:** PM grooming (6896248267): each export gets its own `Content-Disposition` header entry with its own example. Engineer (6896491857): the contract, the regenerated types, and one test tying each example to the backend's file name. QA PASS (6896647009), on 16 of 16 criteria. Closed as completed.
+- **Open points:** none.
+
+## 2026-11-15: PM: groom #68 (task 56, CI's checks and the repository's paths in AGENTS.md, and the README's shell-variable note)
+
+- **Task:** groom #68, which had no status label, following `docs/pm.md`. It is task 56, a docs-accuracy task.
+- **What I read:**
+  - the issue and its three input comments (from #25, #40 and #61), the #24 engineer and QA comments it cites, and the PM re-grooming comment on #40;
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md`, `docs/tasks.md`, `AGENTS.md`, `README.md`, #64 as the pattern for a groomed follow-up;
+  - `.github/workflows/ci.yml` as it is now, `test-all.sh`, `docker-compose.yml`, `.env.example`, `frontend/package.json`, `backend/app/settings.py` and the test that reads `AGENTS.md`.
+- **What I did:**
+  - Compared every CI step that runs a project command with `AGENTS.md` → Commands and the README's Quick start and "Development and tests".
+  - Rewrote the body of #68 using the template, with sections A (CI's checks in "Commands"), B (paths that exist), C (README) and D (checks).
+  - Posted the PM comment with the comparison table, the decisions and the facts I checked (6896760339).
+  - Labels unchanged: the orchestrator sets the status. No follow-up issue.
+- **Decisions under the standing rule (2026-11-14, extended 2026-11-15), recorded in the issue:**
+  - **Added to `AGENTS.md`:** CI's contract lint (`npx --yes @redocly/cli@2 lint openapi.yaml`) and `npm run generate:api`. The README only names them, as #40 settled.
+  - **CI forms named next to the local command:** `uv sync --locked`, `uv run ruff format --check .` and `npx playwright install --with-deps chromium`. `uv sync`, `uv run ruff format .` and `npx playwright install chromium` stay.
+  - **Replaced:** `docker compose up -d db` becomes `docker compose up -d --wait db` in `AGENTS.md` and the README, as in CI and `test-all.sh`.
+  - **Paths:** "Repository layout" drops `security/` and `mcp-server/`, which never existed; `product-spec.md` becomes `docs/product-spec.md`.
+  - **README:** the shell-variable bullet names the values a shell variable overrides under Compose (`AI_PROVIDER`, `CORS_ALLOWED_ORIGINS`, `HSTS_MAX_AGE_SECONDS` and the `POSTGRES_*` values in `DATABASE_URL`).
+  - **Also:** the Docker Compose 2.23.1 minimum covers every Compose command, and `AGENTS.md` says that a task that changes a CI check's command updates its line. No new test.
+  - **No screen change**, no `render.yaml` change and no Blueprint sync, no spec or contract change.
+- **How I verified it:**
+  - Ran the commands the issue adds or changes, without changing any file: Redocly CLI 2.78.0 lint (0 errors, 3 warnings, exit 0); `npm run generate:api` (no diff); `uv sync --locked` and `uv run ruff format --check .` (uv 0.11.32, both exit 0); `docker compose up --help` and `npx playwright install --help` for `--wait` and `--with-deps`.
+  - Checked the shell-variable precedence with `docker compose config --format json` (Compose v5.6.1, `.env` from `.env.example`, printing only the keys checked): shell values win for `AI_PROVIDER`, `CORS_ALLOWED_ORIGINS`, `HSTS_MAX_AGE_SECONDS` and `POSTGRES_USER` (in `DATABASE_URL`), not for `AI_MODEL` or `AI_DAILY_REQUESTS_GLOBAL`. docs.docker.com is not reachable from this session, so I checked the behaviour by running Compose.
+  - `ls` and `git log --all` for `mcp-server/` and `security/`: neither exists or ever existed.
+  - The saved issue body is identical to what I wrote, and the issue still has no labels. No AI call.
+- **Left open:** nothing.
+
+## 2026-11-15: Engineer: implement #68 (task 56, CI's checks and the repository's paths in AGENTS.md, and the README's shell-variable note)
+
+- **Task:** implement #68 as groomed (sections A to D, PM comment 6896760339). Documentation only: no screens, no code, no `render.yaml`, spec or contract change.
+- **What I read:** the issue, its input comments and the PM comment; `docs/software-engineer.md`, `docs/process.md`, `AGENTS.md`, `README.md`; `.github/workflows/ci.yml`, `docker-compose.yml`, `frontend/package.json` and `frontend/.nvmrc`.
+- **What I did** (commit a40ea77):
+  - **`AGENTS.md` → Commands:**
+    - The introduction now says that CI (`.github/workflows/ci.yml`) runs its checks with these commands, that a line names CI's form where it differs, and that a task that changes a CI check's command updates its line in the same task. A second paragraph says that every `docker compose` command needs Docker Compose 2.23.1 or later, including the test database and `./test-all.sh`, and why.
+    - New "Contract (run in the repo root)" block with `npx --yes @redocly/cli@2 lint openapi.yaml`, and a new Frontend line for `npm run generate:api`, each with the notes section A asks for.
+    - `uv sync`, `uv run ruff format .` and `npx playwright install chromium` stay; their lines name `uv sync --locked`, `uv run ruff format --check .` and `npx playwright install --with-deps chromium`. The end-to-end line says it needs Chromium, installed as for the viewport tests.
+    - `docker compose up -d db` became `docker compose up -d --wait db` in both places.
+  - **`AGENTS.md` elsewhere:** dropped `mcp-server/` and `security/` from "Repository layout"; the four mentions of `product-spec.md` now name `docs/product-spec.md`.
+  - **`README.md`:** `docker compose up -d --wait db` in both rows; the `AGENTS.md` pointer sentence also says that it lists every check CI runs, naming the contract lint and the API type generation without their commands; the shell-variable bullet keeps its advice and now says that a shell variable does not change a value from `env_file`, but wins for the `${...}` values (`AI_PROVIDER`, `CORS_ALLOWED_ORIGINS`, `HSTS_MAX_AGE_SECONDS`, and the `POSTGRES_*` values in `DATABASE_URL`).
+- **Decisions (wording only, under the standing rule):**
+  - The CI form sits in the parenthesis before the colon ("Label (notes): `command`"), like the other lines, so each line still ends with its local command and no command is followed by a sentence full stop.
+  - The contract lint got its own "Contract (run in the repo root)" block before Backend, because it runs in the repo root and the contract comes first.
+- **How I verified it:**
+  - `grep -n "up -d db"` finds nothing in `AGENTS.md` or `README.md`; `ls -d` finds every path in "Repository layout"; each command section A keeps and each CI command in the coverage table is in `AGENTS.md` (checked with `grep -F`); every command in the README's tables is in `AGENTS.md`.
+  - Repo root: `npx --yes @redocly/cli@2 lint openapi.yaml` (Redocly CLI 2.78.0, Node.js 22.23.4): valid, 0 errors, the 3 known warnings (`info-license`, `no-server-example.com`, `operation-4xx-response`), exit 0.
+  - `frontend/`: after `npm run generate:api`, `git status --porcelain -- src/api/schema.d.ts` is empty. `npx playwright install --with-deps chromium --dry-run` (Playwright 1.63.0) exits 0.
+  - `backend/` (uv 0.11.32): `uv sync --locked` and `uv run ruff format --check .` (104 files already formatted) exit 0.
+  - Repo root: `docker compose up -d --wait db` returned after 2.8 s with `docker compose ps db` showing the service healthy.
+  - Shell variables (Compose v5.6.1, `.env` identical to `.env.example`, printing only the keys checked): `AI_PROVIDER=from-shell` gives `AI_PROVIDER` `from-shell`; `AI_MODEL=from-shell` leaves `AI_MODEL` at the `.env` value. Shell values for `CORS_ALLOWED_ORIGINS`, `HSTS_MAX_AGE_SECONDS`, `POSTGRES_DB` and `POSTGRES_PASSWORD` also reached the backend's environment and `DATABASE_URL`.
+  - `backend/`: `uv run ruff check .` passes; `test_fr_x1_seed_script_is_listed_in_agents_md` passes. `frontend/`: `npm run lint` passes.
+  - `./test-all.sh`: all three suites passed (backend unit 1519, integration 1198, frontend 1274).
+  - CI on the pushed branch: see the issue comment.
+  - No AI call.
+- **Left open:** nothing.
+
+## 2026-11-15: Orchestrator: add the alerting task (#112), no on-call agent
+
+- **Task:** the product owner shared the project's evaluation criteria. The orchestrator's estimate was about 21 of 24 points. The gaps were "Alerting on user impact" (1 point) and "On-call agent" (2 points).
+- **Decisions (product owner, 2026-11-15):**
+  - build an alert on user impact;
+  - do **not** build an on-call agent;
+  - drop the non-existent `security/` and `mcp-server/` folders from `AGENTS.md` (in #68);
+  - the alert task goes into this batch as task 65, and the standing rule covers tasks 48 to 67.
+- **What I did:**
+  - Created #112 "Alert on user impact in the local telemetry stack" (needs grooming).
+  - `docs/tasks.md`: #112 is task 65; #92 and #98 moved to tasks 66 and 67.
+  - `docs/process.md`: the standing rule now covers tasks 48 to 67.
+
+## 2026-11-15: Orchestrator: close #68 (CI's commands in AGENTS.md, accurate docs)
+
+- **Task:** task 56, run with `/orchestrate all`. Docs only; no screens change.
+- **What happened:**
+  - PM grooming (6896760339): ten decisions under the standing rule. The product owner confirmed dropping `security/` and `mcp-server/`.
+  - Engineer (6897064789): `AGENTS.md` lists CI's commands and their local forms, `--wait db`, the Compose minimum, `docs/product-spec.md`; the README's shell-variable bullet is made precise.
+  - QA PASS (6897195892). Closed as completed.
+- **Open points, left in this log under the standing rule:**
+  - "every check CI runs" in the README leaves out CI-only checks by design;
+  - the Compose 2.23.1 minimum was not tried against an older Compose.
+
+## 2026-11-15: PM: groom #72 (task 57, technical server validation messages on the login and registration forms)
+
+- **Task:** groom #72, which had no status label, following `docs/pm.md`. It is task 57, the first of three interface-polish tasks, and it changes screens: interface text only, on `/login` and `/register`.
+- **What I read:**
+  - the issue (no comments yet), and the #26 engineer and QA comments it cites;
+  - #84, for the focus rule and as the pattern for a groomed task;
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md`, `docs/tasks.md`, `docs/product-spec.md` (FR-A1, FR-A2, §9), `AGENTS.md`, `DESIGN.md` (Inputs / Fields), `PRODUCT.md` and `openapi.yaml` (Size limits, Errors, `Registration`, `Credentials`, `FieldError`);
+  - in the frontend:
+    - `LoginPage.tsx` and `RegisterPage.tsx`, and their tests;
+    - `src/auth/` (`requestErrors.ts`, `validation.ts` and `AuthFields.tsx`);
+    - `src/api/errors.ts` and `client.ts`;
+    - `EntryForm.tsx` and `SettingsPage.tsx`, to see how they show server validation errors;
+    - `viewport/screens.spec.ts` and `mockApi.ts`;
+  - in the backend: `app/accounts.py`, `app/passwords.py` and `app/errors.py`, plus the #88 filter checks in `app/entries.py` and `app/tags.py`.
+- **What I did:**
+  - Rewrote the body of #72 with the template: sections A (messages), B (awkward cases), C (unchanged behaviour) and D (tests), Out of scope and Constraints.
+  - Posted the PM comment with the decisions and the facts I checked (6897313162).
+  - Labels unchanged: the orchestrator sets the status. No follow-up issue, because nothing was moved out.
+- **Decisions under the standing rule (2026-11-14, extended 2026-11-15), recorded in the issue:**
+  - **Frontend only.** The forms map each server field error to the app's own fixed text and never show a `reason`, as the entry form and settings already do. No backend, contract, spec, `DESIGN.md` or `render.yaml` change. I rejected rewording the reasons in the backend, and showing email-validator's sentence without pydantic's prefix.
+  - **One text per field, whatever the reason.** Reasons are not parsed.
+  - **Texts** (the design note may refine them):
+    - email: "Enter a valid email address, such as name@example.com.";
+    - registration password: "This password can't be used. Choose a different one.";
+    - login password: "Check your password. It can have at most 128 characters." It is a field message, so #84's focus rule holds, and it is also true for an unpaired surrogate;
+    - any other field, or none: the existing "Something went wrong. Please try again."
+  - **No new browser checks.** Login keeps "no password rule" (#26), and the email check stays "has an `@`".
+  - **Screens change** (text only): the task needs a design note, and a design review after QA.
+- **How I verified it:**
+  - **Backend reasons:** ran the backend's `Registration` and `Credentials` models locally, with pydantic 2.14.2 and email-validator 2.3.0 (versions from `backend/uv.lock`), for 28 addresses and 6 passwords. The exact reason strings went into the issue as test fixtures. I read in pydantic's `networks.py` that `EmailStr` calls `validate_email(..., check_deliverability=False)` and adds the `value is not a valid email address: ` prefix.
+  - **Body error:** on Node 22.23.4, `JSON.stringify` writes a lone surrogate as a `\ud800` escape. So the `openapi-fetch` body is always valid JSON, and the #58 body error cannot come from these forms in normal use.
+  - **Server text on screen:** `grep` finds `.reason` only in `frontend/src/auth/requestErrors.ts`. So the two account forms are the only screens that show server text.
+  - **The issue on GitHub:** the saved body is identical to what I wrote, and the issue still has no labels.
+  - No change to project code, and no AI call.
+- **Left open:** nothing.
+
+## 2026-11-15: Engineer: implement #72 (task 57, the app's own text for server validation errors on login and registration)
+
+- **Task:** implement #72 as groomed (PM comment 6897313162) and designed (design note 6897383848). It changes screens: interface text only, on `/login` and `/register`.
+- **What I did:**
+  - `frontend/src/auth/validation.ts`: three new constants next to the forms' own texts: `EMAIL_REJECTED` (both pages), `NEW_PASSWORD_REJECTED` (registration) and `LOGIN_PASSWORD_REJECTED` (login, with the number built from `PASSWORD_MAX_LENGTH`). The wording is the design note's, word for word.
+  - `frontend/src/auth/requestErrors.ts`: `validationMessages(error, texts)` now reads only the field names and never a `reason`. `email` and `password` each get one fixed text from the page (`FieldTexts`), however often they are named; any other field, or an empty list, gives the one generic alert "Something went wrong. Please try again.". This fixes the two faults the designer found: other fields' reasons were joined into the alert, and a field named twice showed its reason twice.
+  - `LoginPage.tsx` and `RegisterPage.tsx`: each passes its own texts, and keeps at most one server message per field (`string | null` instead of a list). Placement, `role="alert"`, `aria-invalid`, `aria-describedby`, the #84 focus rule, clearing on change and on the next submit are unchanged. No `maxLength`, counter or length check on the login password, and the email check stays "filled in, has an @".
+  - Tests:
+    - `requestErrors.test.ts`: each field's text, the alert for another field or none, one message for a field named twice, and no reason in the output.
+    - `LoginPage.test.tsx` and `RegisterPage.test.tsx`: a new block per page with the backend's real reasons. It covers all 13 section B addresses on both pages, the login password too long and `string_unicode`, the registration password with an unpaired surrogate, the body error, an empty field list, a field named twice, email and password together (from Enter in Password), the body error with a field error, changing a field, and the next submit. Every case checks that no server text is in the page, attributes included.
+    - The three named tests now expect the new texts; the #84 focus tests are unchanged.
+    - A 413 `request_too_large` case on each page, so section C's generic text for it is tested on the pages themselves.
+  - New test helper `frontend/src/test/serverReasons.ts`: the backend's reasons as fixtures, and `expectNoServerText()`.
+  - Viewport: `mockApi.ts` answers `POST /auth/register` (201 by default) and can answer register or login with a 422 naming given fields. `screens.spec.ts` has `login-server-errors` and `register-server-errors`, set up as the design note says.
+- **Decisions (standing rule, engineer's recommended option):**
+  - The fixtures live in a new helper, `src/test/serverReasons.ts`, beside the other shared test helpers, so the unit tests and both page tests use the same strings. That file is not on the issue's list.
+  - I got the backend's reasons for the ten section B addresses the issue does not list by running `Registration` and `Credentials` from `backend/app/accounts.py` locally. They are only test data.
+- **How I verified it:**
+  - The new and changed page tests fail against the old page code (46 failures with the old `LoginPage.tsx`, `RegisterPage.tsx` and `requestErrors.ts`), and pass with the new code.
+  - `frontend/`: `npm run lint`, `npm run build` and `npm test` pass. `npm run test:viewport` passed (99 passed, 9 skipped by design). I looked at the four new screenshots: both field messages show, Email has the focus look, Password has the error border, and there is no form alert. At 360 each message wraps to two lines, as the design note says; at 1280 each fits on one line.
+  - `backend/`: `uv run ruff check .` passes. `./test-all.sh`: all three suites passed (backend unit 1519, integration 1198, frontend 1334). After the two 413 cases, `npm test` passed again with 1336 tests.
+  - Live check against the real backend with `AI_PROVIDER=mock`, using the "without the app containers" route and a Playwright script at 360×640. It covered six cases: login with `alice@invalid`, `alice@example.local`, a 129-character password, and `alice @example.com` with a 129-character password; registration with `alice@invalid` and `a@b@c.com`. Each got a real 422, showed only the app's texts, put the cursor in the right field, did not scroll sideways (`scrollWidth` 360), and had no reason in the page HTML.
+  - No backend, contract, spec or `DESIGN.md` change, no new dependency, and no AI call.
+- **Left open:** nothing.
+
+## 2026-11-15: Orchestrator: close #72 (the app's own text for server errors on login and registration)
+
+- **Task:** task 57, run with `/orchestrate all`. It changes screens (text only), so it had a design note and a design review.
+- **What happened:**
+  - PM grooming (6897313162): frontend only, one fixed text per field, no new browser checks.
+  - Design note (6897383848): the PM's four texts, placement, focus as in #84, no server text anywhere. It also found two faults in `validationMessages`.
+  - Engineer (6897737397): fixed both faults and added two new viewport screens.
+  - QA PASS (6897884418), with a live check against the real backend.
+  - Design review PASS (6897957949), with 156 runs in light and dark mode.
+  - Closed as completed.
+- **Open points and where they went:**
+  - **The viewport tests take light-mode screenshots only:** a comment on #90.
+  - **Left in this log under the standing rule:** the viewport server-text search looks for whole reasons only.
+
+## 2026-11-15: PM: groom #86 (task 58, feedback when a suggestion adds nothing or is dropped)
+
+- **Task:** groom #86, which had no status label, following `docs/pm.md`. It is task 58, an interface-polish task, and it changes screens: two new texts in the entry form's suggestion notice, and a suggestion that now arrives after a save that the form's own check stopped.
+- **What I read:**
+  - the issue and its comment (the #43 grooming input on the 10-tag case);
+  - the #28 design note, engineer comment and QA comment it cites, and #28's criteria;
+  - #72 and #88, as patterns for message rules and the muted live-region line;
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md`, `docs/tasks.md`, `docs/product-spec.md` (§7.2, §7.3), `AGENTS.md`, `DESIGN.md`, `PRODUCT.md` and `openapi.yaml` (`Suggestion`, `suggestCategoryAndTags`);
+  - in the frontend: `entries/EntryForm.tsx`, `suggestions.ts`, `tagNames.ts`, `entryTexts.ts`, `components/Message.tsx`, the suggestion and limit tests, and the viewport screens and `mockApi.ts`;
+  - `backend/app/ai/mock.py` and `limits.py`.
+- **What I did:**
+  - Rewrote the body of #86 with the template:
+    - sections A (nothing new), B (tags left out at 10), C (both notices), D (Save entry while a suggestion is on its way), E (unchanged) and F (tests);
+    - Out of scope;
+    - Constraints, with the decisions, the changes to #28's agreed behaviour, where in the code, the files and testing.
+  - Posted the PM comment with the decisions and the facts I checked (6898053939).
+  - Labels unchanged: the orchestrator sets the status. No follow-up issue, because nothing was moved out.
+- **Decisions under the standing rule (2026-11-14, extended 2026-11-15), recorded in the issue:**
+  - **One place for every outcome of a request.** Both new texts use the existing notice (the info `Message`, `role="status"`), not a muted line like #43's and #88's. Those lines describe a field's state; these texts are the outcome of a request, like the failure notices.
+  - **"Nothing new"** means that after the answer, the form shows no suggestion it did not show just before. This covers asking again with the same answer, which the deterministic mock provider gives for the same text.
+  - **The 10-tag case gets its own text** and also covers a partial add. That text wins over "No new suggestions".
+  - **A running request is dropped only once the entry is sent.** A save that the form's own check stops keeps the request, and its answer is applied (usually it fills the missing category). When a sent save fails, only the save error shows. Rejected: holding an answer through a sent save, and a "suggestions stopped" notice.
+  - **The notice keeps #28's behaviour** (it goes on the next tap and on Save entry).
+  - **Texts** (the design note may refine them): "No new suggestions for this text." and "Up to 10 tags per entry, so not every suggested tag was added."
+  - **Screens change:** the task needs a design note, and a design review after QA. `render.yaml` is unchanged, so no Blueprint sync is needed.
+- **How I verified it:**
+  - **The dropped answer:** `handleSubmit` calls `dropSuggestionRequest()` before the form's own check, so a save stopped by the check loses the answer.
+  - **The 10-tag case:** `applySuggestion` gets the tags from `addTagNamesWithin`. `addTagNamesWithin` returns `problems.tooMany` when a tag is left out at 10, but the form does not use it today.
+  - **The contract:** `Suggestion.tags` has `maxItems: 5`, no minimum, and names of at most 40 characters. So an answer can have 0 tags, and no suggested tag is ever left out for being too long.
+  - **The mock provider:** `mock.py` is deterministic, and `limits.py` counts every request, whichever provider answers it.
+  - **The issue on GitHub:** the saved body is identical to what I wrote, and the issue still has no labels.
+  - No change to project code, and no AI call.
+- **Left open:** nothing.
+
+## 2026-11-15: Engineer: implement #86 (task 58, feedback when a suggestion adds nothing or is dropped)
+
+- **Task:** implement #86 against its acceptance criteria (sections A to F), the PM's decisions (6898053939) and the design note (6898148071). It changes screens: two new texts in the entry form's suggestion notice, and a suggestion that now arrives after a save the form's own check stopped.
+- **What I did:**
+  - `frontend/src/entries/suggestions.ts`:
+    - the two texts as constants next to the failure notices, word for word from the design note: `NO_NEW_SUGGESTIONS_MESSAGE` and `SUGGESTED_TAGS_LEFT_OUT_MESSAGE` (the 10 comes from `TAGS_PER_ENTRY_MAX`);
+    - `applySuggestion` also returns `tagsLeftOut`, from `addTagNamesWithin`'s `problems.tooMany`;
+    - a pure rule, `answerNoticeOf(form, suggestion)`: the tag-limit text when a new tag is left out at 10; otherwise "No new suggestions for this text." when the form after the answer shows no suggestion (marked chip, hint or marked tag, tag names ignoring case) that it did not show just before; otherwise none.
+  - `frontend/src/entries/EntryForm.tsx`:
+    - `handleSuggest` sets the notice from that rule when it applies an answer. The rule reads the form as last rendered (a ref set in a layout effect), outside the `setForm` updater, which still applies the answer to the latest state as before.
+    - `handleSubmit` empties the notice at the start, as before, but calls `dropSuggestionRequest()` only after the form's own check has passed, just before sending. A save the check stops keeps the request: the suggest button stays busy, and the answer (or failure) is applied to the form as it is then.
+  - No change to `EntryForm.css`, `Message.tsx`, `TagField.tsx`, the backend, `openapi.yaml`, the spec, `DESIGN.md` or `render.yaml`. No new dependency.
+  - Tests:
+    - `suggestionRules.test.ts`: 10 new rule tests, 14 cases (the texts, nothing new, something new, tags left out at 10, the tag-limit text winning, 10 tags already on the entry, asking again with the same answer, asking again with an answer that adds nothing, 8 own and 2 earlier suggested tags, the form as it is when the answer arrives).
+    - `suggestions.test.tsx`: new component tests for every case in sections A to D, named after the requirement IDs (for example `test_fr_s2_an_answer_with_nothing_new_shows_a_notice`, `test_fr_s2_tags_left_out_at_10_show_a_notice`, `test_fr_s1_a_save_stopped_by_the_check_keeps_the_suggestion_coming`, `test_fr_s1_a_sent_save_that_fails_drops_the_suggestion_without_a_notice`).
+    - `viewport/screens.spec.ts`: `new-entry-no-new-suggestions` (the mock's default answer `{ category: 'Achievement', tags: [] }` after choosing Achievement, as the designer asked) and `new-entry-suggestions-tag-limit` (10 tags, then `SUGGESTION`), each checking the notice, its wrapping, nothing under the tag input and the one filled plum button.
+  - **Changed existing test:** only `test_fr_s2_a_suggestion_adds_tags_only_until_there_are_10` in `entryLimits.test.tsx`. It now also checks the tag-limit notice; its check that the tag field has no message stays. No other existing test changed.
+- **Decisions (standing rule, engineer's recommended option):**
+  - **Where the notice is worked out:** from the form as last rendered, kept in a ref, so `setNotice` is never called inside the `setForm` updater (Constraints, design note "Watch out for" point 1). The answer itself is still applied inside the updater, so no user change is lost. Form changes come only from user events, which React renders before a network answer arrives, so both read the same form.
+  - **"Shown suggestion"** is what the form shows: a category chip marked "Suggested" (the marked category while it is the chosen one), the hint while it differs from the chosen category, and the tag chips marked "Suggested". A marked chip and a hint count as different suggestions.
+  - **"Left out at 10"** counts only the 10-tag limit, not a name over 40 characters, which the contract rules out for suggested tags.
+- **How I verified it:**
+  - The new component tests fail against the old `EntryForm.tsx` (23 failures; the others check behaviour that stays the same). With the drop just before sending removed, 10 tests fail, so the section D tests catch a request that is not dropped.
+  - `frontend/`: `npm run lint`, `npm run build` and `npm test` pass. `npm run test:viewport`: 103 passed, 9 skipped by design. I looked at the four new screenshots: at 360 "No new suggestions for this text." fits on one line and the tag-limit text wraps onto two lines inside the message, the second line under the first line's text, with the icon level with the first line; at 1280 both fit on one line. Info look, no `Sparkles`, nothing under the tag input, and Save entry is the only filled plum element.
+  - `./test-all.sh`: all three suites passed (backend unit 1519, integration 1198, frontend 1388). `uv run ruff check .` was not needed: no backend change.
+  - Live check against the real backend with `AI_PROVIDER=mock`, using the "without the app containers" route in `AGENTS.md` and a Playwright script at 360×640. Five `POST /suggestions` requests, all answered by the mock provider; no real AI call.
+    - Asking twice with the same text: the first ask marked the category and "Mock tag" with no notice; the second showed "No new suggestions for this text." with the same marks.
+    - 10 tags on the entry: "Mock tag" was left out, the tag-limit text showed, and nothing showed under the tag input (`aria-invalid="false"`).
+    - Save entry with no category while the request was delayed: "Choose a category, then save." showed, the button stayed "Suggesting…", the answer then filled the category and the message went, and nothing was sent until Save entry was tapped again.
+    - Save entry with a category while the request was delayed: the entry was saved, and the late answer reached nothing in the reset form, with no notice.
+    - Nothing scrolled sideways.
+- **Left open:** nothing.
+
+## 2026-11-15: Orchestrator: close #86 (feedback when a suggestion adds nothing or is dropped)
+
+- **Task:** task 58, run with `/orchestrate all`. It changes screens, so it had a design note and a design review.
+- **What happened:**
+  - PM grooming (6898053939): two texts in the existing suggestion notice, and an answer dropped only once the entry is sent. Two #28 behaviours change on purpose.
+  - Design note (6898148071): the PM's texts kept, the existing info `Message`, nothing moves focus.
+  - Engineer (6898530253).
+  - QA PASS (6898733470), with 61 of 61 live checks using the mock AI.
+  - Design review PASS (6898845035).
+  - Closed as completed.
+- **Open points and where they went:**
+  - **Empty `Message` hidden with `display: none`** (screen-reader announcements): a comment on #91, which stays skipped.
+  - **No `Message` entry in `DESIGN.md`:** a comment on #90.
+  - **Left in this log under the standing rule:**
+    - the phone layout shift after a late answer (existing in #28);
+    - focus falling to the page when a focused element is removed (existing in #28);
+    - no announcement when a late answer fills the category;
+    - the notice rule's dependence on rendered form changes.
+
+## 2026-11-15: PM: groom #90 (task 59, dark-mode hover and disabled fills, the writing nudge's look, and the laptop entry row height)
+
+- **Task:** groom #90, which had no status label, following `docs/pm.md`. It is task 59, the last of the three interface-polish tasks. It changes screens: dark-mode fills, the writing nudge's look and the laptop entry row.
+- **What I read:**
+  - the issue and its four comments: points 5 and 6 from #36, and the inputs from #88, #72 and #86;
+  - the source design notes and reviews: #28, #29, #30, #32, #34, #35 (note and review), #72, #86 and #88;
+  - #83's groomed body;
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md`, `docs/tasks.md`, `docs/ux-designer.md`, `docs/qa-engineer.md`, `docs/product-spec.md` (FR-N1, FR-E4, §9), `AGENTS.md`, `DESIGN.md` and `PRODUCT.md`;
+  - in the frontend:
+    - `index.css`, `design.test.ts` and `entries/entryStyles.test.ts`;
+    - `Button.css`, `Message.tsx` and `Message.css`, `DemoNotice.css`, `SavedMessage.css`, `EntryRow.tsx` and `EntryRow.css`;
+    - `EntriesPage.tsx` and `EntriesPage.css`, `AppShell.css`, `EntryForm.css`, `review/SummaryPanel.*`, `SettingsPage.tsx` and `auth/AuthFields.tsx`;
+    - `playwright.config.ts`, `viewport/` (screens, checks, helpers, mock API, data) and the current viewport screenshots.
+- **What I did:**
+  - Rewrote the body of #90 using the template:
+    - sections A (dark hover fill), B (dark disabled fill, with point 5), C (writing nudge), D (laptop entry row), E (`DESIGN.md`), F (demo notice width) and G (tests);
+    - Out of scope;
+    - Constraints, with the decisions, the files, testing and the references.
+  - Posted the PM comment with the decisions, the choices left to the design note, and the facts I checked (6898988075).
+  - Labels unchanged: the orchestrator sets the status. No follow-up issue, because nothing was moved out.
+- **Decisions under the standing rule (2026-11-14, extended 2026-11-15), recorded in the issue:**
+  - **Hover and disabled fills: dark mode only.** The criteria say what the fills must do, not which colour they are. The design note picks the colours.
+    - "Visibly different" is a fill step of at least 1.065:1. That is the smallest step between two surfaces the design uses today: Peach wash on Blush white in light mode, 1.066:1.
+    - Text on the new fills must reach 4.5:1.
+    - The new fills are not Peach, Saved peach, a category tint or Plum.
+  - **Edit and Delete use the shared hover fill.** Their Peach wash rule was a workaround.
+  - **Point 5 is point 2:** the ready "Draft summary" has Paper white, which in dark mode is the disabled fill.
+  - **The nudge changes, not the info `Message`.**
+    - `Message` is used across the app, and the #32 decision rests on its look.
+    - The nudge's fill must differ from the info message's and the saved message's fills.
+    - Its text, place and behaviour stay, and it stays text only.
+  - **The row height gets a ceiling, not a layout:**
+    - a one-line row is at most 77px at 1280×800 (today 111px);
+    - the text column keeps its 224px at 768px, which was #29's reason for the current layout.
+  - **Demo notice width (point 6): no change.** The 68ch cap follows the line length rule, and the #35 design review and #36 kept it.
+  - **`DESIGN.md` also records `Message` and the tag filter's capped state now**, as built. The Messages entry includes the demo notice.
+  - **Dark-mode viewport screenshots only for the changed screens and states:**
+    - `entries-with-nudge`, `new-entry-empty`, `review-results-panel-idle`, `settings-delete-step`, and the new `entries-nudge-and-notice`;
+    - a hover check and a disabled check in both colour schemes;
+    - a row-height check, and checks at 768 and 1024px.
+  - **Screens change:** the task needs a design note, and a design review after QA. `render.yaml` is unchanged, so no Blueprint sync is needed.
+- **How I verified it:**
+  - **Tokens:** read the dark-mode values in `index.css`. `--color-secondary-hover` is Blush white, Paper white is Peach wash, and `.button:disabled` uses Peach wash.
+  - **`design.test.ts`:** it checks neither hover token.
+  - **Contrast ratios,** computed with the WCAG formula:
+    - Peach wash on Blush white: 1.066 in light mode, 1.094 in dark mode;
+    - dark Plum on Blush white: 9.04, and on Peach wash: 8.26;
+    - dark Muted plum-grey on Peach wash: 7.31.
+  - **Row height and text width:** worked out from `EntryRow.css` and `AppShell.css`. The row is 1 + 16 + 26 + 8 + 44 + 16 = 111px, as the #29 review measured. At 768px the text column is 224px.
+  - **Viewport tests:** read `playwright.config.ts` (light only). `checks.spec.ts` already uses `test.use({ colorScheme })`, with Playwright 1.63.0.
+  - **The mock API:** it always answers `DELETE /entries/{id}` with 204.
+  - **The issue on GitHub:** the saved body matches what I wrote, apart from the attribution footer the tool adds. The issue still has no labels.
+  - No change to project code, and no AI call.
+- **Left open:** nothing.
