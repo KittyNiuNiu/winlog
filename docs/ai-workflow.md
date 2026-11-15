@@ -3721,3 +3721,64 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Left open:**
   - The Blueprint's Manual Sync after the production deploy is the product owner's step. Until then the default applies, which is the same value.
   - No follow-up issues were created. Non-UTF-8 bodies stay in #58.
+
+## 2026-11-15: Engineer: implement #88 (task 49, limit the number of filter values and the size of a request)
+
+- **Task:** #88 as groomed by the PM on 2026-11-15 (issue body and comment 6887330796), with the design note 6887394411 for the review page's tag filter. This task changes a screen. No real AI call (`AI_PROVIDER=mock` throughout).
+- **What I did:**
+  - **Contract first** (`openapi.yaml`, committed before any code, e00e0ee):
+    - `maxItems: 4` and `maxItems: 20` on the `category` and `tag` parameters of `listEntries` and on `SummaryFilter`;
+    - the new `SavedSummaryFilter`, used by `Summary.filter`;
+    - the new error code `request_too_large` and the shared 413 response `RequestTooLarge`, on the 8 operations with a request body;
+    - the "Size limits" and "Errors" sections.
+    - `frontend/src/api/schema.d.ts` regenerated.
+  - **Backend, filter counts:**
+    - `MAX_FILTER_TAG_NAMES = 20` and `FilterTagNames` in `app/tags.py`;
+    - `MAX_FILTER_CATEGORIES = 4` and `FilterCategories` in `app/entries.py`, next to `Category`.
+    - Both use a `BeforeValidator` that counts the values as sent, before each one is checked. `list_entries` and `SummaryFilter` use them. `SavedSummaryFilter` in `app/summaries.py` has no limits and is what `Summary.filter` returns.
+  - **Backend, body limit:**
+    - `REQUEST_BODY_MAX_BYTES` in `app/settings.py` (default 262144, a whole number from 131072 to 10485760, the existing "Invalid configuration" message otherwise).
+    - New `app/body_limit.py` with `RequestBodyLimitMiddleware`, added in `app/main.py` between the CORS middleware and `UnexpectedErrorMiddleware`, and `request_too_large_response()` in `app/errors.py`.
+  - **Configuration:** `.env.example`, `docker-compose.yml`, `render.yaml` (both backends) and `ops/deployment.md` (table row, dev sentence, a paragraph on request size).
+  - **Frontend:**
+    - `TAGS_PER_FILTER_MAX = 20` in `src/components/inputLimits.ts`, with a test that reads the value from `openapi.yaml`.
+    - `review/TagFilterField.tsx`: at 20 the search field stays usable but offers nothing. The note `TAG_FILTER_LIMIT_TEXT` is a polite live region that is always in the page, linked with `aria-describedby` only while it shows. Its CSS is in `TagFilterField.css`.
+    - `review/reviewFilter.ts`: `parseFilter` keeps the first 20 tags after the clean-up.
+  - **Tests:**
+    - Backend unit: `tests/unit/test_request_body_limit.py` and `tests/unit/test_filter_limits.py`.
+    - Backend integration: `tests/integration/test_request_body_limit.py` runs the app on a real uvicorn server (h11) and sends bodies with `Content-Length` and chunked. `tests/integration/test_filter_limits.py` covers the counts and the summaries saved before the limits.
+    - Frontend: `ReviewPage.test.tsx`, `ReviewSummary.test.tsx`, `reviewFilter.test.ts`, `inputLimits.test.ts`, one more case in `client.test.ts`.
+    - Viewport: the screen `review-tag-filter-full` and a spacing check, at 360×640 and 1280×800.
+- **Mechanism (the issue left the choice to me): my own ASGI middleware, not Starlette's `RequestBodyLimitMiddleware`.**
+  - A `Content-Length` over the limit gets the JSON 413 at once, and the body is not read.
+  - Any other body is read by the middleware itself before the app runs. As soon as more than the limit has arrived, it stops reading and answers 413. Otherwise it hands the body to the app as one message, so the app behaves as before. At most the limit plus one received chunk is held in memory.
+  - Why not Starlette's: its answers are plain text, and in a FastAPI route its error comes up while the body parses. There `AuthenticateFirstRoute` would answer 401 first, so a chunked body without a valid token would never get 413.
+- **Decisions (mine, within the issue, under the standing rule of 2026-11-14):**
+  - **The 16 KiB limit on the request line and headers:** uvicorn 0.54.0 with h11 0.16.0 checks it only while the head is still arriving. A larger head that arrives in one piece reaches the app. On localhost, curl sends it in one piece, so the live check got 422 (too many tags), not 400. The same request, with its first 16,500 bytes sent alone, got the plain-text 400. So I added one sentence to the contract's Size limits (d7bd89d) and to `ops/deployment.md`, and the integration tests cover both cases. I added no limit of my own, in line with PM decision 7.
+  - **Validation messages:** "A filter can have at most 20 tag names." and "A filter can have at most 4 categories.", like the entry form's tag message. The generated FastAPI schema is unchanged.
+  - **Order of the middleware:** the body limit runs inside CORS and telemetry and outside `UnexpectedErrorMiddleware`. A CORS preflight (`OPTIONS` with `Access-Control-Request-Method`) is still answered by the CORS middleware, which never reads a body. Any other `OPTIONS` gets the 413.
+  - **The 413 status line:** it reads `HTTP/1.1 413 Content Too Large`, the standard reason phrase that uvicorn and h11 send. The body is always the shared JSON error.
+  - **Escaped bodies in the tests:** only the values are escaped, not the keys, which matches the PM's 120,011 bytes for the summary edit. The largest entry update is 34,959 bytes in my test, because its tag names differ a little from the PM's.
+- **Existing tests changed on purpose** (each checks something this task changes):
+  - `tests/unit/test_demo.py`: `deleteAccount`'s list of statuses now includes 413.
+  - `tests/unit/test_settings.py`: the list of settings includes `request_body_max_bytes`.
+  - `tests/unit/test_export.py`: the helper builds `Summary.filter` with `SavedSummaryFilter`.
+  - `tests/unit/test_deployment.py`: the expected `render.yaml` values include `REQUEST_BODY_MAX_BYTES`.
+  - `tests/unit/conftest.py`: the `no_env_file` fixture also removes the new variable. This is a fixture, not a test.
+  - `frontend/src/api/client.test.ts`: one more case in the unknown-errors test, as the criterion asks.
+- **How I verified it:**
+  - **Contract:** Redocly lint, through the `@redocly/openapi-core` already in `frontend/node_modules` (`npx` could not download the CLI here), with the recommended rules: 0 errors and the same 3 warnings as before. CI runs the real CLI. `npm run generate:api` leaves `schema.d.ts` unchanged after the last contract commit.
+  - **Lint and tests:**
+    - Backend: `uv run ruff check .` and `uv run ruff format --check .` clean. Unit tests: 1182 passed. Integration tests: 1039 passed.
+    - Frontend: `npm run lint` clean; `npm test` 1257 passed; `npm run build` OK; `npm run test:viewport` 95 passed (9 skipped for one size only).
+    - `./test-all.sh`: all three suites passed (backend unit 1182, backend integration 1039, frontend 1239 before this task and 1257 now).
+  - **Live check, without building an image:** `docker compose up -d db`, `alembic upgrade head` and `uvicorn app.main:app --port 8000` (h11), with a registered user.
+    - A 300,000-byte `POST /entries` got 413 `request_too_large` (JSON), once with `Content-Length` and once chunked, with CORS headers for the allowed origin. No entry was saved, and the `request finished` lines had status 413 and no body.
+    - The escaped 10,000-emoji `PATCH /summaries/{id}` (120,011 bytes) got 200, with the 10,000 emoji saved.
+    - `GET /entries` with the largest valid filter (9,829 bytes of path and query) got 200, and with a 21st tag 422 naming `tag`.
+    - The over-16-KiB URL: see the decision above.
+  - **Compose:** `docker compose config` shows `"262144"` without the variable, and `"131072"` with it set (through `--env-file`).
+  - **Render:** `render.yaml` validates against Render's Blueprint schema (downloaded with curl today) with 0 errors; a deliberately wrong copy gets 2.
+- **Left open:**
+  - **Render sync:** the Blueprint's Manual Sync after the production deploy is the product owner's step. Until then the default applies, which is the same value. Production gets the change only after the product owner approves the production step (#39).
+  - **Uvicorn's head limit:** it is not a hard 16 KiB limit (see above). A head that arrives in one network read can be larger. Requests stay bounded by the filter counts and the body limit, and PM decision 7 asks for no further limit, so I made no change.
