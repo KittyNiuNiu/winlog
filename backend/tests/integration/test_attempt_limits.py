@@ -24,7 +24,7 @@ from app.attempt_limits import AttemptLimiter
 from app.demo_seed import reset_demo_account
 from app.main import create_app
 from app.models import LoginAttempt, Token, User
-from app.settings import Settings
+from app.settings import MAX_COUNT_LIMIT, Settings
 from tests.integration.conftest import ALLOWED_ORIGIN
 
 ALICE = "alice@example.com"
@@ -189,6 +189,24 @@ def _count(engine: Engine, kind: str, key: str) -> int | None:
                 LoginAttempt.kind == kind, LoginAttempt.key_hash == _sha256(key)
             )
         ).scalar_one_or_none()
+
+
+def _set_count(engine: Engine, kind: str, key: str, count: int) -> None:
+    """Store a count for the key in a window that started now (START), so it is still open."""
+    with engine.begin() as connection:
+        connection.execute(
+            insert(LoginAttempt).values(
+                kind=kind, key_hash=_sha256(key), window_start=START, attempt_count=count
+            )
+        )
+
+
+def _client(settings: Settings, clock: Clock) -> TestClient:
+    application = create_app(settings)
+    application.state.attempt_limiter = AttemptLimiter.from_settings(
+        application.state.engine, settings, clock
+    )
+    return TestClient(application)
 
 
 def _user_exists(engine: Engine, email: str) -> bool:
@@ -409,6 +427,44 @@ def test_fr_a4_app_uses_the_real_clock_by_default(
 
     _assert_too_many_attempts(response, contract)
     assert 899 <= int(response.headers["Retry-After"]) <= 900
+
+
+# --- Limits at the bound (issue #89) ------------------------------------------------------
+
+
+def test_fr_a4_failed_login_count_at_the_bound_is_refused_without_error(
+    test_database_url: str, migrated_db: Engine, clock: Clock, contract
+):
+    """The largest limit the settings accept: the count reaches the largest `integer`."""
+    client = _client(_settings(test_database_url, login_max_failed_attempts=MAX_COUNT_LIMIT), clock)
+    registered = client.post("/auth/register", json={"email": ALICE, "password": ALICE_PASSWORD})
+    assert registered.status_code == 201
+    _set_count(migrated_db, "login", ALICE, MAX_COUNT_LIMIT - 1)
+
+    response = _login(client)
+    assert response.status_code == 401
+    assert response.json()["code"] == "invalid_credentials"
+    assert _count(migrated_db, "login", ALICE) == 2_147_483_647
+
+    _assert_too_many_attempts(_login(client, password=ALICE_PASSWORD), contract, 900)
+    _assert_too_many_attempts(_login(client), contract, 900)
+    assert _count(migrated_db, "login", ALICE) == 2_147_483_647
+
+
+def test_fr_a4_demo_login_count_at_the_bound_is_refused_without_error(
+    test_database_url: str, migrated_db: Engine, demo, clock: Clock, contract
+):
+    """The largest limit the settings accept: the count reaches the largest `integer`."""
+    client = _client(_settings(test_database_url, demo_login_max_attempts=MAX_COUNT_LIMIT), clock)
+    _set_count(migrated_db, "demo", VISITOR, MAX_COUNT_LIMIT - 1)
+
+    response = _demo_login(client)
+    assert response.status_code == 200
+    assert response.json()["token"]
+    assert _count(migrated_db, "demo", VISITOR) == 2_147_483_647
+
+    _assert_too_many_attempts(_demo_login(client), contract, 3600)
+    assert _count(migrated_db, "demo", VISITOR) == 2_147_483_647
 
 
 # --- Account deletion ---------------------------------------------------------------------

@@ -38,6 +38,16 @@ _MISSING_FOR_AI_PROVIDER = "missing_for_ai_provider"
 
 _EMAIL = TypeAdapter(EmailStr)
 
+# The largest value of the five count limits (issue #89): LOGIN_MAX_FAILED_ATTEMPTS,
+# DEMO_LOGIN_MAX_ATTEMPTS and the three AI daily limits. It is 2,147,483,647 (2**31 - 1), the
+# largest PostgreSQL `integer`, the type of the three count columns these limits are checked
+# against: login_attempts.attempt_count, ai_usage.request_count and
+# ai_usage_global.request_count. A count stops at its limit, so with this bound it always fits
+# its column. A larger limit would let a count overflow its column, and a limit of 2**63 or
+# more breaks the comparison itself; either makes the counted requests fail with a 500. A unit
+# test ties this constant to the column types: change it only together with them.
+MAX_COUNT_LIMIT = 2_147_483_647
+
 # The longest attempt window (FR-A4): one year. A longer one would overflow date arithmetic
 # while the app runs, so it stops the app at startup instead.
 MAX_ATTEMPT_WINDOW_MINUTES = 525_600
@@ -107,7 +117,7 @@ class Settings(BaseSettings):
     # a setting. A whole number of 1 or more.
     ai_summary_max_input_characters: int = 50_000
     # Daily AI limits (product-spec.md §8, issue #15). A day runs from 00:00 to 24:00 UTC.
-    # Whole numbers of 0 or more; 0 blocks that kind of request.
+    # Whole numbers from 0 to MAX_COUNT_LIMIT (2147483647); 0 blocks that kind of request.
     ai_daily_suggestions_per_user: int = 10
     ai_daily_summaries_per_user: int = 2
     # Suggestions and summaries of all users together.
@@ -115,7 +125,9 @@ class Settings(BaseSettings):
     # The shared demo account's email (FR-X1, issue #21). Empty or not set turns the demo off.
     # Stored in lower case, as registration stores emails, so it matches the users table.
     demo_email: str | None = None
-    # Login and demo-login attempt limits (FR-A4, issue #46). Whole numbers of 1 or more.
+    # Login and demo-login attempt limits (FR-A4, issue #46). Each count is a whole number
+    # from 1 to MAX_COUNT_LIMIT (2147483647), each window from 1 to MAX_ATTEMPT_WINDOW_MINUTES
+    # (525600, one year).
     # Failed logins per email: after this many within the window, every login for that email
     # is refused until the window ends. Wrong passwords on account deletion count too.
     login_max_failed_attempts: int = 10
@@ -194,7 +206,7 @@ class Settings(BaseSettings):
     )
     @classmethod
     def _check_daily_limit(cls, value: object) -> int:
-        return _whole_number(value, minimum=0)
+        return _whole_number(value, minimum=0, maximum=MAX_COUNT_LIMIT)
 
     @field_validator("ai_summary_max_input_characters", mode="before")
     @classmethod
@@ -204,7 +216,7 @@ class Settings(BaseSettings):
     @field_validator("login_max_failed_attempts", "demo_login_max_attempts", mode="before")
     @classmethod
     def _check_attempt_limit(cls, value: object) -> int:
-        return _whole_number(value, minimum=1)
+        return _whole_number(value, minimum=1, maximum=MAX_COUNT_LIMIT)
 
     @field_validator("login_attempt_window_minutes", "demo_login_window_minutes", mode="before")
     @classmethod
@@ -262,7 +274,14 @@ def _whole_number(value: object, *, minimum: int, maximum: int | None = None) ->
     if isinstance(value, int) and not isinstance(value, bool):
         number = value
     elif isinstance(value, str) and value.strip().isascii() and value.strip().isdigit():
-        number = int(value.strip())
+        digits = value.strip()
+        if maximum is not None:
+            # A number with more digits than the maximum is over it. Checked before int(),
+            # which refuses more than 4,300 digits (leading zeros included) with its own text.
+            digits = digits.lstrip("0") or "0"
+            if len(digits) > len(str(maximum)):
+                raise ValueError(message)
+        number = int(digits)
     else:
         raise ValueError(message)
     if number < minimum or (maximum is not None and number > maximum):

@@ -14,6 +14,8 @@ from unittest.mock import MagicMock
 import pytest
 import yaml
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
+from sqlalchemy import Integer
 from starlette.requests import Request
 
 import app.accounts
@@ -21,9 +23,15 @@ from app.attempt_limits import TooManyAttemptsError, hash_key, visitor_ip
 from app.auth import CurrentLogin, get_current_login
 from app.db import get_session
 from app.main import create_app
-from app.models import User
+from app.models import AiUsage, AiUsageGlobal, LoginAttempt, User
 from app.passwords import hash_password
-from app.settings import MAX_ATTEMPT_WINDOW_MINUTES, Settings, SettingsError, load_settings
+from app.settings import (
+    MAX_ATTEMPT_WINDOW_MINUTES,
+    MAX_COUNT_LIMIT,
+    Settings,
+    SettingsError,
+    load_settings,
+)
 from tests.unit.conftest import ALLOWED_ORIGIN, FakeAttempts
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -40,6 +48,16 @@ VARIABLES = {
     "DEMO_LOGIN_WINDOW_MINUTES": ("demo_login_window_minutes", 60),
 }
 OPERATIONS = [("/auth/login", "post"), ("/auth/demo", "post"), ("/account", "delete")]
+ATTEMPT_COUNTS = ["LOGIN_MAX_FAILED_ATTEMPTS", "DEMO_LOGIN_MAX_ATTEMPTS"]
+# Over the bound (2147483647, issue #89): the bound + 1, the bigint maximum and one more,
+# QA's value from #46, and a number of 5,000 digits (more than int() converts).
+OVER_THE_BOUND = [
+    "2147483648",
+    "9223372036854775807",
+    "9223372036854775808",
+    "100000000000000000000",
+    "9" * 5000,
+]
 
 
 @pytest.fixture
@@ -100,11 +118,69 @@ def test_fr_a4_window_longer_than_a_year_stops_the_app(required_env, variable: s
         load_settings()
 
 
-@pytest.mark.parametrize("variable", ["LOGIN_MAX_FAILED_ATTEMPTS", "DEMO_LOGIN_MAX_ATTEMPTS"])
-def test_fr_a4_attempt_counts_have_no_upper_bound(required_env, variable: str):
-    required_env.setenv(variable, "1000000")
+def test_fr_a4_count_bound_is_the_largest_value_of_the_integer_count_columns():
+    """The bound is the largest PostgreSQL `integer` (issue #89).
 
-    assert getattr(load_settings(), VARIABLES[variable][0]) == 1_000_000
+    A count stops at its limit, so with this bound it always fits its column. If one of these
+    columns changes type, this test fails, so the bound is reviewed with it. The type must be
+    exactly Integer: BigInteger and SmallInteger are subclasses of it.
+    """
+    columns = [
+        LoginAttempt.__table__.c.attempt_count,
+        AiUsage.__table__.c.request_count,
+        AiUsageGlobal.__table__.c.request_count,
+    ]
+
+    for column in columns:
+        assert type(column.type) is Integer, column
+    assert MAX_COUNT_LIMIT == 2**31 - 1
+
+
+@pytest.mark.parametrize("variable", ATTEMPT_COUNTS)
+@pytest.mark.parametrize("value", ["2147483646", "2147483647", " 2147483647 "])
+def test_fr_a4_attempt_count_up_to_the_bound_starts_the_app(
+    required_env, variable: str, value: str
+):
+    required_env.setenv(variable, value)
+
+    assert getattr(load_settings(), VARIABLES[variable][0]) == int(value)
+    assert getattr(create_app().state.settings, VARIABLES[variable][0]) == int(value)
+
+
+@pytest.mark.parametrize("variable", ATTEMPT_COUNTS)
+@pytest.mark.parametrize("value", OVER_THE_BOUND, ids=lambda value: value[:25])
+def test_fr_a4_attempt_count_over_the_bound_stops_the_app(required_env, variable: str, value: str):
+    required_env.setenv(variable, value)
+
+    with pytest.raises(SettingsError) as error:
+        create_app()
+
+    message = str(error.value)
+    assert message.startswith("Invalid configuration: ")
+    assert f"{variable} is invalid: " in message
+    assert "must be a whole number from 1 to 2147483647" in message
+    assert value not in message
+    assert "4300" not in message
+
+
+def _settings_in_code(**values: object) -> Settings:
+    """Settings built in code, as the tests build them."""
+    return Settings(
+        _env_file=None,
+        database_url="postgresql://winlog:secret@localhost:5432/winlog",
+        cors_allowed_origins=[ALLOWED_ORIGIN],
+        ai_provider="mock",
+        **values,
+    )
+
+
+@pytest.mark.parametrize("field", ["login_max_failed_attempts", "demo_login_max_attempts"])
+def test_fr_a4_attempt_count_bound_applies_in_code(field: str):
+    assert getattr(_settings_in_code(**{field: 2**31 - 1}), field) == 2**31 - 1
+
+    for value in (2**31, 2**63):
+        with pytest.raises(ValidationError, match="must be a whole number from 1 to 2147483647"):
+            _settings_in_code(**{field: value})
 
 
 def test_fr_a4_invalid_limit_stops_the_app_at_startup(required_env):

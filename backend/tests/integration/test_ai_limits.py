@@ -30,7 +30,7 @@ from app.ai.limits import LIMIT_MESSAGES
 from app.auth import CurrentUser, hash_token
 from app.main import create_app
 from app.models import AiUsage, AiUsageGlobal, Token, User
-from app.settings import Settings
+from app.settings import MAX_COUNT_LIMIT, Settings
 from tests.integration.conftest import ALLOWED_ORIGIN
 
 TODAY = dt.date(2026, 11, 9)
@@ -230,6 +230,72 @@ def test_users_limit_is_checked_before_the_global_cap(migrated_db, limited):
         ai.suggest(user, TEXT)
 
     assert error.value.limit == "user_suggestions"
+
+
+# --- Limits at the bound (issue #89) ------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("request_type", "limit_name", "call"),
+    [
+        ("suggestion", "user_suggestions", lambda ai, user: ai.suggest(user, TEXT)),
+        ("summary", "user_summaries", lambda ai, user: ai.summarise(user, [ENTRY])),
+    ],
+    ids=["suggestions", "summaries"],
+)
+def test_user_limit_at_the_bound_is_reached_without_error(
+    migrated_db, limited, mock, request_type, limit_name, call
+):
+    """The largest limit the settings accept: the count reaches the largest `integer`."""
+    limit = {"suggestion": "suggestions", "summary": "summaries"}[request_type]
+    ai = limited(**{limit: MAX_COUNT_LIMIT})
+    user = _user(migrated_db)
+    with migrated_db.begin() as connection:
+        connection.execute(
+            insert(AiUsage).values(
+                user_id=user,
+                day=TODAY,
+                request_type=request_type,
+                request_count=MAX_COUNT_LIMIT - 1,
+            )
+        )
+
+    assert call(ai, user)
+    assert _ai_calls(mock) == 1
+    assert _user_count(migrated_db, user, request_type) == 2_147_483_647
+
+    with pytest.raises(AILimitReachedError) as error:
+        call(ai, user)
+
+    assert error.value.limit == limit_name
+    assert error.value.code == "limit_reached"
+    assert _ai_calls(mock) == 1
+    assert _user_count(migrated_db, user, request_type) == 2_147_483_647
+    assert _global_count(migrated_db) == 1
+
+
+def test_global_cap_at_the_bound_is_reached_without_error(migrated_db, limited, mock):
+    """The largest cap the settings accept: the count reaches the largest `integer`."""
+    ai = limited(global_requests=MAX_COUNT_LIMIT)
+    alice, bob = _user(migrated_db), _user(migrated_db)
+    with migrated_db.begin() as connection:
+        connection.execute(
+            insert(AiUsageGlobal).values(day=TODAY, request_count=MAX_COUNT_LIMIT - 1)
+        )
+
+    assert ai.suggest(alice, TEXT).category
+    assert _ai_calls(mock) == 1
+    assert _global_count(migrated_db) == 2_147_483_647
+
+    for call in (lambda: ai.suggest(bob, TEXT), lambda: ai.summarise(bob, [ENTRY])):
+        with pytest.raises(AILimitReachedError) as error:
+            call()
+        assert error.value.limit == "global"
+        assert error.value.code == "limit_reached"
+
+    assert _ai_calls(mock) == 1
+    assert _global_count(migrated_db) == 2_147_483_647
+    assert _user_count(migrated_db, bob) == 0
 
 
 # --- A limit of 0 -------------------------------------------------------------------------

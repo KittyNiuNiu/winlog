@@ -14,7 +14,7 @@ from fastapi.testclient import TestClient
 from app.ai import AILimitReachedError, AILimits, LimitedAIDependency
 from app.ai.limits import LIMIT_MESSAGES, utc_day
 from app.main import create_app
-from app.settings import Settings, SettingsError, load_settings
+from app.settings import MAX_COUNT_LIMIT, Settings, SettingsError, load_settings
 from tests.conftest import OPENAPI_PATH
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -26,6 +26,15 @@ LIMIT_VARIABLES = {
     "AI_DAILY_SUMMARIES_PER_USER": ("ai_daily_summaries_per_user", 2),
     "AI_DAILY_REQUESTS_GLOBAL": ("ai_daily_requests_global", 100),
 }
+# Over the bound (2147483647, issue #89): the bound + 1, the bigint maximum and one more,
+# the value QA used on #46, and a number of 5,000 digits (more than int() converts).
+OVER_THE_BOUND = [
+    "2147483648",
+    "9223372036854775807",
+    "9223372036854775808",
+    "100000000000000000000",
+    "9" * 5000,
+]
 
 
 @pytest.fixture
@@ -84,12 +93,12 @@ def test_invalid_limit_error_names_only_the_invalid_variables(required_env, monk
     assert "AI_DAILY_SUGGESTIONS_PER_USER is invalid" in message
     assert "AI_DAILY_REQUESTS_GLOBAL is invalid" in message
     assert "AI_DAILY_SUMMARIES_PER_USER" not in message
-    assert "whole number of 0 or more" in message
+    assert "whole number from 0 to 2147483647" in message
 
 
 @pytest.mark.parametrize("value", [-1, True, 1.5, None])
 def test_limits_given_in_code_must_be_whole_numbers_too(value):
-    with pytest.raises(ValueError, match="whole number of 0 or more"):
+    with pytest.raises(ValueError, match="whole number from 0 to 2147483647"):
         Settings(
             _env_file=None,
             database_url="postgresql://winlog:secret@localhost:5432/winlog",
@@ -97,6 +106,49 @@ def test_limits_given_in_code_must_be_whole_numbers_too(value):
             ai_provider="mock",
             ai_daily_summaries_per_user=value,
         )
+
+
+@pytest.mark.parametrize("variable", LIMIT_VARIABLES)
+@pytest.mark.parametrize("value", ["2147483646", "2147483647", " 2147483647 "])
+def test_daily_limit_up_to_the_bound_starts_the_app(required_env, monkeypatch, variable, value):
+    monkeypatch.setenv(variable, value)
+
+    field, _ = LIMIT_VARIABLES[variable]
+    assert getattr(load_settings(), field) == int(value)
+    assert getattr(create_app().state.settings, field) == int(value)
+
+
+@pytest.mark.parametrize("variable", LIMIT_VARIABLES)
+@pytest.mark.parametrize("value", OVER_THE_BOUND, ids=lambda value: value[:25])
+def test_daily_limit_over_the_bound_stops_the_app(required_env, monkeypatch, variable, value):
+    monkeypatch.setenv(variable, value)
+
+    with pytest.raises(SettingsError) as error:
+        create_app()
+
+    message = str(error.value)
+    assert message.startswith("Invalid configuration: ")
+    assert f"{variable} is invalid: " in message
+    assert "must be a whole number from 0 to 2147483647" in message
+    assert value not in message
+    assert "4300" not in message
+
+
+@pytest.mark.parametrize("field", [field for field, _ in LIMIT_VARIABLES.values()])
+def test_daily_limit_bound_applies_in_code_too(field):
+    def build(value: int) -> Settings:
+        return Settings(
+            _env_file=None,
+            database_url="postgresql://winlog:secret@localhost:5432/winlog",
+            cors_allowed_origins=["http://localhost:5173"],
+            ai_provider="mock",
+            **{field: value},
+        )
+
+    assert getattr(build(MAX_COUNT_LIMIT), field) == 2**31 - 1
+    for value in (2**31, 2**63):
+        with pytest.raises(ValueError, match="whole number from 0 to 2147483647"):
+            build(value)
 
 
 def test_limits_are_documented_in_env_example_with_their_defaults():
