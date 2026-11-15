@@ -3922,3 +3922,35 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - JSON nested 5,000 deep inside a field still parses;
   - `_is_body_parse_error` would accept two cases that cannot happen today.
 - **Session note:** the permission system denied QA's `docker compose stop db`, so QA ran the unit tests in a separate network namespace instead.
+
+## 2026-11-15: PM: groom #89 (task 51, very large login-attempt limits pass startup but break every login)
+
+- **Task:** groom #89, which had no status label, following `docs/pm.md`. It is task 51, in the group "protect the live app".
+- **What I read:**
+  - the issue (no comments) and QA's finding on #46 (6857401367), with #46 itself and how its other open points were placed;
+  - #95 and #58 as the pattern for a groomed follow-up;
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md`, `docs/product-spec.md` (FR-A4, §8), `openapi.yaml`, `AGENTS.md` and `docs/tasks.md`;
+  - the backend's `settings.py`, `attempt_limits.py`, `ai/limits.py`, `summaries.py` and `models.py`, and the settings tests in `tests/unit/test_attempt_limits.py`, `test_ai_limits.py` and `test_settings.py`;
+  - `.env.example`, `render.yaml`, `docker-compose.yml` and the variable table in `ops/deployment.md`.
+- **What I did:**
+  - Rewrote the body of #89 using the template.
+  - Posted the PM comment with the decisions and the facts I checked (6891960698).
+  - Created #108 for the five settings that still use pydantic's lax parsing.
+  - Labels unchanged: the orchestrator sets the status.
+- **Decisions under the standing rule (2026-11-14), recorded in the issue:**
+  - **Bound:** 2,147,483,647, the largest PostgreSQL `integer`, because the counts are `integer` columns. I rejected the `bigint` maximum (a count could still overflow its column) and a smaller round number (a new product rule nobody asked for).
+  - **AI daily limits:** the same bound in this task (range 0 to 2,147,483,647). They use the same comparison and had the same defect.
+  - **`AI_SUMMARY_MAX_INPUT_CHARACTERS`:** no upper bound. It is compared only in Python, so no value can break a request.
+  - **Long numbers:** a 5,000-digit value gets the normal range message instead of Python's digit-limit text.
+  - **Scope:** only the settings check changes. There is no migration and no contract change.
+  - **Screens:** no screen changes, so no design note.
+  - **Blueprint sync:** none needed, because `render.yaml` does not change.
+  - **Lax parsing:** the five `Field(ge, le)` settings that accept `+5`, `1_0` and `10.0` moved to #108.
+- **How I verified it:**
+  - **Database ranges:** read-only queries against the Compose `postgres:18` test database, in the shape the code uses. A `bigint` limit of 2^63 fails with `bigint out of range`, 2^63 − 1 works, and `integer` 2,147,483,647 + 1 fails with `integer out of range`.
+  - **Current settings check:** on `a0b380b`, `_whole_number` accepts 2^63, and a 5,000-digit string raises Python's digit-limit error. The five `Field(ge, le)` settings read `+5` as 5, `1_0` as 10 and `10.0` as 10.
+  - **The saved issue:** I read the body back. It matches what I wrote and has the four template sections.
+  - No change to project code, and no AI call.
+- **Left open:**
+  - The PostgreSQL documentation could not be read: `postgresql.org` is not in this session's allowed network domains. The ranges were checked against the running database instead.
+  - #108 is not in `docs/tasks.md`. The orchestrator or the product owner decides where it goes.
