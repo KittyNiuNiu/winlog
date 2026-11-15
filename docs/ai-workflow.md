@@ -3624,3 +3624,48 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Left open:**
   - The Blueprint's Manual Sync after the production deploy is the product owner's step. Until then the default, which is the same value, applies.
   - No follow-up issues were created. Hosted telemetry is already #92.
+
+## 2026-11-15: Engineer: implement #95 (task 48, limit how long requests wait for a database that stops answering)
+
+- **Task:** #95 as groomed by the PM on 2026-11-14 (issue body and comment 6886151429). No screens change, so no design note or review. No real AI call (`AI_PROVIDER=mock` throughout).
+- **What I did:**
+  - `backend/app/db.py`: the engine opens its connections as `TimeLimitedConnection`, a subclass of `psycopg.Connection`. Its `wait` passes `DATABASE_QUERY_TIMEOUT_SECONDS` as the timeout of psycopg's own wait loop. That loop runs every database call: the pool's pre-ping, a statement with its result, a commit or a rollback. When the limit runs out, the connection is closed (`broken`) and `DatabaseCallTimeout` (an `OperationalError`) is raised, so SQLAlchemy treats it as a disconnect and discards the connection. The engine opens connections this way through SQLAlchemy's public `do_connect` event. `pool_timeout` is Q too. Migrations keep their own engine without the limit.
+  - `database_is_reachable` and `/health` behave as before. The docstring now says that the engine's limits also free the background check.
+  - `backend/app/settings.py`: the new setting (default 10, a whole number from 1 to 600, the existing "Invalid configuration" message otherwise). The comments explain both database settings.
+  - Tests:
+    - `tests/unit/test_db.py`: a small fake PostgreSQL server, so no database is needed. It covers each kind of call, the engine, slow answers, time between calls and the psycopg internals, plus `.env.example` and Compose.
+    - `tests/unit/test_settings.py`: the new setting.
+    - `tests/integration/test_db_time_limit.py`: 15 tests against real PostgreSQL.
+    - `PausableProxy` moved to `tests/integration/pausable_proxy.py` and gained `pause_open_connections()`. `test_health.py` now only imports it; its tests are unchanged.
+  - Configuration and guide:
+    - `.env.example`, `docker-compose.yml`, and `render.yaml` (both backends).
+    - `ops/deployment.md`: the table row, the dev sentence, and a paragraph on what happens when the database stops answering.
+    - `tests/unit/test_deployment.py`: the expected `render.yaml` value.
+- **Mechanism (the issue left the choice to me): psycopg's `Connection.wait` timeout, not a watchdog.**
+  - It starts no thread at all. psycopg already measures one deadline for the whole call, so time between calls does not count.
+  - A watchdog needs a shared thread, a registry of running calls, and a socket shut down from another thread while libpq uses it.
+  - It relies on two things psycopg does not document as public: `errors._WaitTimeout`, and every call going through `Connection.wait(gen, interval, timeout)`. Unit tests guard both. With the limit switched off on purpose, 5 unit tests fail after 10 seconds instead of hanging.
+  - SQLAlchemy's dialect counts a `closed` or `broken` connection as a disconnect. A unit test checks that too.
+- **Decisions (mine, within the issue):**
+  - **A "call" includes psycopg's `BEGIN`:** the first statement of a transaction counts together with the `BEGIN` psycopg sends before it.
+  - **Error type:** `error.type` in the `request finished` line is SQLAlchemy's `OperationalError`, the class that reaches the middleware.
+  - **Per-address connect attempts:** psycopg tries each address of the database's host name, each for up to C. The guide paragraph says so.
+  - **The new `/health` test fails without the change:** it uses Q = 10 and C = 2, as in production, and also checks that the checks that gave up free their connections while the database stays paused (PM decision 5).
+- **How I verified it:**
+  - **Lint and tests:** in `backend/`, `uv run ruff check .` and `uv run ruff format --check .` are clean.
+    - Unit tests: 1071 passed, also with PostgreSQL stopped.
+    - Integration tests: 985 passed.
+    - `./test-all.sh`: all three suites passed (frontend 1239).
+  - **CI on the branch:** run 43657914270 for 556ba24 passed all six jobs, including Full system: 1071 unit and 985 integration tests.
+  - **Without the change:** I ran the new integration tests against `backend/app` from `main` (f655bec). 13 failed and 2 passed. The two that pass are the slow call within the limit and the time between calls; they check that the limit does not cut, so they pass without it too.
+  - **Live check, without building an image:** root `.env` with Q = 3 and C = 2, `docker compose up -d db`, `alembic upgrade head`, `uvicorn app.main:app --port 8000`, with a registered user.
+    - After `docker compose pause db`: `GET /entries` answered 500 `internal_error` in 5.0 s (limit 8), with the CORS headers. A second one answered in 2.0 s. `/health` answered 503 in 2.0 s (limit 3). The `request finished` lines had `error.type` `OperationalError` and no SQL.
+    - After `docker compose unpause db`: `/health` 200, `GET /entries` 200 with the entry, `POST /entries` 201. No `active` or `idle in transaction` session was left.
+    - The demo seed then ran with `DEMO_EMAIL` set (26 entries). `.env` was restored afterwards.
+  - **Compose:** `docker compose config` shows `"10"` without the variable in `.env`, and `"3"` (also `"25"`, through `--env-file`) when it is set.
+  - **Render:**
+    - `render.yaml` validates against Render's Blueprint schema (downloaded with curl today) with 0 errors; a deliberately wrong copy gets 2 errors.
+    - Render's health check page (curl, 200) says traffic stops after 15 seconds of failed consecutive checks and the instance restarts after 60 seconds, as the issue quotes.
+- **Left open:**
+  - **Render sync:** the Blueprint's Manual Sync after the production deploy is the product owner's step. Until then the default, which is the same value, applies. Production gets the change only after the product owner approves the production step (#39).
+  - **Uvicorn's stderr:** as before, uvicorn's own error log on stderr keeps the traceback of an unexpected error, with the statement but no values (`docs/observability.md`). The app's telemetry stays within the allowlist.
