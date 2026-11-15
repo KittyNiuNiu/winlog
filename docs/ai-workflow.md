@@ -4223,3 +4223,24 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - **The saved issue body:** read back, and it matches what I wrote. The labels are still `qa-failed`.
   - No change to project code, and no AI call.
 - **Left open:** section G of #102, unchanged: the first real deploy after the merge.
+
+## 2026-11-15: Engineer: fix #102 after QA's FAIL (task 53, no query string on /version.json)
+
+- **Task:** fix the one criterion in section D of #102 that QA failed (comment 6894012626), as amended by the PM (comment 6894130886) with the product owner's decision: rely on Render clearing its CDN cache on deploy, add no `headers` rule, and leave `render.yaml` unchanged. Nothing that QA passed changes.
+- **What I did** (commit `88c5cc3`):
+  - **`.github/workflows/deploy.yml`:** the wait requests `GET $APP_URL/version.json` with no query string. The `?wait=<nanoseconds>` query string and its code comment are gone. The wait step's comment now says that the wait relies on Render clearing the static site's CDN cache when it deploys, that no query string or request header gets past that cache, and that a stale copy names an older commit or none, so it can only delay the pass (by up to 5 minutes, its `s-maxage`), never make it pass. The sentence "so no copy in Render's CDN can answer for the new build" is gone.
+  - **`ops/deployment.md`, When the wait fails:** a new paragraph, **Render's CDN cache**, says the same, quotes Render's static site docs on the invalidation and names `s-maxage=300`.
+  - **No code change for the time limit:** the worst case is about 16 minutes 40 seconds (one more 10 s interval and one last round of three requests of up to 30 s each after the 15 minutes), within `timeout-minutes: 25`.
+- **Changed assertions in this task's own tests** (`backend/tests/unit/test_deployment.py`), as section F lists:
+  - `test_deploy_workflow_comments_describe_the_new_wait`: instead of "a query string that differs on each request", it checks the new comment. It also checks that "no copy in Render's CDN can answer", "query string that differs on each request" and `?wait=` no longer appear in `deploy.yml`.
+  - `test_deploy_wait_calls_only_the_public_urls_and_prints_no_secret`: the wait's calls are `$API_URL/health` and `$APP_URL/version.json`.
+  - `test_deploy_wait_passes_only_after_both_name_the_commit_and_logs_each_change_once`: instead of a different query string on each request, all seven `/version.json` requests have no query string.
+  - Added, not weakened: `test_deploy_guide_says_what_to_do_when_the_wait_fails` also checks the new cache paragraph, and that neither the guide nor `deploy.yml` has the old claims. `test_deploy_wait_has_the_same_time_limit_and_poll_interval_in_both_jobs` also checks the worst case (1000 s) plus two hook calls against `timeout-minutes`.
+  - No other assertion changed.
+- **How I verified it:**
+  - **Against the old files:** with `deploy.yml` and `ops/deployment.md` from `836619d`, the four changed tests fail and the time-limit test passes (that code did not change). With the new files, all pass.
+  - **Live, read-only `curl`:** both static sites still send `/version.json` with `cache-control: public, max-age=0, s-maxage=300`.
+  - **Lint and tests:** in `backend/`, `uv run ruff check .` and `uv run ruff format --check .` are clean. In `frontend/`, `npm run lint` is clean and `npm run build` passes (`dist/version.json` is `{"commit":null}`). `./test-all.sh` passed all three suites: backend unit 1512, backend integration 1198, frontend 1274.
+  - **`actionlint` v1.7.12** (built with Go in the scratchpad): no error for both workflows. With shellcheck 0.11.0, `deploy.yml` is clean. `ci.yml` still has the two SC2034 warnings in the Full system job, which `main` has too.
+  - No hook was called, no Deploy run was started, and no real AI call was made.
+- **Left open:** section G of #102, unchanged: only the first real deploy after the merge can prove it. QA reads that run afterwards.
