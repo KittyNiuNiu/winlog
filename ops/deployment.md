@@ -51,10 +51,11 @@ push to any branch ──► CI (all jobs) ──► branch other than main: sto
 1. **CI** (`.github/workflows/ci.yml`, every push to every branch): Contract, Backend, Frontend,
    Tests, **Backend image** and Full system with the end-to-end test. The Backend image job
    builds the backend image for `linux/amd64` from `backend/Dockerfile` with `backend/` as the
-   context, fails if the image holds any file named `.env` or `.env.<anything>`, and checks the
-   `org.opencontainers.image.source` label that links the package to this repository. CI pushes
-   nothing. On `main` it keeps the checked image as the run's `backend-image` artifact. No CI
-   job has a condition that skips it on `main`.
+   context, fails if the image holds any file named `.env` or `.env.<anything>`, checks the
+   `org.opencontainers.image.source` label that links the package to this repository, and checks
+   that the image records the commit it was built from (the build argument `GIT_COMMIT`, which
+   `GET /health` reports, #102). CI pushes nothing. On `main` it keeps the checked image as the
+   run's `backend-image` artifact. No CI job has a condition that skips it on `main`.
 2. **Deploy** (`.github/workflows/deploy.yml`) starts when a CI run for a push to `main` has
    finished, and does something only when that CI run **passed**: every job succeeded. A failed
    or cancelled CI run (for example one cancelled by a newer push to `main`) deploys nothing for
@@ -66,20 +67,28 @@ push to any branch ──► CI (all jobs) ──► branch other than main: sto
    2. **Deploy to dev** (GitHub environment `dev`) calls `winlog-api-dev`'s deploy hook with
       `imgURL=ghcr.io/kittyniuniu/winlog-backend@sha256:…`, so Render deploys exactly that
       image; moves the `:dev` tag to that digest; calls `winlog-app-dev`'s deploy hook with
-      `ref=<commit SHA>`, so Render builds the same commit; and then waits up to 10 minutes until
-      `GET https://winlog-api-dev.onrender.com/health` and `https://winlog-app-dev.onrender.com/`
-      both answer 200. **This wait does not show that the new deploy is live:** the previous
-      deploy keeps answering while the new one starts, so the wait can pass on the previous
-      deploy. During the migration on 14 November 2026 it passed after 40 seconds in dev and
-      after 1 second in production. Only the service's **Events** in Render show which deploy is live
-      ([Promote to production](#promote-to-production), step 3). The job's summary says which
-      commit and digest the production step will deploy.
+      `ref=<commit SHA>`, so Render builds the same commit; and then waits until both new
+      deploys are live. **The wait passes only when
+      `GET https://winlog-api-dev.onrender.com/health` and
+      `https://winlog-app-dev.onrender.com/version.json` both name the run's commit**, the commit
+      CI checked and **Publish image** published, within 15 minutes (#102). The backend reports
+      the commit its image was built from (`commit` in `/health`), and the static site's build
+      writes the commit Render built into `version.json`. A 200 alone does not count: Render
+      keeps the previous deploy live while the new one starts, and the previous deploy answers
+      200 too. The wait also needs `https://winlog-app-dev.onrender.com/` to answer 200. It
+      polls every 10 seconds and logs each change in what a service answers. Until #102 the
+      wait accepted any 200 and passed on the previous deploys (on 14 November 2026, after
+      40 seconds in dev and 1 second in production). If the services do not name the commit
+      within 15 minutes, the job fails, and the run's production step is not offered
+      ([When the wait fails](#when-the-wait-fails)). The job's summary says which commit and
+      digest the production step will deploy.
    3. **Deploy to production** (GitHub environment `production`) waits until the product owner
       approves it, then does the same for `winlog-api` (the **same digest**, tag
-      `:production`) and `winlog-app` (the same commit), and waits for
-      `https://winlog-api.onrender.com/health` and `https://winlog-app.onrender.com/`. That wait,
-      too, can pass on the previous deploy. It builds nothing. If the dev deploy failed, the
-      production step is never offered.
+      `:production`) and `winlog-app` (the same commit), and waits the same way until
+      `https://winlog-api.onrender.com/health` and `https://winlog-app.onrender.com/version.json`
+      name the run's commit, within 15 minutes. A failed wait fails the job
+      ([When the wait fails](#when-the-wait-fails)). It builds nothing. If the dev deploy
+      failed, the production step is never offered.
 
 A deploy hook that does not answer 2xx, or a missing hook secret, fails the job with a message
 that names the service or the secret, never the URL. If the backend's hook succeeded and the
@@ -88,18 +97,35 @@ the failed job is re-run (**Re-run this job**; in production it waits for approv
 two static sites are separate builds
 of the same commit, because `VITE_API_BASE_URL` is built into the JavaScript (#25).
 
-**What the pipeline cannot see.** Render keeps the previous deploy live until a new one is
-healthy, so a 200 from `/health` right after a hook does not prove that the new image is live.
-Without a Render API key (which GitHub does not hold) the job cannot read Render's deploy
-status. A green deploy job shows only that Render accepted both deploys and that both URLs
-answer. That is why the person approving production checks the dev service's **Events** in
-Render first, and production's **Events** after the job.
+**What the pipeline cannot see.** A green deploy job shows that Render accepted both deploys
+and that both services answer with the run's commit. The wait sees only that commit. Without a
+Render API key, which GitHub does not hold, the job cannot read Render's deploy status or logs,
+why a deploy failed, or which digest runs. Two images of the same commit look the same to the
+wait, and only a CI re-run of that commit builds a second one. So a failed wait shows only that
+a service did not name the commit in time, not why. That is why the person approving production
+checks the dev services' **Events** in Render first, where the backend's deploy names the
+digest, and production's **Events** after the job.
 
 **One deploy per environment at a time.** Each deploy job has its own concurrency group
 (`deploy-dev`, `deploy-production`) that never cancels a running deploy. A newer run's deploy
-waits until the running one has finished. If yet another run arrives, GitHub cancels the
-*waiting* one (not the running one) and keeps the newest. A production step that is waiting for
-approval can hold the production group, so approve or reject old waiting production steps.
+job is *pending* until the running one has finished. If yet another run arrives, GitHub cancels
+the pending one (not the running one) and keeps the newest.
+
+**Approve only the newest run's waiting production step, and reject every older production
+step that is still waiting.** A production step waiting for approval holds the
+`deploy-production` concurrency group until it is approved or rejected, and so blocks every
+later run's production step. When a newer job arrives, GitHub cancels only a *pending* job in
+the group, not the waiting one. On 14 and 15 November 2026:
+
+- run 43653076300's production step waited unapproved overnight;
+- run 43654635673's production job was pending behind it, and GitHub cancelled it when run
+  43692182612's arrived;
+- run 43692182612's production step stayed blocked until 43653076300's was rejected.
+
+Approving an older run after a newer run has deployed dev would send production an older image
+than the one dev runs. The one deliberate exception is
+[Promote an earlier image again](#promote-an-earlier-image-again-preferred): a re-run of an
+earlier run's production step, on purpose.
 
 **Deploys that name no image.** Render deploys an image service without a named image after a
 Blueprint sync, a changed environment variable, or **Manual Deploy → Deploy latest reference**.
@@ -110,6 +136,24 @@ never a newer one. Static sites have no tag: a sync or **Deploy latest commit** 
 newest commit on `main`, which may be newer than the one approved. Redeploy a static site with
 **Manual Deploy → Deploy a specific commit** and the commit from the last Deploy run (or re-run
 that run's production step, [Roll back](#rollback-and-emergencies)).
+
+### When the wait fails
+
+The job fails with one error. For each service that did not answer with the run's commit, it
+names the URL, the last answer (the status, and the commit or that there was none) and the
+commit the wait expected. The log above it has one line for each change in what a service
+answered, with the seconds since the wait started.
+
+- **In dev:** the run's production step is not offered. The service's **Events** and **Logs**
+  in Render show whether the deploy failed or was only slower than 15 minutes. When a deploy
+  fails, Render keeps the previous deploy live. After the cause is fixed, either a new commit on
+  `main` deploys again, or **Re-run failed jobs** in the run deploys the same commit and digest
+  again.
+- **In production:** Render has accepted the hooks, and `:production` already points to the new
+  digest. If **Events** show that the deploy failed, go back as in
+  [Promote an earlier image again](#promote-an-earlier-image-again-preferred), because a deploy
+  that names no image would now pull the failed image. If the deploy was only slower, nothing
+  more is needed once **Events** show it live.
 
 ### Where to see each step
 
@@ -126,13 +170,23 @@ The product owner approves every production deploy. **No agent approves a deploy
 the production job or calls a deploy hook**, even though agents work through the same GitHub
 account.
 
-1. Open the repository's **Actions** tab → workflow **Deploy** → the run for the commit. The
-   job **Deploy to production** shows "Waiting for review".
+**Approve only the newest run's waiting production step, and reject every older production
+step that is still waiting.** A waiting production step holds the `deploy-production`
+concurrency group until it is approved or rejected, so it blocks every later run's production
+step, and GitHub cancels only a pending job in the group, never the waiting one
+([The pipeline](#the-pipeline), "One deploy per environment at a time", has the example from
+14 and 15 November 2026). Approving an older run after a newer run has deployed dev would send
+production an older image than the one dev runs. The one deliberate exception is
+[Promote an earlier image again](#promote-an-earlier-image-again-preferred): a re-run of an
+earlier run's production step, on purpose.
+
+1. Open the repository's **Actions** tab → workflow **Deploy** → the newest run, the one for the
+   commit. The job **Deploy to production** shows "Waiting for review".
 2. Read the **Deploy to dev** summary: it names the commit and the digest
    (`ghcr.io/kittyniuniu/winlog-backend@sha256:…`) the production step will deploy.
-3. Check dev **before** approving. A green **Deploy to dev** job is not enough: its wait can
-   pass on the previous deploy ([The pipeline](#the-pipeline)). **Events** show whether the new
-   deploy is live:
+3. Check dev **before** approving. The green **Deploy to dev** job shows that both dev services
+   answer with this commit ([The pipeline](#the-pipeline)). **Events** also show the digest,
+   which the job cannot see:
    - In the Render Dashboard, `winlog-api-dev` → **Events**: the deploy of exactly this digest
      is the live one (not failed, not still in progress).
    - `winlog-app-dev` → **Events**: the deploy of this commit is live.
@@ -141,9 +195,10 @@ account.
 4. In the run, click **Review deployments**, select `production`, optionally write a comment,
    and click **Approve and deploy**. To skip this commit, click **Reject** instead; a newer run
    will offer its own production step.
-5. Watch the job **Deploy to production** finish, then `winlog-api` → **Events** (the same
-   digest is live) and `winlog-app` → **Events** (the same commit is live). The job can finish
-   before the new deploys are live, for the same reason as in step 3.
+5. Watch the job **Deploy to production** finish. It finishes only when both production
+   services answer with this commit. Then check `winlog-api` → **Events**, which also show the
+   digest (the same digest is live), and `winlog-app` → **Events** (the same commit is live). If
+   the job fails at its wait, see [When the wait fails](#when-the-wait-fails).
 
 The approval itself happens only on GitHub, and the production hook URLs are readable only
 after it. Approving costs nothing; production's AI costs come only from users' requests.
@@ -273,6 +328,13 @@ Render applies `render.yaml` to the four services only when the Blueprint syncs.
   so `render.yaml` sets `autoDeployTrigger: "off"` for them, and a deploy hook called with
   `ref`, as the pipeline does, also turns their auto-deploy off (Render's docs on deploying a
   specific commit).
+- **Three changes come back in every sync.** Both Manual Syncs so far, on 14 and 15 November
+  2026, listed three changes that `render.yaml` does not make: "auto-deploy trigger → commit"
+  for `winlog-api` and `winlog-api-dev`, and "static publish path → `./frontend/dist`" for
+  `winlog-app-dev`. They are harmless. The trigger has no effect on image services, as the
+  point above explains, and `./frontend/dist` is the directory the site already publishes. A
+  sync review does not stop on these three. Every other change in the list is read as before.
+  Whether `render.yaml` can be written so that Render stops listing them is #109.
 
 ## The one-off migration of the live production (#39)
 
@@ -404,15 +466,16 @@ sync came last (step 15).
     **No**, and both static sites' **Auto-Deploy** stays **Off**
     ([Blueprint syncs](#blueprint-syncs)).
 
-**The proof (#39, section B)** comes from the first ordinary merge into `main` after the
-migration, planned as the merge that brought this record into the guide. The migration run
-cannot show the normal order, because production's first image deploy was started by hand. For
-the proof run, report: when the CI run finished; when `winlog-api-dev` and `winlog-app-dev`
-started deploying in Render's **Events** (the backend deploy names the digest, the static site
-deploy the commit); that production showed no new deploy until the approval; and that
-`winlog-api` then deployed the same digest and `winlog-app` the same commit. Take these from
-**Events**, not from the deploy jobs' wait, which can pass on the previous deploy. Also report
-the two dev URLs. None of these are secrets.
+**The proof (#39, section B)** came from the first ordinary merge into `main` after the
+migration, because the migration run could not show the normal order: production's first image
+deploy was started by hand. The proof run was the merge of PR #101 (commit `ff76738`,
+14 November 2026), which brought this record into the guide. CI run 43642206653 finished at
+21:26:37 UTC. In Deploy run 43642838583, both dev deploys started at about 21:27 UTC, with the
+digest `sha256:c2816c1c…` and the commit `ff76738`. Production showed no new deploy until the
+approval at about 21:36 UTC. Then `winlog-api` deployed the same digest and `winlog-app` the
+same commit. The product owner read these from Render's **Events**, not from the deploy jobs'
+wait, which then still accepted any 200. The record:
+https://github.com/KittyNiuNiu/winlog/issues/39#issuecomment-6884765919.
 
 ## Set up from scratch
 
@@ -514,7 +577,8 @@ Only after dev has been checked:
    `VITE_API_BASE_URL` = `https://winlog-api.onrender.com`; then **Auto-Deploy** **Off** and the
    rewrite rule.
 3. Compare both URLs with [the public URLs](#the-public-urls), and check that
-   https://winlog-api.onrender.com/health answers `{"status": "ok", "database": "ok"}`.
+   https://winlog-api.onrender.com/health answers `"status": "ok"`, `"database": "ok"` and the
+   image's commit as `"commit"`.
 4. Copy both services' **Deploy Hook** into the GitHub environment `production`, with the same
    two names.
 5. Approve **Deploy to production** in the same run
@@ -765,7 +829,8 @@ are from search results and memory, so check Neon's pricing page.
 - **Cold start (§12):** a free backend spins down after 15 minutes without requests. The first
   request after that wakes it: the container starts, runs the migrations and the demo reset,
   and then answers. That takes about a minute. The Neon compute also scales to zero when idle
-  and needs a moment to resume. The deploy jobs wait up to 10 minutes for this.
+  and needs a moment to resume. The deploy jobs wait up to 15 minutes for a new deploy to
+  answer with the run's commit, which includes this ([The pipeline](#the-pipeline)).
 - **Render bandwidth and pipeline minutes:** web services and static sites count against the
   workspace's monthly outbound bandwidth and build pipeline minutes. Each promoted commit builds
   the frontend twice (dev and production). If bandwidth runs out without a payment method,
@@ -800,8 +865,16 @@ main flows, the demo reset on start, demo-login counts per visitor), and section
 the checks of dev, of the promotion and of the pipeline. Real AI calls in those checks need the
 product owner's explicit approval in that session, with a cost estimate.
 
-One more check, of the backend's HSTS header (#99, [HTTPS](#backend-winlog-api)):
+Two more checks. The backend's HSTS header (#99, [HTTPS](#backend-winlog-api)):
 
 - After a dev deploy, `curl -sS -D - -o /dev/null https://winlog-api-dev.onrender.com/health`
   shows `strict-transport-security: max-age=31536000; includeSubDomains`.
 - The same check runs on `https://winlog-api.onrender.com/health` after the production deploy.
+
+The commit both services name (#102, [The pipeline](#the-pipeline)):
+
+- After a dev deploy, `curl -sS https://winlog-api-dev.onrender.com/health` and
+  `curl -sS https://winlog-app-dev.onrender.com/version.json` both show the commit of that
+  Deploy run (`"commit": "<40-character SHA>"`).
+- After the production deploy, the same check runs on `https://winlog-api.onrender.com/health`
+  and `https://winlog-app.onrender.com/version.json`.
