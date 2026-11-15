@@ -4493,3 +4493,16 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - CI on the pushed branch: see the issue comment.
   - No AI call.
 - **Left open:** nothing.
+
+## 2026-11-15: Orchestrator: add the alerting task (#112), no on-call agent
+
+- **Task:** the product owner shared the project's evaluation criteria. The orchestrator's estimate was about 21 of 24 points. The gaps were "Alerting on user impact" (1 point) and "On-call agent" (2 points).
+- **Decisions (product owner, 2026-11-15):**
+  - build an alert on user impact;
+  - do **not** build an on-call agent;
+  - drop the non-existent `security/` and `mcp-server/` folders from `AGENTS.md` (in #68);
+  - the alert task goes into this batch as task 65, and the standing rule covers tasks 48 to 67.
+- **What I did:**
+  - Created #112 "Alert on user impact in the local telemetry stack" (needs grooming).
+  - `docs/tasks.md`: #112 is task 65; #92 and #98 moved to tasks 66 and 67.
+  - `docs/process.md`: the standing rule now covers tasks 48 to 67.
