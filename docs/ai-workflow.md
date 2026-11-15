@@ -4112,3 +4112,46 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Starlette's last-resort 500 (only from a bug in an outer middleware) has neither the HSTS nor the CORS headers;
   - leading zeros are accepted, as for the other settings;
   - one unit test depends on the variable not being exported in the shell, the same pattern as the existing settings tests.
+
+## 2026-11-15: PM: groom #102 (task 53, the deploy health wait can pass on the previous deploy)
+
+- **Task:** groom #102, which had no status label, following `docs/pm.md`. It is task 53, in the group "pipeline and developer set-up".
+- **What I read:**
+  - the issue and its one comment (the orchestrator's two inputs from the deploys of 14 and 15 November 2026);
+  - on #39: the engineer's "Left open", QA's notes, the migration record and the proof run;
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md`, `docs/product-spec.md`, `openapi.yaml`, `AGENTS.md` and `docs/tasks.md`;
+  - `.github/workflows/deploy.yml` and `ci.yml`, `render.yaml`, `ops/deployment.md`;
+  - `backend/Dockerfile`, `backend/app/health.py`, `main.py` and `settings.py`;
+  - `backend/tests/unit/test_deployment.py` and `test_health.py`;
+  - `frontend/vite.config.ts` and `frontend/src/api/`.
+- **What I did:**
+  - Rewrote the body of #102 using the template. It has sections A to F, checked on the branch, and G, checked after the merge from the first real deploy.
+  - Posted the PM comment with the decisions and the facts I checked (6893342798).
+  - Created the follow-up issue #109 ("every Manual Sync lists the same three Blueprint changes").
+  - Labels unchanged on both issues: the orchestrator sets the status.
+- **Decisions under the standing rule (2026-11-14), recorded in the issue.** None changes what reaches production or how the approval works:
+  - **The gap is closed with the commit in `GET /health`, not with a Render API key.** #39 excluded the key.
+  - **The contract:** `Health` gets a required `commit`, a string of 40 lowercase hexadecimal characters or `null`. The exact YAML is in the issue.
+  - **The commit is build metadata:** CI passes `$GITHUB_SHA` into the image build. The image records it, and the backend reads no environment variable for it. The **Backend image** job checks it.
+  - **The static site is checked too:** the Vite build writes `/version.json` from Render's `RENDER_GIT_COMMIT`. `render.yaml` stays unchanged, so no Blueprint sync is needed.
+  - **The wait** passes only when both services name the run's commit. It polls every 10 s and gives up after 15 minutes instead of 10. It logs each change of what a service answers.
+  - **The approval checks** stay as they are, including Render's **Events**.
+  - **Superseded production steps:** a guide rule (approve only the newest, reject the older waiting ones). No pipeline guard, because it would block the deliberate re-run used to roll back. No `queue: max`.
+  - **The three repeated sync changes** are documented as harmless. Trying a `render.yaml` form that Render stops listing moved to #109.
+  - **The proof paragraph** becomes a past-tense record.
+  - **No screen, spec or `render.yaml` change.**
+- **How I verified it:**
+  - **Live, with read-only `curl`, no AI call:**
+    - Both backends' `/health` return the two fields today.
+    - Both static sites answer `/version.json` with 200 and `index.html` (the SPA rewrite), with `cache-control: public, max-age=0, s-maxage=300`.
+  - **Render docs, fetched with `curl`:**
+    - default environment variables: `RENDER_GIT_COMMIT` for all runtimes, at build time too;
+    - static sites: the CDN cache is invalidated on deploy;
+    - Blueprint reference: `autoDeployTrigger` and `staticPublishPath`.
+  - **GitHub's concurrency docs,** from the `github/docs` repository's raw files.
+  - **The three Deploy runs** from the orchestrator's comment, through the REST API.
+  - **The saved issue:** I read the body back. It has the four template sections and matches what I wrote.
+  - No change to project code, and no AI call.
+- **Left open:**
+  - WebFetch cannot reach `render.com` or `docs.github.com` in this session. `curl` through the proxy reached `render.com`, and the GitHub docs came from `raw.githubusercontent.com`.
+  - Only the first real deploy after the merge can prove three things: that Render sets `RENDER_GIT_COMMIT` in static builds, that the wait first sees the previous deploys, and that 15 minutes is enough. That is section G of the issue: QA reads the run afterwards, and the product owner merges and approves as usual.
