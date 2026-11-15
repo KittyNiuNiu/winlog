@@ -101,8 +101,8 @@ Product decisions
   the product or the system still go to the product owner, and so do the stop points
   below and the `AGENTS.md` rule on real AI calls. Every decision is recorded in the issue
   and in `docs/ai-workflow.md`.
-- Standing rule (product owner, 2026-11-14, for tasks 48 to 61 in `docs/tasks.md` and
-  #103): the same as the rule of 2026-11-12. The orchestrator takes the option recommended
+- Standing rule (product owner, 2026-11-14, for tasks 48 to 66 in `docs/tasks.md`; extended
+  on 2026-11-15 from tasks 48 to 61 and #103): the same as the rule of 2026-11-12. The orchestrator takes the option recommended
   by the role that raised a decision (PM, designer, engineer or QA), including design and
   wording questions `DESIGN.md` does not answer and where to record open points, without
   asking, under the same conditions. Still for the product owner:

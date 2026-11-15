@@ -4339,3 +4339,13 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - **Left in this log under the standing rule:**
     - the CI-step guard test checks `curl` only;
     - unit tests in `unshare -n` need the loopback interface up.
+
+## 2026-11-15: Orchestrator: add five small follow-ups to the backlog order and extend the standing rule
+
+- **Task:** the product owner asked to add the five small unlisted follow-ups to `docs/tasks.md`, before #92 and #98.
+- **What I did:**
+  - `docs/tasks.md`: added #103, #106, #108, #109 and #111 as tasks 60 to 64, oldest first. #92 and #98 moved to tasks 65 and 66, and the intro says so.
+  - `docs/process.md`: the standing rule of 2026-11-14 now covers tasks 48 to 66.
+- **Decisions (product owner, 2026-11-15):**
+  - the standing rule covers tasks 48 to 66;
+  - the running `/orchestrate` batch continues through tasks 60 to 64 and stops before #92 (task 65).
