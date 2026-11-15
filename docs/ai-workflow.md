@@ -5148,3 +5148,22 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - a hanging DNS lookup cannot be cancelled, so the timeout can come late, bounded by the system resolver. It is not a regression, and QA judged it acceptable;
   - the no-answer test passes on the old code too (the per-read limit); the slow-drip case shows the change;
   - a timeout after the headers logs `status none`, as before.
+
+## 2026-11-15: Engineer: implement #112 (task 65, an alert on user impact in the local telemetry stack)
+
+- **Task:** one provisioned Grafana alert rule on the share of server errors (5xx) in the local `lgtm` stack, a CI check, the docs and the spec changes the issue lists.
+- **What I did:**
+  - `ops/grafana/alerting/user-impact.yaml` (new): rule `winlog-server-errors`, `Server errors above 5%`, folder `Winlog`, group `user-impact`, every 1m, `for: 1m`, threshold `gt 0.05`, `noDataState: OK`, label `severity: critical`, fixed annotations. No contact point or policy.
+  - `docker-compose.yml`: a read-only single-file mount of the rule into the `lgtm` service's alerting provisioning folder, with a comment.
+  - `.github/workflows/ci.yml`: a new Full system step before `lgtm` is stopped. It checks that the rule is evaluated, healthy and inactive, retrying for up to 2 minutes.
+  - `docs/observability.md`: a new "Alerts" section. `README.md`: the Grafana line mentions the alert. `docs/product-spec.md`: the §9 and §10.2 sentences and a §14 entry; the header date already showed 15 November 2026.
+  - Commits 8294ea7, 09f53da and e433a99. Hand-over comment: 6903004331.
+- **Decisions under the standing rule, recorded in the issue:**
+  - The query stays exactly as groomed, because the idle case (0/0, `NaN`) was seen to evaluate as Normal.
+  - The CI check is a new step.
+- **How I verified it:**
+  - Live, with `db` and `lgtm` in Docker and the backend on the host (`AI_PROVIDER=mock`): 200s and 401s left the rule `inactive`. With the database stopped and `GET /health` every 2 s, it went `pending` at 22:46:20 and `firing` at 22:47:20 (first 503 at 22:45:30). The alert list held one alert with only `alertname`, `grafana_folder`, `severity` and Grafana's `__` labels. After the database started (22:47:33), it was `inactive` at 22:52:20.
+  - The rule also loaded after `docker compose restart lgtm` and on an `lgtm-data` volume created without it.
+  - `docker compose config --quiet` and the YAML parse pass, and the CI step's script passed locally.
+  - `./test-all.sh` passed, and so did ruff and eslint. CI on the pushed branch is reported on the issue. No AI call.
+- **Left open:** nothing.
