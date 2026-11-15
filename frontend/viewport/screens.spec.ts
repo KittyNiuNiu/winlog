@@ -46,6 +46,19 @@ const SUGGESTION: MockApiOptions['suggestion'] = {
   category: 'Achievement',
   tags: ['workshops', 'incident-reviews', 'knowledge-sharing'],
 }
+/** A full entry (#43), with none of SUGGESTION's tags. */
+const TEN_TAGS = [
+  'billing',
+  'mentoring',
+  'quarterly-goals',
+  'onboarding',
+  'release',
+  'support',
+  'docs',
+  'hiring',
+  'security',
+  'on-call',
+]
 
 const REVIEW_RESULTS = '/review?start_date=2026-09-01&end_date=2026-11-13'
 
@@ -104,6 +117,21 @@ async function chooseCategory(page: Page, category: string) {
 
 async function openFold(page: Page) {
   await page.getByRole('button', { name: 'Add tags and result' }).click()
+}
+
+/**
+ * The suggestion notice shows `text` (#86): the info message under the suggest row, with
+ * the text wrapped inside it, and Save entry is still the only filled plum element.
+ */
+async function expectSuggestionNotice(page: Page, text: string) {
+  const notice = page.locator('.entry-form__notice')
+  await expect(notice).toHaveText(text)
+  await expect(notice).toHaveAttribute('role', 'status')
+  await expect(notice).toHaveClass(/message--info/)
+  const fits = await notice.evaluate((element) => element.scrollWidth <= element.clientWidth)
+  expect(fits, 'the notice text wraps inside the message').toBe(true)
+  await expect(page.locator('.button--primary')).toHaveCount(1)
+  await expect(page.locator('.button--primary')).toHaveText('Save entry')
 }
 
 async function draftSummary(page: Page) {
@@ -308,6 +336,43 @@ const SCREENS: Screen[] = [
       await chooseCategory(page, 'Learning')
       await page.getByRole('button', { name: 'Suggest category and tags' }).click()
       await expect(page.getByRole('button', { name: 'Suggested: Achievement' })).toBeVisible()
+    },
+  },
+  {
+    // #86: the mock's default answer ({ category: 'Achievement', tags: [] }) after choosing
+    // Achievement brings nothing new. The shared SUGGESTION would bring new tags.
+    name: 'new-entry-no-new-suggestions',
+    session: 'user',
+    path: '/entries/new',
+    ready: heading('New entry'),
+    act: async (page) => {
+      await page.getByLabel('What happened?').fill(ENTRY_TEXT)
+      await chooseCategory(page, 'Achievement')
+      await page.getByRole('button', { name: 'Suggest category and tags' }).click()
+      await expectSuggestionNotice(page, 'No new suggestions for this text.')
+      await expect(page.getByRole('button', { name: 'Discard suggestions' })).toHaveCount(0)
+    },
+  },
+  {
+    // #86: 10 tags on the entry, then SUGGESTION, whose 3 tags are all new: none is added.
+    name: 'new-entry-suggestions-tag-limit',
+    session: 'user',
+    api: { suggestion: SUGGESTION },
+    path: '/entries/new',
+    ready: heading('New entry'),
+    act: async (page) => {
+      await page.getByLabel('What happened?').fill(ENTRY_TEXT)
+      await openFold(page)
+      const tags = page.getByRole('combobox', { name: 'Tags' })
+      await tags.fill(`${TEN_TAGS.join(',')},`)
+      const added = page.getByRole('list', { name: 'Added tags' }).getByRole('listitem')
+      await expect(added).toHaveCount(10)
+      await page.getByRole('button', { name: 'Suggest category and tags' }).click()
+      await expectSuggestionNotice(page, 'Up to 10 tags per entry, so not every suggested tag was added.')
+      await expect(added).toHaveCount(10)
+      // Nothing under the tag input, and no error state: the entry is valid.
+      await expect(page.locator('#entry-tags-messages')).toBeEmpty()
+      await expect(tags).toHaveAttribute('aria-invalid', 'false')
     },
   },
   {
