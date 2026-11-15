@@ -4659,3 +4659,22 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
     - Save entry with a category while the request was delayed: the entry was saved, and the late answer reached nothing in the reset form, with no notice.
     - Nothing scrolled sideways.
 - **Left open:** nothing.
+
+## 2026-11-15: Orchestrator: close #86 (feedback when a suggestion adds nothing or is dropped)
+
+- **Task:** task 58, run with `/orchestrate all`. It changes screens, so it had a design note and a design review.
+- **What happened:**
+  - PM grooming (6898053939): two texts in the existing suggestion notice, and an answer dropped only once the entry is sent. Two #28 behaviours change on purpose.
+  - Design note (6898148071): the PM's texts kept, the existing info `Message`, nothing moves focus.
+  - Engineer (6898530253).
+  - QA PASS (6898733470), with 61 of 61 live checks using the mock AI.
+  - Design review PASS (6898845035).
+  - Closed as completed.
+- **Open points and where they went:**
+  - **Empty `Message` hidden with `display: none`** (screen-reader announcements): a comment on #91, which stays skipped.
+  - **No `Message` entry in `DESIGN.md`:** a comment on #90.
+  - **Left in this log under the standing rule:**
+    - the phone layout shift after a late answer (existing in #28);
+    - focus falling to the page when a focused element is removed (existing in #28);
+    - no announcement when a late answer fills the category;
+    - the notice rule's dependence on rendered form changes.
