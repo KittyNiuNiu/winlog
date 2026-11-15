@@ -12,6 +12,7 @@ def test_settings_variables():
         "database_url",
         "cors_allowed_origins",
         "database_connect_timeout_seconds",
+        "database_query_timeout_seconds",
         "token_lifetime_days",
         "ai_provider",
         "ai_base_url",
@@ -50,6 +51,42 @@ def test_invalid_database_timeout_is_rejected(no_env_file, monkeypatch, value):
 
     with pytest.raises(SettingsError, match="DATABASE_CONNECT_TIMEOUT_SECONDS is invalid"):
         load_settings()
+
+
+def _set_required(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DATABASE_URL", DATABASE_URL)
+    monkeypatch.setenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
+    monkeypatch.setenv("AI_PROVIDER", "mock")
+
+
+def test_db_time_limit_setting_defaults_to_ten_seconds(no_env_file, monkeypatch):
+    _set_required(monkeypatch)
+
+    assert load_settings().database_query_timeout_seconds == 10
+
+
+@pytest.mark.parametrize(("value", "expected"), [("1", 1), ("600", 600), (" 30 ", 30)])
+def test_db_time_limit_setting_takes_a_whole_number_from_1_to_600(
+    no_env_file, monkeypatch, value, expected
+):
+    _set_required(monkeypatch)
+    monkeypatch.setenv("DATABASE_QUERY_TIMEOUT_SECONDS", value)
+
+    assert load_settings().database_query_timeout_seconds == expected
+
+
+@pytest.mark.parametrize("value", ["", " ", "0", "601", "2.5", "abc", "-1", "+5", "1_0", "1e1"])
+def test_db_time_limit_setting_stops_the_backend_when_invalid(no_env_file, monkeypatch, value):
+    _set_required(monkeypatch)
+    monkeypatch.setenv("DATABASE_QUERY_TIMEOUT_SECONDS", value)
+
+    with pytest.raises(SettingsError) as error:
+        create_app()
+
+    message = str(error.value)
+    assert message.startswith("Invalid configuration: ")
+    assert "DATABASE_QUERY_TIMEOUT_SECONDS is invalid: " in message
+    assert "whole number from 1 to 600" in message
 
 
 def test_settings_come_from_environment_variables(no_env_file, monkeypatch):

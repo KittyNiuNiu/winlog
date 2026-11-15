@@ -42,6 +42,9 @@ _EMAIL = TypeAdapter(EmailStr)
 # while the app runs, so it stops the app at startup instead.
 MAX_ATTEMPT_WINDOW_MINUTES = 525_600
 
+# The longest DATABASE_QUERY_TIMEOUT_SECONDS (issue #95): ten minutes, like the AI timeouts.
+MAX_DATABASE_QUERY_TIMEOUT_SECONDS = 600
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -52,10 +55,16 @@ class Settings(BaseSettings):
 
     database_url: SecretStr
     cors_allowed_origins: Annotated[list[str], NoDecode]
-    # Seconds the health check waits for the database to answer, on a new or a pooled
-    # connection. Also libpq's connect_timeout for every new connection, which treats values
-    # below 2 as 2, so 2 is the minimum.
+    # The two database time limits (app/db.py, issues #4 and #95):
+    # - Opening a connection: the longest the backend waits to open each new connection
+    #   (libpq's connect_timeout, which treats values below 2 as 2, so 2 is the minimum).
+    #   The health check also gives up after this long, on a new or a pooled connection.
     database_connect_timeout_seconds: int = Field(default=3, ge=2, le=60)
+    # - One database call on an open connection: the pool's check of a connection before use
+    #   (pre-ping), a statement with its result, a commit or a rollback. Also the longest a
+    #   request waits for a free connection in the pool. When it runs out, the request fails
+    #   with the shared 500 response. A whole number from 1 to 600.
+    database_query_timeout_seconds: int = 10
     # Days a login token works before it expires (FR-A2).
     token_lifetime_days: int = Field(default=7, ge=1, le=365)
     # The AI provider (product-spec.md §8). Required with no default, so the app never uses a
@@ -149,6 +158,11 @@ class Settings(BaseSettings):
         if not value.startswith(("http://", "https://")):
             raise ValueError("must start with http:// or https://, or be empty to turn it off")
         return value
+
+    @field_validator("database_query_timeout_seconds", mode="before")
+    @classmethod
+    def _check_query_timeout(cls, value: object) -> int:
+        return _whole_number(value, minimum=1, maximum=MAX_DATABASE_QUERY_TIMEOUT_SECONDS)
 
     @field_validator(
         "ai_daily_suggestions_per_user",
