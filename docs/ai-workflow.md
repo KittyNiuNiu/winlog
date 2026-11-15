@@ -4783,3 +4783,36 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - the phone focus outline of Edit/Delete touches the row divider (existing since #29);
   - the 1px phone tap-area overlap (existing);
   - full-page screenshots cut the sticky sidebar's fill (a capture artefact).
+
+## 2026-11-15: PM: groom #103 (task 60, the spec's OpenRouter mention and "Last updated" date)
+
+- **Task:** groom #103 following `docs/pm.md`. It had no status label. It is task 60, a docs task that may edit `docs/product-spec.md` for two points only.
+- **What I read:**
+  - the issue (no comments yet) and its three sources on #40: the PM re-grooming, the engineer's open points and QA's note 3;
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md` and `docs/tasks.md`, with #64 as the pattern for a groomed follow-up;
+  - `docs/product-spec.md` as it is now (the same as `main`), and the spec's `git log` for the header and §14;
+  - `render.yaml`, `ops/deployment.md`, `.env.example` and `docs/decisions/default-model.md` for OpenRouter;
+  - the open issues that plan spec edits (#112 and #92).
+- **What I did:**
+  - Rewrote the body of #103 with the template. Section A is the header, B the §10.2 AI row, C the §14 entry (exact text), D says nothing else changes, and E is the checks.
+  - Posted the PM comment with the decisions, the facts checked and the original text (6900109424).
+  - Created follow-up #114, "Follow-up from #103: keep the spec's "Last updated" date in step with its change log", and listed it under Out of scope.
+  - Labels unchanged. The orchestrator sets the status.
+- **Decisions under the standing rule (2026-11-14, extended 2026-11-15 to #103), recorded in the issue:**
+  - **A §14 entry is added,** in the same form as the five earlier "0.2, updated" entries. The criteria give its exact text.
+  - **The header shows the date of this change,** which is the date of the new entry: the UTC date of the commit that changes the spec. It does not show 14 November. This keeps the 9 and 11 November pattern.
+  - **The version stays `0.2 (draft)`.**
+  - **The AI row becomes "LLM router service (OpenRouter)".** Only "planned" is removed. The mock is already covered by §8 and §10.4.
+  - **CI on the pushed commit is the check.** No test or CI step reads the spec, so no test is added.
+  - **Preventing the next drift is moved to #114.** #112 and #92 will edit the spec before #114 comes up.
+  - **No screen change.** No `render.yaml` change, so no Blueprint sync.
+- **How I verified it:**
+  - `grep` in the spec: "planned" appears only on line 197, and "OpenRouter" appears only there too.
+  - `git log -p -- docs/product-spec.md`:
+    - 8d2a722 and 4f05f9d changed the "Last updated" line;
+    - bd4348b (#73), 42dda2c (#74) and 0600450 (#39) did not.
+  - `TZ=UTC git log -1 --format=%ad --date=format-local:'%-d %B %Y' 0600450` prints `14 November 2026`, so the criteria's date command works.
+  - A search of `backend/tests`, `frontend/` and `.github/workflows` found `docs/product-spec.md` only in comments.
+  - The saved body of #103 starts with the new Goal. #103 and #114 have no labels.
+  - No change to project code, and no AI call.
+- **Left open:** #112 (task 65) and #92 (task 66) will edit the spec before #114 comes up. Their groomings could name the header date in their criteria.
