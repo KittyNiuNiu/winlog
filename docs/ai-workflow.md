@@ -3782,3 +3782,20 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Left open:**
   - **Render sync:** the Blueprint's Manual Sync after the production deploy is the product owner's step. Until then the default applies, which is the same value. Production gets the change only after the product owner approves the production step (#39).
   - **Uvicorn's head limit:** it is not a hard 16 KiB limit (see above). A head that arrives in one network read can be larger. Requests stay bounded by the filter counts and the body limit, and PM decision 7 asks for no further limit, so I made no change.
+
+## 2026-11-15: PM: amend #88 after QA FAIL (soft 16 KiB limit on the request line and headers)
+
+- **Task:** QA failed #88 on the last bullet of the live check (6888086115). Uvicorn's 16 KiB limit on the request line and headers is not hard. The product owner decided on 2026-11-15 to correct that criterion to the soft limit, and PM decision 7 stands (no limit of our own).
+- **What I did:**
+  - Amended the issue body:
+    - the live check's last bullet now uses raw-socket checks: two pieces get the plain-text 400; one piece reaches the app and is validated;
+    - the contract and `ops/deployment.md` criteria ask for one consistent statement of the soft limit (QA finding 1);
+    - the `SavedSummaryFilter` criterion no longer asks for the copied limit sentences (QA finding 2);
+    - decision 7, decision 2's reasoning and the uvicorn fact in Constraints are corrected.
+  - Posted comment 6890767874.
+  - Labels unchanged.
+- **How I verified it:**
+  - In the installed h11 source, `max_incomplete_event_size` is checked only for an incomplete event (`NEED_DATA`), and asyncio's socket transport reads 262,144 bytes at a time. This matches QA's measurements.
+  - Read the saved body back: it matches what I wrote and has the four template sections.
+  - No code run, and no AI call.
+- **Left open:** the engineer still has to make the contract's 16 KiB paragraph read as one statement and remove the limits from the `SavedSummaryFilter` property descriptions. QA findings 3 to 5 were not part of this amendment.
