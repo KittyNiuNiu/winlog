@@ -45,6 +45,10 @@
   --color-plum-hover: color-mix(in srgb, var(--color-plum) 88%, black);
   --color-secondary-hover: var(--color-peach-wash);
 
+  /* The fill of a disabled button, and the writing nudge's fill (design note on #90). */
+  --color-disabled-fill: var(--color-peach-wash);
+  --color-nudge-fill: var(--color-paper-white);
+
   /* Elevation: Shadow vocabulary */
   --shadow-action-lift: 0 4px 12px rgba(122, 46, 104, 0.25);
   --shadow-focus-glow: 0 0 0 3px #f6ddeb;
@@ -147,7 +151,12 @@
     --color-field-border: #3a2f38;
     --color-error: #f4a3b0;
 
-    --color-secondary-hover: var(--color-blush-white);
+    /* One step lighter than Paper white, so hover and disabled show on the page and in
+       panels (design note on #90). Two tokens with one value: they have different jobs. */
+    --color-secondary-hover: #2e262d;
+    --color-disabled-fill: #2e262d;
+    /* The page ground: never Paper white, which is the info message's Peach wash here. */
+    --color-nudge-fill: var(--color-blush-white);
 
     /* Product owner, 2026-11-11: the dark-mode plum at 30%. */
     --shadow-focus-glow: 0 0 0 3px rgba(231, 163, 207, 0.3);

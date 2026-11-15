@@ -145,6 +145,172 @@ describe('design tokens in index.css', () => {
   })
 })
 
+/** A token's value with every `var(--…)` reference followed, as the browser resolves it. */
+function resolve(tokens: Map<string, string>, token: string, seen: string[] = []): string {
+  const value = tokens.get(token)
+  if (value === undefined || seen.includes(token)) {
+    throw new Error(`cannot resolve ${token}`)
+  }
+  const reference = /^var\((--[\w-]+)\)$/.exec(value)
+  return reference === null ? value : resolve(tokens, reference[1], [...seen, token])
+}
+
+/** WCAG relative luminance of a #rrggbb colour. */
+function luminance(hex: string): number {
+  const [r, g, b] = [1, 3, 5].map((start) => {
+    const channel = parseInt(hex.slice(start, start + 2), 16) / 255
+    return channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4
+  })
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+/** The contrast ratio of two colours, also used as the "fill step" between two fills (#90). */
+function contrast(a: string, b: string): number {
+  const [lighter, darker] = [luminance(a), luminance(b)].sort((x, y) => y - x)
+  return (lighter + 0.05) / (darker + 0.05)
+}
+
+const MODES = { light, dark } as const
+type Mode = keyof typeof MODES
+
+/** "Visibly different": the smallest step the design uses, Peach wash on Blush white (#90). */
+const VISIBLY_DIFFERENT = 1.065
+
+/** The colours a hover, disabled or nudge fill must never be (DESIGN.md → Named Rules). */
+const RESERVED = [
+  '--color-plum',
+  '--color-peach',
+  '--color-saved-peach',
+  '--color-achievement-background',
+  '--color-learning-background',
+  '--color-feedback-background',
+  '--color-side-project-background',
+]
+
+describe('hover, disabled and nudge fills (#90 design note)', () => {
+  // [token, light, dark] as written in index.css: the dark hover and disabled fills are
+  // hex values of their own, not one token pointing at the other.
+  const FILLS: [string, string, string][] = [
+    ['--color-secondary-hover', 'var(--color-peach-wash)', '#2e262d'],
+    ['--color-disabled-fill', 'var(--color-peach-wash)', '#2e262d'],
+    ['--color-nudge-fill', 'var(--color-paper-white)', 'var(--color-blush-white)'],
+  ]
+
+  it.each(FILLS)('%s is %s in light mode and %s in dark mode', (token, lightValue, darkValue) => {
+    expect(light.get(token)).toBe(lightValue)
+    expect(dark.get(token)).toBe(darkValue)
+  })
+
+  it('light mode looks as today: hover and disabled are Peach wash, the nudge is Paper white', () => {
+    expect(resolve(light, '--color-secondary-hover')).toBe('#fff1ea')
+    expect(resolve(light, '--color-disabled-fill')).toBe('#fff1ea')
+    expect(resolve(light, '--color-nudge-fill')).toBe('#ffffff')
+    // The nudge is the page ground in dark mode, never Paper white (Peach wash there).
+    expect(resolve(dark, '--color-nudge-fill')).toBe('#1a1519')
+  })
+
+  it('the primary hover is unchanged (Plum hover)', () => {
+    expect(light.get('--color-plum-hover')).toBe('color-mix(in srgb, var(--color-plum) 88%, black)')
+    expect(darkOverrides.has('--color-plum-hover')).toBe(false)
+  })
+
+  // [text, fill, the criterion]: each at least 4.5:1 in both modes.
+  const TEXT_PAIRS: [string, string, string][] = [
+    ['--color-plum', '--color-secondary-hover', 'A: Plum on the hover fill'],
+    ['--color-muted-plum-grey', '--color-disabled-fill', 'B: Muted plum-grey on the disabled fill'],
+    ['--color-aubergine-ink', '--color-nudge-fill', "C: the nudge's text on its fill"],
+  ]
+
+  it.each((['light', 'dark'] as Mode[]).flatMap((mode) => TEXT_PAIRS.map((pair) => [mode, ...pair] as const)))(
+    '%s mode: %s on %s is at least 4.5:1 (%s)',
+    (mode, text, fill) => {
+      const tokens = MODES[mode]
+      expect(contrast(resolve(tokens, text), resolve(tokens, fill))).toBeGreaterThanOrEqual(4.5)
+    },
+  )
+
+  // [fill, the surface it must be visibly different from, the criterion].
+  const STEPS: [string, string, string][] = [
+    ['--color-secondary-hover', '--color-blush-white', 'A: hover on the page'],
+    ['--color-secondary-hover', '--color-paper-white', 'A: hover in a panel and against the resting fill'],
+    ['--color-disabled-fill', '--color-paper-white', 'B: disabled against a ready secondary button and the panels'],
+    ['--color-disabled-fill', '--color-blush-white', 'B: disabled on the page'],
+    ['--color-nudge-fill', '--color-peach-wash', 'C: the nudge against the info message'],
+    ['--color-nudge-fill', '--color-saved-peach', 'C: the nudge against the saved message'],
+  ]
+
+  it.each((['light', 'dark'] as Mode[]).flatMap((mode) => STEPS.map((step) => [mode, ...step] as const)))(
+    '%s mode: the fill step from %s to %s is at least 1.065:1 (%s)',
+    (mode, fill, surface) => {
+      const tokens = MODES[mode]
+      expect(contrast(resolve(tokens, fill), resolve(tokens, surface))).toBeGreaterThanOrEqual(VISIBLY_DIFFERENT)
+    },
+  )
+
+  it.each(['light', 'dark'] as Mode[])(
+    '%s mode: the hover and disabled fills are not Peach, Saved peach, a category tint or Plum',
+    (mode) => {
+      const tokens = MODES[mode]
+      for (const fill of ['--color-secondary-hover', '--color-disabled-fill']) {
+        for (const reserved of RESERVED) {
+          expect(resolve(tokens, fill), `${fill} against ${reserved}`).not.toBe(resolve(tokens, reserved))
+        }
+      }
+    },
+  )
+
+  it.each(['light', 'dark'] as Mode[])(
+    '%s mode: the nudge fill is not Plum, Error, Peach, Saved peach, Peach wash or a category tint',
+    (mode) => {
+      const tokens = MODES[mode]
+      for (const reserved of [...RESERVED, '--color-error', '--color-peach-wash']) {
+        expect(resolve(tokens, '--color-nudge-fill'), reserved).not.toBe(resolve(tokens, reserved))
+      }
+    },
+  )
+
+  it('buttons use the tokens: the secondary hover fill and the disabled fill', () => {
+    const buttons = withoutComments(sources['./components/Button.css'] ?? '')
+    expect(/\.button--secondary:hover\s*\{[^}]*background: var\(--color-secondary-hover\)/.test(buttons)).toBe(true)
+    expect(/\.button:disabled\s*\{[^}]*background: var\(--color-disabled-fill\)/.test(buttons)).toBe(true)
+    // After the :hover rules, so a disabled button shows no hover change.
+    expect(buttons.indexOf('.button:disabled')).toBeGreaterThan(buttons.indexOf('.button--secondary:hover'))
+    expect(buttons.indexOf('.button:disabled')).toBeGreaterThan(buttons.indexOf('.button--primary:hover'))
+  })
+})
+
+describe('DESIGN.md frontmatter (#90)', () => {
+  const designMd = read('../../DESIGN.md')
+  const colours = new Map(
+    [...(/^colors:\n((?: {2}[\w-]+: .+\n)+)/m.exec(designMd)?.[1] ?? '').matchAll(/^ {2}([\w-]+): "([^"]+)"$/gm)].map(
+      (match) => [match[1], match[2].toLowerCase()],
+    ),
+  )
+
+  it('lists the hover, disabled and nudge fills with their light and dark values', () => {
+    expect(colours.get('secondary-hover')).toBe('#fff1ea')
+    expect(colours.get('secondary-hover-dark')).toBe('#2e262d')
+    expect(colours.get('disabled-fill')).toBe('#fff1ea')
+    expect(colours.get('disabled-fill-dark')).toBe('#2e262d')
+    expect(colours.get('nudge-fill')).toBe('#ffffff')
+    expect(colours.get('nudge-fill-dark')).toBe('#1a1519')
+  })
+
+  it('every colour value in the frontmatter is the value in index.css', () => {
+    const checked: string[] = []
+    for (const [name, value] of colours) {
+      if (!value.startsWith('#')) {
+        continue // The plum hover is a colour-mix of Plum; index.css has the same formula.
+      }
+      const isDark = name.endsWith('-dark')
+      const token = `--color-${isDark ? name.slice(0, -'-dark'.length) : name}`
+      expect(resolve(isDark ? dark : light, token), name).toBe(value)
+      checked.push(name)
+    }
+    expect(checked.length).toBeGreaterThan(50)
+  })
+})
+
 // The old blue palette, without the leading '#', so that this file does not contain the
 // colours it looks for (the criterion: no file in src/ contains them).
 const OLD_PALETTE = ['1f5f8b', '8cc4ec', 'e3eef6', '1d2430', '556070', 'f4f6f9', 'd9dee6', '14171c', '1f2f3d'].map(
