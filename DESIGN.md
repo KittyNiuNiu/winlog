@@ -53,7 +53,11 @@ colors:
   plum-hover: "color-mix(in srgb, #7a2e68 88%, black)"
   plum-hover-dark: "color-mix(in srgb, #e7a3cf 88%, black)"
   secondary-hover: "#fff1ea"
-  secondary-hover-dark: "#1a1519"
+  secondary-hover-dark: "#2e262d"
+  disabled-fill: "#fff1ea"
+  disabled-fill-dark: "#2e262d"
+  nudge-fill: "#ffffff"
+  nudge-fill-dark: "#1a1519"
 typography:
   display:
     fontFamily: "'Bricolage Grotesque Variable', 'Figtree Variable', system-ui, sans-serif"
@@ -186,8 +190,11 @@ Each pair is background and text. They appear on category labels, chips and filt
 - **Hairline** (light #F0DCD2, dark #3A2F38): row dividers and panel borders.
 - **Field border** (light #E8D3C9, dark #3A2F38): unselected inputs, chips and secondary buttons.
 - **Error** (light #A8253B, dark #F4A3B0): error text and the error border. It always comes with a message that says what to fix.
+- **Secondary hover** (light #FFF1EA, dark #2E262D): the hover fill of secondary buttons, quiet text actions and the entry row's Edit and Delete. In light mode it is Peach wash. In dark mode it is one step lighter than Paper white, so the hover shows on the page and in panels.
+- **Disabled fill** (light #FFF1EA, dark #2E262D): the fill of a disabled button. It has the values of Secondary hover; a disabled button never shows hover.
+- **Nudge fill** (light #FFFFFF, dark #1A1519): the writing nudge only. It is Paper white in light mode and the page ground in dark mode, so the nudge never has the info message's Peach wash.
 
-All text and background pairs above meet a contrast of at least 4.5:1 (checked on 11 November 2026).
+All text and background pairs above meet a contrast of at least 4.5:1 (checked on 11 November 2026, and on 15 November 2026 for Secondary hover, Disabled fill and Nudge fill).
 
 ### Named Rules
 **The One Action Rule.** Plum marks what you can do. On any screen, the main action (Save entry, Save summary) is the only filled plum element.
@@ -255,7 +262,9 @@ Borders are 1px hairlines for structure and 1.5px for interactive controls.
 ### Buttons
 - **Primary:** plum fill, white text, Figtree 700 at 16–17px, at least 48px tall (54px on the phone's Save entry), with the Action lift shadow. Labels name the action: "Save entry", "Save summary".
 - **Secondary:** white or transparent fill, plum text, 1.5px Field-border outline. Used for "Draft again", "New entry" in the sidebar, "Cancel".
-- **Hover / focus:** hover darkens the fill slightly. Focus shows a visible 2px plum outline with offset. Disabled buttons use muted text and no shadow.
+- **Hover:** the primary button's fill darkens slightly (Plum hover). A secondary button takes the Secondary hover fill and a Plum border. In dark mode that fill is lighter than Paper white, so the change shows on the page and in panels. In light mode, "New entry" on the Peach wash sidebar keeps a fill like the sidebar's, and its Plum border shows the hover. There is no separate pressed look.
+- **Focus:** a visible 2px plum outline with offset.
+- **Disabled:** the Disabled fill, Muted plum-grey text, the Field-border outline, no shadow and the `not-allowed` cursor, for primary and secondary buttons alike, with no hover change. In dark mode the Disabled fill is lighter than Paper white, so a disabled button never has the fill of a ready secondary button or of the panel around it.
 - **Busy:** a spinner and the busy label, for example "Saving…", in the button's normal colours, with a progress cursor and no hover change. It cannot be pressed, is announced as unavailable, and keeps keyboard focus, so the focus outline stays while it works (#84).
 - **Quiet text action** (#28): no fill and no border, Plum text in Figtree 700 at 15px, at least 44×44px, 4px by 12px padding, 14px radius. On hover it takes the Secondary hover fill; focus shows the global focus outline. Used for "Discard suggestions" and "Suggested: \<category\>", so the suggest button stays the stronger control and Save entry the only filled plum element.
 
@@ -277,6 +286,7 @@ The list of matching tags under a tag input, used by the entry form's tag field 
 
 ### Tag filter
 The review page's tag filter (#31) uses the tag field's input, tag list and chips. Its hint "Shows entries with any of the selected tags" sits 4px below the input. Only existing tags can be picked. When the user has no tags, the label is followed by "No tags yet." (15px, Muted plum-grey) in place of the input.
+- **At 20 tags** (#88): a filter holds at most 20 tags. With 20 selected, the search field keeps its look, stays enabled and focusable and takes typing, but its tag list does not open. The line "Up to 20 tags in a filter. Remove one to add another." shows 4px under the hint and 12px above the chips, in Figtree 400 at 15px, Muted plum-grey. While it shows, the field's description includes it. The line is a polite live region (`role="status"`) that is always in the page and empty below 20 tags, when it takes no space. The field is never marked invalid because of it, and the line never takes the Error colour.
 
 ### Category labels
 A small rounded label (10px radius) in the category tint, Figtree 700 at 13px. Shown on every entry, everywhere.
@@ -291,16 +301,25 @@ A small rounded label (10px radius) in the category tint, Figtree 700 at 13px. S
 - **Phone:** header with the wordmark on the left and links on the right (Entries, Review, More). The current page sits in a peach pill.
 - **Laptop:** sidebar with Entries, Review, Summaries and Settings as 44px rows. The current page has a peach background and bold plum text.
 
+### Messages
+`Message` (`components/Message.tsx`, `Message.css`) shows information and errors.
+- **Info:** Peach wash fill, 1px Hairline border, Aubergine ink text, the 20px Info icon.
+- **Error:** Paper white fill, 1px Error border, Error text, the 20px CircleExclamationPoint icon.
+- **Both:** a 12px radius; 12px padding at the top and bottom and 16px on the right; Body text (16px) that wraps freely. The icon sits 16px from the left edge, level with the first line, and the text starts 8px after it.
+- **Screen readers:** the element is a live region that stays in the page, `role="status"` for info and `role="alert"` for error. It takes no space while empty.
+- **Where:** form notices and alerts, the entry form's suggestion notices, waking-up hints, failure notices, the summary panel's notices and "This entry was already deleted.".
+- **Demo notice** (#35): the info look without a live region, so it is not announced again on each page. It is first in the main content, 20px above the page, with 15px text and the "Create your own account" link on its own 44px line. It is at most 68ch wide, so on the laptop it ends before the content's right edge.
+
 ### Saved message
 A peach band with a plum check icon and the text "Entry saved." It appears at the top of the capture screen after saving and fades away after a few seconds. This is the app's one authored motion moment. With reduced motion, it appears and disappears without animation.
 
 ### Writing nudge
-A lasting state on the entries page, not a message (#30). One paragraph at the top of the content, before the list or the empty state, 24px above them, in the list's column and separate from the message slot. Peach wash fill, 1px Hairline border, 12px radius, 12px by 16px padding, Body text (16px) in Aubergine ink. Text only: no icon, button, link or close button, no plum fill, no error colour and no category tint. Its text: "Did something go well? Even a small win is worth writing down."
+A lasting state on the entries page, not a message (#30). One paragraph at the top of the content, before the list or the empty state, 24px above them, in the list's column and separate from the message slot. A banner with the Nudge fill (Paper white in light mode; in dark mode the page ground, so only its border shows), a 1px Hairline border, a 14px radius and 16px by 20px padding (#90). Body text (16px) in Aubergine ink, centred, with balanced line breaks, so it differs from the info message and the saved message by its surface. Text only: no icon, button, link or close button, no plum fill, no error colour and no category tint. Its text: "Did something go well? Even a small win is worth writing down."
 
 ### Entry row
 Date (tabular, bold) | category label | entry text, with "Result: …" below in muted text when there is one. Hairline above. No card, no shadow.
 - **Tags:** read-only tags sit under the text (see Tag chips).
-- **Edit and Delete actions** (#29): 44×44px icon buttons with a 20px icon, always visible, in Muted plum-grey with no fill or border and a 14px radius. On hover the icon turns Plum on a Peach wash fill. Each has an accessible name with the entry's date: "Edit entry from \<date\>", "Delete entry from \<date\>". On the phone they sit at the right end of the category label's line; from 48rem they sit 8px under the label in the 120px column.
+- **Edit and Delete actions** (#29): 44×44px icon buttons with a 20px icon, always visible, in Muted plum-grey with no fill or border and a 14px radius. On hover the icon turns Plum on the Secondary hover fill. Each has an accessible name with the entry's date: "Edit entry from \<date\>", "Delete entry from \<date\>". On the phone they sit at the right end of the category label's line. From 48rem they sit 8px under the label in the 120px column. From 64rem (#90) they take a fourth column at the row's right end, 16px after the text: centred on the label's line, they reach 9px into the row's padding, so a one-line row is 59px tall, as tall as a row without actions. The text column keeps 224px at 48rem.
 
 ### Review groups
 The review page's two heading levels (#31):

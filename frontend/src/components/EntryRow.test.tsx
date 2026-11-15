@@ -53,6 +53,12 @@ describe('EntryRow without tags and actions ("Just saved", #27)', () => {
     expect(screen.queryByRole('button')).toBeNull()
     expect(document.querySelector('.entry-row__category')?.className).toBe('entry-row__category')
   })
+
+  it('keeps the three-column row at every width: no fourth column for actions (#90)', () => {
+    render(<EntryRow entry={ENTRY} tags={['incident']} />)
+
+    expect(document.querySelector('.entry-row')?.className).toBe('entry-row')
+  })
 })
 
 describe('EntryRow with tags and actions (#29)', () => {
@@ -102,6 +108,29 @@ describe('EntryRow with tags and actions (#29)', () => {
     expect(remove.closest('.entry-row__category')?.classList.contains('entry-row__category--with-actions')).toBe(true)
     fireEvent.click(remove)
     expect(onDelete).toHaveBeenCalledTimes(1)
+  })
+
+  it('test_fr_e4_row_with_actions_gets_the_laptop_actions_column_and_keeps_its_dom_order (#90)', () => {
+    render(
+      inRouter(<EntryRow entry={ENTRY} tags={['incident']} actions={{ editTo: '/entries/42/edit', onDelete: vi.fn() }} />),
+    )
+
+    // The class that gives Edit and Delete their own column from 64rem.
+    const row = document.querySelector('.entry-row') as HTMLElement
+    expect(row.className).toBe('entry-row entry-row--with-actions')
+    // Tab order and reading order stay: date, label, Edit, Delete, then the text and tags.
+    const order = Array.from(
+      row.querySelectorAll('time, .category-label, a, button, .entry-row__text, .entry-row__result, ul'),
+    ).map((element) => element.getAttribute('aria-label') ?? element.classList[0])
+    expect(order).toEqual([
+      'entry-row__date',
+      'category-label',
+      'Edit entry from 10 Nov 2026',
+      'Delete entry from 10 Nov 2026',
+      'entry-row__text',
+      'entry-row__result',
+      'Tags',
+    ])
   })
 })
 

@@ -31,6 +31,7 @@ from app.errors import ApiError
 from app.main import create_app
 from app.models import User
 from app.summaries import SummaryFilter
+from tests.unit.test_entries import INVALID_BODY_DATES, invalid_dates_error
 
 JANUARY = {"period_start": "2026-01-01", "period_end": "2026-01-31"}
 ENTRY_TEXT = "Negotiated the confidential vendor contract."
@@ -243,6 +244,35 @@ def test_fr_r3_period_out_of_order_is_checked_before_filtering(settings, user, m
     assert [field["field"] for field in response.json()["fields"]] == ["period_end"]
     assert matching.filters == []
     assert ai.calls == []
+
+
+@pytest.mark.parametrize(
+    "dates",
+    [
+        *(
+            {field: value}
+            for field in ("period_start", "period_end")
+            for value in INVALID_BODY_DATES
+        ),
+        {"period_start": "2026-02-30", "period_end": "26-01-05"},
+        {"period_start": None, "period_end": "0000-01-01"},
+    ],
+    ids=str,
+)
+def test_fr_r3_invalid_period_date_has_one_reason(settings, user, matching, contract, dates):
+    """generateSummary: every invalid period date gets the same fixed reason, each one named."""
+    ai = FakeLimitedAI("A summary.")
+    session = FakeSession()
+
+    response = _client(settings, user, ai, session).post("/summaries", json={**JANUARY, **dates})
+
+    assert response.status_code == 422
+    contract("Error").validate(response.json())
+    # The whole body, so the reason never repeats the value and never says "datetime".
+    assert response.json() == invalid_dates_error(*dates)
+    assert matching.filters == []
+    assert ai.calls == []
+    assert session.added == []
 
 
 @pytest.mark.parametrize(

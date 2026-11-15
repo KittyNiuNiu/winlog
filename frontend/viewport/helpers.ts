@@ -1,4 +1,4 @@
-import { expect, type Page, type TestInfo } from '@playwright/test'
+import { expect, type Locator, type Page, type TestInfo } from '@playwright/test'
 import { MockApi, TOKEN_EXPIRES_AT, type MockApiOptions } from './mockApi.ts'
 import { API_BASE_URL, NOW, SCREENSHOT_DIR } from './settings.ts'
 
@@ -314,4 +314,151 @@ export async function expectControlsNotCovered(page: Page): Promise<void> {
     return problems
   })
   expect(covered, 'controls covered by something else').toEqual([])
+}
+
+// Colours in the browser (#90): computed fills, the surface under a control, token values
+// and the WCAG contrast ratio, which is also the "fill step" between two fills.
+
+/** "Visibly different": the smallest step between two surfaces the design uses (#90). */
+export const VISIBLY_DIFFERENT = 1.065
+
+/** What a control looks like now, as computed colours ("rgb(…)"). */
+export interface Looks {
+  /** The control's own background; transparent for a control with no fill. */
+  own: string
+  /** The fill people see: its own, or the surface's when it has none. */
+  fill: string
+  /** The fill of the nearest ancestor with one: the page, a panel or the sidebar. */
+  surface: string
+  /** Top, right, bottom and left border colours. */
+  border: string[]
+  color: string
+  shadow: string
+  cursor: string
+  textAlign: string
+  radius: string
+}
+
+export async function looksOf(locator: Locator): Promise<Looks> {
+  return locator.evaluate((element) => {
+    const transparent = (value: string) => value === 'transparent' || /^rgba\(.*,\s*0\)$/.test(value)
+    const style = getComputedStyle(element)
+    let surface = getComputedStyle(document.body).backgroundColor
+    for (let parent = element.parentElement; parent !== null; parent = parent.parentElement) {
+      const background = getComputedStyle(parent).backgroundColor
+      if (!transparent(background)) {
+        surface = background
+        break
+      }
+    }
+    const own = style.backgroundColor
+    return {
+      own,
+      fill: transparent(own) ? surface : own,
+      surface,
+      border: [style.borderTopColor, style.borderRightColor, style.borderBottomColor, style.borderLeftColor],
+      color: style.color,
+      shadow: style.boxShadow,
+      cursor: style.cursor,
+      textAlign: style.textAlign,
+      radius: style.borderTopLeftRadius,
+    }
+  })
+}
+
+/** A colour token's computed value in the page's current colour scheme ("rgb(…)"). */
+export async function tokenColour(page: Page, token: string): Promise<string> {
+  return page.evaluate((name) => {
+    const probe = document.createElement('div')
+    probe.style.backgroundColor = `var(${name})`
+    document.body.appendChild(probe)
+    const value = getComputedStyle(probe).backgroundColor
+    probe.remove()
+    return value
+  }, token)
+}
+
+/** The red, green and blue (0–255) of a computed colour, "rgb(…)", "rgba(…)" or "color(srgb …)". */
+function channels(colour: string): [number, number, number] {
+  const rgb = /^rgba?\(\s*([\d.]+),\s*([\d.]+),\s*([\d.]+)/.exec(colour)
+  if (rgb !== null) {
+    return [Number(rgb[1]), Number(rgb[2]), Number(rgb[3])]
+  }
+  const srgb = /^color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/.exec(colour)
+  if (srgb !== null) {
+    return [Number(srgb[1]) * 255, Number(srgb[2]) * 255, Number(srgb[3]) * 255]
+  }
+  throw new Error(`cannot read the colour ${colour}`)
+}
+
+function luminance(colour: string): number {
+  const [r, g, b] = channels(colour).map((channel) => {
+    const value = channel / 255
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
+  })
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b
+}
+
+/** The WCAG contrast ratio of two opaque colours. */
+export function contrast(a: string, b: string): number {
+  const [lighter, darker] = [luminance(a), luminance(b)].sort((x, y) => y - x)
+  return (lighter + 0.05) / (darker + 0.05)
+}
+
+/**
+ * Saves a screenshot of the area around some elements, 16px wider on each side, named
+ * "<name>.png". Without `fullPage`, the area is taken from the window as it is (for a
+ * hovered control, which must stay under the pointer).
+ */
+export async function screenshotAround(
+  page: Page,
+  elements: Locator[],
+  name: string,
+  { fullPage = false }: { fullPage?: boolean } = {},
+): Promise<void> {
+  const boxes = await Promise.all(
+    elements.map((element) =>
+      element.evaluate((node, whole) => {
+        const box = node.getBoundingClientRect()
+        const dx = whole ? window.scrollX : 0
+        const dy = whole ? window.scrollY : 0
+        return { left: box.left + dx, top: box.top + dy, right: box.right + dx, bottom: box.bottom + dy }
+      }, fullPage),
+    ),
+  )
+  const limits = await page.evaluate((whole) => {
+    const root = document.documentElement
+    return whole ? { width: root.scrollWidth, height: root.scrollHeight } : { width: window.innerWidth, height: window.innerHeight }
+  }, fullPage)
+  const left = Math.max(0, Math.min(...boxes.map((box) => box.left)) - 16)
+  const top = Math.max(0, Math.min(...boxes.map((box) => box.top)) - 16)
+  const right = Math.min(limits.width, Math.max(...boxes.map((box) => box.right)) + 16)
+  const bottom = Math.min(limits.height, Math.max(...boxes.map((box) => box.bottom)) + 16)
+  await page.screenshot({
+    path: `${SCREENSHOT_DIR}/${name}.png`,
+    clip: { x: left, y: top, width: right - left, height: bottom - top },
+    fullPage,
+    animations: 'disabled',
+    caret: 'hide',
+  })
+}
+
+/**
+ * The writing nudge's surface (#90, criterion C): its fill is visibly different from the
+ * info message's (Peach wash) and the saved message's (Saved peach), its text reaches 4.5:1
+ * on it, and it is a centred band with the panel radius, unlike the left-aligned messages.
+ */
+export async function expectNudgeSurface(page: Page): Promise<Looks> {
+  const nudge = await looksOf(page.locator('.entries-page__nudge'))
+  for (const token of ['--color-peach-wash', '--color-saved-peach']) {
+    const other = await tokenColour(page, token)
+    expect(contrast(nudge.fill, other), `nudge fill against ${token}`).toBeGreaterThanOrEqual(VISIBLY_DIFFERENT)
+  }
+  expect(nudge.fill, 'the nudge has the Nudge fill').toBe(await tokenColour(page, '--color-nudge-fill'))
+  expect(contrast(nudge.color, nudge.fill), 'the nudge text on its fill').toBeGreaterThanOrEqual(4.5)
+  expect(nudge.border, 'a 1px Hairline border').toEqual(Array(4).fill(await tokenColour(page, '--color-hairline')))
+  expect(nudge.textAlign).toBe('center')
+  expect(nudge.radius).toBe('14px')
+  expect(nudge.cursor).toBe('auto')
+  return nudge
 }

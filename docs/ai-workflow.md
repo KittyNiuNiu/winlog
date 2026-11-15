@@ -4733,3 +4733,328 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - **The issue on GitHub:** the saved body matches what I wrote, apart from the attribution footer the tool adds. The issue still has no labels.
   - No change to project code, and no AI call.
 - **Left open:** nothing.
+
+## 2026-11-15: Engineer: implement #90 (task 59, dark-mode hover and disabled fills, the writing nudge's look, and the laptop entry row height)
+
+- **Task:** implement #90 from its groomed body (sections A to G), the PM's decisions (6898988075) and the design note (6899206051), following `docs/software-engineer.md`. The task changes screens.
+- **What I did:**
+  - **Tokens (`index.css`):**
+    - dark `--color-secondary-hover` is now #2E262D (light stays Peach wash);
+    - new `--color-disabled-fill`: Peach wash in light mode, #2E262D in dark mode, written as its own hex;
+    - new `--color-nudge-fill`: Paper white in light mode, Blush white (the page ground) in dark mode.
+  - **`Button.css`:** `.button:disabled` uses the Disabled fill, still after the `:hover` rules.
+  - **`EntryRow.css` and `EntryRow.tsx`:**
+    - Edit and Delete use the Secondary hover fill; the Peach wash rule and its workaround comment are gone;
+    - from 64rem, a row with actions gets the class `entry-row--with-actions` and a fourth column (`64px 120px minmax(0, 1fr) auto`), with `display: contents` on the label-and-actions wrapper and `justify-self: start` on the label. The DOM order stays. Rows without actions do not change.
+  - **`EntriesPage.css`:** the nudge has the Nudge fill, the 1px Hairline border, a 14px radius, 16px by 20px padding and centred text with `text-wrap: balance`. Its markup, text, place and behaviour are unchanged.
+  - **`DESIGN.md`:** the frontmatter, Colors → Neutral and the contrast sentence, Buttons (Hover, Focus, Disabled), Writing nudge, Entry row → Edit and Delete, Tag filter at 20 tags, and the new Messages entry with the demo notice at 68ch, word for word from the design note.
+  - **Tests:**
+    - `design.test.ts`: the three tokens in both modes; the contrast pairs of A to C (at least 4.5:1); the fill steps of A to C (at least 1.065:1) in both modes; the fills are not Peach, Saved peach, a category tint, Plum (or for the nudge Error and Peach wash); the button rules use the tokens; the `DESIGN.md` frontmatter has the same colour values as `index.css`.
+    - `entryStyles.test.ts`: changed on purpose: the Edit and Delete hover check (Secondary hover, no Peach wash, no workaround comment) and the nudge test (the new look; the not-a-control and Named Rules checks stay). New: the 64rem row rules.
+    - `EntryRow.test.tsx`: new tests for the class and the DOM order with actions, and no class without actions.
+    - Viewport tests:
+      - dark screenshots of `entries-with-nudge`, `new-entry-empty`, `review-results-panel-idle` and `settings-delete-step` (`<name>-dark-<size>.png`) with the existing screen checks;
+      - the new screen `entries-nudge-and-notice` in light and dark (the mock answers `DELETE` with 404 through the new `entryAlreadyDeleted` option);
+      - hover checks in each colour scheme for every control in section A, with a screenshot of each hovered control;
+      - disabled checks in each colour scheme, including no hover change and the busy "Draft summary";
+      - the row check at 1280×800 with a new one-line entry in `data.ts`, and checks at 768×1024 and 1024×768.
+- **Decisions under the standing rule:**
+  - The light-mode sidebar "New entry" is left out of the hover "differs from its surface" check, as criterion A accepts and the design note says.
+  - The new `design.test.ts` frontmatter check compares every hex colour in the `DESIGN.md` frontmatter with `index.css`, so criterion E's "same values" is checked by a test. The plum hover formula is skipped.
+  - The 1280 row screenshots are named by size (`entries-rows-1280x800.png`, `entry-row-one-line-1280x800.png`), like `review-gap-1280x800.png`.
+- **How I verified it:**
+  - `npm run lint`, `npm test` (1421 passed), `npm run build` and `npm run test:viewport` (145 passed, 11 skipped by design) in `frontend/`; `./test-all.sh` (all three suites passed); `uv run ruff check .` in `backend/`.
+  - A mutation run: with the old stylesheets, the new dark hover, disabled, nudge and row checks failed (26 tests), and the light hover checks passed, as light mode is unchanged.
+  - I looked at the new and changed screenshots in light and dark: the nudge and the info message side by side, the dark disabled and ready buttons, the hovered controls, and the rows at 768, 1024 and 1280. Measured: the one-line row is 59px at 1280×800, the text column 224px at 768, 368px at 1024 and 624px at 1280.
+  - No backend, contract, `render.yaml` or `docs/product-spec.md` change. No real AI call.
+- **Left open:** nothing.
+
+## 2026-11-15: Orchestrator: close #90 (dark-mode fills, the writing nudge, the laptop entry row)
+
+- **Task:** task 59, run with `/orchestrate all`. It changes screens, so it had a design note and a design review.
+- **What happened:**
+  - PM grooming (6898988075): six visual points (two from #36's comment) and three inputs (#88, #72, #86).
+  - Design note (6899206051): dark hover and disabled fill #2E262D; `--color-nudge-fill`; the laptop row from 64rem with Edit/Delete as a fourth column (59px); the `DESIGN.md` text, including Messages and the tag filter cap.
+  - Engineer (6899588008), with dark-mode viewport screens.
+  - QA PASS (6899791602).
+  - Design review PASS (6900048440). Light mode and widths below 1024px are pixel-identical.
+  - Closed as completed.
+- **Open points, left in this log under the standing rule** (no work needed):
+  - the phone focus outline of Edit/Delete touches the row divider (existing since #29);
+  - the 1px phone tap-area overlap (existing);
+  - full-page screenshots cut the sticky sidebar's fill (a capture artefact).
+
+## 2026-11-15: PM: groom #103 (task 60, the spec's OpenRouter mention and "Last updated" date)
+
+- **Task:** groom #103 following `docs/pm.md`. It had no status label. It is task 60, a docs task that may edit `docs/product-spec.md` for two points only.
+- **What I read:**
+  - the issue (no comments yet) and its three sources on #40: the PM re-grooming, the engineer's open points and QA's note 3;
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md` and `docs/tasks.md`, with #64 as the pattern for a groomed follow-up;
+  - `docs/product-spec.md` as it is now (the same as `main`), and the spec's `git log` for the header and §14;
+  - `render.yaml`, `ops/deployment.md`, `.env.example` and `docs/decisions/default-model.md` for OpenRouter;
+  - the open issues that plan spec edits (#112 and #92).
+- **What I did:**
+  - Rewrote the body of #103 with the template. Section A is the header, B the §10.2 AI row, C the §14 entry (exact text), D says nothing else changes, and E is the checks.
+  - Posted the PM comment with the decisions, the facts checked and the original text (6900109424).
+  - Created follow-up #114, "Follow-up from #103: keep the spec's "Last updated" date in step with its change log", and listed it under Out of scope.
+  - Labels unchanged. The orchestrator sets the status.
+- **Decisions under the standing rule (2026-11-14, extended 2026-11-15 to #103), recorded in the issue:**
+  - **A §14 entry is added,** in the same form as the five earlier "0.2, updated" entries. The criteria give its exact text.
+  - **The header shows the date of this change,** which is the date of the new entry: the UTC date of the commit that changes the spec. It does not show 14 November. This keeps the 9 and 11 November pattern.
+  - **The version stays `0.2 (draft)`.**
+  - **The AI row becomes "LLM router service (OpenRouter)".** Only "planned" is removed. The mock is already covered by §8 and §10.4.
+  - **CI on the pushed commit is the check.** No test or CI step reads the spec, so no test is added.
+  - **Preventing the next drift is moved to #114.** #112 and #92 will edit the spec before #114 comes up.
+  - **No screen change.** No `render.yaml` change, so no Blueprint sync.
+- **How I verified it:**
+  - `grep` in the spec: "planned" appears only on line 197, and "OpenRouter" appears only there too.
+  - `git log -p -- docs/product-spec.md`:
+    - 8d2a722 and 4f05f9d changed the "Last updated" line;
+    - bd4348b (#73), 42dda2c (#74) and 0600450 (#39) did not.
+  - `TZ=UTC git log -1 --format=%ad --date=format-local:'%-d %B %Y' 0600450` prints `14 November 2026`, so the criteria's date command works.
+  - A search of `backend/tests`, `frontend/` and `.github/workflows` found `docs/product-spec.md` only in comments.
+  - The saved body of #103 starts with the new Goal. #103 and #114 have no labels.
+  - No change to project code, and no AI call.
+- **Left open:** #112 (task 65) and #92 (task 66) will edit the spec before #114 comes up. Their groomings could name the header date in their criteria.
+
+## 2026-11-15: Engineer: implement #103 (task 60, the spec's OpenRouter mention and "Last updated" date): blocked before committing
+
+- **Task:** #103, three edits to `docs/product-spec.md` (header date, the §10.2 AI row, a new §14 entry), as the issue's sections A to E give them.
+- **What I did:**
+  - Read the issue, the PM comment (6900109424), `docs/software-engineer.md`, `docs/process.md` and `AGENTS.md`.
+  - Made the three edits in the working tree and checked them against the criteria before committing.
+  - Found that two criteria contradict each other. B's second bullet says "planned" no longer appears anywhere in the spec. C's exact entry text quotes the old row: `instead of "OpenRouter planned"`. No edit satisfies both.
+  - Reverted the edits, so the spec change can still be made in one commit with that commit's date.
+  - Asked on the issue (https://github.com/KittyNiuNiu/winlog/issues/103#issuecomment-6900134299). Recommended: narrow B's bullet so "planned" may appear once, in the new §14 entry's quoted old text. The other option is to reword C's entry so it does not quote the old row.
+  - Labels unchanged.
+- **How I verified it:**
+  - On the edited working tree: `git diff docs/product-spec.md` had exactly three hunks; lines 3 and 4 and the AI row read as A and B give them; §10.1 was unchanged; the new entry matched C's text exactly (`diff` against the issue's text) and sat directly above the 14 November entry with one blank line on each side.
+  - `grep -n planned docs/product-spec.md` found one line, 268, the new entry. That is the failing check.
+  - After the revert, `git status` was clean and `grep` again finds "planned" only on line 197, as before.
+  - No code, contract, `render.yaml` or screen change. No AI call. Only this log entry is committed.
+- **Left open:** the spec edits wait for the decision on B and C. The date is the UTC date of the commit that changes the spec, so a decision on a later day only changes the date.
+
+## 2026-11-15: PM: amend criterion B of #103 (task 60) on the product owner's decision
+
+- **Task:** the engineer reported #103 blocked (comment 6900134299). B's second bullet said "planned" no longer appears anywhere in `docs/product-spec.md`, but C's exact §14 entry text quotes the old row, `instead of "OpenRouter planned"`.
+- **Product owner's decision (2026-11-15):** "planned" may appear in the spec once, inside the new §14 entry's quote of the old text, and nowhere else, in particular not in §10.2. C's exact text stays as it is. This is the engineer's recommended option 1.
+- **What I did:**
+  - Rewrote B's second bullet in the body of #103 and marked it "Amended 2026-11-15". It now says "planned" appears in the spec exactly once, in the new §14 entry's quote, and that `grep -n planned docs/product-spec.md` prints exactly one line, the new §14 entry.
+  - Posted a comment naming the decision and the change (6900304951).
+  - Labels unchanged (`groomed`). No change to `docs/product-spec.md` or any other project file.
+- **How I verified it:**
+  - `diff` of the issue body before and after the edit: only B's second bullet differs. A REST edit had appended a "Generated by" footer to the body; I saved the body again without it, so the final diff is that one line.
+  - C's entry text has "planned" once, so the amended bullet and C can both be met.
+  - `grep -n planned docs/product-spec.md` on this branch still finds only line 197, the AI row, so the spec is unchanged.
+- **Left open:** none. #103 is ready for the engineer again.
+
+## 2026-11-15: Engineer: implement #103 (task 60, the spec's OpenRouter mention and "Last updated" date)
+
+- **Task:** #103 after the amendment of criterion B (PM comment 6900304951): three edits to `docs/product-spec.md` as sections A to C give them, in one commit.
+- **What I did:**
+  - Read the issue body (A to E, with B's amended bullet), the PM comment (6900109424), the earlier engineer's question (6900134299), the amendment, `docs/software-engineer.md`, `docs/process.md` and `AGENTS.md`.
+  - Commit dc4498f changes only `docs/product-spec.md`:
+    - line 4 reads `**Last updated:** 15 November 2026`; line 3 still reads `**Version:** 0.2 (draft)`;
+    - the §10.2 AI row reads `| AI | LLM router service (OpenRouter) | Category and tag suggestions; summaries |`;
+    - the new first §14 entry, C's exact text with `<date>` set to `15 November 2026`, sits directly above the 14 November entry with one blank line before and after it.
+  - Labels unchanged. No code, contract, `render.yaml`, `README.md` or screen change.
+- **How I verified it:**
+  - `TZ=UTC git log -1 --format=%ad --date=format-local:'%-d %B %Y' dc4498f` prints `15 November 2026`, the date in the header and in the new entry. No §14 entry has a later date.
+  - The AI row and the new entry match the issue's text exactly (a script compared them with the lines in the issue body).
+  - `grep -n planned docs/product-spec.md` prints one line, 268, the new §14 entry.
+  - `git diff -U0` of the spec before the commit had exactly three hunks: the header date, the AI row and the added entry with its blank line. §10.1, the Observability row and every earlier §14 entry are unchanged.
+  - `git show --stat dc4498f` lists only `docs/product-spec.md`. This log entry is a separate commit.
+  - CI run 43754787403 on dc4498f passed on every job: Contract, Backend, Frontend, Backend image, Tests and Full system. As criterion E says, no test reads the spec, so no test was added and `./test-all.sh` was not run.
+  - No AI call.
+- **Left open:** nothing. Keeping the header date in step on later spec edits stays with #114.
+
+## 2026-11-15: Orchestrator: close #103 (the spec's OpenRouter mention and "Last updated" date)
+
+- **Task:** task 60, run with `/orchestrate all`. Docs only (`docs/product-spec.md`, as the issue allows).
+- **What happened:**
+  - PM grooming (6900109424): three spec edits (the header date, the §10.2 AI row, a new §14 entry). The PM created #114, which is not listed; inputs for it were posted on #112 and #92.
+  - **The engineer reported BLOCKED** (6900134299): criteria B ("planned" nowhere) and C (an entry quoting "OpenRouter planned") contradicted each other. This was a stop point.
+  - **The product owner decided (2026-11-15):** allow "planned" once, in the §14 quote. The PM amended B (6900304951).
+  - The engineer then made the edits (6900462621, commit dc4498f), and QA passed (6900576818). Closed as completed.
+- **Open points:** none. Keeping the header date in step is #114.
+
+## 2026-11-15: PM: groom #106 (task 61, two wordings for invalid dates, and optional filter parameters in the generated schema)
+
+- **Task:** groom #106 following `docs/pm.md`. It had no status label. It is task 61, a small follow-up from #11 with two points.
+- **What I read:**
+  - the issue (no comments yet), its sources (QA's notes and the engineer's open points on #11, the orchestrator's comment on #58), and #64 as the pattern for a groomed follow-up;
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md`, `docs/tasks.md`, `docs/product-spec.md` (FR-E2, FR-R1, FR-R3, §10.3) and `AGENTS.md`;
+  - `openapi.yaml` (`listEntries`, `generateSummary`, `EntryInput`, `SummaryFilter`, `FieldError`);
+  - `backend/app/entries.py`, `summaries.py`, `errors.py` and `main.py`, and the backend tests that send invalid dates or read `app.openapi()`;
+  - `frontend/src/api/errors.ts` and `schema.d.ts`, `auth/requestErrors.ts`, `entries/EntryForm.tsx`, `pages/ReviewPage.tsx` and `review/summaryDraft.ts`.
+- **What I did:**
+  - Rewrote the body of #106 using the template, with sections A (one reason for every invalid date), B (what stays), C (tests) and D (checks).
+  - Posted the PM comment with the decisions, the facts checked and the original text (6900697689).
+  - Labels unchanged: the orchestrator sets the status. No follow-up issue.
+- **Decisions under the standing rule (2026-11-14, extended 2026-11-15), recorded in the issue:**
+  - **Point 1 is fixed.** Every invalid date gets the reason `Date must be a real calendar date in the format YYYY-MM-DD.`, in all five date fields (`date` on create and update, `start_date`, `end_date`, `period_start`, `period_end`). pydantic's "valid date or datetime" misleads clients, because the API rejects date-times. A third wording ("year 0 is out of range") was not in the issue.
+  - **The new wording replaces the current one too.** The current one reads wrong for `2026-02-30`, which is in the format YYYY-MM-DD.
+  - **The accepted dates, the missing-field reason and the start-after-end reasons stay as they are.**
+  - **No change to `openapi.yaml`.** `FieldError.reason` is free text ("Why it failed."), and unit tests pin the wording.
+  - **Point 2 is not fixed and not moved, so the orchestrator can close it as not planned.** Nothing reads the generated schema's parameters: the frontend types come from `openapi.yaml`, and backend tests use `app.openapi()` only for routes and authentication. `POST /summaries` is not affected. The generated schema differs from the contract in larger ways anyway, such as FastAPI's own 422 schema and no `maxItems`.
+  - **No screen change** (the frontend never shows a server `reason`). No `render.yaml` change, so no Blueprint sync.
+- **How I verified it:**
+  - With the backend's own code (`uv run --offline`, `AI_PROVIDER=mock`, no database) I printed today's reason for each value in criterion A. The models and the routes used a stand-in user, for `listEntries` and `updateEntry`. The results match the table in the PM comment, and `0000-01-01` gets the third wording.
+  - `create_app().openapi()` lists seven nullable schemas: the four `listEntries` parameters, `Entry.result_impact`, `EntryInput.result_impact` and `Health.commit`. The last three are nullable in the contract too. `SummaryFilter.categories` and `tags` have `default: []` and are not nullable.
+  - `git log -L` shows `_require_full_date` unchanged since #9. `grep` finds no backend test that asserts a date reason, and no frontend code outside `api/errors.ts` that reads `reason`.
+  - pydantic's `docs/errors/validation_errors.md` at v2.14.2 (from GitHub, because docs.pydantic.dev is blocked here) describes `date_from_datetime_parsing` and `date_parsing`. Python 3.13's `datetime.rst` confirms that `MINYEAR` is 1.
+  - The saved body of #106 is identical to what I wrote, apart from the "Generated by" footer the session adds to every save. The issue still has no labels.
+  - No change to project code, and no AI call.
+- **Left open:** nothing.
+
+## 2026-11-15: Engineer: implement #106 (task 61, one reason for every invalid date)
+
+- **Task:** #106 as the PM groomed it (comment 6900697689), criteria A to D: every invalid date gets one fixed reason in all five date fields. Point 2 (optional parameters shown as nullable in FastAPI's generated schema) is out of scope by decision 6.
+- **What I did:**
+  - Commit 013fab5 changes `backend/app/entries.py`, `backend/tests/unit/test_entries.py` and `backend/tests/unit/test_summaries.py`:
+    - `_require_full_date`, the rule behind the shared `EntryDate` type, still checks the YYYY-MM-DD format first. It then reads the date itself with `datetime.date.fromisoformat` and returns it. Both failures raise the one reason `INVALID_DATE_REASON`, "Date must be a real calendar date in the format YYYY-MM-DD.", so pydantic's "valid date or datetime" and "year 0 is out of range" wordings no longer reach a client.
+    - The docstrings of the module, `_require_full_date` and `EntryDate` say so.
+    - New tests: `test_fr_e2_invalid_date_has_one_reason` (create and update, 18 values each), `test_fr_r1_invalid_filter_date_has_one_reason` (`start_date` and `end_date`, 17 values each, plus two requests with both dates invalid), `test_fr_r3_invalid_period_date_has_one_reason` (`period_start` and `period_end`, 18 values each, plus two requests with both invalid) and `test_fr_e2_real_dates_stay_accepted` (`EntryInput.date`, `SummaryFilter.period_start`, `period_end` and the list filter's `EntryDate | None`). Each reason test compares the whole 422 body and validates it against the contract's `Error` schema. The period test also checks that no filter ran, no AI call was made and nothing was saved.
+  - No change to `openapi.yaml`, `frontend/`, `render.yaml`, `docker-compose.yml`, `.github/workflows/`, `README.md`, `AGENTS.md` or `docs/product-spec.md`. No new dependency. No existing test was changed apart from imports.
+- **Decisions (my recommended options):**
+  - Also added `test_fr_r1_real_filter_dates_stay_accepted`: it sends each accepted date as both `start_date` and `end_date` to the real list route, with a stand-in for `filter_entries`, and checks the filter gets that date. The named model-level test cannot cover a query parameter at the route.
+  - The pydantic error type is now `invalid_date` instead of `date_format`, because it also covers dates that do not exist. The type never leaves the server: the error handler sends only the field and the reason.
+  - `test_summaries.py` imports the value lists from `test_entries.py`, as `tests/integration/test_demo.py` already does from `tests/integration/test_entries.py`.
+- **How I verified it:**
+  - On the old code, a script with the real routes printed the three old wordings, as in the PM's table. The new tests on the old code: all 110 reason cases failed (36 for entries, 36 for the filter, 38 for the period), and the 10 accepted-date cases passed.
+  - A comparison script ran the old rule and the new one over 160,010 values: every month 00 to 99 and day 00 to 99 in 11 years (0000, 0001, 0004, 1600, 1900, 2000, 2024, 2025, 2026, 2100, 9999), 50,000 random strings of digits and separators, and non-strings (null, numbers, booleans, lists, date objects). In Python and JSON mode, both rules accept exactly the same values and read them as the same date, and every rejected value got the new reason.
+  - FastAPI's generated schema (`create_app().openapi()`) is byte-identical before and after the change.
+  - In `backend/`: `uv run ruff check .` and `uv run ruff format --check .` pass; `uv run pytest tests/unit` 1639 passed; `uv run pytest tests/integration` 1198 passed (test database started with `docker compose up -d --wait db`).
+  - `./test-all.sh` passed (exit 0): backend unit 1639, backend integration 1198, frontend 1421 tests.
+  - CI run 43758375626 on 013fab5: Contract, Backend, Backend image and Frontend passed. The Tests job was still running when I handed back; the orchestrator or QA confirms it.
+  - No AI call.
+- **Left open:** point 2 of #106, which the orchestrator can close as not planned (decision 6). Nothing else.
+
+## 2026-11-15: Orchestrator: close #106 (one reason for every invalid date)
+
+- **Task:** task 61, run with `/orchestrate all`. No screens change.
+- **What happened:**
+  - PM grooming (6900697689): one reason, `Date must be a real calendar date in the format YYYY-MM-DD.`, for all five date fields. Point 2 (nullable optional parameters in FastAPI's generated schema) is out of scope and not planned.
+  - Engineer (6900979389, commit 013fab5).
+  - QA PASS (6901187426).
+  - CI run 43759029300 passed.
+  - Closed as completed.
+- **Correction:** the engineer's log entry above names CI run 43758375626 as still running. That run was cancelled by the next push. The run that counts is 43759029300, which passed.
+- **Open points:** none needs work.
+
+## 2026-11-15: PM: groom #108 (task 62, five whole-number settings still accept `+5`, `1_0` and `10.0`)
+
+- **Task:** groom #108 following `docs/pm.md`. It had no status label. It is task 62, a small backend follow-up from #89.
+- **What I read:**
+  - the issue (no comments), and #89 as the pattern for a groomed settings follow-up;
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md`, `docs/tasks.md`, `docs/product-spec.md` (FR-A2, §8), `openapi.yaml` and `AGENTS.md`;
+  - `backend/app/settings.py`, the settings tests in `tests/unit/test_settings.py`, `test_auth.py` and `test_ai_openai_compatible.py`, and the code that reads the defaults (`scripts/model_comparison/comparison.py`, `tests/unit/test_deployment.py`);
+  - `.env.example`, `render.yaml`, `docker-compose.yml` and the variable table in `ops/deployment.md`.
+- **What I did:**
+  - Rewrote the body of #108 using the template.
+  - Posted the PM comment with the decisions, the facts checked and the original text (6901243024).
+  - Labels unchanged: the orchestrator sets the status. No follow-up issue.
+- **Decisions under the standing rule (2026-11-14, extended 2026-11-15), recorded in the issue:**
+  - **Strict check:** `DATABASE_CONNECT_TIMEOUT_SECONDS`, `TOKEN_LIFETIME_DAYS`, both AI timeouts and `AI_SUMMARY_MAX_TOKENS` use `_whole_number`, so `+5`, `1_0`, `10.0` and a 5,000-digit value stop startup with "must be a whole number from MIN to MAX".
+  - **Ranges and defaults stay** (2 to 60, 1 to 365, 1 to 600 twice, 1 to 100000). None is wrong; 2 is libpq's real minimum for `connect_timeout`.
+  - **Spaces and leading zeros stay accepted, empty stays refused,** as for the other eleven whole-number settings.
+  - **One unit test covers every `int` field of `Settings`** (`+<default>`, `<default>.0`, `0_<default>`), so a later setting cannot drift back to lax parsing unnoticed.
+  - **No screen change**, so no design note. No change to `openapi.yaml`, `.env.example`, `docker-compose.yml` or `render.yaml`, so no Blueprint sync.
+- **How I verified it:**
+  - With the backend's own `load_settings()` (`AI_PROVIDER=mock`, no `.env`, no database) on `fd69233`, pydantic 2.14.2: each of the five accepts `+5`, `1_0`, `10.0` and `0_<default>`, and refuses empty, `7.5`, `1e1`, `٣`, `True`, `0x10`, `-0` and 5,000 digits with pydantic's wording. The table is in the PM comment.
+  - `Settings.model_fields` has 16 `int` fields; the other eleven use `_whole_number`.
+  - `grep` finds no test that matches pydantic's wording. The four existing refusal tests match "VARIABLE is invalid", so they pass unchanged.
+  - The values in `.env.example` and `render.yaml` (3, 7, 15, 60, 16000) are inside the ranges. `docker-compose.yml` reads `.env` and overrides none of the five.
+  - The saved body of #108 is identical to what I wrote. The issue still has no labels.
+  - No change to project code, and no AI call.
+- **Left open:** nothing.
+
+## 2026-11-15: Orchestrator: close #87 and #91 as not planned, add #114 to the backlog
+
+- **Decisions (product owner, 2026-11-15):**
+  - close #87 and #91 (both skipped as out of scope on 2026-11-14) as not planned;
+  - add #114 (keep the spec's "Last updated" date in step) before #92.
+- **What I did:**
+  - Closed #87 and #91 as not planned, with a comment on each.
+  - `docs/tasks.md`:
+    - #114 is task 66, so #92 and #98 moved to tasks 67 and 68;
+    - "Skipped" became "Closed as not planned".
+  - `docs/process.md`: the standing rule covers tasks 48 to 68, the same issues plus #114.
+  - The running batch includes #114 and still stops before #92.
+
+## 2026-11-15: Engineer: implement #108 (task 62, five whole-number settings checked strictly)
+
+- **Task:** #108 as the PM groomed it (comment 6901243024): `DATABASE_CONNECT_TIMEOUT_SECONDS`, `TOKEN_LIFETIME_DAYS`, `AI_SUGGESTION_TIMEOUT_SECONDS`, `AI_SUMMARY_TIMEOUT_SECONDS` and `AI_SUMMARY_MAX_TOKENS` use the strict `_whole_number` check, with their ranges and defaults unchanged.
+- **What I did:**
+  - Commit 8d960c5 changes `backend/app/settings.py`:
+    - the five fields lose `Field(ge=…, le=…)` and keep plain `int` defaults (3, 7, 15, 60, 16000), so `Settings.model_fields[...].default` still gives them;
+    - four `mode="before"` validators call `_whole_number` with the ranges 2 to 60, 1 to 365, 1 to 600 (both AI timeouts) and 1 to 100000, so each range is stated once;
+    - each field's comment states its range ("A whole number from 1 to 365" for `TOKEN_LIFETIME_DAYS`).
+  - New shared test helper `backend/tests/whole_number_settings.py` (like `tests/telemetry_capture.py`): the accepted values (min, max, ` 30 `, `007`), the refused values (`+5`, `1_0`, `10.0`, min − 1, max + 1, `-1`, `-0`, `7.5`, `1e1`, `0x10`, `٣`, `soon`, empty, a space, 5,000 digits), a startup check and an in-code check.
+  - New tests:
+    - `tests/unit/test_settings.py`: `test_database_timeout_takes_a_whole_number_from_2_to_60`, `test_database_timeout_stops_the_backend_when_invalid`, `test_database_timeout_range_applies_in_code`, `test_every_whole_number_setting_refuses_lax_spellings` (every `int` field read from `Settings.model_fields`, 16 today, × `+<default>`, `<default>.0`, `0_<default>`), `test_every_whole_number_setting_is_found`, `test_whole_number_setting_defaults_stay_plain_ints` and `test_no_whole_number_setting_keeps_a_pydantic_range_check`.
+    - `tests/unit/test_auth.py` (FR-A2): `test_fr_a2_token_lifetime_takes_a_whole_number_from_1_to_365`, `test_fr_a2_token_lifetime_refuses_lax_spellings` and `test_fr_a2_token_lifetime_range_applies_in_code`.
+    - `tests/unit/test_ai_openai_compatible.py`: `test_ai_openai_timeouts_take_a_whole_number_from_1_to_600`, `test_ai_openai_timeouts_stop_the_backend_when_invalid`, `test_ai_openai_timeout_range_applies_in_code` and the same three for `AI_SUMMARY_MAX_TOKENS`.
+  - No existing test changed apart from imports. No change to `openapi.yaml`, `.env.example`, `render.yaml`, `docker-compose.yml`, `ops/deployment.md` or `frontend/`. No new dependency.
+- **Decisions (my recommended options):**
+  - The startup tests check "VARIABLE is invalid: " and the range message separately, because `load_settings()` keeps pydantic's "Value error, " prefix between them, as for the other eleven settings.
+  - The test over every `int` field checks that the five are found and that there are at least 16, not exactly 16, so a new whole-number setting is tested rather than failing a count.
+- **How I verified it:**
+  - The new tests on the old `settings.py`: 96 failed. `+5`, `1_0` and `10.0` failed with "DID NOT RAISE"; the 5,000-digit value and the other refused values failed because the message lacked the range message; the 15 lax-spelling cases of the five settings failed; the 33 cases of the other eleven settings and the accepted-value tests passed.
+  - In `backend/`: `uv run ruff check .` and `uv run ruff format --check .` pass; `uv run pytest tests/unit` 1794 passed without PostgreSQL.
+  - `./test-all.sh` passed: backend unit, backend integration (1198) and frontend (1421).
+  - Live check with `.env` identical to `.env.example` (`AI_PROVIDER=mock`), after `docker compose up -d --wait db` and `uv run alembic upgrade head`: `uv run uvicorn app.main:app --port 8000` stopped at startup with `TOKEN_LIFETIME_DAYS=1_0` ("must be a whole number from 1 to 365"), `DATABASE_CONNECT_TIMEOUT_SECONDS=+5` ("from 2 to 60") and `AI_SUMMARY_MAX_TOKENS=16000.0` ("from 1 to 100000"). Without overrides it started and `GET /health` answered 200.
+  - No AI call.
+- **Left open:** nothing.
+
+## 2026-11-15: Orchestrator: close #108 (strict check for five whole-number settings)
+
+- **Task:** task 62, run with `/orchestrate all`. No screens change.
+- **What happened:** PM grooming (6901243024); engineer (6901510533, one push); QA PASS (6901634018). Closed as completed.
+- **Open points, left in this log under the standing rule** (no work needed):
+  - the every-`int` test finds only fields typed exactly `int`;
+  - the startup message includes pydantic's "Value error, ", as for the other settings.
+
+## 2026-11-15: PM: groom #109 (task 63, the three Blueprint changes every Manual Sync lists)
+
+- **Task:** groom #109, which had no status label, following `docs/pm.md`. It is task 63. No screens change.
+- **What I read:**
+  - the issue (no comments yet);
+  - the #102 grooming comment (decision 8), the orchestrator's input on #102, and the #39 migration record;
+  - `render.yaml`, `ops/deployment.md` ("Blueprint syncs", migration steps 8 and 15, set-up steps) and `backend/tests/unit/test_deployment.py`;
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md` and `AGENTS.md`;
+  - Render's Blueprint reference and Blueprints page, fetched with `curl`.
+- **What I did:**
+  - Rewrote the body of #109 using the template, with sections A (`render.yaml`), B (tests), C (`ops/deployment.md`), D (checks) and E (the product owner's Manual Sync after the merge, then QA).
+  - Posted the PM comment with the decisions and the facts I checked (6901710148).
+  - Labels unchanged. No follow-up issue.
+- **Decisions under the standing rule (tasks 48 to 68), recorded in the issue:**
+  - Both backends get `autoDeployTrigger: "off"`, which reverses #39's choice to leave the field out. An omitted value and `"commit"` are what the syncs keep listing, and the field has no effect on image services.
+  - Both static sites get `staticPublishPath: frontend/dist`, the form `winlog-app-dev` was created with. The two sites keep the same value.
+  - The proof is this task's own Manual Sync after the merge (the orchestrator's input), not #92's. A second Manual Sync, read and not applied, shows whether anything comes back.
+  - The guide is worded so that it stays true whatever the sync shows. The outcome is recorded on #109. If the sync check fails, the product owner chooses the next form or keeps the documented note.
+- **How I verified it:**
+  - Render's current Blueprint JSON schema with `jsonschema` 4.26.0: 0 errors for the current `render.yaml` and for a copy with the new forms. A wrong `autoDeployTrigger` value is reported.
+  - `git log -S staticPublishPath -- render.yaml` shows `./frontend/dist` since #38.
+  - The saved issue body was checked through the REST API, and its labels are still empty.
+  - No change to project code. No hook call, sync, approval or settings change. No AI call.
+- **Left open:** only the product owner can run the sync that proves the forms work (section E).
+
+## 2026-11-15: Engineer: implement #109 (task 63, the Blueprint fields every Manual Sync listed)
+
+- **Task:** sections A to D of #109 as the PM groomed it (comment 6901710148). Section E (the product owner's Manual Sync after the merge, then QA) is not mine. No screens change.
+- **What I did:**
+  - Commit 4b2eeea:
+    - `render.yaml`: `autoDeployTrigger: "off"` on `winlog-api` and `winlog-api-dev`, with a comment that it has no effect on an image service and is written only because the syncs did not keep an omitted value (#109); `staticPublishPath: frontend/dist` on both static sites, with a comment that the path is relative to the repository root and written without `./`, the form Render kept for `winlog-app-dev`. Nothing else in the file changed; the header comment stays true as it is.
+    - `backend/tests/unit/test_deployment.py`: `test_deploy_no_service_deploys_by_itself` checks `"off"` on all four services, no `autoDeploy`, and that the file has exactly four `autoDeployTrigger: "off"` lines and no other trigger; the static-site test checks `frontend/dist` on both sites; `test_deploy_guide_blueprint_syncs_stay_manual_and_explain_the_backends_trigger` (the name still fits) checks the new wording and the new `render.yaml` values, and that the old bullet is gone.
+    - `ops/deployment.md`, "Blueprint syncs": the bullet on the backends' trigger now says all four services have `"off"` and why it is on the image services; the bullet "Three changes come back in every sync" is now "Trigger and publish path lines in a sync list", worded to stay true whatever the sync in section E shows. History, set-up steps and links unchanged.
+- **Decisions (my recommended options):**
+  - One commit for `render.yaml`, the tests and the guide, so that every commit passes the suite (the guide test checks both files).
+  - The trigger lines go right after each backend's `image` block, so the diff touches only the four fields and their comments.
+- **How I verified it:**
+  - Render's Blueprint JSON schema (`https://render.com/schema/render.yaml.json`, downloaded today), with the backend's `jsonschema` 4.26.0 (`Draft202012Validator`): 0 errors for the new `render.yaml` and for the one before it; `autoDeployTrigger: never` on `winlog-api` only gives an error for that service. A one-off check, not a CI test.
+  - The three changed tests on the old `render.yaml` and `ops/deployment.md`: 3 failed, the other 67 passed.
+  - In `backend/`: `uv run ruff check .` and `uv run ruff format --check .` pass; `uv run pytest tests/unit` 1794 passed without PostgreSQL.
+  - `./test-all.sh` passed: backend unit (1794), backend integration (1198) and frontend (1421).
+  - No hook call, sync, approval, job re-run or settings change. No AI call.
+- **Left open:** section E, the product owner's Manual Sync after the merge, which alone shows whether Render keeps these forms.

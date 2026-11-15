@@ -79,7 +79,8 @@ class Settings(BaseSettings):
     # - Opening a connection: the longest the backend waits to open each new connection
     #   (libpq's connect_timeout, which treats values below 2 as 2, so 2 is the minimum).
     #   The health check also gives up after this long, on a new or a pooled connection.
-    database_connect_timeout_seconds: int = Field(default=3, ge=2, le=60)
+    #   A whole number from 2 to 60.
+    database_connect_timeout_seconds: int = 3
     # - One database call on an open connection: the pool's check of a connection before use
     #   (pre-ping), a statement with its result, a commit or a rollback. Also the longest a
     #   request waits for a free connection in the pool. When it runs out, the request fails
@@ -101,8 +102,8 @@ class Settings(BaseSettings):
     # not be sent (RFC 6797 §7.2). Only this setting decides, never the request's scheme. A
     # whole number from 0 to MAX_HSTS_MAX_AGE_SECONDS (63072000, two years).
     hsts_max_age_seconds: int = 31_536_000
-    # Days a login token works before it expires (FR-A2).
-    token_lifetime_days: int = Field(default=7, ge=1, le=365)
+    # Days a login token works before it expires (FR-A2). A whole number from 1 to 365.
+    token_lifetime_days: int = 7
     # The AI provider (product-spec.md §8). Required with no default, so the app never uses a
     # real or a fake AI by accident.
     ai_provider: AIProviderName
@@ -111,17 +112,19 @@ class Settings(BaseSettings):
     ai_base_url: str | None = Field(default=None, validate_default=True)
     ai_api_key: SecretStr | None = Field(default=None, validate_default=True)
     ai_model: str | None = Field(default=None, validate_default=True)
-    # Seconds the OpenAI-compatible provider waits for an answer before it gives up.
-    ai_suggestion_timeout_seconds: int = Field(default=15, ge=1, le=600)
-    ai_summary_timeout_seconds: int = Field(default=60, ge=1, le=600)
+    # Seconds the OpenAI-compatible provider waits for an answer before it gives up. Each a
+    # whole number from 1 to 600.
+    ai_suggestion_timeout_seconds: int = 15
+    ai_summary_timeout_seconds: int = 60
     # The most tokens the OpenAI-compatible provider lets the model write for one summary
     # (`max_tokens`, issue #17). A summary has at most 10,000 characters (§7.4). English needs
     # about 1 token per 4 characters, German about 1 per 3, Chinese, Japanese and Korean up to
     # about 1 per character: up to 10,000 tokens. Reasoning tokens count too (up to 3,400 per
     # summary in #14's comparison). 16,000 leaves room for all of that, so it never cuts a valid
     # summary. A larger value only raises the cost bound: the adapter rejects any summary over
-    # 10,000 characters, and a model that hits this bound gives "AI unavailable".
-    ai_summary_max_tokens: int = Field(default=16_000, ge=1, le=100_000)
+    # 10,000 characters, and a model that hits this bound gives "AI unavailable". A whole
+    # number from 1 to 100000.
+    ai_summary_max_tokens: int = 16_000
     # The most characters the matching entries may have for one summary: each entry's text,
     # Result/Impact and tag names, added up (product-spec.md §7.4, issue #43). Above it, no
     # summary is generated and the user is asked to narrow the filter. A cost limit, so it is
@@ -197,6 +200,11 @@ class Settings(BaseSettings):
             raise ValueError("must start with http:// or https://, or be empty to turn it off")
         return value
 
+    @field_validator("database_connect_timeout_seconds", mode="before")
+    @classmethod
+    def _check_connect_timeout(cls, value: object) -> int:
+        return _whole_number(value, minimum=2, maximum=60)
+
     @field_validator("database_query_timeout_seconds", mode="before")
     @classmethod
     def _check_query_timeout(cls, value: object) -> int:
@@ -208,6 +216,21 @@ class Settings(BaseSettings):
         return _whole_number(
             value, minimum=MIN_REQUEST_BODY_MAX_BYTES, maximum=MAX_REQUEST_BODY_MAX_BYTES
         )
+
+    @field_validator("token_lifetime_days", mode="before")
+    @classmethod
+    def _check_token_lifetime(cls, value: object) -> int:
+        return _whole_number(value, minimum=1, maximum=365)
+
+    @field_validator("ai_suggestion_timeout_seconds", "ai_summary_timeout_seconds", mode="before")
+    @classmethod
+    def _check_ai_timeout(cls, value: object) -> int:
+        return _whole_number(value, minimum=1, maximum=600)
+
+    @field_validator("ai_summary_max_tokens", mode="before")
+    @classmethod
+    def _check_summary_max_tokens(cls, value: object) -> int:
+        return _whole_number(value, minimum=1, maximum=100_000)
 
     @field_validator("hsts_max_age_seconds", mode="before")
     @classmethod

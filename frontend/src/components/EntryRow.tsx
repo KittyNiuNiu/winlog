@@ -30,13 +30,14 @@ interface EntryRowProps {
  * One entry in a list: date, category label and text, with "Result: …" below when the
  * entry has a result, and optionally the tags and the Edit and Delete actions. A hairline
  * above, no card. Phone: the label (and the actions to its right) sits above the text.
- * Laptop: three columns, with the actions under the label.
+ * From 48rem: three columns, with the actions under the label. From 64rem (#90): the actions
+ * take a fourth column at the row's right end; the DOM order stays the same.
  */
 export default function EntryRow({ entry, tags, actions, editRef, deleteRef }: EntryRowProps) {
   const result = entry.result_impact
   const fullDate = formatFullDate(entry.date)
   return (
-    <div className="entry-row">
+    <div className={`entry-row${actions === undefined ? '' : ' entry-row--with-actions'}`}>
       <time className="entry-row__date" dateTime={entry.date}>
         {formatShortDate(entry.date)}
       </time>

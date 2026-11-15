@@ -13,7 +13,8 @@ Create:
 - The text is stored exactly as typed. Text that is empty or only whitespace counts as missing.
 - A missing, empty or whitespace-only Result/Impact is stored as null.
 - The date is required and never filled in by the API. Any real calendar date is accepted,
-  including future dates.
+  including future dates. Every invalid date gets the one reason `INVALID_DATE_REASON`, in
+  all five date fields (`EntryDate`, issue #106).
 - Tag names are resolved with `resolve_tags` in the entry's own transaction, so a failed save
   stores neither the entry nor any new tag (§7.3).
 - Create and update return the entry's tags in the same order as get (`_tag_names`):
@@ -126,15 +127,33 @@ _FULL_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
 _UUID = re.compile(r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
 
 
-def _require_full_date(value: Any) -> Any:
-    """Accept only a YYYY-MM-DD string; pydantic then checks that it is a real date.
+# The one reason for every invalid date, in all five date fields (issue #106).
+INVALID_DATE_REASON = "Date must be a real calendar date in the format YYYY-MM-DD."
 
-    Without this, pydantic would also accept a date-time such as `2026-11-08T00:00:00` or a
-    Unix timestamp, which `format: date` does not allow.
+
+def _invalid_date() -> PydanticCustomError:
+    return PydanticCustomError("invalid_date", INVALID_DATE_REASON)
+
+
+def _require_full_date(value: Any) -> dt.date:
+    """Accept only a real calendar date written as YYYY-MM-DD, and read it as that date.
+
+    The format is checked first. Without it, pydantic would also accept a date-time such as
+    `2026-11-08T00:00:00` or a Unix timestamp, which `format: date` does not allow. Then the
+    date must exist: `2026-02-30`, `2026-13-01` or `0000-01-01` does not.
+
+    Every invalid date, in the wrong format or not a real date, gets the same fixed reason
+    `INVALID_DATE_REASON` (issue #106). It never repeats the value, and pydantic's own
+    wordings ("valid date or datetime", "year 0 is out of range") never reach a client.
     """
     if not isinstance(value, str) or not _FULL_DATE.fullmatch(value):
-        raise PydanticCustomError("date_format", "Date must be a date in the format YYYY-MM-DD.")
-    return value
+        raise _invalid_date()
+    try:
+        return dt.date.fromisoformat(value)
+    except ValueError:
+        # Well-formed, but not a real date. Python's dates follow the same calendar as
+        # pydantic's: years 1 to 9999, with the Gregorian leap years.
+        raise _invalid_date() from None
 
 
 def _require_uuid(value: Any) -> Any:
@@ -171,6 +190,8 @@ EntryText = Annotated[
 """An entry's text (and a suggestion request's text): required, not only whitespace, storable,
 and at most `MAX_ENTRY_TEXT_CHARACTERS` characters."""
 EntryDate = Annotated[dt.date, BeforeValidator(_require_full_date)]
+"""A date in a request (`format: date`): `date` of an entry, `start_date` and `end_date` of
+the list filter, and `period_start` and `period_end` of a summary (`_require_full_date`)."""
 EntryId = Annotated[uuid.UUID, BeforeValidator(_require_uuid), Path(alias="entryId")]
 """The `entryId` path parameter (components.parameters.EntryId)."""
 

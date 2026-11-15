@@ -94,6 +94,19 @@ export const ENTRIES_WITHOUT_NUDGE: Entry[] = [
   ...ENTRIES_WITH_NUDGE,
 ]
 
+/**
+ * One short line of text, no Result and no tags: the shortest row with actions, for the row
+ * height check (#90). One line at every laptop width, down to the 224px text column at 768.
+ */
+export const ONE_LINE_ENTRY = entry({
+  date: '2026-11-03',
+  category: 'Achievement',
+  text: 'Fixed the flaky login test.',
+})
+
+/** The entries without the nudge, plus the one-line entry (#90). */
+export const ENTRIES_WITH_ONE_LINE: Entry[] = [...ENTRIES_WITHOUT_NUDGE, ONE_LINE_ENTRY]
+
 /** The entry the edit page opens. */
 export const EDIT_ENTRY = LONG_ENTRY
 

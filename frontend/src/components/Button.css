@@ -46,9 +46,10 @@
   border-radius: var(--radius-button-large);
 }
 
+/* Disabled: the Disabled fill (#90), after the :hover rules so it shows no hover change. */
 .button:disabled {
   color: var(--color-muted-plum-grey);
-  background: var(--color-peach-wash);
+  background: var(--color-disabled-fill);
   border-color: var(--color-field-border);
   box-shadow: none;
   cursor: not-allowed;

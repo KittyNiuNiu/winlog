@@ -131,15 +131,18 @@ def test_deploy_backends_pull_their_environment_tag_of_the_public_ghcr_image():
 
 
 def test_deploy_no_service_deploys_by_itself():
-    assert "checksPass" not in (ROOT / "render.yaml").read_text(encoding="utf-8")
+    blueprint_text = (ROOT / "render.yaml").read_text(encoding="utf-8")
+    assert "checksPass" not in blueprint_text
+    # One trigger per service, every one the quoted "off".
+    triggers = re.findall(r"^\s*autoDeployTrigger:.*$", blueprint_text, flags=re.MULTILINE)
+    assert [line.strip() for line in triggers] == ['autoDeployTrigger: "off"'] * 4
     for name in (PROD_APP, DEV_APP):
-        static = _service(name)
-        assert static["branch"] == "main"
-        # Quoted in the file: a bare off would be read as a boolean.
-        assert static["autoDeployTrigger"] == "off"
-    for name in (PROD_API, DEV_API):
-        # Image services never auto-deploy, and the field has no effect on them.
-        assert "autoDeployTrigger" not in _service(name)
+        assert _service(name)["branch"] == "main"
+    for name in (PROD_API, DEV_API, PROD_APP, DEV_APP):
+        # Quoted in the file: a bare off would be read as a boolean. Image services never
+        # auto-deploy and the field has no effect on them; it is written on the backends only
+        # because the Blueprint syncs did not keep an omitted value (#109).
+        assert _service(name)["autoDeployTrigger"] == "off"
         assert "autoDeploy" not in _service(name)
 
 
@@ -229,7 +232,9 @@ def test_deploy_static_sites_are_the_same_build_with_their_own_api_url():
 
 def test_deploy_static_site_publishes_the_build_with_the_pinned_node_and_spa_rewrite():
     static = _service(PROD_APP)
-    assert static["staticPublishPath"] == "./frontend/dist"
+    # Relative to the repository root, without ./, the form Render kept (#109).
+    for name in (PROD_APP, DEV_APP):
+        assert _service(name)["staticPublishPath"] == "frontend/dist"
     nvmrc = (ROOT / "frontend" / ".nvmrc").read_text(encoding="utf-8").strip()
     assert _plain_values(static)["NODE_VERSION"] == nvmrc
     assert static["routes"] == [{"type": "rewrite", "source": "/*", "destination": "/index.html"}]
@@ -728,25 +733,48 @@ def test_deploy_guide_blueprint_syncs_stay_manual_and_explain_the_backends_trigg
     assert "**Auto Sync stays No, and both static sites' Auto-Deploy stays Off.**" in syncs
     assert "**Manual Sync**" in syncs
     assert "refused as a whole while an image tag it names does not exist" in syncs
-    # The sync set "commit" on the image services, which render.yaml leaves unset.
-    assert 'set both backends to "commit". This is harmless.' in syncs
-    # Every sync so far listed three changes render.yaml does not make (#102); #109 follows up.
-    repeated = syncs.split("**Three changes come back in every sync.**")[1]
+    # All four services are "off"; on the backends only because syncs dropped an omitted value.
+    trigger = syncs.split('**All four services have `autoDeployTrigger: "off"`.**')[1]
+    trigger = trigger.split("**Trigger and publish path lines in a sync list.**")[0]
     for phrase in (
-        "Both Manual Syncs so far, on 14 and 15 November 2026, listed three changes that "
-        "`render.yaml` does not make",
+        "On the two image services it has no effect",
+        "they never redeploy when a new image gets their tag",
+        "A deploy that names no image pulls the environment's tag, which the pipeline moves only "
+        "to a digest it has just deployed there.",
+        "the syncs of 14 and 15 November 2026 did not keep an omitted value and set both "
+        'backends to "commit" each time (#109).',
+        'The static sites are Git-backed, so `render.yaml` sets `autoDeployTrigger: "off"` for '
+        "them, and a deploy hook called with `ref`, as the pipeline does, also turns their "
+        "auto-deploy off",
+    ):
+        assert phrase in trigger, phrase
+    # The lines every sync listed before #109, the forms #109 writes, and how a review reads them.
+    repeated = syncs.split("**Trigger and publish path lines in a sync list.**")[1]
+    for phrase in (
+        "Before #109, every Manual Sync (14 and 15 November 2026) listed changes that "
+        "`render.yaml` did not make",
         '"auto-deploy trigger → commit" for `winlog-api` and `winlog-api-dev`',
         '"static publish path → `./frontend/dist`" for `winlog-app-dev`',
-        "They are harmless.",
-        "`./frontend/dist` is the directory the site already publishes",
-        "A sync review does not stop on these three. Every other change in the list is read as "
-        "before.",
-        "stops listing them is #109.",
+        '#109 writes the trigger as `"off"` on the backends and the publish path as '
+        "`frontend/dist` on both static sites, the forms Render seemed to keep.",
+        'The first sync after that change may list them once: "auto-deploy trigger → off" for a '
+        'backend, "static publish path → `frontend/dist`" for a static site.',
+        "They are expected and harmless",
+        "A static site the sync changes rebuilds the newest commit on `main`",
+        "sync while that commit is the one production runs.",
+        "If a later sync lists any of these trigger or publish path lines again, it is still "
+        "harmless for the same reasons: the review does not stop on it, and it is reported so "
+        "this guide is corrected.",
+        "Every other change in the list is read as before.",
     ):
         assert phrase in repeated, phrase
-    assert _service(DEV_APP)["staticPublishPath"] == "./frontend/dist"
-    for name in (PROD_API, DEV_API):
-        assert "autoDeployTrigger" not in _service(name)
+    for gone in ("**Three changes come back in every sync.**", "leaves `autoDeployTrigger` out"):
+        assert gone not in syncs, gone
+    # The guide matches render.yaml.
+    for name in (PROD_API, DEV_API, PROD_APP, DEV_APP):
+        assert _service(name)["autoDeployTrigger"] == "off"
+    for name in (PROD_APP, DEV_APP):
+        assert _service(name)["staticPublishPath"] == "frontend/dist"
     # Every other passage that syncs the Blueprint points here.
     guide = (ROOT / "ops" / "deployment.md").read_text(encoding="utf-8")
     assert "migration step 14" not in guide

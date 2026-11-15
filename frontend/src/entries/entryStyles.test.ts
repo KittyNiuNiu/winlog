@@ -12,14 +12,44 @@ interface NodeFs {
 const fs = (await import(/* @vite-ignore */ `node:${'fs'}`)) as NodeFs
 const HERE = new URL('./', import.meta.url)
 
-function rule(file: string, selector: string): string {
-  const css = fs.readFileSync(new URL(file, HERE), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+function source(file: string): string {
+  return fs.readFileSync(new URL(file, HERE), 'utf8')
+}
+
+function withoutComments(css: string): string {
+  return css.replace(/\/\*[\s\S]*?\*\//g, '')
+}
+
+/** The declarations of the first rule with exactly this selector in a piece of CSS. */
+function ruleIn(css: string, selector: string, where: string): string {
   const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   const match = new RegExp(`(?:^|\\})\\s*${escaped}\\s*\\{([^}]*)\\}`).exec(css)
   if (match === null) {
-    throw new Error(`no rule for ${selector} in ${file}`)
+    throw new Error(`no rule for ${selector} in ${where}`)
   }
   return match[1] ?? ''
+}
+
+function rule(file: string, selector: string): string {
+  return ruleIn(withoutComments(source(file)), selector, file)
+}
+
+/** The rules inside `@media <query> { … }` in a stylesheet, comments removed. */
+function mediaBlock(file: string, query: string): string {
+  const css = withoutComments(source(file))
+  const start = css.indexOf(`@media ${query} {`)
+  if (start === -1) {
+    throw new Error(`no @media ${query} in ${file}`)
+  }
+  let depth = 0
+  for (let index = css.indexOf('{', start); index < css.length; index += 1) {
+    if (css[index] === '{') depth += 1
+    if (css[index] === '}') depth -= 1
+    if (depth === 0) {
+      return css.slice(css.indexOf('{', start) + 1, index)
+    }
+  }
+  throw new Error(`@media ${query} in ${file} is not closed`)
 }
 
 describe('entry form styles', () => {
@@ -75,8 +105,40 @@ describe('entries page styles (#29)', () => {
     expect(action).toContain('height: var(--tap-target)')
     expect(action).toContain('background: transparent')
     expect(action).not.toContain('opacity')
-    expect(rule('../components/EntryRow.css', '.entry-row__action:hover')).toContain(
-      'background: var(--color-peach-wash)',
+    // #90: the shared Secondary hover fill, with a Plum icon. The Peach wash workaround is gone.
+    const hover = rule('../components/EntryRow.css', '.entry-row__action:hover')
+    expect(hover).toContain('background: var(--color-secondary-hover)')
+    expect(hover).toContain('color: var(--color-plum)')
+    expect(hover).not.toContain('--color-peach-wash')
+    expect(source('../components/EntryRow.css')).not.toMatch(/workaround|equals the page ground/i)
+  })
+
+  it('test_fr_e4_from_64rem_edit_and_delete_take_a_fourth_column_on_the_label_line (#90)', () => {
+    const block = mediaBlock('../components/EntryRow.css', '(min-width: 64rem)')
+    const where = 'EntryRow.css @media (min-width: 64rem)'
+    // Only rows with actions change; the 48rem layout stays below 64rem.
+    const row = ruleIn(block, '.entry-row--with-actions', where)
+    expect(row).toContain('grid-template-columns: 64px 120px minmax(0, 1fr) auto')
+    expect(row).toContain("grid-template-areas: 'date category body actions'")
+    expect(block).not.toMatch(/(^|[\s}])\.entry-row\s*\{/)
+    // The wrapper gives the label and the actions to the grid, so the DOM order stays.
+    expect(ruleIn(block, '.entry-row--with-actions .entry-row__category--with-actions', where)).toContain(
+      'display: contents',
+    )
+    // The label keeps its own width: its tint never stretches across the column.
+    const label = ruleIn(block, '.entry-row--with-actions .category-label', where)
+    expect(label).toContain('grid-area: category')
+    expect(label).toContain('justify-self: start')
+    // Centred on the label's 26px line, reaching 9px into the padding; the 48rem margin-left goes.
+    const actions = ruleIn(block, '.entry-row--with-actions .entry-row__actions', where)
+    expect(actions).toContain('grid-area: actions')
+    expect(actions).toContain('margin: calc((26px - var(--tap-target)) / 2) 0')
+    // The phone's and the 48rem layout are as before.
+    expect(rule('../components/EntryRow.css', '.entry-row__actions')).toContain(
+      'margin: calc((26px - var(--tap-target)) / 2) 0',
+    )
+    expect(ruleIn(mediaBlock('../components/EntryRow.css', '(min-width: 48rem)'), '.entry-row__actions', '48rem')).toContain(
+      'margin: 0 0 0 calc(-1 * var(--space-12))',
     )
   })
 
@@ -99,17 +161,28 @@ describe('entries page styles (#29)', () => {
     expect(rule('../pages/EntriesPage.css', '.entries-page__new .button')).toContain('width: 100%')
   })
 
-  it('the writing nudge (#30) keeps the list edges, is a quiet surface and not a control', () => {
+  it('test_fr_n1_the_writing_nudge (#30, #90) keeps the list edges, has its own surface and is not a control', () => {
     const nudge = rule('../pages/EntriesPage.css', '.entries-page__nudge')
     // The global p rule would stop it at 68ch and add 16px below.
     expect(nudge).toContain('max-width: none')
     expect(nudge).toContain('margin: 0 0 var(--space-24)')
-    expect(nudge).toContain('background: var(--color-peach-wash)')
+    // #90: the Nudge fill, the panel radius, 16px by 20px padding and centred, balanced text,
+    // so it does not look like the info message (Peach wash) or the saved message.
+    expect(nudge).toContain('background: var(--color-nudge-fill)')
     expect(nudge).toContain('border: var(--border-hairline) solid var(--color-hairline)')
-    expect(nudge).toContain('border-radius: var(--radius-message)')
+    expect(nudge).toContain('border-radius: var(--radius-panel)')
+    expect(nudge).toContain('padding: var(--space-16) var(--space-20)')
     expect(nudge).toContain('color: var(--color-aubergine-ink)')
-    expect(nudge).not.toMatch(/--color-plum|--color-error|--color-peach[;)]|--color-saved-peach|-background|shadow|cursor/)
-    expect(fs.readFileSync(new URL('../pages/EntriesPage.css', HERE), 'utf8')).not.toMatch(/entries-page__nudge:/)
+    expect(nudge).toContain('font-size: var(--text-body-size)')
+    expect(nudge).toContain('font-weight: 400')
+    expect(nudge).toContain('text-align: center')
+    expect(nudge).toContain('text-wrap: balance')
+    // Not Paper white, which is the info message's Peach wash in dark mode.
+    expect(nudge).not.toMatch(/--color-peach-wash|--color-paper-white|--radius-message/)
+    expect(nudge).not.toMatch(
+      /--color-plum|--color-error|--color-peach[;)]|--color-saved-peach|-background|shadow|cursor|animation|transition/,
+    )
+    expect(source('../pages/EntriesPage.css')).not.toMatch(/entries-page__nudge:/)
   })
 })
 

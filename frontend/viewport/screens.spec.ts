@@ -10,18 +10,23 @@ import {
 } from './data.ts'
 import {
   checkScreen,
+  contrast,
+  expectNudgeSurface,
   expectOnlyMockedRequests,
+  looksOf,
   prepare,
   screenshot,
   settle,
   sizeOf,
+  VISIBLY_DIFFERENT,
   type SessionKind,
   type Size,
 } from './helpers.ts'
 import type { FieldError, MockApi, MockApiOptions } from './mockApi.ts'
 
 // Every screen and state of #36 at 360×640 and 1280×800: each test opens the state, saves a
-// full-page screenshot (light mode) and runs the checks of the criteria (helpers.ts).
+// full-page screenshot (light mode) and runs the checks of the criteria (helpers.ts). The
+// screens #90 changes are also taken in dark mode, as "<name>-dark-<size>.png".
 
 interface Screen {
   /** The screen and state; the screenshot is "<name>-<size>.png". */
@@ -37,6 +42,8 @@ interface Screen {
   act?: (page: Page, api: MockApi, size: Size) => Promise<void>
   /** False for a state that shows a spinner on purpose. */
   settle?: boolean
+  /** Also in dark mode (#90), saved as "<name>-dark-<size>.png". */
+  dark?: boolean
 }
 
 const heading = (name: string) => (page: Page) => page.getByRole('heading', { level: 1, name })
@@ -247,6 +254,38 @@ const SCREENS: Screen[] = [
     api: { entries: ENTRIES_WITH_NUDGE },
     path: '/',
     ready: (page) => page.locator('.entries-page__nudge'),
+    dark: true,
+    act: async (page) => {
+      await expectNudgeSurface(page)
+    },
+  },
+  {
+    // #90: the nudge and the info message "This entry was already deleted." together. They
+    // differ by their surface, not only by the icon and their place.
+    name: 'entries-nudge-and-notice',
+    session: 'user',
+    api: { entries: ENTRIES_WITH_NUDGE, entryAlreadyDeleted: true },
+    path: '/',
+    ready: (page) => page.locator('.entries-page__nudge'),
+    dark: true,
+    act: async (page) => {
+      await page.getByRole('button', { name: /^Delete entry from/ }).first().click()
+      const dialog = page.getByRole('dialog', { name: 'Delete this entry?' })
+      await dialog.getByRole('button', { name: 'Delete entry' }).click()
+      await expect(dialog).toBeHidden()
+      const notice = page.locator('.entries-page__notice')
+      await expect(notice).toHaveText('This entry was already deleted.')
+      await expect(page.locator('.entries-page__nudge')).toBeVisible()
+      const nudge = await expectNudgeSurface(page)
+      const message = await looksOf(notice)
+      expect(contrast(nudge.fill, message.fill), 'the nudge against the info message').toBeGreaterThanOrEqual(
+        VISIBLY_DIFFERENT,
+      )
+      expect(message.textAlign).not.toBe('center')
+      expect(message.radius).toBe('12px')
+      await expect(notice.locator('svg')).toHaveCount(1)
+      await expect(page.locator('.entries-page__nudge svg')).toHaveCount(0)
+    },
   },
   {
     name: 'entries-without-nudge',
@@ -283,6 +322,7 @@ const SCREENS: Screen[] = [
     session: 'user',
     path: '/entries/new',
     ready: heading('New entry'),
+    dark: true,
   },
   {
     name: 'new-entry-text-missing',
@@ -477,6 +517,7 @@ const SCREENS: Screen[] = [
     api: { entries: ENTRIES_WITHOUT_NUDGE },
     path: REVIEW_RESULTS,
     ready: (page) => page.locator('.review-page__category').first(),
+    dark: true,
     act: async (page) => {
       await expect(page.getByRole('button', { name: 'Draft summary' })).toBeEnabled()
     },
@@ -569,6 +610,7 @@ const SCREENS: Screen[] = [
     session: 'user',
     path: '/settings',
     ready: (page) => page.getByRole('button', { name: 'Delete account' }),
+    dark: true,
     act: async (page) => {
       await page.getByRole('button', { name: 'Delete account' }).click()
       await expect(page.getByRole('heading', { name: 'Delete your account?' })).toBeVisible()
@@ -623,22 +665,36 @@ function longText(length: number): string {
   return words.repeat(Math.ceil(length / words.length)).slice(0, length)
 }
 
+/** Opens the screen's state, saves its screenshot as "<shot>-<size>.png" and runs the checks. */
+async function runScreen(page: Page, size: Size, screen: Screen, shot: string) {
+  test.skip(screen.only !== undefined && screen.only !== size, `only at ${screen.only} width`)
+  const api = await prepare(page, screen.session, screen.api)
+  await page.goto(screen.path)
+  await expect(screen.ready(page)).toBeVisible()
+  if (screen.session === 'demo') {
+    await expect(page.locator('.demo-notice')).toBeVisible()
+  }
+  await screen.act?.(page, api, size)
+  if (screen.settle !== false) {
+    await settle(page)
+  }
+  await screenshot(page, shot, size)
+  await checkScreen(page, size)
+  expectOnlyMockedRequests(page, api)
+}
+
 for (const screen of SCREENS) {
   test(screen.name, async ({ page }, testInfo) => {
-    const size = sizeOf(testInfo)
-    test.skip(screen.only !== undefined && screen.only !== size, `only at ${screen.only} width`)
-    const api = await prepare(page, screen.session, screen.api)
-    await page.goto(screen.path)
-    await expect(screen.ready(page)).toBeVisible()
-    if (screen.session === 'demo') {
-      await expect(page.locator('.demo-notice')).toBeVisible()
-    }
-    await screen.act?.(page, api, size)
-    if (screen.settle !== false) {
-      await settle(page)
-    }
-    await screenshot(page, screen.name, size)
-    await checkScreen(page, size)
-    expectOnlyMockedRequests(page, api)
+    await runScreen(page, sizeOf(testInfo), screen, screen.name)
   })
 }
+
+test.describe('dark mode (#90)', () => {
+  test.use({ colorScheme: 'dark' })
+
+  for (const screen of SCREENS.filter(({ dark }) => dark === true)) {
+    test(`${screen.name}-dark`, async ({ page }, testInfo) => {
+      await runScreen(page, sizeOf(testInfo), screen, `${screen.name}-dark`)
+    })
+  }
+})
