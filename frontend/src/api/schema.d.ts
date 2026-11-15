@@ -564,9 +564,9 @@ export interface components {
              * @description Last day of the period, inclusive. Must not be before `period_start`.
              */
             period_end: string;
-            /** @description Categories to include. Empty or missing means no restriction. At most 4 values, counted as sent, so a repeated category counts each time. */
+            /** @description Categories to include. Empty or missing means no restriction. */
             categories?: components["schemas"]["Category"][];
-            /** @description Tag names to include; entries with any of them match. Empty or missing means no restriction. At most 20 names, counted as sent, so duplicates, names that differ only in case and names that are empty after trimming all count. Each name has at most 40 characters. */
+            /** @description Tag names to include; entries with any of them match. Empty or missing means no restriction. */
             tags?: string[];
         };
         Summary: {

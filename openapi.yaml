@@ -103,13 +103,15 @@ info:
       larger body gets 413 `request_too_large` on every path and method,
       before authentication and validation. Nothing is saved and no AI call
       is made.
-    - Request line and headers: the server limits them together to 16 KiB
-      (uvicorn's default for its h11 implementation). The server refuses a
-      larger request before the API sees it, with a plain-text 400 that is
-      not the shared error format. Uvicorn checks this limit while the
-      request line and headers are still arriving, so a larger request that
-      arrives in one piece can still reach the API, which then answers as
-      usual. The largest valid request stays well within this limit.
+    - Request line and headers: only uvicorn's soft limit of 16 KiB applies
+      (its default for the h11 implementation). Uvicorn refuses a request,
+      before the API sees it, with a plain-text 400 that is not the shared
+      error format, but only when more than 16 KiB of its request line and
+      headers have arrived before they are complete. Request lines and
+      headers that arrive complete in one read are not checked against
+      16 KiB: they reach the API, which validates them like any other
+      request, for example 422 for more than 20 `tag` values. The largest
+      valid request (about 9.8 KB) stays below 16 KiB however it arrives.
 
     Data saved before these limits existed can be longer. It can still be read,
     listed, exported and summarised, so response schemas (`Entry`, `Summary`)
@@ -1110,12 +1112,12 @@ components:
           description: Last day of the period, inclusive. Must not be before `period_start`.
         categories:
           type: array
-          description: Categories to include. Empty or missing means no restriction. At most 4 values, counted as sent, so a repeated category counts each time.
+          description: Categories to include. Empty or missing means no restriction.
           items:
             $ref: '#/components/schemas/Category'
         tags:
           type: array
-          description: Tag names to include; entries with any of them match. Empty or missing means no restriction. At most 20 names, counted as sent, so duplicates, names that differ only in case and names that are empty after trimming all count. Each name has at most 40 characters.
+          description: Tag names to include; entries with any of them match. Empty or missing means no restriction.
           items:
             type: string
 
