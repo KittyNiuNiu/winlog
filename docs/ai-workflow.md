@@ -5082,3 +5082,27 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - The saved issue body was checked through the REST API, and its labels are still empty.
   - No change to project code. No AI call.
 - **Left open:** nothing.
+
+## 2026-11-15: Engineer: implement #111 (task 64, one AI time limit for the whole request, and finish reasons)
+
+- **Task:** sections A to D of #111 as the PM groomed it (comment 6902049285). No screens change.
+- **What I did:**
+  - Commit 3df3ff7:
+    - `backend/app/ai/openai_compatible.py`: the provider now runs the SDK's async client (`openai.AsyncOpenAI`) in its own event loop (`asyncio.run`, from the synchronous `suggest` and `summarise`) under one `asyncio.timeout` for the whole request: from before connecting to the last byte of the answer. When the limit runs out, the request's task is cancelled, which stops the read in progress and closes the connection, and the request's HTTP client is closed before `AITimeoutError` is raised. Each call gets its own HTTP client (`http_client_factory`, by default `openai.DefaultAsyncHttpxClient`), because a connection pool cannot be shared between event loops. The SDK's per-phase `timeout` is still sent (it never exceeds the whole limit), retries stay off, `zdr` stays on, the SDK's exceptions stay unchained, and the provider's single log line is unchanged (status `none` when no complete answer arrived). Only `finish_reason` `"stop"` or none (`null` or missing) is accepted; `"length"` keeps its fixed message, every other value raises `AIProviderError("The AI provider did not finish its answer normally.")`. The module docstring describes both rules.
+    - `backend/app/settings.py` and `.env.example`: comments only; the two settings limit the whole request, from connecting to the last byte of the answer. Names, defaults, range and value lines unchanged.
+    - `backend/scripts/model_comparison/comparison.py`: as far as needed to keep working with the new constructor: `make_provider` passes `http_client_factory` with the SDK's default async client, and `AnswerRecorder` gets an async `hook` for it. The script was not run.
+    - `backend/tests/unit/test_ai_openai_compatible.py`: the test helper and the `from_settings` test build a stub async client per request (`httpx2.MockTransport`); no existing check changed. New tests: finish reasons (parametrized: `length`, `content_filter`, `error`, `tool_calls`, `function_call`, `something_new`; and `stop`, `null`, missing still used and checked), slow drip for suggest and summarise, no answer at all (handler cancelled), the request stops (stream closed when the error is raised, no further pieces read, the request's event loop closed, no thread left), each operation's own limit from the constructor and from the settings, and the timeout's log line. The privacy test now includes a `"content_filter"` answer. `test_ai_openai_uses_the_timeout_of_each_operation` still fits (the per-phase values are still sent), so it stays.
+  - Commit e2279f1: `backend/tests/integration/test_suggestions.py` and `test_summaries.py`: through the endpoints, with the OpenAI-compatible provider on stubbed HTTP and in-memory telemetry: a timeout and a `"content_filter"` answer each give 503 `ai_unavailable`, make one HTTP request, count for the user and globally, save nothing, and show `winlog.ai.outcome` `timeout` or `provider_error` on the span and the metric.
+- **Decisions (my recommended options, recorded on the issue):**
+  - The async SDK client under `asyncio.timeout`, run with `asyncio.run`, rather than streaming with a per-read deadline: `httpx2` reads its read timeout once per request, so a sync read cannot wait "at most the time left"; cancelling an async task stops the read at once. No new dependency.
+  - A new HTTP client for each call instead of one shared pool: a pool is bound to the event loop it was used on. The cost is one new connection per AI call, which is small next to the AI's own seconds.
+  - The constructor's test hook is now `http_client_factory` (a function that returns an `httpx2.AsyncClient`) instead of `http_client`; only tests and the comparison script pass it.
+  - `"length"` keeps its own fixed message; every other refused finish reason shares one fixed message. Neither contains the value.
+- **How I verified it:**
+  - In `backend/`: `uv run ruff check .` and `uv run ruff format --check .` pass; `uv run pytest tests/unit` 1811 passed (the provider tests' time-limit tests take about 7 s in all; the longest is 3 s, from the settings' whole-number limits of 1 and 2 s).
+  - `./test-all.sh` passed: backend unit (1811), backend integration (1202) and frontend (1421).
+  - The old provider, with a sync dripping body and a 1 s limit, returned the answer after 2.4 s (one-off script, not committed), so the slow drip case failed before this task.
+  - A one-off check against a local slow HTTP server on 127.0.0.1 (no AI): a dripping answer and a silent server both gave `AITimeoutError` after 1.0 s with a 1 s limit, and the server saw the connection closed at that moment.
+  - No real AI call. The model-comparison script was not run.
+- **Left open:**
+  - A DNS lookup runs in a thread of the event loop's default executor, which no Python code can cancel. If the system resolver hangs past the limit, `asyncio.run` waits for that lookup before it raises `AITimeoutError`, so the error comes later than the limit (bounded by the resolver's own timeout). Nothing reads the answer meanwhile. No change proposed; noted for the record.
