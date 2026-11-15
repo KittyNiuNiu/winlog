@@ -4678,3 +4678,58 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
     - focus falling to the page when a focused element is removed (existing in #28);
     - no announcement when a late answer fills the category;
     - the notice rule's dependence on rendered form changes.
+
+## 2026-11-15: PM: groom #90 (task 59, dark-mode hover and disabled fills, the writing nudge's look, and the laptop entry row height)
+
+- **Task:** groom #90, which had no status label, following `docs/pm.md`. It is task 59, the last of the three interface-polish tasks. It changes screens: dark-mode fills, the writing nudge's look and the laptop entry row.
+- **What I read:**
+  - the issue and its four comments: points 5 and 6 from #36, and the inputs from #88, #72 and #86;
+  - the source design notes and reviews: #28, #29, #30, #32, #34, #35 (note and review), #72, #86 and #88;
+  - #83's groomed body;
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md`, `docs/tasks.md`, `docs/ux-designer.md`, `docs/qa-engineer.md`, `docs/product-spec.md` (FR-N1, FR-E4, §9), `AGENTS.md`, `DESIGN.md` and `PRODUCT.md`;
+  - in the frontend:
+    - `index.css`, `design.test.ts` and `entries/entryStyles.test.ts`;
+    - `Button.css`, `Message.tsx` and `Message.css`, `DemoNotice.css`, `SavedMessage.css`, `EntryRow.tsx` and `EntryRow.css`;
+    - `EntriesPage.tsx` and `EntriesPage.css`, `AppShell.css`, `EntryForm.css`, `review/SummaryPanel.*`, `SettingsPage.tsx` and `auth/AuthFields.tsx`;
+    - `playwright.config.ts`, `viewport/` (screens, checks, helpers, mock API, data) and the current viewport screenshots.
+- **What I did:**
+  - Rewrote the body of #90 using the template:
+    - sections A (dark hover fill), B (dark disabled fill, with point 5), C (writing nudge), D (laptop entry row), E (`DESIGN.md`), F (demo notice width) and G (tests);
+    - Out of scope;
+    - Constraints, with the decisions, the files, testing and the references.
+  - Posted the PM comment with the decisions, the choices left to the design note, and the facts I checked (6898988075).
+  - Labels unchanged: the orchestrator sets the status. No follow-up issue, because nothing was moved out.
+- **Decisions under the standing rule (2026-11-14, extended 2026-11-15), recorded in the issue:**
+  - **Hover and disabled fills: dark mode only.** The criteria say what the fills must do, not which colour they are. The design note picks the colours.
+    - "Visibly different" is a fill step of at least 1.065:1. That is the smallest step between two surfaces the design uses today: Peach wash on Blush white in light mode, 1.066:1.
+    - Text on the new fills must reach 4.5:1.
+    - The new fills are not Peach, Saved peach, a category tint or Plum.
+  - **Edit and Delete use the shared hover fill.** Their Peach wash rule was a workaround.
+  - **Point 5 is point 2:** the ready "Draft summary" has Paper white, which in dark mode is the disabled fill.
+  - **The nudge changes, not the info `Message`.**
+    - `Message` is used across the app, and the #32 decision rests on its look.
+    - The nudge's fill must differ from the info message's and the saved message's fills.
+    - Its text, place and behaviour stay, and it stays text only.
+  - **The row height gets a ceiling, not a layout:**
+    - a one-line row is at most 77px at 1280×800 (today 111px);
+    - the text column keeps its 224px at 768px, which was #29's reason for the current layout.
+  - **Demo notice width (point 6): no change.** The 68ch cap follows the line length rule, and the #35 design review and #36 kept it.
+  - **`DESIGN.md` also records `Message` and the tag filter's capped state now**, as built. The Messages entry includes the demo notice.
+  - **Dark-mode viewport screenshots only for the changed screens and states:**
+    - `entries-with-nudge`, `new-entry-empty`, `review-results-panel-idle`, `settings-delete-step`, and the new `entries-nudge-and-notice`;
+    - a hover check and a disabled check in both colour schemes;
+    - a row-height check, and checks at 768 and 1024px.
+  - **Screens change:** the task needs a design note, and a design review after QA. `render.yaml` is unchanged, so no Blueprint sync is needed.
+- **How I verified it:**
+  - **Tokens:** read the dark-mode values in `index.css`. `--color-secondary-hover` is Blush white, Paper white is Peach wash, and `.button:disabled` uses Peach wash.
+  - **`design.test.ts`:** it checks neither hover token.
+  - **Contrast ratios,** computed with the WCAG formula:
+    - Peach wash on Blush white: 1.066 in light mode, 1.094 in dark mode;
+    - dark Plum on Blush white: 9.04, and on Peach wash: 8.26;
+    - dark Muted plum-grey on Peach wash: 7.31.
+  - **Row height and text width:** worked out from `EntryRow.css` and `AppShell.css`. The row is 1 + 16 + 26 + 8 + 44 + 16 = 111px, as the #29 review measured. At 768px the text column is 224px.
+  - **Viewport tests:** read `playwright.config.ts` (light only). `checks.spec.ts` already uses `test.use({ colorScheme })`, with Playwright 1.63.0.
+  - **The mock API:** it always answers `DELETE /entries/{id}` with 204.
+  - **The issue on GitHub:** the saved body matches what I wrote, apart from the attribution footer the tool adds. The issue still has no labels.
+  - No change to project code, and no AI call.
+- **Left open:** nothing.
