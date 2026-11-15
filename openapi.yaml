@@ -176,7 +176,9 @@ paths:
       summary: Check that the API and the database are up.
       description: |
         Covers no functional requirement; supports reliability (§9) and the
-        health check from issue #4. Needs no authentication.
+        health check from issue #4. Needs no authentication. The `commit` field
+        names the commit the backend was built from, so the Deploy workflow can
+        tell a new deploy from the previous one (#102).
       security: []
       responses:
         '200':
@@ -864,7 +866,7 @@ components:
 
     Health:
       type: object
-      required: [status, database]
+      required: [status, database, commit]
       properties:
         status:
           type: string
@@ -872,6 +874,17 @@ components:
         database:
           type: string
           enum: [ok]
+        commit:
+          type:
+            - string
+            - 'null'
+          pattern: '^[0-9a-f]{40}$'
+          description: |
+            The Git commit the running backend was built from: the full
+            40-character SHA in lower case. `null` when the backend was built
+            without one, for example with Docker Compose or `uv run uvicorn`.
+            The Deploy workflow compares it with the commit it deployed (#102).
+          example: 0123456789abcdef0123456789abcdef01234567
 
     Registration:
       type: object
