@@ -4981,3 +4981,28 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
     - "Skipped" became "Closed as not planned".
   - `docs/process.md`: the standing rule covers tasks 48 to 68, the same issues plus #114.
   - The running batch includes #114 and still stops before #92.
+
+## 2026-11-15: Engineer: implement #108 (task 62, five whole-number settings checked strictly)
+
+- **Task:** #108 as the PM groomed it (comment 6901243024): `DATABASE_CONNECT_TIMEOUT_SECONDS`, `TOKEN_LIFETIME_DAYS`, `AI_SUGGESTION_TIMEOUT_SECONDS`, `AI_SUMMARY_TIMEOUT_SECONDS` and `AI_SUMMARY_MAX_TOKENS` use the strict `_whole_number` check, with their ranges and defaults unchanged.
+- **What I did:**
+  - Commit 8d960c5 changes `backend/app/settings.py`:
+    - the five fields lose `Field(ge=…, le=…)` and keep plain `int` defaults (3, 7, 15, 60, 16000), so `Settings.model_fields[...].default` still gives them;
+    - four `mode="before"` validators call `_whole_number` with the ranges 2 to 60, 1 to 365, 1 to 600 (both AI timeouts) and 1 to 100000, so each range is stated once;
+    - each field's comment states its range ("A whole number from 1 to 365" for `TOKEN_LIFETIME_DAYS`).
+  - New shared test helper `backend/tests/whole_number_settings.py` (like `tests/telemetry_capture.py`): the accepted values (min, max, ` 30 `, `007`), the refused values (`+5`, `1_0`, `10.0`, min − 1, max + 1, `-1`, `-0`, `7.5`, `1e1`, `0x10`, `٣`, `soon`, empty, a space, 5,000 digits), a startup check and an in-code check.
+  - New tests:
+    - `tests/unit/test_settings.py`: `test_database_timeout_takes_a_whole_number_from_2_to_60`, `test_database_timeout_stops_the_backend_when_invalid`, `test_database_timeout_range_applies_in_code`, `test_every_whole_number_setting_refuses_lax_spellings` (every `int` field read from `Settings.model_fields`, 16 today, × `+<default>`, `<default>.0`, `0_<default>`), `test_every_whole_number_setting_is_found`, `test_whole_number_setting_defaults_stay_plain_ints` and `test_no_whole_number_setting_keeps_a_pydantic_range_check`.
+    - `tests/unit/test_auth.py` (FR-A2): `test_fr_a2_token_lifetime_takes_a_whole_number_from_1_to_365`, `test_fr_a2_token_lifetime_refuses_lax_spellings` and `test_fr_a2_token_lifetime_range_applies_in_code`.
+    - `tests/unit/test_ai_openai_compatible.py`: `test_ai_openai_timeouts_take_a_whole_number_from_1_to_600`, `test_ai_openai_timeouts_stop_the_backend_when_invalid`, `test_ai_openai_timeout_range_applies_in_code` and the same three for `AI_SUMMARY_MAX_TOKENS`.
+  - No existing test changed apart from imports. No change to `openapi.yaml`, `.env.example`, `render.yaml`, `docker-compose.yml`, `ops/deployment.md` or `frontend/`. No new dependency.
+- **Decisions (my recommended options):**
+  - The startup tests check "VARIABLE is invalid: " and the range message separately, because `load_settings()` keeps pydantic's "Value error, " prefix between them, as for the other eleven settings.
+  - The test over every `int` field checks that the five are found and that there are at least 16, not exactly 16, so a new whole-number setting is tested rather than failing a count.
+- **How I verified it:**
+  - The new tests on the old `settings.py`: 96 failed. `+5`, `1_0` and `10.0` failed with "DID NOT RAISE"; the 5,000-digit value and the other refused values failed because the message lacked the range message; the 15 lax-spelling cases of the five settings failed; the 33 cases of the other eleven settings and the accepted-value tests passed.
+  - In `backend/`: `uv run ruff check .` and `uv run ruff format --check .` pass; `uv run pytest tests/unit` 1794 passed without PostgreSQL.
+  - `./test-all.sh` passed: backend unit, backend integration (1198) and frontend (1421).
+  - Live check with `.env` identical to `.env.example` (`AI_PROVIDER=mock`), after `docker compose up -d --wait db` and `uv run alembic upgrade head`: `uv run uvicorn app.main:app --port 8000` stopped at startup with `TOKEN_LIFETIME_DAYS=1_0` ("must be a whole number from 1 to 365"), `DATABASE_CONNECT_TIMEOUT_SECONDS=+5` ("from 2 to 60") and `AI_SUMMARY_MAX_TOKENS=16000.0` ("from 1 to 100000"). Without overrides it started and `GET /health` answered 200.
+  - No AI call.
+- **Left open:** nothing.
