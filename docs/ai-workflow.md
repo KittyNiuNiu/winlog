@@ -5106,3 +5106,13 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - No real AI call. The model-comparison script was not run.
 - **Left open:**
   - A DNS lookup runs in a thread of the event loop's default executor, which no Python code can cancel. If the system resolver hangs past the limit, `asyncio.run` waits for that lookup before it raises `AITimeoutError`, so the error comes later than the limit (bounded by the resolver's own timeout). Nothing reads the answer meanwhile. No change proposed; noted for the record.
+
+## 2026-11-15: Orchestrator: close #109 (Blueprint syncs list no repeated changes)
+
+- **Task:** task 63, run with `/orchestrate all`. No screens change; `render.yaml` changes.
+- **What happened:**
+  - PM grooming (6901710148), engineer (6901852342), QA PASS on sections A to D (6901992419).
+  - The product owner merged PR #115 (195c289), deployed dev and production, applied a first Manual Sync and read a second one without applying it (record 6902362438).
+  - The first sync listed only `frontend/dist` on both static sites and redeployed only them; the second reported everything up to date. QA PASS on section E (6902383005).
+  - Closed as completed.
+- **Open point, left in this log under the standing rule** (no work needed): the `winlog-app-dev` comment in `render.yaml` refers back to `winlog-app`'s instead of repeating it.
