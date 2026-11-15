@@ -4198,3 +4198,28 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Left open:**
   - Section G can only be proven by the first real Deploy run after the merge: that Render sets `RENDER_GIT_COMMIT` in the static build, that the wait first sees the previous deploys, and that 15 minutes is enough. No hook was called and no run started here.
   - The two SC2034 warnings in `ci.yml`'s Full system job (pre-existing, outside this task's files).
+
+## 2026-11-15: PM: amend #102 after QA's FAIL (task 53, the wait cannot get past Render's CDN cache)
+
+- **Task:** correct the one criterion in section D of #102 that QA failed (comment 6894012626), following `docs/pm.md` and the product owner's decision of 2026-11-15: rely on Render clearing its CDN cache on deploy, add no `headers` rule, and leave `render.yaml` unchanged. Sections A to F otherwise passed. Section G waits for the first real deploy after the merge.
+- **What I read:** the issue and all five comments (the orchestrator's inputs, my grooming, the product owner's decision, the engineer's report and QA's FAIL); `docs/pm.md`, `docs/process.md` and `docs/task-template.md`; the wait step in `.github/workflows/deploy.yml`; **The pipeline** and **When the wait fails** in `ops/deployment.md`; and the wait tests in `backend/tests/unit/test_deployment.py`.
+- **What I did:**
+  - **Amended the body of #102.** Each changed passage is marked _amended 2026-11-15_ or _added 2026-11-15_, and a note at the top of the criteria points to QA's comment:
+    - D: the CDN criterion is rewritten. The wait relies on Render clearing its CDN cache on deploy and requests `/version.json` with no query string. A stale copy can only name an older commit or none, so it can delay the pass by at most 5 minutes (`s-maxage=300`) but never make it pass. The wrong comment on the wait step must be corrected, and neither `deploy.yml` nor the guide may claim that the cache is bypassed.
+    - D: the time-limit criterion gets one clarifying sentence. The wait can last about 16 minutes 40 seconds, and `timeout-minutes: 25` covers it.
+    - E: **When the wait fails** gets a short passage on the cache.
+    - F: the three assertions in the task's own tests that change on purpose are listed, plus a guide test for the new passage.
+    - **Out of scope** and **Constraints:** no `headers` rule in `render.yaml`.
+  - **Amended PM decision 5** in the grooming comment (6893342798). The old sentence "read past Render's CDN cache" is struck through, and the amendment follows it.
+  - **Posted a comment** with what changed and why (6894130886). Labels unchanged. No follow-up issue.
+- **Decisions under the standing rule of 2026-11-14, recorded in the issue:**
+  - **The cache-busting query string goes.** It does nothing on Render, and the safety argument does not depend on it.
+  - **QA's note 2** (a missing `commit` and `commit: null` give the same log line) **is not a criterion.** Both mean "no commit".
+  - **QA's note 3** (a longer wait on curl timeouts) **becomes one clarifying sentence** in the existing time-limit criterion. It is already met and needs no new work.
+- **How I verified it:**
+  - **Render's static site docs, fetched with `curl`:** "As soon as a build succeeds, we deploy it and immediately invalidate our CDN caches".
+  - **Live, read-only `curl` on `winlog-app-dev`, no AI call:** a bare `/version.json` came back `cf-cache-status: EXPIRED`. The next two requests, each with a never-used `?wait=` query string, came back `HIT`. Both had `cache-control: public, max-age=0, s-maxage=300`. This matches QA's finding.
+  - **The repository at `880e574`:** the only wrong CDN claims are in the wait step of `deploy.yml`, in its comment and in the code comment on the query string. `ops/deployment.md` makes no such claim.
+  - **The saved issue body:** read back, and it matches what I wrote. The labels are still `qa-failed`.
+  - No change to project code, and no AI call.
+- **Left open:** section G of #102, unchanged: the first real deploy after the merge.
