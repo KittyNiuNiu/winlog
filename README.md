@@ -74,7 +74,10 @@ The full overview, the components and the environments are in §10 of
 
 ## Quick start
 
-You need Docker with Docker Compose. In the root of a clone of this repository:
+You need Docker with Docker Compose 2.23.1 or later; `docker compose version` shows yours.
+`docker-compose.yml` writes the test database's set-up script inline, with the `content:` of a
+`configs:` entry, which Docker Compose supports from version 2.23.1 on. In the root of a clone of
+this repository:
 
 ```sh
 cp .env.example .env
@@ -91,8 +94,11 @@ Then open:
 `.env.example` sets `AI_PROVIDER=mock`, so suggestions and summaries come from the mock AI
 provider, which needs no API key.
 
-The local system has no demo account: **Try the demo** shows "The demo isn't available right
-now." Click **Create an account** on the login page and register instead.
+With `.env` from `.env.example` there is no demo account (`DEMO_EMAIL` is empty), so **Try the
+demo** shows "The demo isn't available right now." Click **Create an account** on the login page
+and register instead. To turn the demo on, set `DEMO_EMAIL` in `.env` (for example
+`demo@example.com`) and run `docker compose up` again. The backend then resets the demo account
+to the sample data at every start.
 
 Ctrl+C stops the system. `docker compose down -v` removes the containers and deletes the local
 data (the database and the telemetry).
@@ -150,16 +156,25 @@ All configuration comes from environment variables. [`.env.example`](.env.exampl
 list, with each variable's default and what it does. Copy it to `.env` (git-ignored) and never
 commit real secrets.
 
-Under Docker Compose, the backend container gets only some of these variables (see the
-`backend` service in [`docker-compose.yml`](docker-compose.yml)). So there:
-
-- the demo is off;
-- the daily AI limits and the login limits keep their defaults;
-- a real AI provider does not start: Compose does not pass its settings, so the backend stops
-  at startup with `AI_PROVIDER=openai-compatible`.
-
 A backend you run on your computer (`uv run uvicorn app.main:app --reload` in `backend/`) reads
-its settings from `.env` itself, so there every backend setting in it applies.
+its settings from `.env` itself. Under Docker Compose, the backend container gets every variable
+in `.env` (see the `backend` service in [`docker-compose.yml`](docker-compose.yml)), so every
+backend setting there applies in the same way. Compose sets only these itself:
+
+- `DATABASE_URL`: the `db` service;
+- `OTEL_EXPORTER_OTLP_ENDPOINT`: the `lgtm` service;
+- `PORT`: 8000;
+- `HSTS_MAX_AGE_SECONDS`: 0 when `.env` has no value.
+
+Under Docker Compose:
+
+- Change backend settings in `.env`, not in the shell: a shell variable does not replace a value
+  the backend gets from `.env`. After a change, `docker compose up` again recreates the backend
+  container with the new values.
+- With `AI_PROVIDER=openai-compatible` and a real `AI_API_KEY`, every suggestion and summary is
+  a real AI call that costs money. The end-to-end test needs the mock (`AI_PROVIDER=mock`).
+- `docker compose config` prints the values from `.env`, including `AI_API_KEY`, so do not
+  share its output.
 
 ## AI
 

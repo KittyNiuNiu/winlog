@@ -677,7 +677,7 @@ production.
    a reset does not give the shared demo more AI requests. Without `DEMO_EMAIL` it prints
    `start: DEMO_EMAIL is not set, skipping the demo reset`.
 3. `start: starting the server on port <PORT>` – uvicorn on `0.0.0.0`, on the port Render sets
-   in `PORT` (8000 when `PORT` is not set, as in Docker Compose).
+   in `PORT` (8000 when `PORT` is not set; Docker Compose sets 8000).
 
 If step 1 or 2 fails, the script exits with a non-zero code and the server never starts.
 

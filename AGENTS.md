@@ -75,7 +75,7 @@ Frontend (run in `frontend/`):
   Each run drafts one summary, which counts against the global daily AI limit (`AI_DAILY_REQUESTS_GLOBAL`); `docker compose down -v` resets a local database. Traces and screenshots of a failed run go to `frontend/e2e-results/`.
 - Viewport tests (Playwright, 360×640 and 1280×800, every API call mocked; builds the app and serves it with `vite preview`; screenshots go to `viewport-screenshots/`; needs Chromium once: `npx playwright install chromium`): `npm run test:viewport`
 
-Full system (repo root): `docker compose up --build`. It also starts the local telemetry stack (the `lgtm` service), with Grafana at http://localhost:3000 (no login, see `docs/observability.md`).
+Full system (repo root, needs Docker Compose 2.23.1 or later): `docker compose up --build`. It also starts the local telemetry stack (the `lgtm` service), with Grafana at http://localhost:3000 (no login, see `docs/observability.md`).
 
 All unit and integration tests (repo root): `./test-all.sh`. It runs the three suites in order: backend unit tests, backend integration tests and frontend tests (`npm test`), runs every suite even after one fails, prints a summary and exits with 0 only when all pass. It starts the test database with `docker compose up -d --wait db` if needed and stops it again with `docker compose stop db` only if it started it. It needs `.env` in the repo root, Docker, uv and `npm ci` done in `frontend/` first. The separate commands above stay.
 
