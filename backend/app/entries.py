@@ -16,6 +16,10 @@ Create:
   including future dates.
 - Tag names are resolved with `resolve_tags` in the entry's own transaction, so a failed save
   stores neither the entry nor any new tag (§7.3).
+- Create and update return the entry's tags in the same order as get (`_tag_names`):
+  alphabetically, ignoring case, each once with its stored spelling, not in the order they
+  were sent (issue #58). The names are read back from the database before the commit, so the
+  order follows its collation, exactly as in get, the list and the export.
 - Saving makes no AI call (§7.2).
 - Maximum sizes (issue #43, product-spec.md §6): text up to `MAX_ENTRY_TEXT_CHARACTERS`,
   Result/Impact up to `MAX_RESULT_IMPACT_CHARACTERS` (also when it is only whitespace), up to
@@ -426,7 +430,7 @@ def create_entry(
     # neither the entry nor the new tags are stored.
     tags = resolve_tags(session, user, entry_input.tags)
     _link_tags(session, entry, tags)
-    tag_names = [tag.name for tag in tags]
+    tag_names = _tag_names(session, entry)
     session.commit()
     return _to_api(entry, tag_names)
 
@@ -473,7 +477,7 @@ def update_entry(
     session.execute(delete(models.EntryTag).where(models.EntryTag.entry_id == entry.id))
     tags = resolve_tags(session, user, entry_input.tags)
     _link_tags(session, entry, tags)
-    tag_names = [tag.name for tag in tags]
+    tag_names = _tag_names(session, entry)
     session.commit()
     return _to_api(entry, tag_names)
 

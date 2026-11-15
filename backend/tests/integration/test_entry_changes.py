@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 from app import entries
 from app.models import Entry, EntryTag, Summary
 from tests.integration.test_entries import (
+    COLLATION_NAMES,
     NOT_JSON,
     VALID,
     _assert_validation_error,
@@ -26,6 +27,7 @@ from tests.integration.test_entries import (
     _tags,
     _token,
     _user,
+    tags_everywhere,
 )
 
 FULL = {
@@ -231,7 +233,11 @@ def test_fr_e4_update_replaces_every_field_and_returns_the_entry(
     assert response.status_code == 200
     body = response.json()
     contract("Entry").validate(body)
-    assert {key: body[key] for key in CHANGED} == CHANGED
+    # The tags come sorted alphabetically, ignoring case, as in get (issue #58).
+    assert {key: body[key] for key in CHANGED} == {
+        **CHANGED,
+        "tags": ["Mentoring", "Public speaking"],
+    }
     assert body["id"] == entry["id"]
     row = _row(migrated_db, entry["id"])
     assert (row.user_id, row.text, row.date, row.category, row.result_impact) == (
@@ -255,7 +261,7 @@ def test_fr_e4_update_replaces_tags(
 
     response = _put(client, alice_token, entry["id"], CHANGED)
 
-    assert response.json()["tags"] == ["Public speaking", "Mentoring"]
+    assert response.json()["tags"] == ["Mentoring", "Public speaking"]
     linked = _linked_tags(migrated_db, entry["id"])
     assert [(user_id, name) for _, user_id, name in linked] == [
         (alice, "Mentoring"),
@@ -270,6 +276,63 @@ def test_fr_e4_update_replaces_tags(
         "Public speaking",
         "Testing",
     }
+
+
+def test_fr_e4_update_returns_tags_sorted_ignoring_case(
+    client: TestClient,
+    migrated_db: Engine,
+    alice: uuid.UUID,
+    alice_token: str,
+    bob: uuid.UUID,
+    entry,
+    contract,
+):
+    """Issue #58: sorted as in get, not in the order sent."""
+    _tag(migrated_db, alice, "Python")
+    # Another user's spellings are never used.
+    _tag(migrated_db, bob, "RUST")
+    _tag(migrated_db, bob, "alpha")
+
+    response = _put(
+        client, alice_token, entry["id"], {**FULL, "tags": ["rust", "python", "go", "Alpha"]}
+    )
+
+    assert response.status_code == 200
+    contract("Entry").validate(response.json())
+    assert response.json()["tags"] == ["Alpha", "go", "Python", "rust"]
+    assert tags_everywhere(client, alice_token, entry["id"]) == {
+        "get": ["Alpha", "go", "Python", "rust"],
+        "list": ["Alpha", "go", "Python", "rust"],
+        "export": ["Alpha", "go", "Python", "rust"],
+    }
+
+
+@pytest.mark.parametrize(
+    "names",
+    [
+        ["rust", "python", "go", "Alpha"],
+        COLLATION_NAMES,
+        list(reversed(COLLATION_NAMES)),
+        ["go", "GO", " go ", "Go"],
+        [],
+    ],
+    ids=["example", "collation", "collation-reversed", "duplicates", "no-tags"],
+)
+def test_fr_e4_update_returns_tags_in_the_order_of_get(
+    client: TestClient, migrated_db: Engine, alice: uuid.UUID, alice_token: str, entry, names
+):
+    _tag(migrated_db, alice, "Python")
+
+    response = _put(client, alice_token, entry["id"], {**FULL, "tags": names})
+
+    assert response.status_code == 200
+    updated = response.json()["tags"]
+    everywhere = tags_everywhere(client, alice_token, entry["id"])
+    assert everywhere == {"get": updated, "list": updated, "export": updated}
+    # Which tags the entry gets is unchanged: each once, with its stored spelling.
+    linked = [name for _, _, name in _linked_tags(migrated_db, entry["id"])]
+    assert sorted(updated) == sorted(linked)
+    assert len(updated) == len({name.strip().lower() for name in names})
 
 
 def test_fr_e4_update_reuses_existing_tags_in_any_case_with_their_stored_spelling(
