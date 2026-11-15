@@ -4867,3 +4867,13 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - CI run 43754787403 on dc4498f passed on every job: Contract, Backend, Frontend, Backend image, Tests and Full system. As criterion E says, no test reads the spec, so no test was added and `./test-all.sh` was not run.
   - No AI call.
 - **Left open:** nothing. Keeping the header date in step on later spec edits stays with #114.
+
+## 2026-11-15: Orchestrator: close #103 (the spec's OpenRouter mention and "Last updated" date)
+
+- **Task:** task 60, run with `/orchestrate all`. Docs only (`docs/product-spec.md`, as the issue allows).
+- **What happened:**
+  - PM grooming (6900109424): three spec edits (the header date, the §10.2 AI row, a new §14 entry). The PM created #114, which is not listed; inputs for it were posted on #112 and #92.
+  - **The engineer reported BLOCKED** (6900134299): criteria B ("planned" nowhere) and C (an entry quoting "OpenRouter planned") contradicted each other. This was a stop point.
+  - **The product owner decided (2026-11-15):** allow "planned" once, in the §14 quote. The PM amended B (6900304951).
+  - The engineer then made the edits (6900462621, commit dc4498f), and QA passed (6900576818). Closed as completed.
+- **Open points:** none. Keeping the header date in step is #114.
