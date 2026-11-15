@@ -5183,3 +5183,11 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - The header's version is not checked; #92 no longer needs its own criterion for the header date.
 - **How I verified it:** a scratch probe (not committed) read all 9 §14 entries in both forms and the header from the current file; the saved issue body was compared with the text sent, and its labels are still empty. No AI call.
 - **Left open:** nothing.
+
+## 2026-11-15: Orchestrator: close #112 (alert on server errors in the local stack)
+
+- **Task:** task 65, run with `/orchestrate all`. No screens change; `render.yaml` does not change. No on-call agent, by the product owner's decision.
+- **What happened:** PM grooming (6902469626); engineer (6903004331, CI 43773772526 passed, including the new Full system step); QA PASS with its own live run (6903484006). Closed as completed.
+- **Open points, left in this log under the standing rule** (no work needed):
+  - a share between 0 and 5% was not tested live; the threshold `gt 0.05` settles it on reading;
+  - no failed-delivery line was seen in the `lgtm` log; the docs only say one may appear.
