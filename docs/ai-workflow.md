@@ -4816,3 +4816,20 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - The saved body of #103 starts with the new Goal. #103 and #114 have no labels.
   - No change to project code, and no AI call.
 - **Left open:** #112 (task 65) and #92 (task 66) will edit the spec before #114 comes up. Their groomings could name the header date in their criteria.
+
+## 2026-11-15: Engineer: implement #103 (task 60, the spec's OpenRouter mention and "Last updated" date): blocked before committing
+
+- **Task:** #103, three edits to `docs/product-spec.md` (header date, the §10.2 AI row, a new §14 entry), as the issue's sections A to E give them.
+- **What I did:**
+  - Read the issue, the PM comment (6900109424), `docs/software-engineer.md`, `docs/process.md` and `AGENTS.md`.
+  - Made the three edits in the working tree and checked them against the criteria before committing.
+  - Found that two criteria contradict each other. B's second bullet says "planned" no longer appears anywhere in the spec. C's exact entry text quotes the old row: `instead of "OpenRouter planned"`. No edit satisfies both.
+  - Reverted the edits, so the spec change can still be made in one commit with that commit's date.
+  - Asked on the issue (https://github.com/KittyNiuNiu/winlog/issues/103#issuecomment-6900134299). Recommended: narrow B's bullet so "planned" may appear once, in the new §14 entry's quoted old text. The other option is to reword C's entry so it does not quote the old row.
+  - Labels unchanged.
+- **How I verified it:**
+  - On the edited working tree: `git diff docs/product-spec.md` had exactly three hunks; lines 3 and 4 and the AI row read as A and B give them; §10.1 was unchanged; the new entry matched C's text exactly (`diff` against the issue's text) and sat directly above the 14 November entry with one blank line on each side.
+  - `grep -n planned docs/product-spec.md` found one line, 268, the new entry. That is the failing check.
+  - After the revert, `git status` was clean and `grep` again finds "planned" only on line 197, as before.
+  - No code, contract, `render.yaml` or screen change. No AI call. Only this log entry is committed.
+- **Left open:** the spec edits wait for the decision on B and C. The date is the UTC date of the commit that changes the spec, so a decision on a later day only changes the date.
