@@ -5058,3 +5058,27 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - `./test-all.sh` passed: backend unit (1794), backend integration (1198) and frontend (1421).
   - No hook call, sync, approval, job re-run or settings change. No AI call.
 - **Left open:** section E, the product owner's Manual Sync after the merge, which alone shows whether Render keeps these forms.
+
+## 2026-11-15: PM: groom #111 (task 64, an overall AI time limit and finish reasons other than "length")
+
+- **What I read:**
+  - the issue (no comments yet) and its source comments on #13 (QA finding 3), #14 (engineer), #17 (engineer and QA note 2) and #61 (two comments);
+  - `backend/app/ai/` (`openai_compatible.py`, `mock.py`, `limits.py`), `backend/app/settings.py`, `.env.example`, `render.yaml`, `backend/tests/unit/test_ai_openai_compatible.py`, `docs/observability.md`, `docs/decisions/default-model.md` and `docs/product-spec.md` §7.3, §7.4, §8, §9 and §14;
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md` and `AGENTS.md`.
+- **What I did:**
+  - Rewrote the body of #111 using the template, with sections A (one time limit for the whole request), B (finish reasons), C (documentation) and D (checks).
+  - Posted the PM comment with the decisions and the facts I checked (6902049285).
+  - Labels unchanged. No follow-up issue. No screen changes, no change to `render.yaml` (no Blueprint sync needed), `openapi.yaml` or `docs/product-spec.md`.
+- **Decisions under the standing rule (tasks 48 to 68), recorded in the issue:**
+  - `AI_SUGGESTION_TIMEOUT_SECONDS` and `AI_SUMMARY_TIMEOUT_SECONDS` become the limit for the whole request: no new setting, same defaults (15 and 60) and range.
+  - When the limit runs out, the request must actually stop. An abandoned thread that keeps reading does not count. The engineer chooses the method, with no new dependency.
+  - Only `finish_reason` `"stop"`, `null` or a missing value are accepted. Every other value, including unknown ones, raises `AIProviderError`, like `"length"`.
+  - `null` stays accepted, because rejecting it could turn off AI in production for a model that leaves the field out, and that cannot be checked without a real AI call.
+  - No new telemetry: the existing outcomes `timeout` and `provider_error` cover both cases.
+- **How I verified it:**
+  - `httpx2` 2.16.0 (from `uv.lock`, read in the installed package): `Timeout` has only `connect`, `read`, `write` and `pool`, with no overall timeout.
+  - `openai` 3.46.0 with a fake `httpx2.MockTransport` (no network, no AI call): `"error"`, `"content_filter"` and unknown values reach `finish_reason` unchanged; `null` and a missing field arrive as `None`.
+  - OpenRouter's normalized finish reasons come from a web search, because `openrouter.ai` cannot be reached from this session. The groomed rule does not depend on that list.
+  - The saved issue body was checked through the REST API, and its labels are still empty.
+  - No change to project code. No AI call.
+- **Left open:** nothing.
