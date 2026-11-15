@@ -4517,3 +4517,39 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Open points, left in this log under the standing rule:**
   - "every check CI runs" in the README leaves out CI-only checks by design;
   - the Compose 2.23.1 minimum was not tried against an older Compose.
+
+## 2026-11-15: PM: groom #72 (task 57, technical server validation messages on the login and registration forms)
+
+- **Task:** groom #72, which had no status label, following `docs/pm.md`. It is task 57, the first of three interface-polish tasks, and it changes screens: interface text only, on `/login` and `/register`.
+- **What I read:**
+  - the issue (no comments yet), and the #26 engineer and QA comments it cites;
+  - #84, for the focus rule and as the pattern for a groomed task;
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md`, `docs/tasks.md`, `docs/product-spec.md` (FR-A1, FR-A2, §9), `AGENTS.md`, `DESIGN.md` (Inputs / Fields), `PRODUCT.md` and `openapi.yaml` (Size limits, Errors, `Registration`, `Credentials`, `FieldError`);
+  - in the frontend:
+    - `LoginPage.tsx` and `RegisterPage.tsx`, and their tests;
+    - `src/auth/` (`requestErrors.ts`, `validation.ts` and `AuthFields.tsx`);
+    - `src/api/errors.ts` and `client.ts`;
+    - `EntryForm.tsx` and `SettingsPage.tsx`, to see how they show server validation errors;
+    - `viewport/screens.spec.ts` and `mockApi.ts`;
+  - in the backend: `app/accounts.py`, `app/passwords.py` and `app/errors.py`, plus the #88 filter checks in `app/entries.py` and `app/tags.py`.
+- **What I did:**
+  - Rewrote the body of #72 with the template: sections A (messages), B (awkward cases), C (unchanged behaviour) and D (tests), Out of scope and Constraints.
+  - Posted the PM comment with the decisions and the facts I checked (6897313162).
+  - Labels unchanged: the orchestrator sets the status. No follow-up issue, because nothing was moved out.
+- **Decisions under the standing rule (2026-11-14, extended 2026-11-15), recorded in the issue:**
+  - **Frontend only.** The forms map each server field error to the app's own fixed text and never show a `reason`, as the entry form and settings already do. No backend, contract, spec, `DESIGN.md` or `render.yaml` change. I rejected rewording the reasons in the backend, and showing email-validator's sentence without pydantic's prefix.
+  - **One text per field, whatever the reason.** Reasons are not parsed.
+  - **Texts** (the design note may refine them):
+    - email: "Enter a valid email address, such as name@example.com.";
+    - registration password: "This password can't be used. Choose a different one.";
+    - login password: "Check your password. It can have at most 128 characters." It is a field message, so #84's focus rule holds, and it is also true for an unpaired surrogate;
+    - any other field, or none: the existing "Something went wrong. Please try again."
+  - **No new browser checks.** Login keeps "no password rule" (#26), and the email check stays "has an `@`".
+  - **Screens change** (text only): the task needs a design note, and a design review after QA.
+- **How I verified it:**
+  - **Backend reasons:** ran the backend's `Registration` and `Credentials` models locally, with pydantic 2.14.2 and email-validator 2.3.0 (versions from `backend/uv.lock`), for 28 addresses and 6 passwords. The exact reason strings went into the issue as test fixtures. I read in pydantic's `networks.py` that `EmailStr` calls `validate_email(..., check_deliverability=False)` and adds the `value is not a valid email address: ` prefix.
+  - **Body error:** on Node 22.23.4, `JSON.stringify` writes a lone surrogate as a `\ud800` escape. So the `openapi-fetch` body is always valid JSON, and the #58 body error cannot come from these forms in normal use.
+  - **Server text on screen:** `grep` finds `.reason` only in `frontend/src/auth/requestErrors.ts`. So the two account forms are the only screens that show server text.
+  - **The issue on GitHub:** the saved body is identical to what I wrote, and the issue still has no labels.
+  - No change to project code, and no AI call.
+- **Left open:** nothing.
