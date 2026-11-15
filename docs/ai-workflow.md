@@ -4244,3 +4244,54 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - **`actionlint` v1.7.12** (built with Go in the scratchpad): no error for both workflows. With shellcheck 0.11.0, `deploy.yml` is clean. `ci.yml` still has the two SC2034 warnings in the Full system job, which `main` has too.
   - No hook was called, no Deploy run was started, and no real AI call was made.
 - **Left open:** section G of #102, unchanged: only the first real deploy after the merge can prove it. QA reads that run afterwards.
+
+## 2026-11-15: PM: groom #61 (task 54, Docker Compose passes every backend setting, and `httpx2` as a runtime dependency)
+
+- **Task:** groom #61, which had no status label, following `docs/pm.md`. It is task 54, in the group "pipeline and developer set-up".
+- **What I read:**
+  - the issue and all nine of its comments: inputs from #15 (two), #14, #17 (two), #43, #38, and #40 (the PM's and QA's);
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md`, `docs/product-spec.md`, `openapi.yaml`, `AGENTS.md` and `docs/tasks.md`;
+  - `docker-compose.yml`, `.env.example`, `README.md` (Quick start, Configuration), `backend/app/settings.py`, `backend/start.sh` and `backend/Dockerfile`;
+  - `backend/pyproject.toml`, `backend/uv.lock` and `backend/app/ai/openai_compatible.py`;
+  - CI's Backend and Full system jobs, `render.yaml` and `ops/deployment.md`;
+  - the unit tests that read `docker-compose.yml`;
+  - #89, to confirm that the bigint input is done.
+- **What I did:**
+  - Rewrote the body of #61 using the template. Sections A to F hold the criteria:
+    - A: Compose passes `.env` (checked with `docker compose config`);
+    - B: a CI step for the real provider's settings and the demo under Compose;
+    - C: unit tests;
+    - D: `httpx2`;
+    - E: documentation;
+    - F: the checks.
+  - Posted the PM comment (6894700537). It maps each input to where it went, gives the decisions and the facts checked, and keeps the original body.
+  - Created the follow-up issue #111 ("an overall time limit for AI requests, and finish reasons other than \"length\"").
+  - Labels unchanged on both issues: the orchestrator sets the status.
+- **Decisions under the standing rule (2026-11-14), recorded in the issue:**
+  - **`env_file: .env` plus six overrides**, not a list of every variable. The overrides are `DATABASE_URL`, `CORS_ALLOWED_ORIGINS`, `HSTS_MAX_AGE_SECONDS` (0 by default), `AI_PROVIDER`, `OTEL_EXPORTER_OTLP_ENDPOINT`, and the new `PORT: "8000"`.
+  - **The three redundant entries are removed** (`DATABASE_CONNECT_TIMEOUT_SECONDS`, `DATABASE_QUERY_TIMEOUT_SECONDS`, `REQUEST_BODY_MAX_BYTES`). The three tests that assert them change on purpose.
+  - **The real-provider path is checked only up to a started backend.** CI's Full system job restarts the backend with `openai-compatible`, a placeholder key, a local base URL where nothing listens, and `DEMO_EMAIL`. It requests only `/health` and `/auth/demo`, so no AI call is made.
+  - **Minimum Docker Compose 2.23.1,** in the README's Quick start and `AGENTS.md`'s Full system line.
+  - **Only `httpx2` becomes a declared dependency.** `starlette` and `pydantic_core` stay undeclared.
+  - **#14's deadline and #17's finish reasons move to #111.**
+  - **The bigint input is already done in #89.**
+  - **No screen, spec, contract or `render.yaml` change,** so no Blueprint sync.
+- **How I verified it:**
+  - **Docker's Compose file reference** (its source in `docker/docs` on raw.githubusercontent.com; docs.docker.com is blocked here):
+    - `configs` `content` was introduced in Compose 2.23.1;
+    - `environment` takes precedence over `env_file`.
+  - **Compose v5.6.1 in this session,** on a scratch copy of the Compose file with `env_file` (not committed):
+    - `docker compose config` shows every `.env` variable under the backend, and the overrides win, `PORT=9000` included.
+    - Shell variables do not replace `env_file` values.
+    - Without `.env`, Compose stops with the existing messages.
+    - A throwaway `python:3.13-slim` container was recreated with the new value after `.env` changed.
+  - **`uv` 0.11.32:**
+    - `uv lock --check` passes;
+    - `uv tree --no-dev --depth 1` does not list `httpx2` today;
+    - the lock has `openai` 3.46.0 depending on `httpx2` 2.16.0.
+  - **All 24 `Settings` fields** have a `NAME=` line in `.env.example`.
+  - **The saved issue body,** read back: it has the four template sections and 32 criteria, and the labels are still empty.
+  - No change to project code, and no AI call.
+- **Left open:**
+  - Whether the CI start-only check falls under the `AGENTS.md` rule on running the app with a provider other than `mock` is for the orchestrator to confirm. It makes no AI call and cannot reach a provider. The fallback is to drop that step.
+  - WebFetch cannot reach docs.docker.com in this session.
