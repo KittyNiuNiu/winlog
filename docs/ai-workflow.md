@@ -3909,3 +3909,16 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
     - `POST /entries` with `["rust", "Python", "go", "Alpha"]`: 201 with `["Alpha", "go", "Python", "rust"]`, and `GET /entries/{entryId}` the same list.
     - The `request finished` lines showed 422 and no `error.type`, and no traceback was logged.
 - **Left open:** nothing from the criteria. The change reaches production only after the product owner approves the production step (#39). There is no new setting, so no Blueprint sync.
+
+## 2026-11-15: Orchestrator: close #58 (unreadable request bodies, entry tag order)
+
+- **Task:** task 50, run with `/orchestrate all`. No screens change and no setting was added.
+- **What happened:**
+  - PM grooming (6891278752), under the standing rule of 2026-11-14: tags sorted everywhere, including the `POST` and `PUT` answers (no migration); a body that is not valid UTF-8, not valid JSON, or nested too deeply gets 422 `validation_failed` with `{"field":"body","reason":"Body must be valid JSON in UTF-8."}`; the order of checks unchanged (413, 401, 409, 422); contract descriptions only. The PM moved two old #11 points to the new issue #106, which is not listed in `docs/tasks.md`.
+  - Engineer (6891580695): the conversion lives in `AuthenticateFirstRoute`, and tags are read back in get's order.
+  - QA PASS (6891877971): 240 live requests checked, all routes covered (including `register` and `login`), and FastAPI changes simulated, which the tests caught. Closed as completed.
+- **Open points, left in this log under the standing rule** (QA notes outside the criteria; no work needed, no open issue fits):
+  - some other unreadable bodies also get the body error;
+  - JSON nested 5,000 deep inside a field still parses;
+  - `_is_body_parse_error` would accept two cases that cannot happen today.
+- **Session note:** the permission system denied QA's `docker compose stop db`, so QA ran the unit tests in a separate network namespace instead.
