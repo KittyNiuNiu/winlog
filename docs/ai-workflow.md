@@ -3873,3 +3873,39 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Left open:**
   - RFC 8259 (§8.1 UTF-8, §11 no `charset` parameter) is cited from the standard itself: rfc-editor.org is not in this session's allowed network domains.
   - #106 is not in `docs/tasks.md`. The orchestrator or the product owner decides where it goes.
+
+## 2026-11-15: Engineer: implement #58 (task 50, non-UTF-8 request bodies and entry tag order)
+
+- **Task:** #58 as groomed by the PM on 2026-11-15 (issue body and comment 6891278752). No screens change, so no design note or review. No real AI call (`AI_PROVIDER=mock` throughout).
+- **What I did:**
+  - **Contract first** (`45b3bc1`): `openapi.yaml` changes in the four places the issue names, descriptions only: a paragraph in "Errors" on the body error and the order of the checks, a bullet in "Entries" on the tag order, `Entry.tags` and `FieldError.field`. `frontend/src/api/schema.d.ts` regenerated with `npm run generate:api`; only two description comments change.
+  - **Tag order** (`25b9616`): `create_entry` and `update_entry` in `backend/app/entries.py` read the names back with `_tag_names` (`ORDER BY lower(name), name`) before the commit, instead of returning `resolve_tags` in the order sent. No sorting in Python, no migration. The module docstring says so.
+  - **Body error** (`6a46734`):
+    - `backend/app/errors.py`: `unreadable_body()`, an `ApiError` 422 `validation_failed` with the single field error `body` / "Body must be valid JSON in UTF-8.". The validation handler shares its message constant. `_handle_http_error` is unchanged.
+    - `backend/app/auth.py`: `AuthenticateFirstRoute` now wraps every route, not only those that need a token. On FastAPI's `json_invalid` error or its 400 "There was an error parsing the body", it first solves the login dependencies where the route has them (401, and the demo account's 409 on `deleteAccount`), then raises the body error. The body is not read again, and the original error, which holds the body, is never sent back.
+  - **Tests:**
+    - `tests/unit/test_auth.py`: the FR-A3 tests now cover all ten unreadable bodies of the issue, `\x80` included, and the logged-in test covers all six protected operations with the exact body error.
+    - `tests/unit/test_unreadable_body.py` (new): the body error on all eight operations for every body and three content types, no part of the body in the response, 413 first (also for `\x80`), the demo account's 409 first, the unchanged answers to bodies the backend can read, the encodings `json.loads` detects, and telemetry with in-memory exporters.
+    - `tests/integration/test_unreadable_body.py` (new): every table compared before and after each of the eight operations and 13 bodies (with own, another user's and missing ids), no AI call, no failed-login count changed; 401 for no header, `Bearer garbage` and an expired token; UTF-16 and UTF-32 entries still saved.
+    - `tests/integration/test_demo.py`: the demo account's 409 for every unreadable body, nothing deleted.
+    - `tests/integration/test_entries.py` and `test_entry_changes.py`: `test_fr_e3_create_returns_tags_sorted_ignoring_case`, `test_fr_e3_create_returns_tags_in_the_order_of_get`, `test_fr_e4_update_returns_tags_sorted_ignoring_case` and `test_fr_e4_update_returns_tags_in_the_order_of_get` (with the collation names), compared with get, the list and the JSON export. The FR-A3 body tests cover every unreadable body. Four existing tests now expect the sorted order; only the expected order changed in them.
+    - `tests/integration/test_summary_management.py`: its body tests use the full list of unreadable bodies.
+- **Approach (the issue left it to me):** the conversion sits in `AuthenticateFirstRoute`, which already recognised both kinds of unreadable body and runs for every router (a unit test checks that every route uses it). So `_handle_http_error` keeps all its answers, the 401 and 409 still come first, and there is no code per endpoint.
+- **Decisions (mine, within the issue, none needing the product owner):**
+  - The two schema descriptions stay on one line each, as the other property descriptions in `openapi.yaml` do.
+  - The encoding tests also cover UTF-16 and UTF-32 without a byte order mark, which `json.loads` detects too, so they are read as before.
+- **How I verified it:**
+  - **Lint and tests:** in `backend/`, `uv run ruff check .` and `uv run ruff format --check .` are clean.
+    - Unit tests: 1287 passed, also with PostgreSQL stopped.
+    - Integration tests: 1184 passed.
+    - `./test-all.sh`: all three suites passed (1287, 1184, 1257).
+    - Frontend: `npm run lint` clean, `npm run build` OK, `npm test` 1257 passed. `npm run generate:api` leaves `schema.d.ts` unchanged.
+    - `npx --yes @redocly/cli@2 lint openapi.yaml`: valid, with the same 3 warnings as before the change.
+  - **CI on the branch:** run 43693022339 for `6a46734` passed all six jobs (Backend, Frontend, Tests, Contract, Backend image, Full system).
+  - **Without the change:** with `backend/app` from before the change (`git stash` of `backend/app`), 56 of the unit tests in `test_unreadable_body.py` and `test_auth.py` failed, and 59 of the integration tests for the body error and the tag order failed. The tests that still pass check behaviour that stays unchanged: 401 and 409 first, readable bodies, encodings, and the duplicate and no-tag cases of the order tests.
+  - **Live check, without building an image:** `docker compose up -d db`, `uv run alembic upgrade head`, `uv run uvicorn app.main:app --port 8000` with `AI_PROVIDER=mock`, and a registered user.
+    - `POST /auth/login` with `\x80`: the body error.
+    - `POST /entries` with `\x80`: the body error with the token; 401 `not_authenticated` with `www-authenticate: Bearer` without it.
+    - `POST /entries` with `["rust", "Python", "go", "Alpha"]`: 201 with `["Alpha", "go", "Python", "rust"]`, and `GET /entries/{entryId}` the same list.
+    - The `request finished` lines showed 422 and no `error.type`, and no traceback was logged.
+- **Left open:** nothing from the criteria. The change reaches production only after the product owner approves the production step (#39). There is no new setting, so no Blueprint sync.
