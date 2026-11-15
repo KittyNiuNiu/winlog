@@ -7,6 +7,7 @@ SDK's `http_client`, which answers with stubbed responses and records the reques
 import datetime as dt
 import json
 import logging
+import tomllib
 import uuid
 from collections.abc import Callable
 from pathlib import Path
@@ -259,6 +260,19 @@ def test_ai_openai_variables_are_documented_in_env_example():
         "AI_SUMMARY_MAX_TOKENS=16000\n",
     ):
         assert f"\n{line}" in env_example
+
+
+def test_ai_openai_httpx2_is_a_runtime_dependency():
+    """The provider imports httpx2, so the image installs it as a runtime dependency (#61)."""
+    backend = Path(__file__).resolve().parents[2]
+    source = (backend / "app" / "ai" / "openai_compatible.py").read_text(encoding="utf-8")
+    pyproject = tomllib.loads((backend / "pyproject.toml").read_text(encoding="utf-8"))
+    dependencies = pyproject["project"]["dependencies"]
+
+    assert "\nimport httpx2\n" in source
+    assert "httpx2>=2.16" in dependencies
+    assert dependencies == sorted(dependencies)
+    assert not [name for name in pyproject["dependency-groups"]["dev"] if "httpx2" in name]
 
 
 # --- Calls ---
