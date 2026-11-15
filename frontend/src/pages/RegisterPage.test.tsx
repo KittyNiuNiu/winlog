@@ -307,6 +307,20 @@ describe('registration errors from the server (FR-A1)', () => {
     expect(emailInput().value).toBe(EMAIL)
     expect(passwordInput().value).toBe(PASSWORD)
   })
+
+  it('test_fr_a1_request_too_large_shows_a_generic_message_and_keeps_the_input', async () => {
+    // #88: a 413 `request_too_large` is an UnknownError, shown as the generic text.
+    register.mockRejectedValue(new api.UnknownError('The request body is too large.', 413, 'request_too_large'))
+    renderRoute('/register')
+    fillIn(EMAIL, PASSWORD)
+
+    await submit()
+
+    expect(formAlert().textContent).toBe(GENERIC_MESSAGE)
+    expect(screen.queryByText(/too large/)).toBeNull()
+    expect(emailInput().value).toBe(EMAIL)
+    expect(passwordInput().value).toBe(PASSWORD)
+  })
 })
 
 // A server validation error shows the app's own text, never the server's (#72): one fixed

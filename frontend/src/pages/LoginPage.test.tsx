@@ -193,6 +193,7 @@ describe('login errors (FR-A2)', () => {
   it.each([
     ['a server error', new api.UnknownError('Internal error.', 500, 'internal_error')],
     ['a response that is not the contract', new api.UnknownError('Unexpected response (HTTP 502).', 502, null)],
+    ['a request that is too large', new api.UnknownError('The request body is too large.', 413, 'request_too_large')],
   ])('test_fr_a2_%s_shows_a_generic_message_and_keeps_the_input', async (_case, error) => {
     login.mockRejectedValue(error)
     renderRoute('/login')

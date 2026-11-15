@@ -4565,6 +4565,7 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
     - `requestErrors.test.ts`: each field's text, the alert for another field or none, one message for a field named twice, and no reason in the output.
     - `LoginPage.test.tsx` and `RegisterPage.test.tsx`: a new block per page with the backend's real reasons. It covers all 13 section B addresses on both pages, the login password too long and `string_unicode`, the registration password with an unpaired surrogate, the body error, an empty field list, a field named twice, email and password together (from Enter in Password), the body error with a field error, changing a field, and the next submit. Every case checks that no server text is in the page, attributes included.
     - The three named tests now expect the new texts; the #84 focus tests are unchanged.
+    - A 413 `request_too_large` case on each page, so section C's generic text for it is tested on the pages themselves.
   - New test helper `frontend/src/test/serverReasons.ts`: the backend's reasons as fixtures, and `expectNoServerText()`.
   - Viewport: `mockApi.ts` answers `POST /auth/register` (201 by default) and can answer register or login with a 422 naming given fields. `screens.spec.ts` has `login-server-errors` and `register-server-errors`, set up as the design note says.
 - **Decisions (standing rule, engineer's recommended option):**
@@ -4573,7 +4574,7 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **How I verified it:**
   - The new and changed page tests fail against the old page code (46 failures with the old `LoginPage.tsx`, `RegisterPage.tsx` and `requestErrors.ts`), and pass with the new code.
   - `frontend/`: `npm run lint`, `npm run build` and `npm test` pass. `npm run test:viewport` passed (99 passed, 9 skipped by design). I looked at the four new screenshots: both field messages show, Email has the focus look, Password has the error border, and there is no form alert. At 360 each message wraps to two lines, as the design note says; at 1280 each fits on one line.
-  - `backend/`: `uv run ruff check .` passes. `./test-all.sh`: all three suites passed (backend unit 1519, integration 1198, frontend 1334).
+  - `backend/`: `uv run ruff check .` passes. `./test-all.sh`: all three suites passed (backend unit 1519, integration 1198, frontend 1334). After the two 413 cases, `npm test` passed again with 1336 tests.
   - Live check against the real backend with `AI_PROVIDER=mock`, using the "without the app containers" route and a Playwright script at 360×640. It covered six cases: login with `alice@invalid`, `alice@example.local`, a 129-character password, and `alice @example.com` with a 129-character password; registration with `alice@invalid` and `a@b@c.com`. Each got a real 422, showed only the app's texts, put the cursor in the right field, did not scroll sideways (`scrollWidth` 360), and had no reason in the page HTML.
   - No backend, contract, spec or `DESIGN.md` change, no new dependency, and no AI call.
 - **Left open:** nothing.
