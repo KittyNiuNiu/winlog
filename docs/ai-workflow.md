@@ -3954,3 +3954,42 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Left open:**
   - The PostgreSQL documentation could not be read: `postgresql.org` is not in this session's allowed network domains. The ranges were checked against the running database instead.
   - #108 is not in `docs/tasks.md`. The orchestrator or the product owner decides where it goes.
+
+## 2026-11-15: Engineer: implement #89 (task 51, an upper bound for the five count limits)
+
+- **Task:** implement #89 as groomed (PM comment 6891960698), following `docs/software-engineer.md`. No screens change, so there is no design note.
+- **What I did** (commit `c42b1f2`):
+  - **Settings:** `backend/app/settings.py` has one new constant, `MAX_COUNT_LIMIT = 2_147_483_647`. Its comment says it is the largest PostgreSQL `integer` and names `login_attempts.attempt_count`, `ai_usage.request_count` and `ai_usage_global.request_count`.
+    - `LOGIN_MAX_FAILED_ATTEMPTS` and `DEMO_LOGIN_MAX_ATTEMPTS` now accept 1 to 2147483647.
+    - The three AI daily limits now accept 0 to 2147483647; 0 still blocks.
+    - The defaults and the comments' other text are unchanged. The comments state the new ranges.
+  - **Long numbers:** `_whole_number` drops leading zeros, then refuses a number with more digits than the maximum before calling `int()`. A 5,000-digit value therefore gets "must be a whole number from … to 2147483647", not Python's digit-limit text.
+  - **`.env.example`:** the AI daily limits block and the login-attempt block state the new ranges. The variables and defaults are unchanged.
+  - **Tests, attempt counts (FR-A4):** in `tests/unit/test_attempt_limits.py`, `test_fr_a4_attempt_counts_have_no_upper_bound` is replaced (the issue asks for this) by:
+    - `test_fr_a4_attempt_count_up_to_the_bound_starts_the_app`: 2147483646 and 2147483647 (also with spaces) are read as numbers, through `load_settings` and `create_app`.
+    - `test_fr_a4_attempt_count_over_the_bound_stops_the_app`: the five values from the issue stop `create_app()` with the message. The value is not repeated, and Python's "4300" text does not appear.
+    - `test_fr_a4_attempt_count_bound_applies_in_code`: `2**31 - 1` is accepted in code; `2**31` and `2**63` are refused.
+    - `test_fr_a4_count_bound_is_the_largest_value_of_the_integer_count_columns`: the three columns are exactly `Integer` (not `isinstance`, because `BigInteger` is a subclass), and the constant is `2**31 - 1`.
+  - **Tests, AI daily limits:** in `tests/unit/test_ai_limits.py`, the same three tests named in the file's style (`test_daily_limit_up_to_the_bound_starts_the_app`, `test_daily_limit_over_the_bound_stops_the_app`, `test_daily_limit_bound_applies_in_code_too`). The two tests the issue names now expect "whole number from 0 to 2147483647". Every other assertion in them is unchanged.
+  - **Integration tests at the bound:**
+    - `test_fr_a4_failed_login_count_at_the_bound_is_refused_without_error`: count 2147483646 in an open window, a wrong password gives 401 and the count becomes 2147483647. The correct password then gives 429 with `Retry-After: 900`.
+    - `test_fr_a4_demo_login_count_at_the_bound_is_refused_without_error`: 200, then 429 with `Retry-After: 3600`.
+    - `test_user_limit_at_the_bound_is_reached_without_error` (suggestions and summaries): one more mock call and the count becomes 2147483647. The next call raises `AILimitReachedError` naming `user_suggestions` or `user_summaries`, with no AI call.
+    - `test_global_cap_at_the_bound_is_reached_without_error`: the same for `global`, for a suggestion and a summary.
+  - No change to `attempt_limits.py`, `ai/limits.py`, the models, `openapi.yaml`, `render.yaml`, `docker-compose.yml`, `ops/deployment.md` or `frontend/`. No migration and no new dependency.
+- **Decision I took (under the standing rule of 2026-11-14):** the digit check is in the shared `_whole_number`, so it applies to every setting that has a maximum.
+  - The two attempt windows, `DATABASE_QUERY_TIMEOUT_SECONDS` and `REQUEST_BODY_MAX_BYTES` also give their range message for a value of thousands of digits, where they used to give Python's text.
+  - A zero-padded value longer than 4,300 characters but inside the range is read as its number.
+  - `AI_SUMMARY_MAX_INPUT_CHARACTERS` has no maximum, so it is unchanged, as decision 3 says.
+- **How I verified it:**
+  - **Lint and tests:** in `backend/`, `uv run ruff check .` and `uv run ruff format --check .` are clean.
+    - Unit tests: 1331 passed, with PostgreSQL stopped.
+    - Integration tests: 1189 passed.
+    - `./test-all.sh`: all three suites passed (1331, 1189, 1257).
+  - **CI on the branch:** run 43698062401 for `c42b1f2` passed all six jobs (Backend, Frontend, Tests, Contract, Backend image, Full system).
+  - **Without the change:** I ran the new bound tests against `settings.py` from `9b5fd23`, with only the constant appended so the tests can import it. All 30 over-the-bound and in-code tests failed. The 16 that passed check what was already true: values up to the bound are accepted, and the column types.
+  - **The failure the bound prevents:** a throwaway probe (not committed) gave the limiter a limit of `2**31` and then `2**63`, with the stored count at 2147483647. PostgreSQL raised `integer out of range` and `bigint out of range`.
+  - **Live check, without building an image, `AI_PROVIDER=mock`:** `docker compose up -d db`, then `uv run alembic upgrade head` and `uv run python -m scripts.seed_demo` with `DEMO_EMAIL=demo@example.com` set in the shell (`.env` unchanged), then `uv run uvicorn app.main:app --port 8000`.
+    - `LOGIN_MAX_FAILED_ATTEMPTS=2147483648`, `DEMO_LOGIN_MAX_ATTEMPTS=9223372036854775808` and `AI_DAILY_REQUESTS_GLOBAL=100000000000000000000`: uvicorn exited with code 1 each time. The output showed "Invalid configuration: <VARIABLE> is invalid: Value error, must be a whole number from 1 (or 0) to 2147483647" for that variable.
+    - All five at 2147483647: the backend started. A wrong-password login gave 401, a demo-login 200, and `POST /suggestions` with the demo token 200 (mock output). The `request finished` lines showed only 200 and 401, with no error and no traceback.
+- **Left open:** nothing from the criteria. The change reaches production only after the product owner approves the production step (#39). There is no new variable and no `render.yaml` change, so no Blueprint sync is needed.
