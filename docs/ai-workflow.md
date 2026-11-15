@@ -4506,3 +4506,14 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Created #112 "Alert on user impact in the local telemetry stack" (needs grooming).
   - `docs/tasks.md`: #112 is task 65; #92 and #98 moved to tasks 66 and 67.
   - `docs/process.md`: the standing rule now covers tasks 48 to 67.
+
+## 2026-11-15: Orchestrator: close #68 (CI's commands in AGENTS.md, accurate docs)
+
+- **Task:** task 56, run with `/orchestrate all`. Docs only; no screens change.
+- **What happened:**
+  - PM grooming (6896760339): ten decisions under the standing rule. The product owner confirmed dropping `security/` and `mcp-server/`.
+  - Engineer (6897064789): `AGENTS.md` lists CI's commands and their local forms, `--wait db`, the Compose minimum, `docs/product-spec.md`; the README's shell-variable bullet is made precise.
+  - QA PASS (6897195892). Closed as completed.
+- **Open points, left in this log under the standing rule:**
+  - "every check CI runs" in the README leaves out CI-only checks by design;
+  - the Compose 2.23.1 minimum was not tried against an older Compose.
