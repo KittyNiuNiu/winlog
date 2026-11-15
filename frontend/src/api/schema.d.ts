@@ -542,16 +542,38 @@ export interface components {
              * @description Last day of the period, inclusive. Must not be before `period_start`.
              */
             period_end: string;
-            /** @description Categories to include. Empty or missing means no restriction. */
+            /** @description Categories to include. Empty or missing means no restriction. At most 4 values, counted as sent, so a repeated category counts each time. */
             categories?: components["schemas"]["Category"][];
-            /** @description Tag names to include; entries with any of them match. Empty or missing means no restriction. Each name has at most 40 characters. */
+            /** @description Tag names to include; entries with any of them match. Empty or missing means no restriction. At most 20 names, counted as sent, so duplicates, names that differ only in case and names that are empty after trimming all count. Each name has at most 40 characters. */
+            tags?: string[];
+        };
+        /**
+         * @description The filter a saved summary was generated from, as `Summary.filter`
+         *     returns it. The same properties as `SummaryFilter`, but without its
+         *     maximum lengths and counts: a summary saved before these limits existed
+         *     can have longer tag names or more tag names.
+         */
+        SavedSummaryFilter: {
+            /**
+             * Format: date
+             * @description First day of the period, inclusive.
+             */
+            period_start: string;
+            /**
+             * Format: date
+             * @description Last day of the period, inclusive. Must not be before `period_start`.
+             */
+            period_end: string;
+            /** @description Categories to include. Empty or missing means no restriction. At most 4 values, counted as sent, so a repeated category counts each time. */
+            categories?: components["schemas"]["Category"][];
+            /** @description Tag names to include; entries with any of them match. Empty or missing means no restriction. At most 20 names, counted as sent, so duplicates, names that differ only in case and names that are empty after trimming all count. Each name has at most 40 characters. */
             tags?: string[];
         };
         Summary: {
             /** Format: uuid */
             id: string;
             text: string;
-            filter: components["schemas"]["SummaryFilter"];
+            filter: components["schemas"]["SavedSummaryFilter"];
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -580,7 +602,7 @@ export interface components {
              * @description Machine-readable error code.
              * @enum {string}
              */
-            code: "validation_failed" | "not_authenticated" | "invalid_credentials" | "wrong_password" | "demo_account_not_deletable" | "email_already_registered" | "not_found" | "method_not_allowed" | "no_matching_entries" | "summary_input_too_large" | "limit_reached" | "too_many_attempts" | "ai_unavailable" | "database_unreachable" | "internal_error";
+            code: "validation_failed" | "not_authenticated" | "invalid_credentials" | "wrong_password" | "demo_account_not_deletable" | "email_already_registered" | "not_found" | "method_not_allowed" | "request_too_large" | "no_matching_entries" | "summary_input_too_large" | "limit_reached" | "too_many_attempts" | "ai_unavailable" | "database_unreachable" | "internal_error";
             /** @description Human-readable explanation. */
             message: string;
             /** @description Only for `validation_failed`. Each failing field and why it failed. */
@@ -765,6 +787,21 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
+        /** @description The request body has more bytes than the server allows (`code: request_too_large`), set by `REQUEST_BODY_MAX_BYTES` (default 262,144). Returned before authentication and validation. Nothing was saved and no AI call was made. */
+        RequestTooLarge: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                /**
+                 * @example {
+                 *       "code": "request_too_large",
+                 *       "message": "The request body is too large."
+                 *     }
+                 */
+                "application/json": components["schemas"]["Error"];
+            };
+        };
         /** @description An unexpected server error (`code: internal_error`). */
         InternalError: {
             headers: {
@@ -850,6 +887,7 @@ export interface operations {
                 };
             };
             409: components["responses"]["EmailAlreadyRegistered"];
+            413: components["responses"]["RequestTooLarge"];
             422: components["responses"]["ValidationFailed"];
             500: components["responses"]["InternalError"];
         };
@@ -877,6 +915,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["InvalidCredentials"];
+            413: components["responses"]["RequestTooLarge"];
             422: components["responses"]["ValidationFailed"];
             429: components["responses"]["TooManyAttempts"];
             500: components["responses"]["InternalError"];
@@ -966,6 +1005,7 @@ export interface operations {
             401: components["responses"]["NotAuthenticated"];
             403: components["responses"]["WrongPassword"];
             409: components["responses"]["DemoAccountNotDeletable"];
+            413: components["responses"]["RequestTooLarge"];
             422: components["responses"]["ValidationFailed"];
             429: components["responses"]["TooManyAttempts"];
             500: components["responses"]["InternalError"];
@@ -984,9 +1024,9 @@ export interface operations {
                  * @example 2026-06-30
                  */
                 end_date?: string;
-                /** @description Categories to include, as a repeated parameter (`?category=Achievement&category=Learning`). */
+                /** @description Categories to include, as a repeated parameter (`?category=Achievement&category=Learning`). At most 4 values, counted as sent, so a repeated category counts each time. */
                 category?: components["schemas"]["Category"][];
-                /** @description Tag names to include, as a repeated parameter (`?tag=a&tag=b`), because tag names can contain commas. Each name has at most 40 characters. */
+                /** @description Tag names to include, as a repeated parameter (`?tag=a&tag=b`), because tag names can contain commas. At most 20 names, counted as sent, so duplicates, names that differ only in case and names that are empty after trimming all count. Each name has at most 40 characters. */
                 tag?: string[];
             };
             header?: never;
@@ -1032,6 +1072,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["NotAuthenticated"];
+            413: components["responses"]["RequestTooLarge"];
             422: components["responses"]["ValidationFailed"];
             500: components["responses"]["InternalError"];
         };
@@ -1090,6 +1131,7 @@ export interface operations {
             };
             401: components["responses"]["NotAuthenticated"];
             404: components["responses"]["NotFound"];
+            413: components["responses"]["RequestTooLarge"];
             422: components["responses"]["ValidationFailed"];
             500: components["responses"]["InternalError"];
         };
@@ -1164,6 +1206,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["NotAuthenticated"];
+            413: components["responses"]["RequestTooLarge"];
             422: components["responses"]["ValidationFailed"];
             429: components["responses"]["LimitReached"];
             500: components["responses"]["InternalError"];
@@ -1215,6 +1258,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["NotAuthenticated"];
+            413: components["responses"]["RequestTooLarge"];
             /**
              * @description The request failed validation (`code: validation_failed`), no
              *     entries match the filter (`code: no_matching_entries`, §7.4), or the
@@ -1314,6 +1358,7 @@ export interface operations {
             };
             401: components["responses"]["NotAuthenticated"];
             404: components["responses"]["NotFound"];
+            413: components["responses"]["RequestTooLarge"];
             422: components["responses"]["ValidationFailed"];
             500: components["responses"]["InternalError"];
         };

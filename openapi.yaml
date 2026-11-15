@@ -84,6 +84,11 @@ info:
     - Edited summary text (`SummaryUpdate.text`): 1 to 10,000 characters.
     - Tag names in a filter (the `tag` parameter of `listEntries` and
       `SummaryFilter.tags`): up to 40 characters each.
+    - Values in a filter (the `category` and `tag` parameters of
+      `listEntries`, and `SummaryFilter.categories` and `SummaryFilter.tags`):
+      at most 20 tag names and at most 4 categories. They are counted as sent,
+      so duplicates, names that differ only in case and names that are empty
+      after trimming all count.
     - Login and delete-account passwords (`Credentials.password`,
       `AccountDeletion.current_password`): 1 to 128 characters.
     - Summary input: the text, Result/Impact and tag names of all entries that
@@ -92,10 +97,23 @@ info:
       environment variable (default 50,000). Above it, `generateSummary`
       returns 422 `summary_input_too_large`, makes no AI call, counts against
       no daily limit and saves nothing.
+    - Request body: at most the number of bytes set by the server's
+      `REQUEST_BODY_MAX_BYTES` environment variable (default 262,144),
+      counted as received, after any chunked transfer encoding is removed. A
+      larger body gets 413 `request_too_large` on every path and method,
+      before authentication and validation. Nothing is saved and no AI call
+      is made.
+    - Request line and headers: the server limits them together to 16 KiB
+      (uvicorn's default for its h11 implementation). The server refuses a
+      larger request before the API sees it, with a plain-text 400 that is
+      not the shared error format. The largest valid request stays well
+      within this limit.
 
     Data saved before these limits existed can be longer. It can still be read,
     listed, exported and summarised, so response schemas (`Entry`, `Summary`)
-    set no maximum length. Saving such a value again unchanged is the
+    set no maximum length. The same holds for a saved summary's filter
+    (`SavedSummaryFilter`), which can have longer tag names, or more tag names
+    than a filter may hold now. Saving such a value again unchanged is the
     validation error; saving it within the limits works.
 
     ## Errors
@@ -106,7 +124,9 @@ info:
     in `limit`. Too many login, demo-login or account deletion attempts return
     429 with `code: too_many_attempts` and a `Retry-After` header (FR-A4). An
     unknown path returns 404 with `code: not_found`, and an unsupported method
-    returns 405 with `code: method_not_allowed`.
+    returns 405 with `code: method_not_allowed`. A request body over the
+    server's size limit returns 413 with `code: request_too_large`, on every
+    path and method (see Size limits).
 
 servers:
   - url: http://localhost:8000
@@ -178,6 +198,8 @@ paths:
                 $ref: '#/components/schemas/User'
         '409':
           $ref: '#/components/responses/EmailAlreadyRegistered'
+        '413':
+          $ref: '#/components/responses/RequestTooLarge'
         '422':
           $ref: '#/components/responses/ValidationFailed'
         '500':
@@ -218,6 +240,8 @@ paths:
                 $ref: '#/components/schemas/LoginResult'
         '401':
           $ref: '#/components/responses/InvalidCredentials'
+        '413':
+          $ref: '#/components/responses/RequestTooLarge'
         '422':
           $ref: '#/components/responses/ValidationFailed'
         '429':
@@ -323,6 +347,8 @@ paths:
           $ref: '#/components/responses/WrongPassword'
         '409':
           $ref: '#/components/responses/DemoAccountNotDeletable'
+        '413':
+          $ref: '#/components/responses/RequestTooLarge'
         '422':
           $ref: '#/components/responses/ValidationFailed'
         '429':
@@ -363,21 +389,23 @@ paths:
         - name: category
           in: query
           required: false
-          description: Categories to include, as a repeated parameter (`?category=Achievement&category=Learning`).
+          description: Categories to include, as a repeated parameter (`?category=Achievement&category=Learning`). At most 4 values, counted as sent, so a repeated category counts each time.
           style: form
           explode: true
           schema:
             type: array
+            maxItems: 4
             items:
               $ref: '#/components/schemas/Category'
         - name: tag
           in: query
           required: false
-          description: Tag names to include, as a repeated parameter (`?tag=a&tag=b`), because tag names can contain commas. Each name has at most 40 characters.
+          description: Tag names to include, as a repeated parameter (`?tag=a&tag=b`), because tag names can contain commas. At most 20 names, counted as sent, so duplicates, names that differ only in case and names that are empty after trimming all count. Each name has at most 40 characters.
           style: form
           explode: true
           schema:
             type: array
+            maxItems: 20
             items:
               type: string
               maxLength: 40
@@ -417,6 +445,8 @@ paths:
                 $ref: '#/components/schemas/Entry'
         '401':
           $ref: '#/components/responses/NotAuthenticated'
+        '413':
+          $ref: '#/components/responses/RequestTooLarge'
         '422':
           $ref: '#/components/responses/ValidationFailed'
         '500':
@@ -472,6 +502,8 @@ paths:
           $ref: '#/components/responses/NotAuthenticated'
         '404':
           $ref: '#/components/responses/NotFound'
+        '413':
+          $ref: '#/components/responses/RequestTooLarge'
         '422':
           $ref: '#/components/responses/ValidationFailed'
         '500':
@@ -540,6 +572,8 @@ paths:
                 $ref: '#/components/schemas/Suggestion'
         '401':
           $ref: '#/components/responses/NotAuthenticated'
+        '413':
+          $ref: '#/components/responses/RequestTooLarge'
         '422':
           $ref: '#/components/responses/ValidationFailed'
         '429':
@@ -598,6 +632,8 @@ paths:
                 $ref: '#/components/schemas/Summary'
         '401':
           $ref: '#/components/responses/NotAuthenticated'
+        '413':
+          $ref: '#/components/responses/RequestTooLarge'
         '422':
           description: |
             The request failed validation (`code: validation_failed`), no
@@ -672,6 +708,8 @@ paths:
           $ref: '#/components/responses/NotAuthenticated'
         '404':
           $ref: '#/components/responses/NotFound'
+        '413':
+          $ref: '#/components/responses/RequestTooLarge'
         '422':
           $ref: '#/components/responses/ValidationFailed'
         '500':
@@ -1039,15 +1077,45 @@ components:
           description: Last day of the period, inclusive. Must not be before `period_start`.
         categories:
           type: array
-          description: Categories to include. Empty or missing means no restriction.
+          description: Categories to include. Empty or missing means no restriction. At most 4 values, counted as sent, so a repeated category counts each time.
+          maxItems: 4
           items:
             $ref: '#/components/schemas/Category'
         tags:
           type: array
-          description: Tag names to include; entries with any of them match. Empty or missing means no restriction. Each name has at most 40 characters.
+          description: Tag names to include; entries with any of them match. Empty or missing means no restriction. At most 20 names, counted as sent, so duplicates, names that differ only in case and names that are empty after trimming all count. Each name has at most 40 characters.
+          maxItems: 20
           items:
             type: string
             maxLength: 40
+
+    SavedSummaryFilter:
+      type: object
+      description: |
+        The filter a saved summary was generated from, as `Summary.filter`
+        returns it. The same properties as `SummaryFilter`, but without its
+        maximum lengths and counts: a summary saved before these limits existed
+        can have longer tag names or more tag names.
+      required: [period_start, period_end]
+      properties:
+        period_start:
+          type: string
+          format: date
+          description: First day of the period, inclusive.
+        period_end:
+          type: string
+          format: date
+          description: Last day of the period, inclusive. Must not be before `period_start`.
+        categories:
+          type: array
+          description: Categories to include. Empty or missing means no restriction. At most 4 values, counted as sent, so a repeated category counts each time.
+          items:
+            $ref: '#/components/schemas/Category'
+        tags:
+          type: array
+          description: Tag names to include; entries with any of them match. Empty or missing means no restriction. At most 20 names, counted as sent, so duplicates, names that differ only in case and names that are empty after trimming all count. Each name has at most 40 characters.
+          items:
+            type: string
 
     Summary:
       type: object
@@ -1059,7 +1127,7 @@ components:
         text:
           type: string
         filter:
-          $ref: '#/components/schemas/SummaryFilter'
+          $ref: '#/components/schemas/SavedSummaryFilter'
         created_at:
           type: string
           format: date-time
@@ -1124,6 +1192,7 @@ components:
             - email_already_registered
             - not_found
             - method_not_allowed
+            - request_too_large
             - no_matching_entries
             - summary_input_too_large
             - limit_reached
@@ -1288,6 +1357,15 @@ components:
           example:
             code: database_unreachable
             message: The database is not reachable.
+    RequestTooLarge:
+      description: 'The request body has more bytes than the server allows (`code: request_too_large`), set by `REQUEST_BODY_MAX_BYTES` (default 262,144). Returned before authentication and validation. Nothing was saved and no AI call was made.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            code: request_too_large
+            message: The request body is too large.
     InternalError:
       description: 'An unexpected server error (`code: internal_error`).'
       content:
