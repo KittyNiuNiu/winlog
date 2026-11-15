@@ -5014,3 +5014,28 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Open points, left in this log under the standing rule** (no work needed):
   - the every-`int` test finds only fields typed exactly `int`;
   - the startup message includes pydantic's "Value error, ", as for the other settings.
+
+## 2026-11-15: PM: groom #109 (task 63, the three Blueprint changes every Manual Sync lists)
+
+- **Task:** groom #109, which had no status label, following `docs/pm.md`. It is task 63. No screens change.
+- **What I read:**
+  - the issue (no comments yet);
+  - the #102 grooming comment (decision 8), the orchestrator's input on #102, and the #39 migration record;
+  - `render.yaml`, `ops/deployment.md` ("Blueprint syncs", migration steps 8 and 15, set-up steps) and `backend/tests/unit/test_deployment.py`;
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md` and `AGENTS.md`;
+  - Render's Blueprint reference and Blueprints page, fetched with `curl`.
+- **What I did:**
+  - Rewrote the body of #109 using the template, with sections A (`render.yaml`), B (tests), C (`ops/deployment.md`), D (checks) and E (the product owner's Manual Sync after the merge, then QA).
+  - Posted the PM comment with the decisions and the facts I checked (6901710148).
+  - Labels unchanged. No follow-up issue.
+- **Decisions under the standing rule (tasks 48 to 68), recorded in the issue:**
+  - Both backends get `autoDeployTrigger: "off"`, which reverses #39's choice to leave the field out. An omitted value and `"commit"` are what the syncs keep listing, and the field has no effect on image services.
+  - Both static sites get `staticPublishPath: frontend/dist`, the form `winlog-app-dev` was created with. The two sites keep the same value.
+  - The proof is this task's own Manual Sync after the merge (the orchestrator's input), not #92's. A second Manual Sync, read and not applied, shows whether anything comes back.
+  - The guide is worded so that it stays true whatever the sync shows. The outcome is recorded on #109. If the sync check fails, the product owner chooses the next form or keeps the documented note.
+- **How I verified it:**
+  - Render's current Blueprint JSON schema with `jsonschema` 4.26.0: 0 errors for the current `render.yaml` and for a copy with the new forms. A wrong `autoDeployTrigger` value is reported.
+  - `git log -S staticPublishPath -- render.yaml` shows `./frontend/dist` since #38.
+  - The saved issue body was checked through the REST API, and its labels are still empty.
+  - No change to project code. No hook call, sync, approval or settings change. No AI call.
+- **Left open:** only the product owner can run the sync that proves the forms work (section E).
