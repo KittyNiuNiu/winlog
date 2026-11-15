@@ -382,6 +382,39 @@ jobs:
         working-directory: frontend
         run: npm run test:e2e
 
+      - name: Alert rule on server errors is loaded
+        # Grafana (lgtm service) loads the alert rule on user impact from
+        # ops/grafana/alerting/user-impact.yaml on start (#112, docs/observability.md "Alerts").
+        # Its rules API must list winlog-server-errors, evaluated at least once (lastEvaluation is
+        # not the zero time 0001-01-01...), with health ok and state inactive. Inactive, because
+        # the end-to-end test produces no 5xx answer, and no request or no 5xx at all is Normal.
+        # The rule is evaluated every minute, so this retries for up to 2 minutes. It runs while
+        # lgtm is still up, before the next step stops it, and never makes the alert fire.
+        run: |
+          found=
+          for attempt in $(seq 1 24); do
+            found=$(curl -s --max-time 5 http://127.0.0.1:3000/api/prometheus/grafana/api/v1/rules \
+              | python3 -c '
+          import json, sys
+          for group in json.load(sys.stdin)["data"]["groups"]:
+              for rule in group["rules"]:
+                  if rule.get("uid") == "winlog-server-errors":
+                      print("folder=%s group=%s state=%s health=%s lastEvaluation=%s" % (
+                          group["file"], group["name"], rule["state"], rule["health"], rule["lastEvaluation"]))
+          ' || true)
+            case "$found" in
+              *0001-01-01*) ;;
+              *"state=inactive health=ok "*) break ;;
+            esac
+            sleep 5
+          done
+          echo "Grafana rules API, winlog-server-errors: ${found:-not listed}"
+          case "$found" in
+            *0001-01-01*) echo "::error::The alert rule winlog-server-errors was not evaluated within 2 minutes"; exit 1 ;;
+            *"state=inactive health=ok "*) ;;
+            *) echo "::error::The alert rule winlog-server-errors is not loaded, or not inactive with health ok"; exit 1 ;;
+          esac
+
       - name: Telemetry reached the local stack
         # The end-to-end test generated a summary with the mock (#74). Grafana (lgtm service,
         # no login, 127.0.0.1 only) must show its trace in Tempo, a log record with the same
