@@ -4325,3 +4325,17 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Left open:**
   - `render.yaml` is unchanged, so no Blueprint sync is needed; the change reaches production only with the production approval (#39).
   - The two SC2034 warnings in `ci.yml`'s Full system job (pre-existing, outside this task).
+
+## 2026-11-15: Orchestrator: close #61 (Compose passes `.env` to the backend, httpx2 as a runtime dependency)
+
+- **Task:** task 54, run with `/orchestrate all`. No screens change and `render.yaml` does not change.
+- **What happened:**
+  - **PM grooming (6894700537):** `env_file: .env` plus six overrides, including `PORT: "8000"`; Docker Compose 2.23.1 as the minimum; `httpx2` in runtime dependencies. The PM moved two AI points to the new issue #111, which is not listed in `docs/tasks.md`.
+  - **Product owner approval (6894720974),** under the `AGENTS.md` rule on real AI calls: one CI step may restart the Compose backend with `AI_PROVIDER=openai-compatible`, a fake key, `AI_BASE_URL=http://127.0.0.1:9/v1` and `DEMO_EMAIL`, and request only `/health` and `/auth/demo`. Any change beyond that needs approval again.
+  - **Engineer (6895018383)** and **QA PASS (6895390241)**, on all 32 criteria. Closed as completed.
+  - F4 was checked without actionlint: the session denied QA the download, and the orchestrator did not run it on QA's behalf. The engineer's actionlint v1.7.12 run on the same commits found no new warning.
+- **Open points and where they went:**
+  - **The README's shell-variable sentence is imprecise for the three overrides:** a comment on #68.
+  - **Left in this log under the standing rule:**
+    - the CI-step guard test checks `curl` only;
+    - unit tests in `unshare -n` need the loopback interface up.
