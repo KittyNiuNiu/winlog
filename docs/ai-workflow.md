@@ -3839,3 +3839,37 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
     - a client still uploading when the 413 arrives may see a TCP reset;
     - 413 log lines have no `http.route`;
     - the tag chips measure 46px, as before.
+
+## 2026-11-15: PM: groom #58 (task 50, non-UTF-8 request bodies and entry tag order)
+
+- **Task:** groom #58, which had no status label, following `docs/pm.md`. It is task 50, in the group "protect the live app".
+- **What I read:**
+  - the issue and its three comments: the #3, #10 and #18 notes on the numeric field name, and the two #11 points;
+  - the linked #9 and #10 comments, and #95 as the pattern for a groomed follow-up;
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md`, `docs/product-spec.md`, `openapi.yaml`, `AGENTS.md`, `docs/tasks.md`, `docs/qa-engineer.md` and `docs/observability.md`;
+  - the backend's `errors.py`, `body_limit.py`, `main.py`, `auth.py`, `entries.py`, `tags.py`, `accounts.py`, `demo.py`, `export.py` and `summaries.py`, and the tests on unreadable bodies and tag order;
+  - the frontend's `EntryForm.tsx`, `NewEntryPage.tsx`, `EditEntryPage.tsx`, `EntryRow.tsx`, `useKnownTags.ts`, `tagNames.ts` and the e2e test, and the CI workflow's contract and `schema.d.ts` checks.
+- **What I did:**
+  - Rewrote the body of #58 using the template.
+  - Posted the PM comment with the decisions and the facts I checked (6891278752).
+  - Created #106 for the two open points from #11.
+  - Labels unchanged: the orchestrator sets the status.
+- **Decisions under the standing rule (2026-11-14), recorded in the issue:**
+  - **Tag order:** `POST` and `PUT /entries` return tags in the same database order as `GET` (alphabetical, ignoring case). I rejected keeping the mixed order, and I rejected storing the typed order, which needs a migration and changes screens.
+  - **Unreadable bodies:** a body that is not valid UTF-8, not valid JSON, or nested too deeply to parse gets 422 `validation_failed` with one field error, `body`, reason "Body must be valid JSON in UTF-8.". This includes the #3 and #18 point about the numeric field name.
+  - **Encodings:** what `json.loads` detects (UTF-8 with a byte order mark, UTF-16, UTF-32) stays readable. The contract promises only UTF-8, and a `charset` parameter changes nothing.
+  - **The two #11 points** (date error wordings; nullable optional parameters in the generated schema) moved to #106.
+  - **Contract:** descriptions only, in four places, so `frontend/src/api/schema.d.ts` is regenerated.
+  - **Screens:** no screen changes, so no design note.
+- **How I verified it:**
+  - **Current behaviour,** with throwaway scripts in my scratchpad: FastAPI's test client, the mock AI provider and a dependency override for the user, on `7e9179b`, without a database.
+    - Bodies that are not UTF-8 still get 400 `internal_error` on all eight operations with a body, and so does `[` repeated 100,000 times.
+    - JSON syntax errors name the character position (`"0"`, `"8"`, `"3"`).
+    - UTF-16, UTF-32 and UTF-8 with a byte order mark are read.
+    - Date wordings: impossible dates get pydantic's text on `GET /entries`, the entry `date` and the summary `period_start`.
+  - **Library code,** in the installed versions: FastAPI 0.162.0 `fastapi/routing.py` (any error while reading the body except `JSONDecodeError` becomes `HTTPException(400, "There was an error parsing the body")`), Starlette 1.10.0 `Request.json`, and Python 3.13 `json.loads` with `json.detect_encoding` (`surrogatepass`).
+  - **The saved issue:** I read the body back. It matches what I wrote and has the four template sections. GitHub turns a literal backslash-u-0000 in an issue body into `\^@`, so I reworded that one example.
+  - No change to project code, and no AI call.
+- **Left open:**
+  - RFC 8259 (§8.1 UTF-8, §11 no `charset` parameter) is cited from the standard itself: rfc-editor.org is not in this session's allowed network domains.
+  - #106 is not in `docs/tasks.md`. The orchestrator or the product owner decides where it goes.
