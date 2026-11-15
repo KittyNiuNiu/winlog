@@ -20,9 +20,10 @@ import {
   tooManyAttemptsMessage,
   unexpectedErrorMessage,
   validationMessages,
+  type FieldTexts,
 } from '../auth/requestErrors.ts'
 import { useWakingUpHint } from '../auth/useWakingUpHint.ts'
-import { PASSWORD_MISSING, emailProblem } from '../auth/validation.ts'
+import { EMAIL_REJECTED, LOGIN_PASSWORD_REJECTED, PASSWORD_MISSING, emailProblem } from '../auth/validation.ts'
 import { REGISTER_PATH, cameFromAccountDeletion, cameFromRegistration, wantedPage } from '../auth/wantedPage.ts'
 import { Button } from '../components/Button.tsx'
 import { focusUnlessMovedOn } from '../components/focus.ts'
@@ -31,6 +32,9 @@ import Message from '../components/Message.tsx'
 import '../auth/AuthForm.css'
 
 type Field = 'email' | 'password'
+
+/** What a field shows when a server validation error names it (#72). The server's text is never shown. */
+const SERVER_FIELD_TEXTS: FieldTexts = { email: EMAIL_REJECTED, password: LOGIN_PASSWORD_REJECTED }
 
 /** The message below "Try the demo" for a failed demo login. The server's text is never shown. */
 function demoErrorMessage(error: unknown): string {
@@ -65,7 +69,8 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [checked, setChecked] = useState<Record<Field, boolean>>({ email: false, password: false })
-  const [serverMessages, setServerMessages] = useState<Record<Field, string[]>>({ email: [], password: [] })
+  // At most one server message per field (#72).
+  const [serverMessages, setServerMessages] = useState<Record<Field, string | null>>({ email: null, password: null })
   const [formError, setFormError] = useState<string | null>(null)
   // "Account created" after a failed automatic login, "account deleted" after FR-D2.
   const [notice, setNotice] = useState<string | null>(() => noticeFor(location.state))
@@ -84,10 +89,13 @@ export default function LoginPage() {
 
   const emailError = emailProblem(email)
   const passwordError = password === '' ? PASSWORD_MISSING : null
-  const emailMessages = [...(checked.email && emailError !== null ? [emailError] : []), ...serverMessages.email]
+  const emailMessages = [
+    ...(checked.email && emailError !== null ? [emailError] : []),
+    ...(serverMessages.email !== null ? [serverMessages.email] : []),
+  ]
   const passwordMessages = [
     ...(checked.password && passwordError !== null ? [passwordError] : []),
-    ...serverMessages.password,
+    ...(serverMessages.password !== null ? [serverMessages.password] : []),
   ]
 
   function change(field: Field, value: string) {
@@ -96,7 +104,7 @@ export default function LoginPage() {
     } else {
       setPassword(value)
     }
-    setServerMessages((current) => ({ ...current, [field]: [] }))
+    setServerMessages((current) => ({ ...current, [field]: null }))
   }
 
   function check(field: Field) {
@@ -122,7 +130,7 @@ export default function LoginPage() {
     }
 
     setFormError(null)
-    setServerMessages({ email: [], password: [] })
+    setServerMessages({ email: null, password: null })
     setNotice(null)
     setDemoError(null)
     requestRunning.current = true
@@ -178,13 +186,13 @@ export default function LoginPage() {
   }
 
   function showValidationError(error: ValidationError) {
-    const { email: emailReasons, password: passwordReasons, form } = validationMessages(error)
-    setServerMessages({ email: emailReasons, password: passwordReasons })
+    const { email: emailMessage, password: passwordMessage, form } = validationMessages(error, SERVER_FIELD_TEXTS)
+    setServerMessages({ email: emailMessage, password: passwordMessage })
     setFormError(form)
     // The cursor goes to the first field with a message, as the form's own check does (#84).
-    if (emailReasons.length > 0) {
+    if (emailMessage !== null) {
       emailRef.current?.focus()
-    } else if (passwordReasons.length > 0) {
+    } else if (passwordMessage !== null) {
       passwordRef.current?.focus()
     }
   }

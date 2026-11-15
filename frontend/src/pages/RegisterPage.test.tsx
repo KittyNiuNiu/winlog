@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as api from '../api/index.ts'
 import { saveSession } from '../api/session.ts'
 import { renderRoute } from '../test/renderRoute.tsx'
+import { REASONS, REJECTED_ADDRESSES, expectNoServerText, validationError } from '../test/serverReasons.ts'
 import { removeTestSession } from '../test/session.ts'
 
 vi.mock('../api/index.ts', async (importOriginal) => {
@@ -19,6 +20,9 @@ const HINT = 'At least 10 characters, including an uppercase letter, a number an
 const NETWORK_MESSAGE = "Can't reach Winlog. Check your connection and try again."
 const GENERIC_MESSAGE = 'Something went wrong. Please try again.'
 const WAKING_UP = 'The server is waking up. This can take up to a minute.'
+// The texts for a server validation error (design note on #72).
+const EMAIL_TEXT = 'Enter a valid email address, such as name@example.com.'
+const PASSWORD_TEXT = "This password can't be used. Choose a different one."
 
 const user = { id: '0b6f3c1e-1d7a-4c5e-9f0a-2b3c4d5e6f70', email: EMAIL, created_at: '2026-11-10T10:00:00Z' }
 
@@ -247,10 +251,11 @@ describe('registration errors from the server (FR-A1)', () => {
   })
 
   it('test_fr_a1_server_validation_errors_show_under_the_field_they_name', async () => {
+    // #72 replaces #26's "shown as the backend sends them": each field shows the app's own text.
     register.mockRejectedValue(
-      new api.ValidationError('The request has invalid fields.', 422, [
-        { field: 'email', reason: 'value is not a valid email address: The part after the @-sign is not valid.' },
-        { field: 'password', reason: 'Password contains an invalid character (an unpaired surrogate).' },
+      validationError([
+        { field: 'email', reason: REASONS.emailNoPeriod },
+        { field: 'password', reason: REASONS.registerPasswordSurrogate },
       ]),
     )
     renderRoute('/register')
@@ -258,23 +263,23 @@ describe('registration errors from the server (FR-A1)', () => {
 
     await submit()
 
-    expect(messagesOf(emailInput())).toEqual([
-      'value is not a valid email address: The part after the @-sign is not valid.',
-    ])
-    expect(messagesOf(passwordInput())).toEqual(['Password contains an invalid character (an unpaired surrogate).'])
+    expect(messagesOf(emailInput())).toEqual([EMAIL_TEXT])
+    expect(messagesOf(passwordInput())).toEqual([PASSWORD_TEXT])
     expect(formAlert().textContent).toBe('')
+    expectNoServerText()
   })
 
   it('test_fr_a1_server_validation_error_for_another_field_shows_above_the_form', async () => {
-    register.mockRejectedValue(
-      new api.ValidationError('The request has invalid fields.', 422, [{ field: 'request', reason: 'Invalid JSON.' }]),
-    )
+    // #72: the generic alert, never the server's reason.
+    register.mockRejectedValue(validationError([{ field: 'request', reason: 'Invalid JSON.' }]))
     renderRoute('/register')
     fillIn(EMAIL, PASSWORD)
 
     await submit()
 
-    expect(formAlert().textContent).toBe('Invalid JSON.')
+    expect(formAlert().textContent).toBe(GENERIC_MESSAGE)
+    expect(screen.queryByText(/Invalid JSON/)).toBeNull()
+    expectNoServerText()
   })
 
   it('test_fr_a1_network_error_shows_its_message_and_keeps_the_input', async () => {
@@ -301,6 +306,233 @@ describe('registration errors from the server (FR-A1)', () => {
     expect(formAlert().textContent).toBe(GENERIC_MESSAGE)
     expect(emailInput().value).toBe(EMAIL)
     expect(passwordInput().value).toBe(PASSWORD)
+  })
+})
+
+// A server validation error shows the app's own text, never the server's (#72): one fixed
+// text under each field the answer names, the generic alert above the form for any other
+// field or none, and the cursor in the first field with a message (#84).
+describe('server validation errors on registration (FR-A1, #72)', () => {
+  // Passes the form's rule: the unpaired surrogate counts as a special character there.
+  const SURROGATE_PASSWORD = `${PASSWORD}\ud800`
+
+  function registerForm(): HTMLFormElement {
+    return document.querySelector('form') as HTMLFormElement
+  }
+
+  function messagesRegion(input: HTMLInputElement): HTMLElement {
+    return document.getElementById(`${input.id}-messages`) as HTMLElement
+  }
+
+  it('test_fr_a1_server_email_error_shows_the_apps_own_text', async () => {
+    register.mockRejectedValue(validationError([{ field: 'email', reason: REASONS.emailNoPeriod }]))
+    renderRoute('/register')
+    fillIn('alice@invalid', PASSWORD)
+    submitButton().focus()
+
+    await submit()
+
+    expect(messagesOf(emailInput())).toEqual([EMAIL_TEXT])
+    // As in #26: the error state, the live region and the link from the input to it.
+    expect(emailInput().getAttribute('aria-invalid')).toBe('true')
+    expect(emailInput().getAttribute('aria-describedby')).toBe('register-email-messages')
+    expect(messagesRegion(emailInput()).getAttribute('role')).toBe('alert')
+    expect(document.activeElement).toBe(emailInput())
+    expect(messagesOf(passwordInput())).toEqual([])
+    expect(passwordInput().getAttribute('aria-invalid')).toBe('false')
+    expect(formAlert().textContent).toBe('')
+    expect(login).not.toHaveBeenCalled()
+    expect(emailInput().value).toBe('alice@invalid')
+    expect(passwordInput().value).toBe(PASSWORD)
+    expectNoServerText()
+  })
+
+  it.each(REJECTED_ADDRESSES)(
+    'test_fr_a1_server_email_error_for_an_address_the_form_lets_through_shows_the_apps_own_text (%s)',
+    async (_name, address, reason) => {
+      register.mockRejectedValue(validationError([{ field: 'email', reason }]))
+      renderRoute('/register')
+      fillIn(address, PASSWORD)
+      submitButton().focus()
+
+      await submit()
+
+      // The form's own check let it through: the request was sent.
+      expect(register).toHaveBeenCalledWith({ email: address, password: PASSWORD })
+      expect(messagesOf(emailInput())).toEqual([EMAIL_TEXT])
+      expect(document.activeElement).toBe(emailInput())
+      expect(formAlert().textContent).toBe('')
+      expect(emailInput().value).toBe(address)
+      expectNoServerText()
+    },
+  )
+
+  it('test_fr_a1_server_password_error_shows_the_apps_own_text', async () => {
+    register.mockRejectedValue(validationError([{ field: 'password', reason: REASONS.registerPasswordSurrogate }]))
+    renderRoute('/register')
+    fillIn(EMAIL, SURROGATE_PASSWORD)
+    submitButton().focus()
+
+    await submit()
+
+    expect(register).toHaveBeenCalledWith({ email: EMAIL, password: SURROGATE_PASSWORD })
+    expect(messagesOf(passwordInput())).toEqual([PASSWORD_TEXT])
+    expect(passwordInput().getAttribute('aria-invalid')).toBe('true')
+    // The hint first, then the message, in visual order.
+    expect(passwordInput().getAttribute('aria-describedby')).toBe('register-password-hint register-password-messages')
+    expect(messagesRegion(passwordInput()).getAttribute('role')).toBe('alert')
+    expect(screen.getByText(HINT)).toBeTruthy()
+    expect(document.activeElement).toBe(passwordInput())
+    expect(messagesOf(emailInput())).toEqual([])
+    expect(formAlert().textContent).toBe('')
+    expect(passwordInput().value).toBe(SURROGATE_PASSWORD)
+    expectNoServerText()
+  })
+
+  it.each([
+    ['test_fr_a1_server_body_error_shows_the_generic_alert', [{ field: 'body', reason: REASONS.body }]],
+    ['test_fr_a1_server_validation_error_naming_no_field_shows_the_generic_alert', []],
+  ])('%s', async (_name, fields) => {
+    register.mockRejectedValue(validationError(fields))
+    renderRoute('/register')
+    fillIn(EMAIL, PASSWORD)
+    submitButton().focus()
+
+    await submit()
+
+    expect(formAlert().getAttribute('role')).toBe('alert')
+    expect(formAlert().textContent).toBe(GENERIC_MESSAGE)
+    // No field is marked, and focus stays on "Create account" (#84).
+    expect(messagesOf(emailInput())).toEqual([])
+    expect(messagesOf(passwordInput())).toEqual([])
+    expect(emailInput().getAttribute('aria-invalid')).toBe('false')
+    expect(passwordInput().getAttribute('aria-invalid')).toBe('false')
+    expect(document.activeElement).toBe(submitButton())
+    expect(emailInput().value).toBe(EMAIL)
+    expect(passwordInput().value).toBe(PASSWORD)
+    expectNoServerText()
+  })
+
+  it('test_fr_a1_server_error_naming_a_field_twice_shows_one_message', async () => {
+    register.mockRejectedValue(
+      validationError([
+        { field: 'email', reason: REASONS.emailNoPeriod },
+        { field: 'password', reason: REASONS.registerPasswordSurrogate },
+        { field: 'email', reason: REASONS.emailSpecialUse },
+        { field: 'password', reason: REASONS.registerPasswordSurrogate },
+      ]),
+    )
+    renderRoute('/register')
+    fillIn('alice@invalid', SURROGATE_PASSWORD)
+
+    await submit()
+
+    expect(messagesOf(emailInput())).toEqual([EMAIL_TEXT])
+    expect(messagesOf(passwordInput())).toEqual([PASSWORD_TEXT])
+    expect(screen.getAllByText(EMAIL_TEXT)).toHaveLength(1)
+    expect(screen.getAllByText(PASSWORD_TEXT)).toHaveLength(1)
+    expectNoServerText()
+  })
+
+  it('test_fr_a1_server_email_and_password_errors_show_both_and_move_to_email', async () => {
+    register.mockRejectedValue(
+      validationError([
+        { field: 'password', reason: REASONS.registerPasswordSurrogate },
+        { field: 'email', reason: REASONS.emailNoPeriod },
+      ]),
+    )
+    renderRoute('/register')
+    fillIn('alice@invalid', SURROGATE_PASSWORD)
+    // Enter in Password: the cursor leaves it for Email, and its blur check adds nothing.
+    passwordInput().focus()
+
+    await act(async () => {
+      fireEvent.submit(registerForm())
+    })
+
+    expect(document.activeElement).toBe(emailInput())
+    expect(messagesOf(emailInput())).toEqual([EMAIL_TEXT])
+    expect(messagesOf(passwordInput())).toEqual([PASSWORD_TEXT])
+    expect(emailInput().getAttribute('aria-invalid')).toBe('true')
+    expect(passwordInput().getAttribute('aria-invalid')).toBe('true')
+    expect(formAlert().textContent).toBe('')
+    expectNoServerText()
+  })
+
+  it('test_fr_a1_server_body_error_with_field_errors_shows_the_alert_and_the_field_messages', async () => {
+    register.mockRejectedValue(
+      validationError([
+        { field: 'email', reason: REASONS.emailSpace },
+        { field: 'body', reason: REASONS.body },
+      ]),
+    )
+    renderRoute('/register')
+    fillIn('alice @example.com', PASSWORD)
+    submitButton().focus()
+
+    await submit()
+
+    expect(formAlert().textContent).toBe(GENERIC_MESSAGE)
+    expect(messagesOf(emailInput())).toEqual([EMAIL_TEXT])
+    expect(messagesOf(passwordInput())).toEqual([])
+    expect(document.activeElement).toBe(emailInput())
+    expectNoServerText()
+  })
+
+  it('test_fr_a1_changing_a_field_removes_only_its_server_message', async () => {
+    register.mockRejectedValue(
+      validationError([
+        { field: 'email', reason: REASONS.emailNoPeriod },
+        { field: 'password', reason: REASONS.registerPasswordSurrogate },
+        { field: 'body', reason: REASONS.body },
+      ]),
+    )
+    renderRoute('/register')
+    fillIn('alice@invalid', SURROGATE_PASSWORD)
+    await submit()
+
+    type(passwordInput(), PASSWORD)
+
+    expect(messagesOf(passwordInput())).toEqual([])
+    expect(passwordInput().getAttribute('aria-invalid')).toBe('false')
+    expect(messagesOf(emailInput())).toEqual([EMAIL_TEXT])
+    expect(formAlert().textContent).toBe(GENERIC_MESSAGE)
+
+    type(emailInput(), EMAIL)
+
+    expect(messagesOf(emailInput())).toEqual([])
+    expect(emailInput().getAttribute('aria-invalid')).toBe('false')
+    expect(formAlert().textContent).toBe(GENERIC_MESSAGE)
+  })
+
+  it('test_fr_a1_server_messages_clear_on_the_next_submit_and_show_again', async () => {
+    const error = validationError([
+      { field: 'password', reason: REASONS.registerPasswordSurrogate },
+      { field: 'body', reason: REASONS.body },
+    ])
+    let fail: () => void = () => {}
+    register.mockRejectedValueOnce(error)
+    register.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          fail = () => reject(error)
+        }),
+    )
+    renderRoute('/register')
+    fillIn(EMAIL, SURROGATE_PASSWORD)
+    await submit()
+    expect(messagesOf(passwordInput())).toEqual([PASSWORD_TEXT])
+
+    await submit()
+
+    expect(messagesOf(passwordInput())).toEqual([])
+    expect(formAlert().textContent).toBe('')
+    await act(async () => {
+      fail()
+    })
+    expect(messagesOf(passwordInput())).toEqual([PASSWORD_TEXT])
+    expect(formAlert().textContent).toBe(GENERIC_MESSAGE)
+    expectNoServerText()
   })
 })
 

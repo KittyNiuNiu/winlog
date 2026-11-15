@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as api from '../api/index.ts'
 import { saveSession } from '../api/session.ts'
 import { renderRoute } from '../test/renderRoute.tsx'
+import { REASONS, REJECTED_ADDRESSES, expectNoServerText, validationError } from '../test/serverReasons.ts'
 import { removeTestSession } from '../test/session.ts'
 
 vi.mock('../api/index.ts', async (importOriginal) => {
@@ -17,6 +18,9 @@ const PASSWORD = 'Correct-Horse-7'
 const NETWORK_MESSAGE = "Can't reach Winlog. Check your connection and try again."
 const GENERIC_MESSAGE = 'Something went wrong. Please try again.'
 const WAKING_UP = 'The server is waking up. This can take up to a minute.'
+// The texts for a server validation error (design note on #72).
+const EMAIL_TEXT = 'Enter a valid email address, such as name@example.com.'
+const PASSWORD_TEXT = 'Check your password. It can have at most 128 characters.'
 
 // Like the real client: a successful login stores the session.
 async function loginStoringSession(): Promise<api.LoginResult> {
@@ -161,20 +165,16 @@ describe('login errors (FR-A2)', () => {
   })
 
   it('test_fr_a2_server_validation_errors_show_under_the_field_they_name', async () => {
-    login.mockRejectedValue(
-      new api.ValidationError('The request has invalid fields.', 422, [
-        { field: 'email', reason: 'value is not a valid email address: The part after the @-sign is not valid.' },
-      ]),
-    )
+    // #72 replaces #26's "shown as the backend sends them": the field shows the app's own text.
+    login.mockRejectedValue(validationError([{ field: 'email', reason: REASONS.emailNoPeriod }]))
     renderRoute('/login')
     fillIn('alice@invalid', PASSWORD)
 
     await submit()
 
-    expect(messagesOf(emailInput())).toEqual([
-      'value is not a valid email address: The part after the @-sign is not valid.',
-    ])
+    expect(messagesOf(emailInput())).toEqual([EMAIL_TEXT])
     expect(formAlert().textContent).toBe('')
+    expectNoServerText()
   })
 
   it('test_fr_a2_network_error_shows_its_message_and_keeps_the_input', async () => {
@@ -216,6 +216,246 @@ describe('login errors (FR-A2)', () => {
     await submit()
 
     expect(formAlert().textContent).toBe('')
+  })
+})
+
+// A server validation error shows the app's own text, never the server's (#72): one fixed
+// text under each field the answer names, the generic alert above the form for any other
+// field or none, and the cursor in the first field with a message (#84).
+describe('server validation errors on login (FR-A2, #72)', () => {
+  const LONG_PASSWORD = `Ab1!${'x'.repeat(125)}`
+
+  function loginForm(): HTMLFormElement {
+    return document.querySelector('form') as HTMLFormElement
+  }
+
+  function messagesRegion(input: HTMLInputElement): HTMLElement {
+    return document.getElementById(`${input.id}-messages`) as HTMLElement
+  }
+
+  it('test_fr_a2_server_email_error_shows_the_apps_own_text', async () => {
+    login.mockRejectedValue(validationError([{ field: 'email', reason: REASONS.emailNoPeriod }]))
+    renderRoute('/login')
+    fillIn('alice@invalid', PASSWORD)
+    submitButton().focus()
+
+    await submit()
+
+    expect(messagesOf(emailInput())).toEqual([EMAIL_TEXT])
+    // As in #26: the error state, the live region and the link from the input to it.
+    expect(emailInput().getAttribute('aria-invalid')).toBe('true')
+    expect(emailInput().getAttribute('aria-describedby')).toBe('login-email-messages')
+    expect(messagesRegion(emailInput()).getAttribute('role')).toBe('alert')
+    expect(document.activeElement).toBe(emailInput())
+    expect(messagesOf(passwordInput())).toEqual([])
+    expect(passwordInput().getAttribute('aria-invalid')).toBe('false')
+    expect(formAlert().textContent).toBe('')
+    expect(emailInput().value).toBe('alice@invalid')
+    expect(passwordInput().value).toBe(PASSWORD)
+    expectNoServerText()
+  })
+
+  it.each(REJECTED_ADDRESSES)(
+    'test_fr_a2_server_email_error_for_an_address_the_form_lets_through_shows_the_apps_own_text (%s)',
+    async (_name, address, reason) => {
+      login.mockRejectedValue(validationError([{ field: 'email', reason }]))
+      renderRoute('/login')
+      fillIn(address, PASSWORD)
+      submitButton().focus()
+
+      await submit()
+
+      // The form's own check let it through: the request was sent.
+      expect(login).toHaveBeenCalledWith({ email: address, password: PASSWORD })
+      expect(messagesOf(emailInput())).toEqual([EMAIL_TEXT])
+      expect(document.activeElement).toBe(emailInput())
+      expect(formAlert().textContent).toBe('')
+      expect(emailInput().value).toBe(address)
+      expectNoServerText()
+    },
+  )
+
+  it('test_fr_a2_server_password_error_shows_the_apps_own_text', async () => {
+    login.mockRejectedValue(validationError([{ field: 'password', reason: REASONS.loginPasswordTooLong }]))
+    renderRoute('/login')
+    fillIn(EMAIL, LONG_PASSWORD)
+    fireEvent.blur(passwordInput())
+    // Login checks no password rule and has no length limit in the browser (#26).
+    expect(messagesOf(passwordInput())).toEqual([])
+    expect(passwordInput().hasAttribute('maxlength')).toBe(false)
+    submitButton().focus()
+
+    await submit()
+
+    expect(login).toHaveBeenCalledWith({ email: EMAIL, password: LONG_PASSWORD })
+    expect(messagesOf(passwordInput())).toEqual([PASSWORD_TEXT])
+    expect(passwordInput().getAttribute('aria-invalid')).toBe('true')
+    expect(passwordInput().getAttribute('aria-describedby')).toBe('login-password-messages')
+    expect(messagesRegion(passwordInput()).getAttribute('role')).toBe('alert')
+    expect(document.activeElement).toBe(passwordInput())
+    expect(messagesOf(emailInput())).toEqual([])
+    expect(formAlert().textContent).toBe('')
+    expect(passwordInput().value).toBe(LONG_PASSWORD)
+    expectNoServerText()
+  })
+
+  it('test_fr_a2_server_password_unicode_error_shows_the_apps_own_text', async () => {
+    login.mockRejectedValue(validationError([{ field: 'password', reason: REASONS.loginPasswordUnicode }]))
+    renderRoute('/login')
+    fillIn(EMAIL, 'Correct-Horse-\ud800')
+
+    await submit()
+
+    expect(messagesOf(passwordInput())).toEqual([PASSWORD_TEXT])
+    expect(document.activeElement).toBe(passwordInput())
+    expect(formAlert().textContent).toBe('')
+    expectNoServerText()
+  })
+
+  it.each([
+    ['test_fr_a2_server_body_error_shows_the_generic_alert', [{ field: 'body', reason: REASONS.body }]],
+    ['test_fr_a2_server_validation_error_naming_no_field_shows_the_generic_alert', []],
+  ])('%s', async (_name, fields) => {
+    login.mockRejectedValue(validationError(fields))
+    renderRoute('/login')
+    fillIn(EMAIL, PASSWORD)
+    submitButton().focus()
+
+    await submit()
+
+    expect(formAlert().getAttribute('role')).toBe('alert')
+    expect(formAlert().textContent).toBe(GENERIC_MESSAGE)
+    // No field is marked, and focus stays on "Log in" (#84).
+    expect(messagesOf(emailInput())).toEqual([])
+    expect(messagesOf(passwordInput())).toEqual([])
+    expect(emailInput().getAttribute('aria-invalid')).toBe('false')
+    expect(passwordInput().getAttribute('aria-invalid')).toBe('false')
+    expect(document.activeElement).toBe(submitButton())
+    expect(emailInput().value).toBe(EMAIL)
+    expect(passwordInput().value).toBe(PASSWORD)
+    expectNoServerText()
+  })
+
+  it('test_fr_a2_server_error_naming_a_field_twice_shows_one_message', async () => {
+    login.mockRejectedValue(
+      validationError([
+        { field: 'email', reason: REASONS.emailNoPeriod },
+        { field: 'password', reason: REASONS.loginPasswordTooLong },
+        { field: 'email', reason: REASONS.emailSpace },
+        { field: 'password', reason: REASONS.loginPasswordUnicode },
+      ]),
+    )
+    renderRoute('/login')
+    fillIn('alice@invalid', LONG_PASSWORD)
+
+    await submit()
+
+    expect(messagesOf(emailInput())).toEqual([EMAIL_TEXT])
+    expect(messagesOf(passwordInput())).toEqual([PASSWORD_TEXT])
+    expect(screen.getAllByText(EMAIL_TEXT)).toHaveLength(1)
+    expect(screen.getAllByText(PASSWORD_TEXT)).toHaveLength(1)
+    expectNoServerText()
+  })
+
+  it('test_fr_a2_server_email_and_password_errors_show_both_and_move_to_email', async () => {
+    login.mockRejectedValue(
+      validationError([
+        { field: 'password', reason: REASONS.loginPasswordTooLong },
+        { field: 'email', reason: REASONS.emailNoPeriod },
+      ]),
+    )
+    renderRoute('/login')
+    fillIn('alice@invalid', LONG_PASSWORD)
+    // Enter in Password: the cursor leaves it for Email, and its blur check adds nothing.
+    passwordInput().focus()
+
+    await act(async () => {
+      fireEvent.submit(loginForm())
+    })
+
+    expect(document.activeElement).toBe(emailInput())
+    expect(messagesOf(emailInput())).toEqual([EMAIL_TEXT])
+    expect(messagesOf(passwordInput())).toEqual([PASSWORD_TEXT])
+    expect(emailInput().getAttribute('aria-invalid')).toBe('true')
+    expect(passwordInput().getAttribute('aria-invalid')).toBe('true')
+    expect(formAlert().textContent).toBe('')
+    expectNoServerText()
+  })
+
+  it('test_fr_a2_server_body_error_with_field_errors_shows_the_alert_and_the_field_messages', async () => {
+    login.mockRejectedValue(
+      validationError([
+        { field: 'body', reason: REASONS.body },
+        { field: 'password', reason: REASONS.loginPasswordTooLong },
+      ]),
+    )
+    renderRoute('/login')
+    fillIn(EMAIL, LONG_PASSWORD)
+    submitButton().focus()
+
+    await submit()
+
+    expect(formAlert().textContent).toBe(GENERIC_MESSAGE)
+    expect(messagesOf(passwordInput())).toEqual([PASSWORD_TEXT])
+    expect(messagesOf(emailInput())).toEqual([])
+    expect(document.activeElement).toBe(passwordInput())
+    expectNoServerText()
+  })
+
+  it('test_fr_a2_changing_a_field_removes_only_its_server_message', async () => {
+    login.mockRejectedValue(
+      validationError([
+        { field: 'email', reason: REASONS.emailNoPeriod },
+        { field: 'password', reason: REASONS.loginPasswordTooLong },
+        { field: 'body', reason: REASONS.body },
+      ]),
+    )
+    renderRoute('/login')
+    fillIn('alice@invalid', LONG_PASSWORD)
+    await submit()
+
+    type(emailInput(), 'alice@example.com')
+
+    expect(messagesOf(emailInput())).toEqual([])
+    expect(emailInput().getAttribute('aria-invalid')).toBe('false')
+    expect(messagesOf(passwordInput())).toEqual([PASSWORD_TEXT])
+    expect(formAlert().textContent).toBe(GENERIC_MESSAGE)
+
+    type(passwordInput(), PASSWORD)
+
+    expect(messagesOf(passwordInput())).toEqual([])
+    expect(passwordInput().getAttribute('aria-invalid')).toBe('false')
+    expect(formAlert().textContent).toBe(GENERIC_MESSAGE)
+  })
+
+  it('test_fr_a2_server_messages_clear_on_the_next_submit_and_show_again', async () => {
+    const error = validationError([
+      { field: 'email', reason: REASONS.emailNoPeriod },
+      { field: 'body', reason: REASONS.body },
+    ])
+    let fail: () => void = () => {}
+    login.mockRejectedValueOnce(error)
+    login.mockImplementationOnce(
+      () =>
+        new Promise((_resolve, reject) => {
+          fail = () => reject(error)
+        }),
+    )
+    renderRoute('/login')
+    fillIn('alice@invalid', PASSWORD)
+    await submit()
+    expect(messagesOf(emailInput())).toEqual([EMAIL_TEXT])
+
+    await submit()
+
+    expect(messagesOf(emailInput())).toEqual([])
+    expect(formAlert().textContent).toBe('')
+    await act(async () => {
+      fail()
+    })
+    expect(messagesOf(emailInput())).toEqual([EMAIL_TEXT])
+    expect(formAlert().textContent).toBe(GENERIC_MESSAGE)
+    expectNoServerText()
   })
 })
 
