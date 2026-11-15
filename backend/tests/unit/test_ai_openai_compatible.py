@@ -29,6 +29,13 @@ from app.ai.openai_compatible import SUGGEST_PROMPT, SUMMARISE_PROMPT
 from app.entries import Entry
 from app.main import create_app
 from app.settings import Settings, SettingsError, load_settings
+from tests.whole_number_settings import (
+    accepted_values,
+    assert_range_applies_in_code,
+    assert_stops_at_startup,
+    refused_values,
+    value_id,
+)
 
 BASE_URL = "https://ai.example.test/api/v1"
 API_KEY = "sk-or-v1-Kq9TestOnlyKeyThatMustNeverBeLogged"
@@ -129,6 +136,17 @@ def openai_settings(**changes) -> Settings:
     return Settings(_env_file=None, **(values | changes))
 
 
+# The required settings, for tests that build Settings in code.
+AI_SETTINGS_IN_CODE = {
+    "database_url": DATABASE_URL,
+    "cors_allowed_origins": ["http://localhost:5173"],
+    "ai_provider": "openai-compatible",
+    "ai_base_url": BASE_URL,
+    "ai_api_key": API_KEY,
+    "ai_model": MODEL,
+}
+
+
 @pytest.fixture
 def ai_env(no_env_file, monkeypatch):
     """A valid configuration for the OpenAI-compatible provider."""
@@ -172,6 +190,27 @@ def test_ai_openai_invalid_timeouts_are_rejected(ai_env, monkeypatch, name, valu
 
     with pytest.raises(SettingsError, match=f"{name} is invalid"):
         load_settings()
+
+
+@pytest.mark.parametrize("name", ["AI_SUGGESTION_TIMEOUT_SECONDS", "AI_SUMMARY_TIMEOUT_SECONDS"])
+@pytest.mark.parametrize(("value", "expected"), accepted_values(1, 600))
+def test_ai_openai_timeouts_take_a_whole_number_from_1_to_600(
+    ai_env, monkeypatch, name, value, expected
+):
+    monkeypatch.setenv(name, value)
+
+    assert getattr(load_settings(), name.lower()) == expected
+
+
+@pytest.mark.parametrize("name", ["AI_SUGGESTION_TIMEOUT_SECONDS", "AI_SUMMARY_TIMEOUT_SECONDS"])
+@pytest.mark.parametrize("value", refused_values(1, 600), ids=value_id)
+def test_ai_openai_timeouts_stop_the_backend_when_invalid(ai_env, monkeypatch, name, value):
+    assert_stops_at_startup(monkeypatch, name, value, 1, 600)
+
+
+@pytest.mark.parametrize("field", ["ai_suggestion_timeout_seconds", "ai_summary_timeout_seconds"])
+def test_ai_openai_timeout_range_applies_in_code(no_env_file, field):
+    assert_range_applies_in_code(field, 1, 600, **AI_SETTINGS_IN_CODE)
 
 
 def test_ai_openai_api_key_is_masked_as_a_secret(ai_env, caplog):
@@ -568,6 +607,24 @@ def test_ai_openai_invalid_max_tokens_setting_is_rejected(ai_env, monkeypatch, v
 
     with pytest.raises(SettingsError, match="AI_SUMMARY_MAX_TOKENS is invalid"):
         load_settings()
+
+
+@pytest.mark.parametrize(("value", "expected"), accepted_values(1, 100_000))
+def test_ai_openai_max_tokens_setting_takes_a_whole_number_from_1_to_100000(
+    ai_env, monkeypatch, value, expected
+):
+    monkeypatch.setenv("AI_SUMMARY_MAX_TOKENS", value)
+
+    assert load_settings().ai_summary_max_tokens == expected
+
+
+@pytest.mark.parametrize("value", refused_values(1, 100_000), ids=value_id)
+def test_ai_openai_max_tokens_setting_stops_the_backend_when_invalid(ai_env, monkeypatch, value):
+    assert_stops_at_startup(monkeypatch, "AI_SUMMARY_MAX_TOKENS", value, 1, 100_000)
+
+
+def test_ai_openai_max_tokens_setting_range_applies_in_code(no_env_file):
+    assert_range_applies_in_code("ai_summary_max_tokens", 1, 100_000, **AI_SETTINGS_IN_CODE)
 
 
 def test_ai_openai_default_max_tokens_fits_a_summary_of_one_token_per_character():

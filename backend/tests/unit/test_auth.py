@@ -15,6 +15,13 @@ from app.auth import AuthenticateFirstRoute, get_current_user, hash_token, new_t
 from app.main import create_app
 from app.models import User
 from app.settings import SettingsError, load_settings
+from tests.whole_number_settings import (
+    accepted_values,
+    assert_range_applies_in_code,
+    assert_stops_at_startup,
+    refused_values,
+    value_id,
+)
 
 OPENAPI_PATH = Path(__file__).resolve().parents[3] / "openapi.yaml"
 DATABASE_URL = "postgresql://winlog:unit-test-secret@localhost:5432/winlog"
@@ -68,6 +75,39 @@ def test_fr_a2_invalid_token_lifetime_is_rejected(no_env_file, monkeypatch, valu
 
     with pytest.raises(SettingsError, match="TOKEN_LIFETIME_DAYS is invalid"):
         load_settings()
+
+
+@pytest.mark.parametrize(("value", "expected"), accepted_values(1, 365))
+def test_fr_a2_token_lifetime_takes_a_whole_number_from_1_to_365(
+    no_env_file, monkeypatch, value, expected
+):
+    monkeypatch.setenv("DATABASE_URL", DATABASE_URL)
+    monkeypatch.setenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
+    monkeypatch.setenv("AI_PROVIDER", "mock")
+    monkeypatch.setenv("TOKEN_LIFETIME_DAYS", value)
+
+    assert load_settings().token_lifetime_days == expected
+
+
+@pytest.mark.parametrize("value", refused_values(1, 365), ids=value_id)
+def test_fr_a2_token_lifetime_refuses_lax_spellings(no_env_file, monkeypatch, value):
+    # Also every other value outside 1 to 365 or not a whole number (issue #108).
+    monkeypatch.setenv("DATABASE_URL", DATABASE_URL)
+    monkeypatch.setenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173")
+    monkeypatch.setenv("AI_PROVIDER", "mock")
+
+    assert_stops_at_startup(monkeypatch, "TOKEN_LIFETIME_DAYS", value, 1, 365)
+
+
+def test_fr_a2_token_lifetime_range_applies_in_code(no_env_file):
+    assert_range_applies_in_code(
+        "token_lifetime_days",
+        1,
+        365,
+        database_url=DATABASE_URL,
+        cors_allowed_origins=["http://localhost:5173"],
+        ai_provider="mock",
+    )
 
 
 def test_fr_a2_token_lifetime_is_documented_in_env_example():
