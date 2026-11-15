@@ -4002,3 +4002,45 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Engineer (6892255021): the `MAX_COUNT_LIMIT` constant and the digit-length check in the shared helper. That helper choice was a decision under the standing rule.
   - QA PASS (6892424066): 21 of 21 criteria, an old-and-new comparison over 10 settings, and every count taken to the bound over HTTP with no 500. Closed as completed.
 - **Open points:** none needs work. QA's notes (the branch also carries #58's commits; a global cap of 0 is covered by the integration tests) are information only.
+
+## 2026-11-15: PM: groom #99 (task 52, the production backend sends no HSTS header)
+
+- **Task:** groom #99, which had no status label, following `docs/pm.md`. It is task 52, in the group "protect the live app".
+- **What I read:**
+  - the issue, its one comment (the input from #39 about the dev hosts), and the QA comments on #38 and #39 it points to;
+  - #95, #88 and #89 as the pattern for a new setting and a groomed follow-up;
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md`, `docs/product-spec.md`, `openapi.yaml`, `AGENTS.md` and `docs/tasks.md`;
+  - the backend's `main.py`, `settings.py`, `body_limit.py` and `cors.py`, `tests/unit/conftest.py` and `tests/unit/test_deployment.py`;
+  - `.env.example`, `docker-compose.yml`, `render.yaml` and `ops/deployment.md`.
+- **What I did:**
+  - Rewrote the body of #99 using the template.
+  - Posted the PM comment with the decisions and the facts I checked (6892539245).
+  - Labels unchanged: the orchestrator sets the status.
+- **Decisions under the standing rule (2026-11-14), recorded in the issue:**
+  - **HSTS on the API host: yes.** The host is opened directly in browsers: `/docs` is an HTML page, and the guide links `/health`. OWASP ASVS 4.0 item 14.4.5 asks for the header on all responses. The cost is small. It is hardening, not a fix for an open hole: the token is not a cookie, and mixed content already blocks `http://` fetches.
+  - **The backend sets it:** Render offers custom headers only for static sites.
+  - **Value:** `max-age=31536000; includeSubDomains`, with no `preload`.
+  - **New setting `HSTS_MAX_AGE_SECONDS`:**
+    - Default 31536000, a whole number from 0 to 63072000 with the strict check. 0 sends no header.
+    - It goes into `.env.example` (0), Compose (`${HSTS_MAX_AGE_SECONDS:-0}`), `render.yaml` for both backends (31536000) and `ops/deployment.md`.
+    - Compose and local use 0, because the backend serves plain HTTP there (RFC 6797 §7.2 and §8.1).
+  - **No scheme check:** the backend decides only by the setting, not by `X-Forwarded-Proto` or the request's scheme.
+  - **Dev hosts:**
+    - They get the same header.
+    - The dev `http://` redirect rests on Render's docs and #38's production observation. The guide records that. No follow-up, because a cloud session cannot send plain HTTP.
+  - **No contract, spec or screen change.**
+  - **Tests:** names start with `test_hsts_`.
+  - **Blueprint sync:** a Manual Sync after the production deploy (the product owner's step). It is not needed for the header to appear, because the default is the same value.
+- **How I verified it:**
+  - **Live headers,** read-only `curl` `GET /health` on the four hosts:
+    - Both backends: no HSTS.
+    - Both static sites: `max-age=315360000; includeSubdomains; preload`, from Render.
+    - `https://winlog-api.onrender.com/docs`: 200 `text/html`.
+    - Plain `http://` to the dev backend does not leave the session (the host does not resolve).
+  - **Render docs,** fetched with `curl` today: static site headers, Blueprint spec (`headers` is static-only), web services (TLS ends at Render's load balancer; HTTP is redirected to HTTPS) and TLS ("automatically redirects all HTTP requests to HTTPS").
+  - **The pattern a new setting must follow:** `test_deployment.py` requires each `render.yaml` value to equal its setting's default, or to be entered by hand in the guide. So the default is 31536000, and Compose and `.env.example` set 0.
+  - **The saved issue:** I read the body back. It matches what I wrote and has the four template sections.
+  - No change to project code, and no AI call.
+- **Left open:**
+  - `rfc-editor.org` and `owasp.org` are not in this session's allowed network domains. RFC 6797 §7.2 and §8.1, ASVS 14.4.5 and OWASP's one-year example were confirmed only through web search results. The issue links the RFC sections for the engineer.
+  - No follow-up issues were created.
