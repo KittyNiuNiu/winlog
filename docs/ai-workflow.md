@@ -5116,3 +5116,26 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - The first sync listed only `frontend/dist` on both static sites and redeployed only them; the second reported everything up to date. QA PASS on section E (6902383005).
   - Closed as completed.
 - **Open point, left in this log under the standing rule** (no work needed): the `winlog-app-dev` comment in `render.yaml` refers back to `winlog-app`'s instead of repeating it.
+
+## 2026-11-15: PM: groom #112 (task 65, an alert on user impact in the local telemetry stack)
+
+- **What I read:**
+  - the issue and the orchestrator's input comment (from #103's grooming), #114 and #92;
+  - `docs/observability.md`, `docker-compose.yml`, `.github/workflows/ci.yml` (the Full system job), `render.yaml`, `backend/app/health.py`, `backend/app/ai/mock.py`, `.env.example`, `README.md` and `docs/product-spec.md` §9, §10 and §14;
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md` and `AGENTS.md`.
+- **What I did:**
+  - Rewrote the body of #112 using the template, with sections A (the rule as code), B (loaded by `lgtm`), C (behaviour, live with the mock), D (docs and spec), E (CI), F (checks), and how QA checks it, live or with a fallback.
+  - Posted the PM comment with the decisions and the facts I checked (6902469626), and an input comment on #92 for the part moved there (6902469824).
+  - Labels unchanged. No follow-up issue. No screen changes, no change to `render.yaml` or `openapi.yaml`. The task edits `docs/product-spec.md` §9, §10.2 and §14 and the header's "Last updated" date.
+- **Decisions under the standing rule (tasks 48 to 68), recorded in the issue:**
+  - One alert: the share of the backend's requests answered with 5xx over 5 minutes, above 5%, pending 1 minute, evaluated every minute, on the existing metric `http.server.request.duration`. AI failures (503 `ai_unavailable`) count in it; 4xx and 429 do not.
+  - No data is Normal. No contact point. The rule file is `ops/grafana/alerting/user-impact.yaml`, mounted into the `lgtm` service.
+  - It is made to fire by stopping the database and calling `GET /health`: no AI call, no code change.
+  - CI's Full system job checks that the rule is loaded, healthy and inactive before it stops `lgtm`; firing is checked live.
+  - The spec's §9 and §10.2 Observability rows each get one sentence, with a §14 entry and the header date in step (#103, #114).
+  - Carry-over to hosted telemetry is only a pointer in `docs/observability.md`; alerting on deployed telemetry is moved to #92.
+- **How I verified it:**
+  - Ran `grafana/otel-lgtm:0.39.0` (Grafana 13.3.0) with a probe rule mounted into `/otel-lgtm/grafana/conf/provisioning/alerting/` (scratch files, not committed): it loaded on start, showed in the provisioning API, and with a true condition showed `firing` in the rules and Alertmanager APIs without a login. The groomed ratio query on an empty stack gave `inactive` with health `ok`.
+  - Read the image's data source and Prometheus configuration: data source uid `prometheus`; `service.name` is promoted to the label `service_name`.
+  - The saved issue body was compared with the text sent, and its labels are still empty. No AI call.
+- **Left open:** nothing.
