@@ -3683,3 +3683,41 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - the psycopg guards do not cover `executemany` in pipeline mode (used by `POST /entries` with tags); the limit covers it today;
   - a statement cut off by the limit keeps running on the server, because no cancel is sent (in line with PM decision 7);
   - uvicorn's stderr traceback for a failed request is unchanged and documented in `docs/observability.md`.
+
+## 2026-11-15: PM: groom #88 (task 49, limit the number of filter values and the size of a request)
+
+- **Task:** groom #88, which had no status label, following `docs/pm.md`. It is task 49, in the group "protect the live app".
+- **What I read:**
+  - the issue and its one comment (QA notes 1 and 2 from #43), the #43 issue with its QA comment and the #11 open point, and #95 as the pattern for a new setting;
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md`, `docs/product-spec.md`, `openapi.yaml`, `AGENTS.md`, `docs/tasks.md` and `docs/observability.md`;
+  - the backend's `main.py`, `errors.py`, `settings.py`, `entries.py`, `summaries.py`, `tags.py` and `auth.py`, plus `tests/conftest.py` and `tests/unit/test_input_limits.py`;
+  - the frontend's review tag filter, `reviewFilter.ts`, `ReviewPage.tsx`, the API client's errors and operations, and `inputLimits.test.ts`.
+- **What I did:**
+  - Rewrote the body of #88 using the template.
+  - Posted the PM comment with the decisions and the facts I checked (6887330796).
+  - Labels unchanged: the orchestrator sets the status.
+- **Decisions under the standing rule (2026-11-14), recorded in the issue:**
+  - A filter holds at most 20 tag names and 4 categories, in both `GET /entries` and `POST /summaries`. Values are counted as sent, and the limits are fixed in `openapi.yaml` as `maxItems`.
+  - New setting `REQUEST_BODY_MAX_BYTES`, default 262144, allowed from 131072 to 10485760. A larger body gets the new 413 `request_too_large` in the shared format, on every path, before authentication and validation. It is listed in `.env.example`, Compose, `render.yaml` (both backends) and `ops/deployment.md`.
+  - Uvicorn's 16 KiB limit on the request line and headers stays, and the contract documents it.
+  - Tags over 40 characters saved before #43: no change, because no deployed database can hold one.
+  - `Summary.filter` gets its own response schema, `SavedSummaryFilter`, without the request limits.
+  - The review page stops at 20 tags and uses only the first 20 tags from a URL.
+  - No new frontend error class.
+  - The task changes one screen (the review page's tag filter), so it needs a design note and a design review.
+- **How I verified it:**
+  - **Library limits,** in the installed source and the projects' docs (fetched from GitHub; starlette.io could not be reached):
+    - Uvicorn 0.54.0 runs on h11 without httptools, with a 16384-byte limit on the request line and headers and a plain-text 400 above it. It has no body limit.
+    - FastAPI 0.162.0 does not pass Starlette's `max_body_size`.
+    - Starlette 1.10.0 documents `RequestBodyLimitMiddleware` (since 1.6.0), whose own responses are plain text and which replaces the app's response when `Content-Length` is over the limit.
+  - **Render:** a web search found no documented request size limit.
+  - **Sizes,** computed with Python's `json` and `urllib.parse`:
+    - the largest valid summary edit is 120,011 bytes;
+    - the largest entry update is 34,914 bytes;
+    - the largest valid list URL with 20 tags is 9,831 bytes.
+  - **When the limits reached `main`:** with git. PR #93 (2026-11-13) brought `maxLength: 40` into `main`, before the first deploys of #38 and #39.
+  - **The saved issue:** I read the body back. It matches what I wrote and has the four template sections.
+  - No code run, and no AI call.
+- **Left open:**
+  - The Blueprint's Manual Sync after the production deploy is the product owner's step. Until then the default applies, which is the same value.
+  - No follow-up issues were created. Non-UTF-8 bodies stay in #58.
