@@ -675,10 +675,11 @@ still succeeds. Migrations at startup have no such limit.
 
 **Request size** (#88): a request body over `REQUEST_BODY_MAX_BYTES` (256 KiB) gets the app's
 413 `request_too_large` error in the shared JSON format, on every path, before the request is
-checked or anything is saved. A request line and headers over 16 KiB together are refused by
-uvicorn itself, before the app runs, with a plain-text 400 ("Invalid HTTP request received.").
-Uvicorn checks this while they are still arriving, so a larger one that arrives in one piece
-reaches the app, which answers as usual. No valid request from the app comes near either limit.
+checked or anything is saved. The request line and headers have only uvicorn's soft limit of
+16 KiB: when more than 16 KiB of them arrive before they are complete, uvicorn answers a
+plain-text 400 ("Invalid HTTP request received.") before the app runs. When they arrive complete
+in one read, they are not checked against 16 KiB and the app gives its usual answer, for example
+422 for more than 20 `tag` values. No valid request from the app comes near either limit.
 
 
 ### Dev backend (`winlog-api-dev`)
