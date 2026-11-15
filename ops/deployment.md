@@ -327,23 +327,29 @@ Render applies `render.yaml` to the four services only when the Blueprint syncs.
   hand, such as the `sync: false` secrets. On 14 November 2026 it listed the two dev services,
   created by hand, as **associated**, not new. If the list shows a new service for a name that
   already exists, or a name with a suffix, do not apply it: stop and report it.
-- **The backends' auto-deploy setting shows "commit".** `render.yaml` leaves `autoDeployTrigger`
-  out for the two image services. Render's Blueprint reference says an omitted value is kept for
-  an existing service, but the sync of 14 November 2026 set both backends to "commit". This is
-  harmless. An image service watches no repository: Render's documentation says the field has
-  no effect on services that deploy a prebuilt image, and that they never redeploy when a new
-  image gets their tag. A deploy that names no image pulls the environment's tag, which the
-  pipeline moves only to a digest it has just deployed there. The static sites are Git-backed,
-  so `render.yaml` sets `autoDeployTrigger: "off"` for them, and a deploy hook called with
-  `ref`, as the pipeline does, also turns their auto-deploy off (Render's docs on deploying a
-  specific commit).
-- **Three changes come back in every sync.** Both Manual Syncs so far, on 14 and 15 November
-  2026, listed three changes that `render.yaml` does not make: "auto-deploy trigger → commit"
-  for `winlog-api` and `winlog-api-dev`, and "static publish path → `./frontend/dist`" for
-  `winlog-app-dev`. They are harmless. The trigger has no effect on image services, as the
-  point above explains, and `./frontend/dist` is the directory the site already publishes. A
-  sync review does not stop on these three. Every other change in the list is read as before.
-  Whether `render.yaml` can be written so that Render stops listing them is #109.
+- **All four services have `autoDeployTrigger: "off"`.** On the two image services it has no
+  effect: Render's documentation says the field has no effect on services that deploy a
+  prebuilt image, and that they never redeploy when a new image gets their tag. A deploy that
+  names no image pulls the environment's tag, which the pipeline moves only to a digest it has
+  just deployed there. `render.yaml` writes it there only because the syncs of 14 and
+  15 November 2026 did not keep an omitted value and set both backends to "commit" each time
+  (#109). The static sites are Git-backed, so `render.yaml` sets `autoDeployTrigger: "off"` for
+  them, and a deploy hook called with `ref`, as the pipeline does, also turns their auto-deploy
+  off (Render's docs on deploying a specific commit).
+- **Trigger and publish path lines in a sync list.** Before #109, every Manual Sync (14 and
+  15 November 2026) listed changes that `render.yaml` did not make: "auto-deploy trigger →
+  commit" for `winlog-api` and `winlog-api-dev`, and "static publish path → `./frontend/dist`"
+  for `winlog-app-dev`. #109 writes the trigger as `"off"` on the backends and the publish path
+  as `frontend/dist` on both static sites, the forms Render seemed to keep. The first sync after
+  that change may list them once: "auto-deploy trigger → off" for a backend, "static publish
+  path → `frontend/dist`" for a static site. They are expected and harmless: the trigger has no
+  effect on image services, as the point above explains, and `frontend/dist` is the directory
+  the sites already publish, relative to the repository root with or without `./`. A static
+  site the sync changes rebuilds the newest commit on `main`, so the rule above applies: sync
+  while that commit is the one production runs. If a later sync lists any of these trigger or
+  publish path lines again, it is still harmless for the same reasons: the review does not stop
+  on it, and it is reported so this guide is corrected. Every other change in the list is read
+  as before.
 
 ## The one-off migration of the live production (#39)
 

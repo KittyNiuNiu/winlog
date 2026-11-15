@@ -37,6 +37,10 @@ services:
     # a changed variable, a manual deploy) uses this tag. The package is public, so no creds.
     image:
       url: ghcr.io/kittyniuniu/winlog-backend:production
+    # Has no effect on an image service, which never redeploys when its tag moves. Written only
+    # because the Blueprint syncs did not keep an omitted value and listed "commit" every time
+    # (#109). Quoted: a bare off would be read as a boolean.
+    autoDeployTrigger: "off"
     # Free instance: sleeps after 15 minutes without requests; the first request after that
     # waits for a cold start (§12). No paid plan without the product owner's approval.
     plan: free
@@ -132,6 +136,9 @@ services:
     # The :dev tag points to the image the pipeline last deployed to dev.
     image:
       url: ghcr.io/kittyniuniu/winlog-backend:dev
+    # Has no effect on an image service, as on winlog-api; written only because the syncs did not
+    # keep an omitted value and listed "commit" every time (#109).
+    autoDeployTrigger: "off"
     # Free instance: sleeps after 15 minutes without requests; the first request after that
     # waits for a cold start (§12). No paid plan without the product owner's approval.
     plan: free
@@ -227,7 +234,9 @@ services:
       echo "Node $(node --version)" &&
       npm ci --no-audit --no-fund &&
       npm run build
-    staticPublishPath: ./frontend/dist
+    # Relative to the repository root. Written without ./, the form Render kept for
+    # winlog-app-dev (#109).
+    staticPublishPath: frontend/dist
     routes:
       # Client-side routes: every path that is not a built file shows the app, so reloading
       # /review, /summaries/<id> or /entries/new works. Built files (/assets/...) are served
@@ -260,7 +269,8 @@ services:
       echo "Node $(node --version)" &&
       npm ci --no-audit --no-fund &&
       npm run build
-    staticPublishPath: ./frontend/dist
+    # Relative to the repository root, without ./, the same as winlog-app's (#109).
+    staticPublishPath: frontend/dist
     routes:
       - type: rewrite
         source: /*
