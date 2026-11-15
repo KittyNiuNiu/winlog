@@ -34,6 +34,10 @@ info:
       as create, and the entry's tags become exactly the list sent.
     - Text that is empty or only whitespace counts as missing. This applies to
       entry text, suggestion text and summary text.
+    - Every response that contains an entry lists its tags alphabetically,
+      ignoring case, not in the order they were sent. That covers create, get,
+      update, list and the JSON export, and it is the same order as
+      `GET /tags`.
 
     ## Filtering entries
 
@@ -131,6 +135,15 @@ info:
     returns 405 with `code: method_not_allowed`. A request body over the
     server's size limit returns 413 with `code: request_too_large`, on every
     path and method (see Size limits).
+
+    Request bodies are JSON (`application/json`) encoded in UTF-8. A body the
+    API cannot read as JSON (not valid UTF-8, not valid JSON, or nested too
+    deeply to parse) returns 422 with `code: validation_failed` and exactly
+    one field error, whose `field` is `body` and whose `reason` is
+    "Body must be valid JSON in UTF-8.". A `charset` parameter in
+    `Content-Type` changes nothing. The checks run in this order: 413 for a
+    body over the size limit, then 401 on operations that need a token, then
+    409 for the demo account on `deleteAccount`, then this 422.
 
 servers:
   - url: http://localhost:8000
@@ -1008,7 +1021,7 @@ components:
           $ref: '#/components/schemas/Category'
         tags:
           type: array
-          description: Tag names, with their stored spelling.
+          description: Tag names, with their stored spelling, sorted alphabetically, ignoring case, in every response.
           items:
             type: string
         result_impact:
@@ -1226,7 +1239,7 @@ components:
       properties:
         field:
           type: string
-          description: The failing field, for example `text` or `period_end`.
+          description: The failing field, for example `text` or `period_end`. `body` means the request body as a whole, for example when it is missing or cannot be read as JSON.
         reason:
           type: string
           description: Why it failed.

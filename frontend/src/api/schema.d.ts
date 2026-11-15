@@ -505,7 +505,7 @@ export interface components {
             date: string;
             text: string;
             category: components["schemas"]["Category"];
-            /** @description Tag names, with their stored spelling. */
+            /** @description Tag names, with their stored spelling, sorted alphabetically, ignoring case, in every response. */
             tags: string[];
             result_impact: string | null;
             /** Format: date-time */
@@ -614,7 +614,7 @@ export interface components {
             limit?: "user_suggestions" | "user_summaries" | "global";
         };
         FieldError: {
-            /** @description The failing field, for example `text` or `period_end`. */
+            /** @description The failing field, for example `text` or `period_end`. `body` means the request body as a whole, for example when it is missing or cannot be read as JSON. */
             field: string;
             /** @description Why it failed. */
             reason: string;
