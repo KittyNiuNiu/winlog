@@ -1,9 +1,11 @@
 // AI suggestions on the entry form (FR-S1 to FR-S3, #28): which values the AI put in the
 // form, how an answer is applied, how suggestions are discarded, and the notice for a
-// failed request. Suggestions fill only what is still empty and never override the user.
+// failed request or for an answer that brings nothing new (#86). Suggestions fill only what
+// is still empty and never override the user.
 import { AiUnavailableError, LimitReachedError, type Category, type Suggestion } from '../api/index.ts'
 import { unexpectedErrorMessage } from '../auth/requestErrors.ts'
 import { GLOBAL_LIMIT_MESSAGE } from '../components/aiTexts.ts'
+import { TAGS_PER_ENTRY_MAX } from '../components/inputLimits.ts'
 import { addTagNamesWithin, sameName } from './tagNames.ts'
 
 export const SUGGEST_LABEL = 'Suggest category and tags'
@@ -22,6 +24,11 @@ export const USER_SUGGESTION_LIMIT_MESSAGE =
   "You've used today's suggestions. They're available again after midnight UTC."
 // Shared with the summary panel; exported here too, as before (#28).
 export { GLOBAL_LIMIT_MESSAGE }
+
+/** The notice for an answer that shows no suggestion the form did not show just before (#86). */
+export const NO_NEW_SUGGESTIONS_MESSAGE = 'No new suggestions for this text.'
+/** The notice for an answer with a new tag that did not fit, because the entry has 10 tags (#86). */
+export const SUGGESTED_TAGS_LEFT_OUT_MESSAGE = `Up to ${TAGS_PER_ENTRY_MAX} tags per entry, so not every suggested tag was added.`
 
 /** The notice for a failed suggestion request. It never shows the server's message. */
 export function suggestionNoticeOf(error: unknown): string {
@@ -86,12 +93,13 @@ export function discardSuggestions<V extends Suggestible>({ values, marks }: Sug
 /**
  * Applies an answer to the form as it is now: the earlier suggestions are discarded first,
  * then an empty category is filled and marked, a different chosen category gets the hint,
- * and new tags are added at the end and marked. `addedTags` says whether a tag was added.
+ * and new tags are added at the end and marked. `addedTags` says whether a tag was added,
+ * and `tagsLeftOut` whether a new tag was not added because the entry has 10 tags (#43).
  */
 export function applySuggestion<V extends Suggestible>(
   form: Suggested<V>,
   suggestion: Suggestion,
-): Suggested<V> & { addedTags: boolean } {
+): Suggested<V> & { addedTags: boolean; tagsLeftOut: boolean } {
   const { values } = discardSuggestions(form)
   const marks: Marks = { category: null, hint: null, tags: [] }
   let category = values.category
@@ -102,9 +110,51 @@ export function applySuggestion<V extends Suggestible>(
     marks.hint = suggestion.category
   }
   // Only until the entry has 10 tags (#43); the rest are not added.
-  const { tags } = addTagNamesWithin(values.tags, suggestion.tags)
+  const { tags, problems } = addTagNamesWithin(values.tags, suggestion.tags)
   marks.tags = tags.slice(values.tags.length)
-  return { values: { ...values, category, tags }, marks, addedTags: marks.tags.length > 0 }
+  return {
+    values: { ...values, category, tags },
+    marks,
+    addedTags: marks.tags.length > 0,
+    tagsLeftOut: problems.tooMany,
+  }
+}
+
+/**
+ * The suggestions the form shows: the category chip marked "Suggested", the hint
+ * "Suggested: <category>" and the tag chips marked "Suggested", as EntryForm and TagField
+ * show them.
+ */
+function shownSuggestions({ values, marks }: Suggested<Suggestible>): Marks {
+  return {
+    category: marks.category !== null && values.category === marks.category ? marks.category : null,
+    hint: marks.hint !== null && marks.hint !== values.category ? marks.hint : null,
+    tags: values.tags.filter((tag) => marks.tags.includes(tag)),
+  }
+}
+
+/** Whether `after` shows a suggestion that `before` did not. Tag names ignore case (FR-E3). */
+function showsSomethingNew(before: Marks, after: Marks): boolean {
+  return (
+    (after.category !== null && after.category !== before.category) ||
+    (after.hint !== null && after.hint !== before.hint) ||
+    after.tags.some((tag) => !before.tags.some((shown) => sameName(shown, tag)))
+  )
+}
+
+/**
+ * The notice an answer gives when it is applied to the form as it is now (#86), or null:
+ * - a new tag left out because the entry has 10 tags: the tag-limit text, which wins;
+ * - otherwise, when the form shows no suggestion it did not show just before (asking again
+ *   with the same answer included): "No new suggestions for this text.";
+ * - otherwise (an empty category filled, a new hint or a new tag): no notice, as in #28.
+ */
+export function answerNoticeOf<V extends Suggestible>(form: Suggested<V>, suggestion: Suggestion): string | null {
+  const applied = applySuggestion(form, suggestion)
+  if (applied.tagsLeftOut) {
+    return SUGGESTED_TAGS_LEFT_OUT_MESSAGE
+  }
+  return showsSomethingNew(shownSuggestions(form), shownSuggestions(applied)) ? null : NO_NEW_SUGGESTIONS_MESSAGE
 }
 
 /**
