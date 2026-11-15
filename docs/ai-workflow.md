@@ -4382,3 +4382,32 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Render's CDN clearing is consistent with the runs but not proven;
   - the existing SC2034 warnings in `ci.yml`;
   - a missing `commit` and `null` give the same log line.
+
+## 2026-11-15: PM: groom #64 (task 55, the Markdown export's file name example in openapi.yaml)
+
+- **Task:** groom #64, which had no status label, following `docs/pm.md`. It is task 55, a small contract-documentation fix.
+- **What I read:**
+  - the issue (no comments yet) and the four comments it cites: QA on #2 (note 2), the orchestrator, the engineer and QA on #19;
+  - #61 as the pattern for a groomed follow-up;
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md`, `docs/product-spec.md` (FR-D1), `docs/tasks.md`, `AGENTS.md` and `openapi.yaml` (both export operations, `components.headers`);
+  - `backend/app/export.py`, `backend/tests/unit/test_export.py` and `backend/tests/integration/test_export.py`;
+  - `frontend/src/api/schema.d.ts`, `operations.ts`, `contentDisposition.ts`, `client.test.ts`, and the CI contract and generated-types steps.
+- **What I did:**
+  - Rewrote the body of #64 using the template, with sections A (contract), B (generated types), C (a new test), D (no behaviour change) and E (checks).
+  - Posted the PM comment with the decisions and the facts I checked (6896248267).
+  - Labels unchanged: the orchestrator sets the status. No follow-up issue.
+- **Decisions under the standing rule (2026-11-14, extended 2026-11-15), recorded in the issue:**
+  - **Own header entry per export:** `ContentDispositionJson` and `ContentDispositionMarkdown` in `components.headers`, each with its own description and example. The shared `ContentDisposition` is removed. An `example` next to a `$ref` is ignored in OpenAPI 3.1, an `examples` map would show both names on both operations, and inline headers would break the file's habit of keeping headers in components.
+  - **Date:** both examples use 2026-11-01, like the Markdown body example and the backend tests.
+  - **Test:** one new backend unit test, `test_fr_d1_export_file_name_examples_match_the_backend`, compares each operation's example with the backend's `file_name`. It fails on today's contract.
+  - **Unchanged:** the backend's own OpenAPI (`_CONTENT_DISPOSITION`, no example, correct description), `info.description` and `info.version`.
+  - **No screen change** (only generated types in `frontend/`), no `render.yaml` change and no Blueprint sync, no spec change.
+- **How I verified it:**
+  - **OpenAPI 3.1.0,** read from `versions/3.1.0.md` in the OAI/OpenAPI-Specification repository (spec.openapis.org is blocked here): a Reference Object ignores any field other than `$ref`, `summary` and `description`; a Header Object has `example`.
+  - **A scratch copy of the change,** not committed:
+    - Redocly CLI 2.78.0 reports the same 3 warnings and 0 errors before and after. An unused header entry adds no warning, so the issue states the removal itself.
+    - openapi-typescript 7.13.0 regenerates today's `schema.d.ts` exactly. With the change, the diff touches only the header entries and the two export operations' header types.
+  - `grep` finds no frontend code outside `schema.d.ts` that uses `components["headers"]`.
+  - The saved issue body is identical to what I wrote, and the issue still has no labels.
+  - No change to project code, and no AI call.
+- **Left open:** nothing.
