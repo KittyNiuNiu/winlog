@@ -4626,3 +4626,36 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - **The issue on GitHub:** the saved body is identical to what I wrote, and the issue still has no labels.
   - No change to project code, and no AI call.
 - **Left open:** nothing.
+
+## 2026-11-15: Engineer: implement #86 (task 58, feedback when a suggestion adds nothing or is dropped)
+
+- **Task:** implement #86 against its acceptance criteria (sections A to F), the PM's decisions (6898053939) and the design note (6898148071). It changes screens: two new texts in the entry form's suggestion notice, and a suggestion that now arrives after a save the form's own check stopped.
+- **What I did:**
+  - `frontend/src/entries/suggestions.ts`:
+    - the two texts as constants next to the failure notices, word for word from the design note: `NO_NEW_SUGGESTIONS_MESSAGE` and `SUGGESTED_TAGS_LEFT_OUT_MESSAGE` (the 10 comes from `TAGS_PER_ENTRY_MAX`);
+    - `applySuggestion` also returns `tagsLeftOut`, from `addTagNamesWithin`'s `problems.tooMany`;
+    - a pure rule, `answerNoticeOf(form, suggestion)`: the tag-limit text when a new tag is left out at 10; otherwise "No new suggestions for this text." when the form after the answer shows no suggestion (marked chip, hint or marked tag, tag names ignoring case) that it did not show just before; otherwise none.
+  - `frontend/src/entries/EntryForm.tsx`:
+    - `handleSuggest` sets the notice from that rule when it applies an answer. The rule reads the form as last rendered (a ref set in a layout effect), outside the `setForm` updater, which still applies the answer to the latest state as before.
+    - `handleSubmit` empties the notice at the start, as before, but calls `dropSuggestionRequest()` only after the form's own check has passed, just before sending. A save the check stops keeps the request: the suggest button stays busy, and the answer (or failure) is applied to the form as it is then.
+  - No change to `EntryForm.css`, `Message.tsx`, `TagField.tsx`, the backend, `openapi.yaml`, the spec, `DESIGN.md` or `render.yaml`. No new dependency.
+  - Tests:
+    - `suggestionRules.test.ts`: 10 new rule tests, 14 cases (the texts, nothing new, something new, tags left out at 10, the tag-limit text winning, 10 tags already on the entry, asking again with the same answer, asking again with an answer that adds nothing, 8 own and 2 earlier suggested tags, the form as it is when the answer arrives).
+    - `suggestions.test.tsx`: new component tests for every case in sections A to D, named after the requirement IDs (for example `test_fr_s2_an_answer_with_nothing_new_shows_a_notice`, `test_fr_s2_tags_left_out_at_10_show_a_notice`, `test_fr_s1_a_save_stopped_by_the_check_keeps_the_suggestion_coming`, `test_fr_s1_a_sent_save_that_fails_drops_the_suggestion_without_a_notice`).
+    - `viewport/screens.spec.ts`: `new-entry-no-new-suggestions` (the mock's default answer `{ category: 'Achievement', tags: [] }` after choosing Achievement, as the designer asked) and `new-entry-suggestions-tag-limit` (10 tags, then `SUGGESTION`), each checking the notice, its wrapping, nothing under the tag input and the one filled plum button.
+  - **Changed existing test:** only `test_fr_s2_a_suggestion_adds_tags_only_until_there_are_10` in `entryLimits.test.tsx`. It now also checks the tag-limit notice; its check that the tag field has no message stays. No other existing test changed.
+- **Decisions (standing rule, engineer's recommended option):**
+  - **Where the notice is worked out:** from the form as last rendered, kept in a ref, so `setNotice` is never called inside the `setForm` updater (Constraints, design note "Watch out for" point 1). The answer itself is still applied inside the updater, so no user change is lost. Form changes come only from user events, which React renders before a network answer arrives, so both read the same form.
+  - **"Shown suggestion"** is what the form shows: a category chip marked "Suggested" (the marked category while it is the chosen one), the hint while it differs from the chosen category, and the tag chips marked "Suggested". A marked chip and a hint count as different suggestions.
+  - **"Left out at 10"** counts only the 10-tag limit, not a name over 40 characters, which the contract rules out for suggested tags.
+- **How I verified it:**
+  - The new component tests fail against the old `EntryForm.tsx` (23 failures; the others check behaviour that stays the same). With the drop just before sending removed, 10 tests fail, so the section D tests catch a request that is not dropped.
+  - `frontend/`: `npm run lint`, `npm run build` and `npm test` pass. `npm run test:viewport`: 103 passed, 9 skipped by design. I looked at the four new screenshots: at 360 "No new suggestions for this text." fits on one line and the tag-limit text wraps onto two lines inside the message, the second line under the first line's text, with the icon level with the first line; at 1280 both fit on one line. Info look, no `Sparkles`, nothing under the tag input, and Save entry is the only filled plum element.
+  - `./test-all.sh`: all three suites passed (backend unit 1519, integration 1198, frontend 1388). `uv run ruff check .` was not needed: no backend change.
+  - Live check against the real backend with `AI_PROVIDER=mock`, using the "without the app containers" route in `AGENTS.md` and a Playwright script at 360×640. Five `POST /suggestions` requests, all answered by the mock provider; no real AI call.
+    - Asking twice with the same text: the first ask marked the category and "Mock tag" with no notice; the second showed "No new suggestions for this text." with the same marks.
+    - 10 tags on the entry: "Mock tag" was left out, the tag-limit text showed, and nothing showed under the tag input (`aria-invalid="false"`).
+    - Save entry with no category while the request was delayed: "Choose a category, then save." showed, the button stayed "Suggesting…", the answer then filled the category and the message went, and nothing was sent until Save entry was tapped again.
+    - Save entry with a category while the request was delayed: the entry was saved, and the late answer reached nothing in the reset form, with no notice.
+    - Nothing scrolled sideways.
+- **Left open:** nothing.
