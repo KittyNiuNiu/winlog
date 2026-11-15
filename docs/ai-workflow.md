@@ -3669,3 +3669,17 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Left open:**
   - **Render sync:** the Blueprint's Manual Sync after the production deploy is the product owner's step. Until then the default, which is the same value, applies. Production gets the change only after the product owner approves the production step (#39).
   - **Uvicorn's stderr:** as before, uvicorn's own error log on stderr keeps the traceback of an unexpected error, with the statement but no values (`docs/observability.md`). The app's telemetry stays within the allowlist.
+
+## 2026-11-15: Orchestrator: close #95 (time limit for database calls)
+
+- **Task:** task 48, run with `/orchestrate all` (tasks 48 to 59). No screens change.
+- **What happened:**
+  - PM grooming (6886151429). Its decisions were taken under the standing rule of 2026-11-14: one limit for every database call, the new `DATABASE_QUERY_TIMEOUT_SECONDS` (default 10, from 1 to 600), the existing 500 error, `/health` and migrations unchanged.
+  - Engineer (6886707529): a time limit in psycopg's wait loop, through `TimeLimitedConnection` in `backend/app/db.py`, with no extra threads, plus the setting in `.env.example`, Compose, `render.yaml` and `ops/deployment.md`.
+  - QA PASS (6887178143). It simulated six psycopg and SQLAlchemy changes, and the guard tests caught each one. Closed as completed.
+- **Decisions under the standing rule:** the engineer's four decisions within the issue (`BEGIN` counts with the first call; Q + n × C on hosts with several addresses; the health test also checks that connections are freed; `PausableProxy` in its own module). The mechanism relies on two non-public parts of psycopg, guarded by unit tests.
+- **For the product owner after the production approval:** a Manual Sync of the Render Blueprint, so the new value reaches both backends. Until then the default (the same value) applies.
+- **Open points, all left in this log under the standing rule** (no work needed now, no open issue fits):
+  - the psycopg guards do not cover `executemany` in pipeline mode (used by `POST /entries` with tags); the limit covers it today;
+  - a statement cut off by the limit keeps running on the server, because no cancel is sent (in line with PM decision 7);
+  - uvicorn's stderr traceback for a failed request is unchanged and documented in `docs/observability.md`.
