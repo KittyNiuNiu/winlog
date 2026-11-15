@@ -3822,3 +3822,20 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
     - The other bullets passed again: 300,000-byte bodies got 413 with both framings, the 10,000-emoji edit got 200, and the largest filter got 200 (422 with a 21st tag).
   - Docker was stopped in this session, so I started `dockerd` and `docker compose up -d db`.
 - **Left open:** QA findings 3 to 5 are outside the criteria and unchanged. Finding 3: a client still uploading a body when the 413 arrives may see the connection reset. Finding 4: 413 log lines have no `http.route`. Finding 5: QA's own data in the local database.
+
+## 2026-11-15: Orchestrator: close #88 (filter value counts and request size)
+
+- **Task:** task 49, run with `/orchestrate all`. It changes screens (the review page's tag filter), so it had a design note and a design review.
+- **What happened:**
+  - PM grooming (6887330796), under the standing rule of 2026-11-14: at most 20 tags and 4 categories per filter (`maxItems`), the new `REQUEST_BODY_MAX_BYTES` (default 256 KiB), a JSON 413 `request_too_large`, and `SavedSummaryFilter` for saved summaries.
+  - Design note (6887394411), with six decisions under the standing rule: at 20 the field stays focusable but its list stays closed; a muted, polite line "Up to 20 tags in a filter. Remove one to add another." under the hint; and others.
+  - Engineer (6887851578): contract first, then the backend with its own body-limit middleware (JSON 413 before authentication), then the frontend.
+  - **QA FAIL 1 (6888086115):** a criterion assumed uvicorn's 16 KiB head limit is hard, but h11 checks it only while the head is incomplete. This was a stop point (a wrong criterion), so the product owner decided on 2026-11-15 to correct the criterion to the soft limit, with no limit of our own (PM decision 7 stands). The PM amended the issue (6890767874), the engineer fixed the contract wording and tests (6890988681), and QA passed on the re-check (6891109813).
+  - Design review PASS (6891160211). Closed as completed.
+- **For the product owner after the production approval:** one Manual Sync of the Render Blueprint, for #95's and #88's new settings.
+- **Open points and where they went:**
+  - **`DESIGN.md` → Tag filter does not describe the capped state:** a comment on #90 (6891165920).
+  - **Left in this log under the standing rule:**
+    - a client still uploading when the 413 arrives may see a TCP reset;
+    - 413 log lines have no `http.route`;
+    - the tag chips measure 46px, as before.
