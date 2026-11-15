@@ -21,7 +21,7 @@ from app.ai.limits import get_limited_ai
 from app.entries import Entry
 from app.export import ExportData, file_name, render_json, render_markdown
 from app.main import create_app
-from app.summaries import Summary, SummaryFilter
+from app.summaries import SavedSummaryFilter, Summary
 
 OPENAPI = yaml.safe_load(
     (Path(__file__).resolve().parents[3] / "openapi.yaml").read_text(encoding="utf-8")
@@ -59,7 +59,7 @@ def _summary(**changes) -> Summary:
     values = {
         "id": uuid.uuid4(),
         "text": "October was about testing.",
-        "filter": SummaryFilter.model_construct(**filter_values),
+        "filter": SavedSummaryFilter.model_construct(**filter_values),
         "created_at": CREATED,
         "updated_at": CREATED,
     }

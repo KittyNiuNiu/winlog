@@ -13,7 +13,8 @@ Generate (#17):
   YYYY-MM-DD), and optional categories and tag names. A start after the end, a missing or
   invalid date, an invalid category, or a tag name with a character the database cannot store
   or with more than 40 characters (#43) is the shared validation error, which counts against
-  no limit.
+  no limit. So are more than 4 categories or more than 20 tag names (#88), counted as sent:
+  a repeated category, and duplicate, differently cased or empty tag names, all count.
 - Entries are selected with #11's shared `filter_entries`, so a summary is based on exactly
   the entries the list endpoint returns for the same filter. Only the user's own entries and
   tags count, so another user's tag name matches nothing (FR-A3).
@@ -54,6 +55,9 @@ List, get, edit and delete (#18, FR-R5, FR-A3):
   (§7.4). Deleting answers 204; deleting the same summary again is `not_found`.
 - A summary saved before #43 can be longer than 10,000 characters. It is still listed and read
   as it is; only a new edit is checked.
+- A saved filter is returned as `SavedSummaryFilter`, which has none of the request limits
+  (#88): a summary saved before them can have filter tags over 40 characters or more than 20
+  of them. It is returned in full and never changes.
 
 Telemetry (issue #74): generating a summary is the instrumented key user journey. The request's
 SERVER span gets the child spans `summary.select_entries`, `ai.limits.reserve`, `ai.summarise`
@@ -89,6 +93,7 @@ from app.entries import (
     Category,
     EntryDate,
     EntryFilter,
+    FilterCategories,
     _require_text,
     _require_uuid,
     filter_entries,
@@ -97,7 +102,7 @@ from app.entries import (
 from app.errors import ApiError
 from app.settings import Settings
 from app.suggestions import ai_unavailable
-from app.tags import FilterTagName, lookup_tags, match_keys, normalise_tag_name
+from app.tags import FilterTagNames, lookup_tags, match_keys, normalise_tag_name
 from app.text_rules import at_most, reject_unstorable_characters
 
 router = APIRouter(tags=["Summaries"], route_class=AuthenticateFirstRoute)
@@ -109,6 +114,7 @@ class SummaryFilter(BaseModel):
     `categories` and `tags` may be missing or empty, which means no restriction. Tag names
     only have to be storable here: like the list filter (#11), a name the user has no tag
     for, including one that is empty after trimming, matches nothing and is not an error.
+    At most 4 categories and 20 tag names, counted as sent, as in the list filter (#88).
     """
 
     # Fields the contract does not define, such as a user id, are ignored.
@@ -116,8 +122,21 @@ class SummaryFilter(BaseModel):
 
     period_start: EntryDate
     period_end: EntryDate
+    categories: FilterCategories = []
+    tags: FilterTagNames = []
+
+
+class SavedSummaryFilter(BaseModel):
+    """A saved summary's filter as the API returns it (components.schemas.SavedSummaryFilter).
+
+    The same fields as `SummaryFilter`, without its request limits: a summary saved before
+    #43 can have longer tag names, and one saved before #88 more tag names (FR-R4).
+    """
+
+    period_start: dt.date
+    period_end: dt.date
     categories: list[Category] = []
-    tags: list[FilterTagName] = []
+    tags: list[str] = []
 
 
 class Summary(BaseModel):
@@ -125,7 +144,7 @@ class Summary(BaseModel):
 
     id: uuid.UUID
     text: str
-    filter: SummaryFilter
+    filter: SavedSummaryFilter
     created_at: dt.datetime
     updated_at: dt.datetime
 
@@ -244,8 +263,8 @@ def _to_api(summary: models.Summary) -> Summary:
         id=summary.id,
         text=summary.text,
         # Stored values were validated before they were saved. The request rules, such as
-        # dates given as YYYY-MM-DD text, do not apply to them.
-        filter=SummaryFilter.model_construct(
+        # dates given as YYYY-MM-DD text or the filter limits, do not apply to them.
+        filter=SavedSummaryFilter.model_construct(
             period_start=summary.period_start,
             period_end=summary.period_end,
             categories=list(summary.filter_categories),
