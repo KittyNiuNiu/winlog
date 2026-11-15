@@ -4432,3 +4432,9 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - CI on the pushed branch: see the issue comment.
   - No AI call.
 - **Left open:** nothing.
+
+## 2026-11-15: Orchestrator: close #64 (Markdown export file name example in openapi.yaml)
+
+- **Task:** task 55, run with `/orchestrate all`. No screens change.
+- **What happened:** PM grooming (6896248267): each export gets its own `Content-Disposition` header entry with its own example. Engineer (6896491857): the contract, the regenerated types, and one test tying each example to the backend's file name. QA PASS (6896647009), on 16 of 16 criteria. Closed as completed.
+- **Open points:** none.
