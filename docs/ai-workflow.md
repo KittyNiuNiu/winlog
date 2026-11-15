@@ -4578,3 +4578,17 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Live check against the real backend with `AI_PROVIDER=mock`, using the "without the app containers" route and a Playwright script at 360×640. It covered six cases: login with `alice@invalid`, `alice@example.local`, a 129-character password, and `alice @example.com` with a 129-character password; registration with `alice@invalid` and `a@b@c.com`. Each got a real 422, showed only the app's texts, put the cursor in the right field, did not scroll sideways (`scrollWidth` 360), and had no reason in the page HTML.
   - No backend, contract, spec or `DESIGN.md` change, no new dependency, and no AI call.
 - **Left open:** nothing.
+
+## 2026-11-15: Orchestrator: close #72 (the app's own text for server errors on login and registration)
+
+- **Task:** task 57, run with `/orchestrate all`. It changes screens (text only), so it had a design note and a design review.
+- **What happened:**
+  - PM grooming (6897313162): frontend only, one fixed text per field, no new browser checks.
+  - Design note (6897383848): the PM's four texts, placement, focus as in #84, no server text anywhere. It also found two faults in `validationMessages`.
+  - Engineer (6897737397): fixed both faults and added two new viewport screens.
+  - QA PASS (6897884418), with a live check against the real backend.
+  - Design review PASS (6897957949), with 156 runs in light and dark mode.
+  - Closed as completed.
+- **Open points and where they went:**
+  - **The viewport tests take light-mode screenshots only:** a comment on #90.
+  - **Left in this log under the standing rule:** the viewport server-text search looks for whole reasons only.
