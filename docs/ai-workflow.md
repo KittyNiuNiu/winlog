@@ -4044,3 +4044,58 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Left open:**
   - `rfc-editor.org` and `owasp.org` are not in this session's allowed network domains. RFC 6797 §7.2 and §8.1, ASVS 14.4.5 and OWASP's one-year example were confirmed only through web search results. The issue links the RFC sections for the engineer.
   - No follow-up issues were created.
+
+## 2026-11-15: Engineer: implement #99 (task 52, the HSTS header on the backend)
+
+- **Task:** implement #99 as groomed (PM comment 6892539245), following `docs/software-engineer.md`. No screens change, so there is no design note.
+- **What I did** (commits `c579814` and `b4d3eb4`):
+  - **Setting:** `HSTS_MAX_AGE_SECONDS` in `backend/app/settings.py`, default 31536000, checked with the strict `_whole_number` helper from 0 to `MAX_HSTS_MAX_AGE_SECONDS` (63072000), like `REQUEST_BODY_MAX_BYTES`. A wrong value stops the backend with "Invalid configuration: HSTS_MAX_AGE_SECONDS is invalid: … whole number from 0 to 63072000".
+  - **Middleware:** `backend/app/hsts.py`, a pure ASGI middleware. It adds `Strict-Transport-Security: max-age=<H>; includeSubDomains` to the `http.response.start` message, in a new header list, so the app's own message is not changed.
+    - With 0 it hands the request on untouched.
+    - A response that already has the header, in any letter case, keeps its own.
+    - It never reads the scheme or `X-Forwarded-Proto`.
+  - **Place in the stack** (`create_app`): outside the CORS middleware and inside `TelemetryMiddleware`. So it covers the routes and their errors, the 413 of `body_limit.py`, the shared 500 and the preflight answers the CORS middleware sends itself. `TelemetryMiddleware` stays the outermost, as its docstring requires.
+  - **Configuration:**
+    - `.env.example`: `HSTS_MAX_AGE_SECONDS=0` after `REQUEST_BODY_MAX_BYTES`.
+    - Docker Compose: `${HSTS_MAX_AGE_SECONDS:-0}` after `REQUEST_BODY_MAX_BYTES`.
+    - `render.yaml`: `"31536000"` with a one-line comment for both backends. The static sites are unchanged.
+    - `ops/deployment.md`: the table row, the dev sentence, the **HTTPS (#99)** paragraph and the live check after each deploy.
+  - **Tests:** every new test starts with `test_hsts_`.
+    - `tests/unit/test_hsts.py` (138 tests, no database):
+      - the setting: default, accepted values, the issue's invalid values and more, values given in code;
+      - every response the issue names that needs no database, at H = 1, 31536000 and 63072000 (exactly one header) and at H = 0 (none). I added a 429 with `Retry-After`;
+      - each of those compared with H = 0, with no Origin, the allowed origin and another origin: status, body and every other header are the same;
+      - logs and spans are the same with and without the header;
+      - the middleware on its own;
+      - `.env.example`, Compose, `render.yaml` and the guide.
+    - `tests/integration/test_hsts.py` (9 tests, real PostgreSQL):
+      - `GET /health` 200, `POST /entries` 201, `GET /entries` 200 and the Markdown download, each compared with H = 0;
+      - a real 503 from a database port that refuses connections;
+      - a real uvicorn server: the header goes out once on the wire, and uvicorn's own 400 for an over-long request head has none.
+    - Existing tests: `PLAIN_BACKEND_VALUES` in `test_deployment.py` and the `no_env_file` fixture, as the issue says. Also `test_settings_variables` in `test_settings.py`, see below.
+  - No change to `openapi.yaml`, `docs/product-spec.md`, `frontend/`, migrations, `start.sh`, Dockerfiles or workflows. No new dependency.
+- **Decisions I took (under the standing rule of 2026-11-14):**
+  - **The middleware's place:** between CORS and telemetry, as above. Outermost would also work, but it would break `TelemetryMiddleware`'s rule that it is added last.
+  - **The middleware is always added** and does nothing with 0. That keeps `create_app` simple and lets the middleware be tested on its own.
+  - **`test_settings_variables`:** I added `hsts_max_age_seconds` to its expected field list. The criterion lists only `test_deployment.py` and the fixture as changed tests, but the list holds every setting, so a new setting needs this line. The issue allows changes to `test_settings.py`. Nothing in the test is weakened.
+  - **`.env.example`:** one more sentence, for PM decision 5. An older `.env` without the line gets the default, so the header then goes out over plain HTTP, where browsers ignore it.
+  - **Dates in the guide:** "15 November 2026", in the guide's style.
+- **How I verified it:**
+  - **Lint and tests:** in `backend/`, `uv run ruff check .` and `uv run ruff format --check .` are clean.
+    - Unit tests: 1469 passed, also in a network namespace where PostgreSQL could not be reached.
+    - Integration tests: 1198 passed.
+    - `./test-all.sh`: all three suites passed (1469, 1198, 1257).
+  - **CI on the branch:** run 43702516126 for `b4d3eb4` passed all six jobs (Backend, Frontend, Tests, Contract, Backend image, Full system).
+  - **Without the change:** I ran the new tests against `backend/app` from `origin/main`.
+    - As they are, they stop at collection, because `app.hsts` does not exist.
+    - With stub names only (a middleware that does nothing, and the constant), 120 failed and 27 passed. The passing ones check what was already true: no header at H = 0, no new log fields, and the stub passing messages through. The files under test in the configuration tests were my new ones.
+  - **`docker compose config`:** `"0"` with the local `.env`, which does not set the variable. `"86400"` with a temporary copy of `.env` that sets it. No image was built.
+  - **`render.yaml`:** 0 errors against Render's Blueprint JSON schema, downloaded with curl today. A copy with one key misspelt gets 3 errors.
+  - **Live check, without building an image, `AI_PROVIDER=mock`:** `docker compose up -d db`, then `uv run alembic upgrade head`.
+    - With `HSTS_MAX_AGE_SECONDS=31536000 uv run uvicorn app.main:app --port 8000`, `curl -sS -D - -o /dev/null http://localhost:8000/health` showed `strict-transport-security: max-age=31536000; includeSubDomains`. `/docs` and a preflight from the allowed origin showed it too.
+    - With `HSTS_MAX_AGE_SECONDS=0`, the same `curl` showed no such header.
+    - With `63072001`, uvicorn exited with code 1 and the "Invalid configuration" message.
+  - **Live hosts,** read-only `curl` of `/health`: both backends still send no HSTS. Both static sites send `max-age=315360000; includeSubdomains; preload`.
+- **Left open:**
+  - Starlette's last-resort 500 has no header, and no CORS headers either. It answers an error raised in a middleware outside `UnexpectedErrorMiddleware`, and it is sent from outside every middleware the app adds. `app/hsts.py` says so. The shared 500 for an error in a route has the header. No criterion names this case.
+  - The header reaches dev with the automatic deploy after the merge, and production only after the product owner approves the production step. Then the Blueprint's Manual Sync is the product owner's step. The header does not need it, because the default is the same value.
