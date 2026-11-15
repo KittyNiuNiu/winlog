@@ -256,8 +256,27 @@ def test_request_body_limit_is_described_in_the_contract():
     assert "`REQUEST_BODY_MAX_BYTES` environment variable (default 262,144)" in description
     assert "413 `request_too_large` on every path and method" in description
     assert "before authentication and validation" in description
-    assert "16 KiB" in description and "plain-text 400" in description
+    # Uvicorn's soft 16 KiB limit on the request line and headers, as one statement.
+    assert "only uvicorn's soft limit of 16 KiB applies" in description
+    assert (
+        "plain-text 400 that is not the shared error format, but only when more than 16 KiB of "
+        "its request line and headers have arrived before they are complete" in description
+    )
+    assert "arrive complete in one read are not checked against 16 KiB" in description
+    assert "422 for more than 20 `tag` values" in description
+    assert "refuses a larger request" not in description
     assert "returns 413 with `code: request_too_large`" in description
+
+
+def test_request_body_limit_deploy_guide_matches_the_contract():
+    guide = " ".join((ROOT / "ops" / "deployment.md").read_text(encoding="utf-8").split())
+
+    assert "| `REQUEST_BODY_MAX_BYTES` | `262144` | `render.yaml` | no |" in guide
+    assert "413 `request_too_large` error in the shared JSON format" in guide
+    # The same soft 16 KiB limit as the contract.
+    assert "only uvicorn's soft limit of 16 KiB" in guide
+    assert "when more than 16 KiB of them arrive before they are complete" in guide
+    assert "complete in one read, they are not checked against 16 KiB" in guide
 
 
 # --- Through the app ---------------------------------------------------------------------

@@ -40,7 +40,9 @@ from app.models import (
     User,
 )
 from app.settings import Settings
+from app.telemetry import Telemetry
 from tests.integration.conftest import ALLOWED_ORIGIN
+from tests.telemetry_capture import CapturedTelemetry
 
 DEFAULT = 262_144
 TOO_LARGE = {"code": "request_too_large", "message": "The request body is too large."}
@@ -113,7 +115,7 @@ def serve(test_database_url: str, migrated_db: Engine) -> Iterator[Callable[...,
     """Start the app with the given settings on a real server; stopped after the test."""
     servers: list[LiveServer] = []
 
-    def start(**settings: int) -> LiveServer:
+    def start(telemetry: Telemetry | None = None, **settings: int) -> LiveServer:
         app = create_app(
             Settings(
                 _env_file=None,
@@ -121,7 +123,8 @@ def serve(test_database_url: str, migrated_db: Engine) -> Iterator[Callable[...,
                 cors_allowed_origins=[ALLOWED_ORIGIN],
                 ai_provider="mock",
                 **settings,
-            )
+            ),
+            telemetry=telemetry,
         )
         server = LiveServer(app).__enter__()
         servers.append(server)
@@ -476,8 +479,29 @@ def test_request_body_limit_largest_valid_filter_url_fits_the_request_line_limit
     assert [item["field"] for item in json.loads(body)["fields"]] == ["tag"]
 
 
+# Uvicorn's soft 16 KiB limit on the request line and headers (amended criterion, 2026-11-15).
+# The first piece of a request sent in two pieces: more than 16 KiB, but not yet complete.
+FIRST_PIECE = 16_500
+
+
+def _head(path: str, token: str) -> bytes:
+    """A complete GET request: request line and headers, without a body."""
+    return (
+        f"GET {path} HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer {token}\r\n"
+        "Connection: close\r\n\r\n"
+    ).encode()
+
+
+def _about_17_kb(token: str) -> bytes:
+    """The largest valid filter and an unknown query parameter: about 17 KB in all."""
+    path = _largest_filter_query(20)
+    head = _head(f"{path}&unknown={'x' * (17_000 - len(path) - 150)}", token)
+    assert 16_384 < FIRST_PIECE < len(head) < 17_500
+    return head
+
+
 def _raw_request(server: LiveServer, head: bytes, split_at: int | None) -> bytes:
-    """Send a request head as raw bytes, in one piece or in two, and return the answer."""
+    """Send a request as raw bytes, in one `sendall` or in two pieces, and return the answer."""
     with socket.create_connection(("127.0.0.1", server.port), timeout=30) as connection:
         if split_at is None:
             connection.sendall(head)
@@ -491,35 +515,62 @@ def _raw_request(server: LiveServer, head: bytes, split_at: int | None) -> bytes
     return answer
 
 
-def test_request_body_limit_request_line_over_16_kib_gets_uvicorns_plain_text_400(server, token):
-    """As openapi.yaml says: refused before the app runs, not in the shared error format.
+def _finished_lines(captured: CapturedTelemetry) -> list:
+    return [log for log in captured.logs() if log.log_record.body == "request finished"]
 
-    Uvicorn (h11) checks the 16 KiB while the request line and headers are still arriving, so
-    the test sends them in two pieces, as a network often delivers them.
-    """
-    path = "/entries?" + "&".join(["tag=x"] * 3_300)
-    head = (
-        f"GET {path} HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer {token}\r\n"
-        "Connection: close\r\n\r\n"
-    ).encode()
-    assert len(head) > 16_384
 
-    answer = _raw_request(server, head, split_at=16_500)
+def test_request_body_limit_about_17_kb_in_two_pieces_gets_uvicorns_plain_text_400(serve, token):
+    """More than 16 KiB arrived before the request was complete: refused before the app runs."""
+    captured = CapturedTelemetry()
+    server = serve(telemetry=captured.telemetry)
+
+    answer = _raw_request(server, _about_17_kb(token), split_at=FIRST_PIECE)
 
     status_line, _, rest = answer.partition(b"\r\n")
     assert status_line == b"HTTP/1.1 400 Bad Request"
     headers, _, body = rest.partition(b"\r\n\r\n")
     assert b"content-type: text/plain" in headers.lower()
     assert body == b"Invalid HTTP request received."
+    # The same request in one piece reaches the app and gets its `request finished` line. The
+    # app logs after the response, so wait for that line: by then a line for the refused
+    # request would be there too. There is exactly one, so the refused request had none.
+    assert _raw_request(server, _about_17_kb(token), split_at=None).startswith(b"HTTP/1.1 200 ")
+    deadline = time.monotonic() + 10
+    while not _finished_lines(captured):
+        assert time.monotonic() < deadline, "no request finished line"
+        time.sleep(0.05)
+    time.sleep(0.2)
+    [line] = _finished_lines(captured)
+    assert line.log_record.attributes["http.response.status_code"] == 200
+    assert [span.attributes["http.response.status_code"] for span in captured.server_spans()] == [
+        200
+    ]
 
 
-def test_request_body_limit_request_line_over_16_kib_in_one_piece_reaches_the_api(server, token):
-    """Arriving in one piece, it gets the API's usual answer, here too many tag names."""
-    path = "/entries?" + "&".join(["tag=x"] * 3_300)
-    head = (
-        f"GET {path} HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer {token}\r\n"
-        "Connection: close\r\n\r\n"
-    ).encode()
+def test_request_body_limit_about_17_kb_in_one_piece_reaches_the_app(server, migrated_db, token):
+    """Complete in one read, it is not checked against 16 KiB and is validated as usual."""
+    tag = "00" + EMOJI * 38
+    status, _, created = server.request(
+        "POST",
+        "/entries",
+        json.dumps(
+            {"text": "Shipped it.", "date": DAY, "category": "Learning", "tags": [tag]}
+        ).encode(),
+        headers=_auth(token),
+    )
+    assert status == 201, created
+
+    answer = _raw_request(server, _about_17_kb(token), split_at=None)
+
+    # The unknown parameter is ignored, and the filter matches as always.
+    assert answer.startswith(b"HTTP/1.1 200 ")
+    entries = json.loads(answer.partition(b"\r\n\r\n")[2])["entries"]
+    assert [entry["id"] for entry in entries] == [json.loads(created)["id"]]
+
+
+def test_request_body_limit_45_tags_in_one_piece_get_422_naming_tag(server, token):
+    head = _head(_largest_filter_query(45), token)
+    assert len(head) > 16_384
 
     answer = _raw_request(server, head, split_at=None)
 

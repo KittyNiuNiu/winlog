@@ -5,6 +5,7 @@ holds at most 20 tag names and 4 categories, counted as sent. Matching, saving a
 saved before the limits are tested against PostgreSQL in tests/integration/test_filter_limits.py.
 """
 
+import re
 import uuid
 
 import pytest
@@ -115,7 +116,13 @@ def test_fr_r4_saved_summary_filter_is_summary_filter_without_the_limits():
     assert saved["required"] == request["required"] == ["period_start", "period_end"]
     assert set(saved["properties"]) == set(request["properties"])
     for name, schema in saved["properties"].items():
-        assert schema["description"] == request["properties"][name]["description"]
+        # Each property means what it means in SummaryFilter, but no maximum is stated.
+        assert request["properties"][name]["description"].startswith(schema["description"])
+        assert not re.search(r"at most|characters", schema["description"], re.IGNORECASE)
+    assert saved["properties"]["tags"]["description"] == (
+        "Tag names to include; entries with any of them match. Empty or missing means no "
+        "restriction."
+    )
     text = yaml.safe_dump(saved)
     assert "maxLength" not in text and "maxItems" not in text
     description = " ".join(saved["description"].split())

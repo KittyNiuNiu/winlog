@@ -26,8 +26,9 @@ Add it inside the CORS middleware and inside `TelemetryMiddleware` (app/main.py)
 gets the CORS headers of every other error response and its `request finished` line. The
 body is never logged or put into telemetry.
 
-Out of scope: uvicorn's own limit of 16 KiB on the request line and headers (h11), which it
-enforces before the app runs with a plain-text 400 (openapi.yaml, Size limits).
+Out of scope: uvicorn's own soft limit of 16 KiB on the request line and headers (h11). It
+answers a plain-text 400 before the app runs only when more than 16 KiB of them arrive before
+they are complete; complete ones reach the app as usual (openapi.yaml, Size limits).
 """
 
 from collections import deque
