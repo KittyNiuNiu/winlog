@@ -4411,3 +4411,24 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - The saved issue body is identical to what I wrote, and the issue still has no labels.
   - No change to project code, and no AI call.
 - **Left open:** nothing.
+
+## 2026-11-15: Engineer: implement #64 (task 55, the Markdown export's file name example in openapi.yaml)
+
+- **Task:** implement #64 as groomed (sections A to E, PM comment 6896248267). No screens change; in `frontend/` only the generated types change.
+- **What I read:** the issue and the PM comment; `docs/software-engineer.md`, `docs/process.md`, `AGENTS.md`; both export operations and `components.headers` in `openapi.yaml`; `file_name` in `backend/app/export.py`; `backend/tests/unit/test_export.py`; the CI step "Generated API types match openapi.yaml".
+- **What I did** (commit 9cba82d):
+  - **Test first:** added `test_fr_d1_export_file_name_examples_match_the_backend` to `backend/tests/unit/test_export.py`, run once per operation (`exportJson`, `exportMarkdown`). It follows the `$ref` of the `200` `Content-Disposition` header to its entry in `components.headers` and compares the `example` with `attachment; filename="<name>"`, where `<name>` is `file_name(_data(), "json" | "md")` at `EXPORTED_AT`. On the old contract it failed for `exportMarkdown` (`.json` instead of `.md`) and passed for `exportJson`.
+  - **Contract (`openapi.yaml`):** replaced `components.headers.ContentDisposition` with `ContentDispositionJson` and `ContentDispositionMarkdown`, exactly as section A gives them, before `RetryAfter`. `exportJson` and `exportMarkdown` now `$ref` their own entry. Nothing else in the file changed.
+  - **Types:** regenerated `frontend/src/api/schema.d.ts` with `npm run generate:api` (openapi-typescript 7.13.0).
+- **Decisions:** none of my own. The test sits next to `test_fr_d1_export_file_names_use_the_utc_date` in the Downloads section, with the operation ids as test ids.
+- **How I verified it:**
+  - `npx --yes @redocly/cli@2 lint openapi.yaml`: valid, 0 errors and the same 3 warnings before and after (`info-license`, `no-server-example.com`, `operation-4xx-response` on `/health`).
+  - `git diff` of `openapi.yaml` shows only the two `$ref` lines and the header entries; `components.headers` keys are `ContentDispositionJson`, `ContentDispositionMarkdown`, `RetryAfter`.
+  - The `schema.d.ts` diff shows only the two header entries (new descriptions, `.json` and `.md` examples) and the two operations' header types. Running `npm run generate:api` again leaves the file byte-identical.
+  - `git diff` shows no change in `backend/app/` or in any other file in `frontend/`. No existing test changed.
+  - `backend/`: `uv run ruff check .` and `uv run ruff format --check .` pass; `uv run pytest tests/unit`: 1519 passed.
+  - `frontend/`: `npm run lint`, `npm test` (1274 passed) and `npm run build` pass.
+  - `./test-all.sh`: all three suites passed (backend unit 1519, integration 1198, frontend 1274).
+  - CI on the pushed branch: see the issue comment.
+  - No AI call.
+- **Left open:** nothing.
