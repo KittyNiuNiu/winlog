@@ -5039,3 +5039,22 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - The saved issue body was checked through the REST API, and its labels are still empty.
   - No change to project code. No hook call, sync, approval or settings change. No AI call.
 - **Left open:** only the product owner can run the sync that proves the forms work (section E).
+
+## 2026-11-15: Engineer: implement #109 (task 63, the Blueprint fields every Manual Sync listed)
+
+- **Task:** sections A to D of #109 as the PM groomed it (comment 6901710148). Section E (the product owner's Manual Sync after the merge, then QA) is not mine. No screens change.
+- **What I did:**
+  - Commit 4b2eeea:
+    - `render.yaml`: `autoDeployTrigger: "off"` on `winlog-api` and `winlog-api-dev`, with a comment that it has no effect on an image service and is written only because the syncs did not keep an omitted value (#109); `staticPublishPath: frontend/dist` on both static sites, with a comment that the path is relative to the repository root and written without `./`, the form Render kept for `winlog-app-dev`. Nothing else in the file changed; the header comment stays true as it is.
+    - `backend/tests/unit/test_deployment.py`: `test_deploy_no_service_deploys_by_itself` checks `"off"` on all four services, no `autoDeploy`, and that the file has exactly four `autoDeployTrigger: "off"` lines and no other trigger; the static-site test checks `frontend/dist` on both sites; `test_deploy_guide_blueprint_syncs_stay_manual_and_explain_the_backends_trigger` (the name still fits) checks the new wording and the new `render.yaml` values, and that the old bullet is gone.
+    - `ops/deployment.md`, "Blueprint syncs": the bullet on the backends' trigger now says all four services have `"off"` and why it is on the image services; the bullet "Three changes come back in every sync" is now "Trigger and publish path lines in a sync list", worded to stay true whatever the sync in section E shows. History, set-up steps and links unchanged.
+- **Decisions (my recommended options):**
+  - One commit for `render.yaml`, the tests and the guide, so that every commit passes the suite (the guide test checks both files).
+  - The trigger lines go right after each backend's `image` block, so the diff touches only the four fields and their comments.
+- **How I verified it:**
+  - Render's Blueprint JSON schema (`https://render.com/schema/render.yaml.json`, downloaded today), with the backend's `jsonschema` 4.26.0 (`Draft202012Validator`): 0 errors for the new `render.yaml` and for the one before it; `autoDeployTrigger: never` on `winlog-api` only gives an error for that service. A one-off check, not a CI test.
+  - The three changed tests on the old `render.yaml` and `ops/deployment.md`: 3 failed, the other 67 passed.
+  - In `backend/`: `uv run ruff check .` and `uv run ruff format --check .` pass; `uv run pytest tests/unit` 1794 passed without PostgreSQL.
+  - `./test-all.sh` passed: backend unit (1794), backend integration (1198) and frontend (1421).
+  - No hook call, sync, approval, job re-run or settings change. No AI call.
+- **Left open:** section E, the product owner's Manual Sync after the merge, which alone shows whether Render keeps these forms.
