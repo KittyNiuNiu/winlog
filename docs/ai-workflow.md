@@ -4099,3 +4099,16 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Left open:**
   - Starlette's last-resort 500 has no header, and no CORS headers either. It answers an error raised in a middleware outside `UnexpectedErrorMiddleware`, and it is sent from outside every middleware the app adds. `app/hsts.py` says so. The shared 500 for an error in a route has the header. No criterion names this case.
   - The header reaches dev with the automatic deploy after the merge, and production only after the product owner approves the production step. Then the Blueprint's Manual Sync is the product owner's step. The header does not need it, because the default is the same value.
+
+## 2026-11-15: Orchestrator: close #99 (HSTS header on the API)
+
+- **Task:** task 52, run with `/orchestrate all`. No screens change.
+- **What happened:**
+  - PM grooming (6892539245), under the standing rule of 2026-11-14: the API gets HSTS, set by the backend (Render sets custom headers only for static sites), `max-age=31536000; includeSubDomains` without `preload`, and the new `HSTS_MAX_AGE_SECONDS` (0 to 63072000; 0 sends nothing; 0 in Compose and `.env.example`). The setting alone decides.
+  - Engineer (6892865841): a pure ASGI middleware (`backend/app/hsts.py`) between telemetry and CORS, with the setting in all config files and the guide.
+  - QA PASS (6893166574): about 30 kinds of response carry exactly one header, none at 0, and the only difference is that header line. Closed as completed.
+- **For the product owner after the production approval:** a Manual Sync of the Render Blueprint for `HSTS_MAX_AGE_SECONDS`. The header does not depend on it.
+- **Open points, left in this log under the standing rule** (no work needed, no open issue fits):
+  - Starlette's last-resort 500 (only from a bug in an outer middleware) has neither the HSTS nor the CORS headers;
+  - leading zeros are accepted, as for the other settings;
+  - one unit test depends on the variable not being exported in the shell, the same pattern as the existing settings tests.
