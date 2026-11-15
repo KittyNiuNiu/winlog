@@ -4465,3 +4465,31 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - `ls` and `git log --all` for `mcp-server/` and `security/`: neither exists or ever existed.
   - The saved issue body is identical to what I wrote, and the issue still has no labels. No AI call.
 - **Left open:** nothing.
+
+## 2026-11-15: Engineer: implement #68 (task 56, CI's checks and the repository's paths in AGENTS.md, and the README's shell-variable note)
+
+- **Task:** implement #68 as groomed (sections A to D, PM comment 6896760339). Documentation only: no screens, no code, no `render.yaml`, spec or contract change.
+- **What I read:** the issue, its input comments and the PM comment; `docs/software-engineer.md`, `docs/process.md`, `AGENTS.md`, `README.md`; `.github/workflows/ci.yml`, `docker-compose.yml`, `frontend/package.json` and `frontend/.nvmrc`.
+- **What I did** (commit a40ea77):
+  - **`AGENTS.md` → Commands:**
+    - The introduction now says that CI (`.github/workflows/ci.yml`) runs its checks with these commands, that a line names CI's form where it differs, and that a task that changes a CI check's command updates its line in the same task. A second paragraph says that every `docker compose` command needs Docker Compose 2.23.1 or later, including the test database and `./test-all.sh`, and why.
+    - New "Contract (run in the repo root)" block with `npx --yes @redocly/cli@2 lint openapi.yaml`, and a new Frontend line for `npm run generate:api`, each with the notes section A asks for.
+    - `uv sync`, `uv run ruff format .` and `npx playwright install chromium` stay; their lines name `uv sync --locked`, `uv run ruff format --check .` and `npx playwright install --with-deps chromium`. The end-to-end line says it needs Chromium, installed as for the viewport tests.
+    - `docker compose up -d db` became `docker compose up -d --wait db` in both places.
+  - **`AGENTS.md` elsewhere:** dropped `mcp-server/` and `security/` from "Repository layout"; the four mentions of `product-spec.md` now name `docs/product-spec.md`.
+  - **`README.md`:** `docker compose up -d --wait db` in both rows; the `AGENTS.md` pointer sentence also says that it lists every check CI runs, naming the contract lint and the API type generation without their commands; the shell-variable bullet keeps its advice and now says that a shell variable does not change a value from `env_file`, but wins for the `${...}` values (`AI_PROVIDER`, `CORS_ALLOWED_ORIGINS`, `HSTS_MAX_AGE_SECONDS`, and the `POSTGRES_*` values in `DATABASE_URL`).
+- **Decisions (wording only, under the standing rule):**
+  - The CI form sits in the parenthesis before the colon ("Label (notes): `command`"), like the other lines, so each line still ends with its local command and no command is followed by a sentence full stop.
+  - The contract lint got its own "Contract (run in the repo root)" block before Backend, because it runs in the repo root and the contract comes first.
+- **How I verified it:**
+  - `grep -n "up -d db"` finds nothing in `AGENTS.md` or `README.md`; `ls -d` finds every path in "Repository layout"; each command section A keeps and each CI command in the coverage table is in `AGENTS.md` (checked with `grep -F`); every command in the README's tables is in `AGENTS.md`.
+  - Repo root: `npx --yes @redocly/cli@2 lint openapi.yaml` (Redocly CLI 2.78.0, Node.js 22.23.4): valid, 0 errors, the 3 known warnings (`info-license`, `no-server-example.com`, `operation-4xx-response`), exit 0.
+  - `frontend/`: after `npm run generate:api`, `git status --porcelain -- src/api/schema.d.ts` is empty. `npx playwright install --with-deps chromium --dry-run` (Playwright 1.63.0) exits 0.
+  - `backend/` (uv 0.11.32): `uv sync --locked` and `uv run ruff format --check .` (104 files already formatted) exit 0.
+  - Repo root: `docker compose up -d --wait db` returned after 2.8 s with `docker compose ps db` showing the service healthy.
+  - Shell variables (Compose v5.6.1, `.env` identical to `.env.example`, printing only the keys checked): `AI_PROVIDER=from-shell` gives `AI_PROVIDER` `from-shell`; `AI_MODEL=from-shell` leaves `AI_MODEL` at the `.env` value. Shell values for `CORS_ALLOWED_ORIGINS`, `HSTS_MAX_AGE_SECONDS`, `POSTGRES_DB` and `POSTGRES_PASSWORD` also reached the backend's environment and `DATABASE_URL`.
+  - `backend/`: `uv run ruff check .` passes; `test_fr_x1_seed_script_is_listed_in_agents_md` passes. `frontend/`: `npm run lint` passes.
+  - `./test-all.sh`: all three suites passed (backend unit 1519, integration 1198, frontend 1274).
+  - CI on the pushed branch: see the issue comment.
+  - No AI call.
+- **Left open:** nothing.
