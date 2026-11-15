@@ -18,7 +18,7 @@ import {
   type SessionKind,
   type Size,
 } from './helpers.ts'
-import type { MockApi, MockApiOptions } from './mockApi.ts'
+import type { FieldError, MockApi, MockApiOptions } from './mockApi.ts'
 
 // Every screen and state of #36 at 360×640 and 1280×800: each test opens the state, saves a
 // full-page screenshot (light mode) and runs the checks of the criteria (helpers.ts).
@@ -48,6 +48,55 @@ const SUGGESTION: MockApiOptions['suggestion'] = {
 }
 
 const REVIEW_RESULTS = '/review?start_date=2026-09-01&end_date=2026-11-13'
+
+// A 422 `validation_failed` naming email and password, with the backend's reasons (#72).
+const EMAIL_REASON =
+  'value is not a valid email address: The part after the @-sign is not valid. It should have a period.'
+const LOGIN_FIELD_ERRORS: FieldError[] = [
+  { field: 'email', reason: EMAIL_REASON },
+  { field: 'password', reason: 'String should have at most 128 characters' },
+]
+const REGISTER_FIELD_ERRORS: FieldError[] = [
+  { field: 'email', reason: EMAIL_REASON },
+  { field: 'password', reason: 'Password contains an invalid character (an unpaired surrogate).' },
+]
+
+/**
+ * Sends the form with an address the form lets through and the backend rejects, then waits
+ * until the page shows its own texts under both fields and the cursor is in Email (#72).
+ * `form` is the fields' id prefix: "login" or "register".
+ */
+async function sendRejectedForm(
+  page: Page,
+  { form, password, button, passwordText }: { form: string; password: string; button: string; passwordText: string },
+) {
+  const email = page.getByLabel('Email')
+  const passwordField = page.getByLabel('Password', { exact: true })
+  await email.fill('alice@invalid')
+  await passwordField.fill(password)
+  await page.getByRole('button', { name: button, exact: true }).click()
+  await expect(email).toBeFocused()
+  await expect(page.locator(`#${form}-email-messages`)).toHaveText('Enter a valid email address, such as name@example.com.')
+  await expect(page.locator(`#${form}-password-messages`)).toHaveText(passwordText)
+  await expect(email).toHaveAttribute('aria-invalid', 'true')
+  await expect(passwordField).toHaveAttribute('aria-invalid', 'true')
+  // No form alert, and no server text anywhere in the page, attributes included.
+  await expect(page.locator('.form__alert')).toHaveText('')
+  const html = await page.content()
+  const reasons = [...LOGIN_FIELD_ERRORS, ...REGISTER_FIELD_ERRORS].map(({ reason }) => reason)
+  for (const serverText of ['The request has invalid fields.', ...reasons]) {
+    expect(html, 'server text in the page').not.toContain(serverText)
+  }
+  // The messages wrap inside the form column.
+  const column = await page.locator('form').boundingBox()
+  expect(column).not.toBeNull()
+  for (const message of await page.locator('.field__message').all()) {
+    const box = await message.boundingBox()
+    expect(box).not.toBeNull()
+    expect(box!.x, 'message inside the form column').toBeGreaterThanOrEqual(column!.x)
+    expect(box!.x + box!.width, 'message inside the form column').toBeLessThanOrEqual(column!.x + column!.width + 0.5)
+  }
+}
 
 async function chooseCategory(page: Page, category: string) {
   await page.getByRole('group', { name: 'Category' }).getByRole('button', { name: category }).click()
@@ -99,6 +148,36 @@ const SCREENS: Screen[] = [
       await page.getByRole('button', { name: 'Create account' }).click()
       await expect(page.locator('.field__message').first()).toBeVisible()
     },
+  },
+  {
+    // #72: a 422 naming email and password shows the page's own texts, the cursor in Email.
+    name: 'login-server-errors',
+    session: 'none',
+    api: { loginFieldErrors: LOGIN_FIELD_ERRORS },
+    path: '/login',
+    ready: heading('Log in'),
+    act: (page) =>
+      sendRejectedForm(page, {
+        form: 'login',
+        // 129 characters: login checks no password rule, so the form sends it.
+        password: `Ab1!${'x'.repeat(125)}`,
+        button: 'Log in',
+        passwordText: 'Check your password. It can have at most 128 characters.',
+      }),
+  },
+  {
+    name: 'register-server-errors',
+    session: 'none',
+    api: { registerFieldErrors: REGISTER_FIELD_ERRORS },
+    path: '/register',
+    ready: heading('Create an account'),
+    act: (page) =>
+      sendRejectedForm(page, {
+        form: 'register',
+        password: 'Correct-Horse-7',
+        button: 'Create account',
+        passwordText: "This password can't be used. Choose a different one.",
+      }),
   },
   {
     name: 'not-found-logged-out',
