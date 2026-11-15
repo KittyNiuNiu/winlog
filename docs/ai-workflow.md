@@ -4349,3 +4349,22 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Decisions (product owner, 2026-11-15):**
   - the standing rule covers tasks 48 to 66;
   - the running `/orchestrate` batch continues through tasks 60 to 64 and stops before #92 (task 65).
+
+## 2026-11-15: PM: amend section G of #102 after QA's FAIL (task 53, accept the first real deploy's evidence)
+
+- **Task:** amend the first and third criteria of section G of #102, after QA's FAIL on section G (comment 6895536851), following `docs/pm.md` and the product owner's decision of 2026-11-15: accept the first real deploy's evidence and close, with no code change and no new deploy. It was the second QA FAIL for this issue, a stop point, so the orchestrator asked the product owner.
+- **What I read:** the issue body and all ten comments, especially QA's FAIL on section G and the orchestrator's handoff (6894570095); `docs/pm.md`, `docs/process.md` and `docs/task-template.md`; the wait step in `.github/workflows/deploy.yml`; and the named wait test in `backend/tests/unit/test_deployment.py`.
+- **What I did:**
+  - **Amended the body of #102.** The note at the top of the criteria says that section G was amended again, and both changed criteria are marked _amended 2026-11-15 (section G)_:
+    - G1 (dev) accepts what Deploy run 43717031913 shows: the wait passed only after both dev services named `c78bd08`, within 15 minutes, and no log line names another commit. The evidence for the rest: the previous deploys of `578cfad` had no `commit` field and no `version.json`; a request with no answer counts as "no commit", as section D already says; a log without the previous static site is accepted, because the backend is asked first and a request can take up to 30 s (QA's note 1); and `test_deploy_wait_passes_only_after_both_name_the_commit_and_logs_each_change_once` covers the previous deploys answering first, against a local stand-in.
+    - G3 (production): the same for `winlog-api` and `winlog-app`, and their `/health` and `/version.json` must still show the same commit.
+    - G2 and G4 are unchanged.
+  - **Posted a comment** naming the decision and what changed (6896176545). Labels unchanged. No follow-up issue.
+- **Decisions:** none of my own. The amendment carries out the product owner's decision.
+- **How I verified it:**
+  - `git show 578cfad:backend/app/health.py` returns `Health(status="ok", database="ok")`. `git grep` at `578cfad` finds no `version.json` and no `RENDER_GIT_COMMIT`.
+  - The wait step in `deploy.yml` asks `$API_URL/health` first, uses `curl --max-time 30`, and logs a request with no answer as "no answer, no commit".
+  - `uv run pytest tests/unit/test_deployment.py -k test_deploy_wait_passes_only_after_both_name_the_commit_and_logs_each_change_once` in `backend/`: 1 passed.
+  - The saved issue body matches what I wrote, apart from one blank line before the footer that GitHub dropped. The labels are still `qa-failed`.
+  - No change to project code, and no AI call.
+- **Left open:** nothing for the engineer. The orchestrator decides the next status from this amendment and QA's results on section G.
