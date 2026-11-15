@@ -4733,3 +4733,38 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - **The issue on GitHub:** the saved body matches what I wrote, apart from the attribution footer the tool adds. The issue still has no labels.
   - No change to project code, and no AI call.
 - **Left open:** nothing.
+
+## 2026-11-15: Engineer: implement #90 (task 59, dark-mode hover and disabled fills, the writing nudge's look, and the laptop entry row height)
+
+- **Task:** implement #90 from its groomed body (sections A to G), the PM's decisions (6898988075) and the design note (6899206051), following `docs/software-engineer.md`. The task changes screens.
+- **What I did:**
+  - **Tokens (`index.css`):**
+    - dark `--color-secondary-hover` is now #2E262D (light stays Peach wash);
+    - new `--color-disabled-fill`: Peach wash in light mode, #2E262D in dark mode, written as its own hex;
+    - new `--color-nudge-fill`: Paper white in light mode, Blush white (the page ground) in dark mode.
+  - **`Button.css`:** `.button:disabled` uses the Disabled fill, still after the `:hover` rules.
+  - **`EntryRow.css` and `EntryRow.tsx`:**
+    - Edit and Delete use the Secondary hover fill; the Peach wash rule and its workaround comment are gone;
+    - from 64rem, a row with actions gets the class `entry-row--with-actions` and a fourth column (`64px 120px minmax(0, 1fr) auto`), with `display: contents` on the label-and-actions wrapper and `justify-self: start` on the label. The DOM order stays. Rows without actions do not change.
+  - **`EntriesPage.css`:** the nudge has the Nudge fill, the 1px Hairline border, a 14px radius, 16px by 20px padding and centred text with `text-wrap: balance`. Its markup, text, place and behaviour are unchanged.
+  - **`DESIGN.md`:** the frontmatter, Colors → Neutral and the contrast sentence, Buttons (Hover, Focus, Disabled), Writing nudge, Entry row → Edit and Delete, Tag filter at 20 tags, and the new Messages entry with the demo notice at 68ch, word for word from the design note.
+  - **Tests:**
+    - `design.test.ts`: the three tokens in both modes; the contrast pairs of A to C (at least 4.5:1); the fill steps of A to C (at least 1.065:1) in both modes; the fills are not Peach, Saved peach, a category tint, Plum (or for the nudge Error and Peach wash); the button rules use the tokens; the `DESIGN.md` frontmatter has the same colour values as `index.css`.
+    - `entryStyles.test.ts`: changed on purpose: the Edit and Delete hover check (Secondary hover, no Peach wash, no workaround comment) and the nudge test (the new look; the not-a-control and Named Rules checks stay). New: the 64rem row rules.
+    - `EntryRow.test.tsx`: new tests for the class and the DOM order with actions, and no class without actions.
+    - Viewport tests:
+      - dark screenshots of `entries-with-nudge`, `new-entry-empty`, `review-results-panel-idle` and `settings-delete-step` (`<name>-dark-<size>.png`) with the existing screen checks;
+      - the new screen `entries-nudge-and-notice` in light and dark (the mock answers `DELETE` with 404 through the new `entryAlreadyDeleted` option);
+      - hover checks in each colour scheme for every control in section A, with a screenshot of each hovered control;
+      - disabled checks in each colour scheme, including no hover change and the busy "Draft summary";
+      - the row check at 1280×800 with a new one-line entry in `data.ts`, and checks at 768×1024 and 1024×768.
+- **Decisions under the standing rule:**
+  - The light-mode sidebar "New entry" is left out of the hover "differs from its surface" check, as criterion A accepts and the design note says.
+  - The new `design.test.ts` frontmatter check compares every hex colour in the `DESIGN.md` frontmatter with `index.css`, so criterion E's "same values" is checked by a test. The plum hover formula is skipped.
+  - The 1280 row screenshots are named by size (`entries-rows-1280x800.png`, `entry-row-one-line-1280x800.png`), like `review-gap-1280x800.png`.
+- **How I verified it:**
+  - `npm run lint`, `npm test` (1421 passed), `npm run build` and `npm run test:viewport` (145 passed, 11 skipped by design) in `frontend/`; `./test-all.sh` (all three suites passed); `uv run ruff check .` in `backend/`.
+  - A mutation run: with the old stylesheets, the new dark hover, disabled, nudge and row checks failed (26 tests), and the light hover checks passed, as light mode is unchanged.
+  - I looked at the new and changed screenshots in light and dark: the nudge and the info message side by side, the dark disabled and ready buttons, the hovered controls, and the rows at 768, 1024 and 1280. Measured: the one-line row is 59px at 1280×800, the text column 224px at 768, 368px at 1024 and 624px at 1280.
+  - No backend, contract, `render.yaml` or `docs/product-spec.md` change. No real AI call.
+- **Left open:** nothing.
