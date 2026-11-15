@@ -1,0 +1,57 @@
+# Winlog's alert on user impact (issue #112), in Grafana's file-provisioning format.
+# docker-compose.yml mounts this file read-only into the lgtm service's alerting provisioning
+# folder, so Grafana loads it on every start. After changing it, run `docker compose restart lgtm`.
+# What it measures, how to see it and how to make it fire: docs/observability.md, section "Alerts".
+# No contact point, notification policy or mute timing is provisioned: the alert shows in
+# Grafana only. Labels and annotations are fixed text, and the query aggregates with sum(...)
+# and no `by`, so an alert holds no label from the data and no customer data.
+apiVersion: 1
+groups:
+  - orgId: 1
+    name: user-impact
+    folder: Winlog
+    interval: 1m
+    rules:
+      - uid: winlog-server-errors
+        title: Server errors above 5%
+        condition: C
+        data:
+          # A: the share of the backend's HTTP requests answered with 5xx over the last 5 minutes.
+          - refId: A
+            relativeTimeRange:
+              from: 300
+              to: 0
+            datasourceUid: prometheus
+            model:
+              refId: A
+              instant: true
+              range: false
+              intervalMs: 1000
+              maxDataPoints: 43200
+              expr: >-
+                sum(increase(http_server_request_duration_seconds_count{service_name="winlog-backend", http_response_status_code=~"5.."}[5m]))
+                / sum(increase(http_server_request_duration_seconds_count{service_name="winlog-backend"}[5m]))
+          # C: the condition, true when the share is above 5%.
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params:
+                      - 0.05
+        # No request, or no 5xx series at all, in the last 5 minutes is not user impact.
+        noDataState: OK
+        execErrState: Error
+        for: 1m
+        isPaused: false
+        labels:
+          severity: critical
+        annotations:
+          summary: More than 5% of the backend's requests failed with a server error (5xx) in the last 5 minutes.
+          description: >-
+            Share of server errors: {{ humanizePercentage $values.A.Value }}.
+            See docs/observability.md, section "Alerts", for what the rule measures and what to check.
