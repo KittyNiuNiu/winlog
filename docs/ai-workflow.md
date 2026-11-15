@@ -5167,3 +5167,19 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - `docker compose config --quiet` and the YAML parse pass, and the CI step's script passed locally.
   - `./test-all.sh` passed, and so did ruff and eslint. CI on the pushed branch is reported on the issue. No AI call.
 - **Left open:** nothing.
+
+## 2026-11-15: PM: groom #114 (task 66, keep the spec's "Last updated" date in step with its change log)
+
+- **What I read:** the issue (no comments), #103's grooming, `docs/product-spec.md` (header and §14), its `git log` (and 8d2a722 and 4f05f9d through the GitHub API, since the clone is shallow), `backend/tests/unit/test_docker_compose.py`, `.github/workflows/ci.yml`, `docs/tasks.md`, `docs/pm.md`, `docs/process.md`, `docs/task-template.md` and `AGENTS.md`.
+- **What I did:**
+  - Rewrote the body of #114 using the template: A (a backend unit test, `backend/tests/unit/test_product_spec.py`), B (one line in `AGENTS.md`), C (the spec stays as it is), D (checks).
+  - Posted the PM comment with the decisions and the facts I checked (6903047327).
+  - Labels unchanged. No follow-up issue. No screen changes, no change to `render.yaml` or `openapi.yaml`. `docs/product-spec.md` does not change, unless it is out of step when implementation starts.
+- **Decisions under the standing rule (tasks 48 to 68), recorded in the issue:**
+  - Both a rule and a test; the test is a backend unit test that reads the spec from the repository root, run by CI through `./test-all.sh`.
+  - The header date must equal the latest date among the §14 entries, and a second test checks that the entries are newest first.
+  - The rule is one line in `AGENTS.md` "Working rules"; the process and role docs stay as they are.
+  - The spec gets no §14 entry: the header already equals the newest entry (15 November 2026).
+  - The header's version is not checked; #92 no longer needs its own criterion for the header date.
+- **How I verified it:** a scratch probe (not committed) read all 9 §14 entries in both forms and the header from the current file; the saved issue body was compared with the text sent, and its labels are still empty. No AI call.
+- **Left open:** nothing.
