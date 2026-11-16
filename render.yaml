@@ -20,7 +20,8 @@
 # and production gets the same image and commit only after the product owner approves the
 # production step.
 #
-# Secrets: only DATABASE_URL (all backends) and AI_API_KEY (production) are secret. They are
+# Secrets: only DATABASE_URL (both backends), AI_API_KEY (production) and
+# OTEL_EXPORTER_OTLP_HEADERS (both backends, the Grafana Cloud token) are secret. They are
 # `sync: false`, so they never have a value in this file; they are entered in the Render
 # Dashboard. Every other value is written here, so it is reviewed in git. Change those values
 # here, not in the Render Dashboard: a Blueprint sync overwrites dashboard edits of values this
@@ -55,6 +56,12 @@ services:
         sync: false
       # The production-only OpenRouter key, with a spending limit.
       - key: AI_API_KEY
+        sync: false
+      # The Grafana Cloud token of production, as the header value
+      # Authorization=Basic%20<base64 of instanceID:token>. Entered in the Render Dashboard by
+      # the product owner, one Grafana Cloud token per environment (ops/deployment.md, "Hosted
+      # telemetry: Grafana Cloud").
+      - key: OTEL_EXPORTER_OTLP_HEADERS
         sync: false
 
       # The static site's public URL (#3): https://<host>, no trailing slash.
@@ -121,15 +128,26 @@ services:
       - key: DEMO_EMAIL
         value: demo@example.com
 
-      # Not set on purpose: OTEL_EXPORTER_OTLP_ENDPOINT (no telemetry export in production;
-      # the JSON logs go to Render's log stream, docs/observability.md, #92), PORT (Render sets
-      # it), and the variables only Docker Compose or the tests use (POSTGRES_*, *_HOST_PORT,
-      # TEST_DATABASE_URL).
+      # Hosted telemetry (#92, docs/observability.md "Hosted telemetry"): traces, metrics and
+      # JSON logs go over OTLP/HTTP to the product owner's Grafana Cloud stack, the same on both
+      # backends. Not a secret: the URL names the region's shared gateway, not the account;
+      # sending needs the token above.
+      - key: OTEL_EXPORTER_OTLP_ENDPOINT
+        value: https://otlp-gateway-prod-eu-west-4.grafana.net/otlp
+      # The resource attribute deployment.environment.name, which tells dev from production.
+      - key: TELEMETRY_ENVIRONMENT
+        value: production
+      # One metric export per minute (the default, 10 seconds, suits the local stack).
+      - key: OTEL_METRIC_EXPORT_INTERVAL
+        value: "60000"
+
+      # Not set on purpose: PORT (Render sets it), and the variables only Docker Compose or the
+      # tests use (POSTGRES_*, *_HOST_PORT, TEST_DATABASE_URL).
 
   # --- Dev backend: the same image, deployed automatically after CI passes on main ---
   # The same values as production, except: the mock AI (no AI key, base URL or model; dev makes
-  # no real AI call), its own Neon database, and the dev static site's URL in CORS. Keep the
-  # other values the same as winlog-api's.
+  # no real AI call), its own Neon database, the dev static site's URL in CORS, its own Grafana
+  # Cloud token and TELEMETRY_ENVIRONMENT dev. Keep the other values the same as winlog-api's.
   - type: web
     name: winlog-api-dev
     runtime: image
@@ -147,10 +165,16 @@ services:
     # GET /health checks the database too (#4).
     healthCheckPath: /health
     envVars:
-      # The only secret: the direct (not pooled) connection string of the dev Neon project, with
-      # its sslmode=require part. Never the production database. Entered in the Render
-      # Dashboard (ops/deployment.md).
+      # Secrets, entered in the Render Dashboard (ops/deployment.md).
+      # The direct (not pooled) connection string of the dev Neon project, with its
+      # sslmode=require part. Never the production database.
       - key: DATABASE_URL
+        sync: false
+      # The Grafana Cloud token of dev, never production's, as the header value
+      # Authorization=Basic%20<base64 of instanceID:token>. Entered in the Render Dashboard by
+      # the product owner, one Grafana Cloud token per environment (ops/deployment.md, "Hosted
+      # telemetry: Grafana Cloud").
+      - key: OTEL_EXPORTER_OTLP_HEADERS
         sync: false
 
       # The static site's public URL (#3): https://<host>, no trailing slash.
@@ -212,9 +236,21 @@ services:
       - key: DEMO_EMAIL
         value: demo@example.com
 
+      # Hosted telemetry (#92, docs/observability.md "Hosted telemetry"): traces, metrics and
+      # JSON logs go over OTLP/HTTP to the product owner's Grafana Cloud stack, the same on both
+      # backends. Not a secret: the URL names the region's shared gateway, not the account;
+      # sending needs the token above.
+      - key: OTEL_EXPORTER_OTLP_ENDPOINT
+        value: https://otlp-gateway-prod-eu-west-4.grafana.net/otlp
+      # The resource attribute deployment.environment.name, which tells dev from production.
+      - key: TELEMETRY_ENVIRONMENT
+        value: dev
+      # One metric export per minute (the default, 10 seconds, suits the local stack).
+      - key: OTEL_METRIC_EXPORT_INTERVAL
+        value: "60000"
+
       # Not set on purpose: AI_API_KEY, AI_BASE_URL and AI_MODEL (the mock needs none), and the
-      # same variables as in production (OTEL_EXPORTER_OTLP_ENDPOINT, PORT, POSTGRES_*,
-      # *_HOST_PORT, TEST_DATABASE_URL).
+      # same variables as in production (PORT, POSTGRES_*, *_HOST_PORT, TEST_DATABASE_URL).
 
   # --- Production frontend: the React build as a static site ---
   # Static sites are free and served from Render's global CDN, so they take no plan and no

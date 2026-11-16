@@ -1,5 +1,5 @@
-"""Deployment on Render: dev and production (issues #38, #39 and #102, product-spec.md §7.7,
-§10.2 and §10.4).
+"""Deployment on Render: dev and production (issues #38, #39, #92 and #102, product-spec.md
+§7.7, §10.2 and §10.4).
 
 Checks the Render Blueprint (`render.yaml`), the CI and Deploy workflows, the backend's start
 script (`start.sh`) and what the backend image contains. The start script, the static site's
@@ -39,9 +39,12 @@ DEPLOY = yaml.safe_load(DEPLOY_TEXT)
 IMAGE = "ghcr.io/kittyniuniu/winlog-backend"
 PROD_API, PROD_APP = "winlog-api", "winlog-app"
 DEV_API, DEV_APP = "winlog-api-dev", "winlog-app-dev"
-# Production's secrets, and dev's only one.
-SECRETS = {"DATABASE_URL", "AI_API_KEY"}
-DEV_SECRETS = {"DATABASE_URL"}
+# Production's secrets, and dev's. OTEL_EXPORTER_OTLP_HEADERS holds each environment's own
+# Grafana Cloud token (#92).
+SECRETS = {"DATABASE_URL", "AI_API_KEY", "OTEL_EXPORTER_OTLP_HEADERS"}
+DEV_SECRETS = {"DATABASE_URL", "OTEL_EXPORTER_OTLP_HEADERS"}
+# The product owner's Grafana Cloud stack (decision of 2026-11-16 on #92), the same on both.
+GRAFANA_CLOUD_OTLP_ENDPOINT = "https://otlp-gateway-prod-eu-west-4.grafana.net/otlp"
 # The production values the issue lists, as plain values in render.yaml.
 PLAIN_BACKEND_VALUES = {
     "AI_PROVIDER": "openai-compatible",
@@ -64,9 +67,14 @@ PLAIN_BACKEND_VALUES = {
     "REQUEST_BODY_MAX_BYTES": "262144",
     "HSTS_MAX_AGE_SECONDS": "31536000",
     "DEMO_EMAIL": "demo@example.com",
+    "OTEL_EXPORTER_OTLP_ENDPOINT": GRAFANA_CLOUD_OTLP_ENDPOINT,
+    "TELEMETRY_ENVIRONMENT": "production",
+    "OTEL_METRIC_EXPORT_INTERVAL": "60000",
 }
-# Dev differs from production only in these: the mock AI and no real AI settings (#39).
+# Dev differs from production only in these: the mock AI and no real AI settings (#39), and
+# its telemetry is marked dev (#92).
 DEV_ONLY_AI = {"AI_PROVIDER": "mock"}
+DEV_ONLY_TELEMETRY = {"TELEMETRY_ENVIRONMENT": "dev"}
 REAL_AI_ONLY = {"AI_BASE_URL", "AI_MODEL", "AI_API_KEY"}
 
 
@@ -166,11 +174,15 @@ def test_deploy_backend_production_values_are_plain_values():
 def test_deploy_dev_backend_has_production_values_but_the_mock_ai():
     production = _plain_values(_service(PROD_API))
     dev = _plain_values(_service(DEV_API))
-    expected = {
-        key: value
-        for key, value in production.items()
-        if key not in REAL_AI_ONLY and key != "CORS_ALLOWED_ORIGINS"
-    } | DEV_ONLY_AI
+    expected = (
+        {
+            key: value
+            for key, value in production.items()
+            if key not in REAL_AI_ONLY and key != "CORS_ALLOWED_ORIGINS"
+        }
+        | DEV_ONLY_AI
+        | DEV_ONLY_TELEMETRY
+    )
     assert {key: value for key, value in dev.items() if key != "CORS_ALLOWED_ORIGINS"} == expected
     assert not REAL_AI_ONLY & set(_env_vars(_service(DEV_API)))
 
@@ -185,19 +197,39 @@ def test_deploy_public_urls_point_at_the_other_service_of_the_same_environment()
         assert api == f"https://{backend['name']}.onrender.com"
 
 
-def test_deploy_no_telemetry_compose_or_test_variables_on_render():
+def test_deploy_no_compose_or_test_variables_on_render():
     keys = {var["key"] for service in BLUEPRINT["services"] for var in service["envVars"]}
-    assert "OTEL_EXPORTER_OTLP_ENDPOINT" not in keys
     assert "TEST_DATABASE_URL" not in keys
     assert "PORT" not in keys
     assert not [key for key in keys if key.startswith("POSTGRES_") or key.endswith("_HOST_PORT")]
 
 
+def test_deploy_backends_send_telemetry_to_one_grafana_cloud_stack():
+    """#92: one https endpoint for both, each its own token and environment, 60-second metrics."""
+    for name, environment in ((PROD_API, "production"), (DEV_API, "dev")):
+        backend_vars = _env_vars(_service(name))
+        values = _plain_values(_service(name))
+        assert values["OTEL_EXPORTER_OTLP_ENDPOINT"] == GRAFANA_CLOUD_OTLP_ENDPOINT
+        assert values["OTEL_EXPORTER_OTLP_ENDPOINT"].startswith("https://")
+        # The token only as a secret entered in the Dashboard, never with a value here.
+        assert backend_vars["OTEL_EXPORTER_OTLP_HEADERS"] == {
+            "key": "OTEL_EXPORTER_OTLP_HEADERS",
+            "sync": False,
+        }
+        assert values["TELEMETRY_ENVIRONMENT"] == environment
+        assert values["OTEL_METRIC_EXPORT_INTERVAL"] == "60000"
+    # Written as a string: Render takes every value as text.
+    blueprint_text = (ROOT / "render.yaml").read_text(encoding="utf-8")
+    assert blueprint_text.count('value: "60000"') == 2
+    # The header's form appears only with the placeholder, in comments, never with credentials.
+    assert set(re.findall(r"Authorization=(\S+)", blueprint_text)) == {"Basic%20<base64"}
+
+
 def test_deploy_backend_values_are_valid_settings(monkeypatch):
     """Each backend starts with exactly the values in render.yaml plus its secrets."""
-    for name, secrets, provider, origin in (
-        (PROD_API, SECRETS, "openai-compatible", "https://winlog-app.onrender.com"),
-        (DEV_API, DEV_SECRETS, "mock", "https://winlog-app-dev.onrender.com"),
+    for name, secrets, provider, origin, environment in (
+        (PROD_API, SECRETS, "openai-compatible", "https://winlog-app.onrender.com", "production"),
+        (DEV_API, DEV_SECRETS, "mock", "https://winlog-app-dev.onrender.com", "dev"),
     ):
         for key in list(os.environ):
             monkeypatch.delenv(key)
@@ -206,13 +238,18 @@ def test_deploy_backend_values_are_valid_settings(monkeypatch):
         monkeypatch.setenv("DATABASE_URL", "postgresql://user:placeholder@db.invalid/winlog")
         if "AI_API_KEY" in secrets:
             monkeypatch.setenv("AI_API_KEY", "placeholder")
+        # A clearly fake header value in Grafana Cloud's form.
+        monkeypatch.setenv("OTEL_EXPORTER_OTLP_HEADERS", "Authorization=Basic%20placeholder")
 
         settings = Settings(_env_file=None)
 
         assert settings.ai_provider == provider
         assert settings.cors_allowed_origins == [origin]
         assert settings.demo_email == "demo@example.com"
-        assert settings.otel_exporter_otlp_endpoint is None
+        assert settings.otel_exporter_otlp_endpoint == GRAFANA_CLOUD_OTLP_ENDPOINT
+        assert settings.otlp_headers() == {"authorization": "Basic placeholder"}
+        assert settings.telemetry_environment == environment
+        assert settings.otel_metric_export_interval == 60_000
 
 
 def test_deploy_static_sites_are_the_same_build_with_their_own_api_url():
