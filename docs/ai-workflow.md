@@ -5237,4 +5237,5 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - A scratch probe (not committed) with the locked `opentelemetry-exporter-otlp-proto-http` 1.45.2 showed that the three exporters read `OTEL_EXPORTER_OTLP_HEADERS` from the process environment, and that a malformed value is logged in full at WARNING.
   - grafana.com and render.com could not be opened from this session. Grafana Cloud's endpoint form, its free-plan limits and Render's `sync: false` behaviour come from search results, and the issue says so.
   - The saved issue body was compared with the text sent. The labels on #92 and #117 are empty. No AI call.
-- **Left open:** the two product-owner inputs above. #117 is not yet listed in `docs/tasks.md`.
+- **Product owner's answers (2026-11-16, through the orchestrator):** the endpoint is `https://otlp-gateway-prod-eu-west-4.grafana.net/otlp`, written in `render.yaml`, and `docs/observability.md` is to record why committing it is safe (reading needs the Grafana login, sending needs the token, which is only in Render); the free plan is approved for dev and production ($0, no add-on, 14 days' retention). I updated the issue body, so no placeholder is left, and recorded both in a comment (6913929650). The issue is groomed.
+- **Left open:** #117 is not yet listed in `docs/tasks.md`.
