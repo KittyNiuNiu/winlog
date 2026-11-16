@@ -5310,4 +5310,9 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - In this session, with `grafana/otel-lgtm:0.39.0` (Grafana 13.3.0) and nothing committed, the UI's import form for a Prometheus YAML file was present, and a draft of the file imported through the convert API: it became a Grafana-managed rule with the expected uid, group, labels and pending period, a 1-minute offset, no-data and error states `OK`, and evaluated `inactive` with health `ok`. An always-true converted rule went pending and then firing.
   - The email restriction on new free accounts and Render's health-check interval come from search results, and the issue says so.
   - The saved issue body was compared with the text sent. No AI call, and no Grafana Cloud, Render or GitHub setting changed.
-- **Left open:** the two questions above. The body assumes the recommended answers; if an answer differs, the PM updates sections A, C and E.
+- **Product owner's answers (2026-11-16, through the orchestrator):**
+  - the contact point is email to their own Grafana Cloud login address;
+  - dev alerts notify, so both rules use the same contact point.
+
+  Both match the recommendations. I changed two places in the body: the note at the top now records the decisions, and the out-of-scope line on a non-email contact point now says email was chosen. I recorded the answers in a comment (6924875812). The issue is groomed.
+- **Left open:** nothing for grooming.
