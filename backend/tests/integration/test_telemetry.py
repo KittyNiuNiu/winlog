@@ -133,6 +133,8 @@ def test_fr_r3_summary_trace_has_the_journey_spans_in_order(client, captured, mi
     assert server.name == "POST /summaries"
     assert server.kind == SpanKind.SERVER
     assert server.resource.attributes["service.name"] == "winlog-backend"
+    assert server.resource.attributes["deployment.environment.name"] == "local"
+    assert set(server.resource.attributes) == ALLOWED_RESOURCE_KEYS
     assert dict(server.attributes) == {
         "http.request.method": "POST",
         "http.route": "/summaries",
@@ -345,12 +347,16 @@ def test_telemetry_contains_no_customer_data_or_credentials(
     suggested_tag = f"suggested-tag-{marker}"
     summary_text = f"summary-text-{marker}"
     edited_summary = f"edited-summary-{marker}"
+    # The export headers (issue #92): a fake credential that must never reach telemetry or the
+    # JSON lines. Without an endpoint they are only read and checked, as on a computer.
+    export_headers = f"Authorization=Basic%20export-headers-{marker}"
     settings = Settings(
         _env_file=None,
         database_url=test_database_url,
         cors_allowed_origins=[ALLOWED_ORIGIN],
         ai_provider="mock",
         demo_email=demo_email,
+        otel_exporter_otlp_headers=export_headers,
     )
     app = create_app(settings, telemetry=captured.telemetry)
 
@@ -470,6 +476,8 @@ def test_telemetry_contains_no_customer_data_or_credentials(
         "second token": token2,
         "demo token": demo_token,
         "database url": test_database_url,
+        "export headers": export_headers,
+        "export credential": f"export-headers-{marker}",
     }
     exported = captured.everything_as_text()
     printed = capsys.readouterr()

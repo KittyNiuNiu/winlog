@@ -7,11 +7,14 @@ measurement and a `request finished` log line. The key user journey, generating 
 and log records of one request share its trace ID.
 
 Export: with `OTEL_EXPORTER_OTLP_ENDPOINT` set, the signals go over OTLP/HTTP to a collector
-(the `lgtm` service in Docker Compose). The exporters are created only when the app starts
-(its lifespan) and are flushed and shut down when it stops. So importing `app.main`, or a
-test client that does not run the lifespan, never opens a connection. Empty or not set, nothing
-is exported; the JSON log lines on stdout still carry `trace_id` and `span_id`. Tests pass
-in-memory exporters to `Telemetry` instead, and never need a collector.
+(the `lgtm` service in Docker Compose) or to Grafana Cloud (the hosted dev and production
+backends, issue #92), with the headers of `OTEL_EXPORTER_OTLP_HEADERS` (the access token) on
+every request, and the metrics every `OTEL_METRIC_EXPORT_INTERVAL` milliseconds. The exporters
+are created only when the app starts (its lifespan) and are flushed and shut down when it stops.
+So importing `app.main`, or a test client that does not run the lifespan, never opens a
+connection. Empty or not set, nothing is exported; the JSON log lines on stdout still carry
+`trace_id` and `span_id`. Tests pass in-memory exporters to `Telemetry` instead, and never need
+a collector. Every signal carries `deployment.environment.name` (`TELEMETRY_ENVIRONMENT`).
 
 Each app has its own providers. None of them is set as OpenTelemetry's global provider, which
 can be set only once per process, so `create_app` can run any number of times. The middleware
@@ -21,8 +24,9 @@ it into the thread pool that runs sync endpoints.
 Privacy (allowlist): telemetry holds only the keys in `ALLOWED_ATTRIBUTE_KEYS`, the resource
 attributes in `ALLOWED_RESOURCE_KEYS`, span and metric names, fixed log messages, and trace and
 span IDs. Never entry text, Result/Impact, tag names, summary text, AI request or response
-content, passwords, tokens, email addresses, user, entry or summary ids, IP addresses, user
-agents, query strings, request or response bodies, exception messages or stack traces. How:
+content, passwords, tokens, the export headers, email addresses, user, entry or summary ids, IP
+addresses, user agents, query strings, request or response bodies, exception messages or stack
+traces. How:
 
 - Only the `app` loggers are printed as JSON and exported. Third-party loggers (httpx, openai,
   SQLAlchemy, uvicorn) never reach telemetry.
@@ -71,13 +75,14 @@ from opentelemetry.sdk.version import __version__ as SDK_VERSION
 from opentelemetry.trace import Span, SpanKind, Status, StatusCode
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from app.settings import Settings
+from app.settings import Settings, TelemetryEnvironment
 
 SERVICE_NAME = "winlog-backend"
 SERVICE_VERSION = "0.1.0"
 INSTRUMENTATION_SCOPE = "app"
 
-# Fixed for the local stack (issue #74, decision 7).
+# The default of OTEL_METRIC_EXPORT_INTERVAL (issue #92): 10 seconds, as the local stack and
+# its alert timings expect. The hosted backends set 60 seconds.
 METRIC_EXPORT_INTERVAL_MILLIS = 10_000
 # Short, so a missing or slow collector cannot hold up a request or the shutdown. Each export
 # waits at most this long, retries included.
@@ -89,6 +94,9 @@ ALLOWED_RESOURCE_KEYS = frozenset(
     {
         "service.name",
         "service.version",
+        # `local`, `dev` or `production` (TELEMETRY_ENVIRONMENT, issue #92): tells dev from
+        # production in one hosted stack. A fixed value from configuration, never user data.
+        "deployment.environment.name",
         "telemetry.sdk.language",
         "telemetry.sdk.name",
         "telemetry.sdk.version",
@@ -150,12 +158,17 @@ def _allowed(attributes: Mapping[str, object]) -> dict[str, str | int | float | 
     }
 
 
-def _resource() -> Resource:
-    """The service's resource. Built by hand: no environment, host or process detectors."""
+def _resource(environment: TelemetryEnvironment) -> Resource:
+    """The service's resource. Built by hand: no environment, host or process detectors.
+
+    No `service.instance.id` either: a new id on every start would make new metric series on
+    every wake of a free instance (issue #92).
+    """
     return Resource(
         {
             "service.name": SERVICE_NAME,
             "service.version": SERVICE_VERSION,
+            "deployment.environment.name": environment,
             "telemetry.sdk.language": "python",
             "telemetry.sdk.name": "opentelemetry",
             "telemetry.sdk.version": SDK_VERSION,
@@ -191,21 +204,29 @@ class _Metrics:
 class Telemetry:
     """One app's tracer, meter and logger providers, and its instruments.
 
-    `otlp_endpoint` turns on the OTLP/HTTP export, which `start` sets up. The exporters given
-    here (tests use in-memory ones) receive the signals synchronously from the start.
+    `otlp_endpoint` turns on the OTLP/HTTP export, which `start` sets up, with `otlp_headers`
+    on every export request and a metric export every `metric_export_interval_millis`. The
+    exporters given here (tests use in-memory ones) receive the signals synchronously from the
+    start. `environment` is the resource's `deployment.environment.name`.
     """
 
     def __init__(
         self,
         *,
         otlp_endpoint: str | None = None,
+        otlp_headers: Mapping[str, str] | None = None,
+        environment: TelemetryEnvironment = "local",
+        metric_export_interval_millis: int = METRIC_EXPORT_INTERVAL_MILLIS,
         span_exporter: SpanExporter | None = None,
         metric_reader: MetricReader | None = None,
         log_exporter: LogRecordExporter | None = None,
     ) -> None:
         self.otlp_endpoint = otlp_endpoint
+        # A credential: never logged, printed or put into telemetry.
+        self._otlp_headers = dict(otlp_headers or {})
+        self.metric_export_interval_millis = metric_export_interval_millis
         self._started = False
-        self._resource = _resource()
+        self._resource = _resource(environment)
         self.tracer_provider = TracerProvider(
             sampler=ALWAYS_ON, resource=self._resource, shutdown_on_exit=False
         )
@@ -219,7 +240,12 @@ class Telemetry:
 
     @classmethod
     def from_settings(cls, settings: Settings) -> "Telemetry":
-        return cls(otlp_endpoint=settings.otel_exporter_otlp_endpoint)
+        return cls(
+            otlp_endpoint=settings.otel_exporter_otlp_endpoint,
+            otlp_headers=settings.otlp_headers(),
+            environment=settings.telemetry_environment,
+            metric_export_interval_millis=settings.otel_metric_export_interval,
+        )
 
     def _build_metrics(self, readers: Sequence[MetricReader]) -> _Metrics:
         return _Metrics(
@@ -238,15 +264,22 @@ class Telemetry:
             return
         self._started = True
         base = self.otlp_endpoint.rstrip("/")
-        # An endpoint passed in code is the full URL: the signal path is not added for us.
+        # An endpoint passed in code is the full URL: the signal path is not added for us. The
+        # headers are passed explicitly, so a value from .env works too: the SDK itself reads
+        # OTEL_EXPORTER_OTLP_HEADERS only from the process environment, and merges these over it.
+        headers = self._otlp_headers
         self.tracer_provider.add_span_processor(
             BatchSpanProcessor(
-                OTLPSpanExporter(endpoint=f"{base}/v1/traces", timeout=EXPORT_TIMEOUT_SECONDS)
+                OTLPSpanExporter(
+                    endpoint=f"{base}/v1/traces", timeout=EXPORT_TIMEOUT_SECONDS, headers=headers
+                )
             )
         )
         self.logger_provider.add_log_record_processor(
             BatchLogRecordProcessor(
-                OTLPLogExporter(endpoint=f"{base}/v1/logs", timeout=EXPORT_TIMEOUT_SECONDS)
+                OTLPLogExporter(
+                    endpoint=f"{base}/v1/logs", timeout=EXPORT_TIMEOUT_SECONDS, headers=headers
+                )
             )
         )
         # A MeterProvider takes its readers only when it is made, so the meter provider and
@@ -256,9 +289,11 @@ class Telemetry:
             [
                 PeriodicExportingMetricReader(
                     OTLPMetricExporter(
-                        endpoint=f"{base}/v1/metrics", timeout=EXPORT_TIMEOUT_SECONDS
+                        endpoint=f"{base}/v1/metrics",
+                        timeout=EXPORT_TIMEOUT_SECONDS,
+                        headers=headers,
                     ),
-                    export_interval_millis=METRIC_EXPORT_INTERVAL_MILLIS,
+                    export_interval_millis=self.metric_export_interval_millis,
                     export_timeout_millis=EXPORT_TIMEOUT_SECONDS * 1000,
                 )
             ]

@@ -11,8 +11,8 @@ Locally, Docker Compose runs Grafana's all-in-one `grafana/otel-lgtm:0.39.0` ima
 Loki (logs) and Grafana (the UI). The data is kept in the `lgtm-data` volume, so it survives
 `docker compose restart lgtm`. `docker compose down -v` deletes it.
 
-Deployed environments send no telemetry yet: they leave `OTEL_EXPORTER_OTLP_ENDPOINT` empty and
-only print the JSON logs. Hosted telemetry is planned in #92.
+The hosted dev and production backends send theirs to one Grafana Cloud stack, marked by
+environment ([Hosted telemetry](#hosted-telemetry-dev-and-production)).
 
 All telemetry setup is in `backend/app/telemetry.py`, which also holds the allowlist below.
 
@@ -58,7 +58,12 @@ Data source **Prometheus**. Prometheus turns the OTel names into these names:
 | `winlog_ai_request_duration_seconds_bucket` (also `_count`, `_sum`) | AI call durations by `winlog_ai_operation`, `winlog_ai_provider` and `winlog_ai_outcome` |
 | `http_server_request_duration_seconds_bucket` (also `_count`, `_sum`) | HTTP request durations by `http_request_method`, `http_route` and `http_response_status_code` |
 
-Metrics are exported every 10 seconds, so a new measurement can take that long to appear.
+Metrics are exported every 10 seconds (`OTEL_METRIC_EXPORT_INTERVAL`, default 10000 ms), so a
+new measurement can take that long to appear.
+
+Every signal carries the resource attribute `deployment.environment.name` (`local` here). The
+local stack makes it the label `deployment_environment_name` on every Prometheus series and every
+Loki stream, and Tempo shows it as `resource.deployment.environment.name`.
 
 ### Over the HTTP API
 
@@ -77,7 +82,11 @@ curl -G "$G/prometheus/api/v1/query" \
 
 1. In the repository root: `docker compose up -d db lgtm`.
 2. In `.env`, set `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318` (the port is
-   `OTLP_HTTP_HOST_PORT`).
+   `OTLP_HTTP_HOST_PORT`). Keep `TELEMETRY_ENVIRONMENT=local` and `OTEL_METRIC_EXPORT_INTERVAL`
+   at its default, 10000, which the [alert timings](#make-it-fire-on-purpose) expect. Leave
+   `OTEL_EXPORTER_OTLP_HEADERS` empty: the local collector needs no credential, and with an
+   `http://` endpoint any headers value stops the backend at startup, because headers carry a
+   credential and go only over `https://`.
 3. In `backend/`: `uv run alembic upgrade head`, then `uv run uvicorn app.main:app --reload`.
 
 The endpoint is the collector's base URL; the backend adds `/v1/traces`, `/v1/metrics` and
@@ -91,6 +100,83 @@ gives up after 2 seconds, so the backend still stops within a few seconds.
 
 The tests never need a collector. They capture telemetry with in-memory exporters
 (`backend/tests/telemetry_capture.py`) and never use `OTEL_EXPORTER_OTLP_ENDPOINT`.
+
+## Hosted telemetry (dev and production)
+
+Both hosted backends, `winlog-api-dev` and `winlog-api` on Render, send their traces, metrics
+and JSON log records over OTLP/HTTP to **one Grafana Cloud stack**, the product owner's (#92).
+`render.yaml` sets the same endpoint on both:
+
+```
+https://otlp-gateway-prod-eu-west-4.grafana.net/otlp
+```
+
+The backend adds `/v1/traces`, `/v1/metrics` and `/v1/logs`, as locally. No collector or
+Grafana Alloy runs in between. The product owner's account steps (tokens, the Render
+Dashboard, the Blueprint sync) are in `ops/deployment.md`, "Hosted telemetry: Grafana Cloud".
+
+**Why the endpoint URL is committed.** It names Grafana Cloud's shared gateway for the region,
+not the account. Knowing it lets nobody read the data, which needs the product owner's Grafana
+login, or send data in, which needs an access token. The tokens are only in Render, as the
+secret `OTEL_EXPORTER_OTLP_HEADERS` (`sync: false`, one write-only token per environment), and
+the backend sends them only over `https://`.
+
+**Environments.** Every span, metric and log record carries the resource attribute
+`deployment.environment.name`: `dev` or `production` (`TELEMETRY_ENVIRONMENT` in `render.yaml`),
+and `local` on a computer, Docker Compose included. It is the only thing that tells dev from
+production in the one stack.
+
+**Where to find each signal.** In Grafana Cloud, open the stack's Grafana → **Explore**, and
+choose the stack's data source for traces (Tempo), logs (Loki) or metrics (Prometheus). The
+queries are the same as [locally](#open-grafana), with the environment added:
+
+- Traces: TraceQL
+  `{resource.service.name="winlog-backend" && resource.deployment.environment.name="dev" && name="POST /summaries"}`.
+- Logs: `{service_name="winlog-backend", deployment_environment_name="dev"}`, and
+  `| trace_id="<trace ID>"` for one request's lines.
+- Metrics: `winlog_summary_generate_requests_total{deployment_environment_name="dev"}`, and the
+  same label on `http_server_request_duration_seconds_count` and the AI histogram.
+
+Locally, `deployment_environment_name` is a label of every Loki stream and Prometheus series
+(checked on #92). That Grafana Cloud does the same is checked after the merge, in section E of
+#92, whose record names the label or query that tells the environments apart in each signal
+(input for #117).
+
+**Metric interval.** The hosted backends export metrics every 60 seconds
+(`OTEL_METRIC_EXPORT_INTERVAL=60000`): one data point per series per minute. Locally it stays
+10 seconds.
+
+**The free plan.** The product owner approved Grafana Cloud's free plan for dev and production
+on 16 November 2026: no paid plan or add-on, $0. It keeps the data for 14 days. Its limits, per
+Grafana Cloud's pricing page as found by search (the product owner's stack is the authority):
+10,000 active metric series, 50 GB of logs and 50 GB of traces per month. Over a limit, Grafana
+Cloud drops the data; the app works the same.
+
+The estimate stays far below that. About 1,600 active series per environment: 20 operations ×
+a few status codes × 17 series per HTTP duration histogram (15 buckets, `_count` and `_sum`),
+plus the AI duration histogram (20 series per operation and outcome) and the outcome counter.
+Even one request per second would be about 2.6 GB per month per signal and environment. No
+sampling, and `GET /health` stays in: it carries the 503 `database_unreachable` signal.
+
+**Privacy.** Hosted telemetry holds exactly what local telemetry holds: only the
+[allowlist](#privacy-allowlist), nothing that identifies a user. That matters because Grafana
+Cloud keeps it for 14 days after an account is deleted (FR-D2).
+
+**Failed exports.** Exports never hold up a request. When one fails, the backend's log on
+Render shows a line from the OpenTelemetry exporter on stderr, such as
+`Failed to export spans batch code: 401, reason: Unauthorized`:
+
+- `401` (or `403`): the token is wrong, revoked or lacks a write scope. Create a new token and
+  replace the value in Render (`ops/deployment.md`, "Hosted telemetry: Grafana Cloud").
+- `429`: a free-plan limit was hit, and Grafana Cloud drops the data. Check the stack's usage
+  page; do not choose a paid plan without the product owner's approval.
+- A connection error or timeout: Grafana Cloud did not answer within 2 seconds. Exports resume
+  by themselves.
+
+The exporter logs the status code and reason, never the headers. A malformed
+`OTEL_EXPORTER_OTLP_HEADERS` never reaches the exporter: the backend stops at startup with
+`OTEL_EXPORTER_OTLP_HEADERS is invalid`, a message that never contains the value, because the
+OpenTelemetry SDK would otherwise print the whole value in a "Header format invalid" warning.
 
 ## Alerts
 
@@ -182,10 +268,10 @@ allowlisted labels (below), and it aggregates them with `sum(...)` and no `by`, 
 carries no label from the data. Its labels (`severity: critical`) and annotations (a summary,
 and a description with the share and a pointer to this section) are fixed text.
 
-**Hosted telemetry (#92).** The same query and threshold can be created in the hosted Grafana,
-for example through its alerting provisioning HTTP API or with Terraform, using the hosted
-Prometheus data source's uid instead of `prometheus`. The threshold may need tuning there,
-because the platform's health checks add `GET /health` traffic. Nothing for #92 is built here.
+**Hosted telemetry (#92).** This rule runs only in the local Grafana. An alert on the hosted
+dev and production telemetry in Grafana Cloud, with a contact point, is #117: it needs #92's
+data first (the hosted labels, the health checks' `GET /health` traffic for the threshold, the
+60-second interval). #92 creates nothing in Grafana Cloud: no rule, contact point or dashboard.
 
 ## Signals
 
@@ -259,8 +345,11 @@ not JSON and is never exported. Database errors in it never show parameter value
 Telemetry is span names, attributes, events and status descriptions; metric attributes; log
 bodies and attributes; resource attributes; and the JSON lines on stdout. It contains only:
 
-- the resource attributes `service.name` (`winlog-backend`), `service.version` and the SDK's
-  `telemetry.sdk.language`, `telemetry.sdk.name` and `telemetry.sdk.version`;
+- the resource attributes `service.name` (`winlog-backend`), `service.version`,
+  `deployment.environment.name` and the SDK's `telemetry.sdk.language`, `telemetry.sdk.name`
+  and `telemetry.sdk.version`. `deployment.environment.name` (`local`, `dev` or `production`,
+  from `TELEMETRY_ENVIRONMENT`, #92) tells dev from production in one hosted stack; it is a
+  fixed value from configuration, never user data;
 - the attribute keys `http.request.method`, `http.route`, `http.response.status_code`,
   `error.type`, `winlog.outcome`, `winlog.entry_count`, `winlog.ai.operation`,
   `winlog.ai.provider`, `winlog.ai.outcome` and `duration_ms`;
@@ -278,7 +367,10 @@ Never, also not in names or messages:
 - IP addresses (including `X-Forwarded-For`), user agents;
 - query strings, request or response bodies;
 - exception messages, stack traces;
-- the database URL, the AI API key.
+- the database URL, the AI API key;
+- the OTLP export headers (`OTEL_EXPORTER_OTLP_HEADERS`). They are a credential, the Grafana
+  Cloud token: sent only to the export endpoint over `https://`, never in telemetry, the JSON
+  lines or any log, also not in the error that a malformed value stops the backend with.
 
 Telemetry outlives account deletion (FR-D2), so it must hold nothing that identifies a user.
 
@@ -292,13 +384,15 @@ How it is enforced, in `backend/app/telemetry.py`:
 - Span and metric attributes outside the allowlist are dropped.
 - Spans use `record_exception=False` and `set_status_on_exception=False`, because the SDK's
   defaults add the exception message and stack trace.
-- The resource is built by hand: no environment, host or process detectors.
+- The resource is built by hand: no environment, host or process detectors, and no
+  `service.instance.id` (a new id on every start would make new metric series on every wake of
+  a free instance).
 - No OpenTelemetry auto-instrumentation: it records full URLs with query strings, client
   addresses, user agents, SQL and exception messages.
 - Tests check all of this: `backend/tests/unit/test_telemetry.py` and
   `backend/tests/integration/test_telemetry.py`, including
   `test_telemetry_contains_no_customer_data_or_credentials`, which runs every endpoint with
-  marker strings.
+  marker strings, a marker export headers value among them.
 
 When you add telemetry, use `app.telemetry.span` and the `app` loggers with allowlisted
 `extra` fields only. Adding a new key to the allowlist is a privacy decision: say why in the

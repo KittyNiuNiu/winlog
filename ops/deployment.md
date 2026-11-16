@@ -11,15 +11,16 @@ and §10.4).
 | Frontend (React build) | Render static site `winlog-app-dev` | Render static site `winlog-app` | `render.yaml` |
 | Database | Neon project for dev, PostgreSQL 18, AWS eu-central-1, test data only | Neon project for production, PostgreSQL 18, AWS eu-central-1 | Neon console |
 | AI | the mock (`AI_PROVIDER=mock`), no key, no cost | OpenRouter, zero data retention, `anthropic/claude-haiku-5.5` | `render.yaml`, OpenRouter account |
+| Telemetry | Grafana Cloud stack, marked `dev`, free plan | the same stack, marked `production` | `render.yaml`, Grafana Cloud account ([Hosted telemetry](#hosted-telemetry-grafana-cloud)) |
 
 Both backends are free web services in Render's Frankfurt region that run the prebuilt image;
 both frontends are free static sites on Render's CDN. All four services are defined in one
 Render Blueprint, `render.yaml` in the repository root.
 
 **Secrets never go into git, an issue, a comment, a chat, a log or a task summary.** They are
-typed only into the Neon, OpenRouter, Render and GitHub settings pages named below. There are
-seven: three in Render (`DATABASE_URL` of each backend, `AI_API_KEY` of production) and four
-deploy hook URLs in GitHub ([Secrets](#secrets)).
+typed only into the Neon, OpenRouter, Grafana Cloud, Render and GitHub settings pages named
+below. There are nine: five in Render (`DATABASE_URL` and `OTEL_EXPORTER_OTLP_HEADERS` of each
+backend, `AI_API_KEY` of production) and four deploy hook URLs in GitHub ([Secrets](#secrets)).
 
 > **Where the wording comes from.** The Render steps were checked against Render's
 > documentation (render.com/docs, 14 November 2026) by sessions that could read it but not open
@@ -293,6 +294,8 @@ machine or on Render. Only images already in GHCR can be deployed:
 | `DATABASE_URL` of `winlog-api` | Render, `winlog-api` → **Environment** (`sync: false`) | production Neon project, direct connection string | the production backend |
 | `AI_API_KEY` of `winlog-api` | Render, `winlog-api` → **Environment** (`sync: false`) | OpenRouter production key, $5 credit limit | the production backend |
 | `DATABASE_URL` of `winlog-api-dev` | Render, `winlog-api-dev` → **Environment** (`sync: false`) | dev Neon project, direct connection string | the dev backend |
+| `OTEL_EXPORTER_OTLP_HEADERS` of `winlog-api` | Render, `winlog-api` → **Environment** (`sync: false`) | the Grafana Cloud token for `winlog-api`, as `Authorization=Basic%20<base64 of instanceID:token>` ([Hosted telemetry](#hosted-telemetry-grafana-cloud)) | the production backend's telemetry export |
+| `OTEL_EXPORTER_OTLP_HEADERS` of `winlog-api-dev` | Render, `winlog-api-dev` → **Environment** (`sync: false`) | the Grafana Cloud token for `winlog-api-dev`, in the same form | the dev backend's telemetry export |
 | `RENDER_API_DEPLOY_HOOK` in environment `dev` | GitHub, **Settings → Environments → `dev`** → environment secrets | `winlog-api-dev` → **Settings** → Deploy Hook | job **Deploy to dev** |
 | `RENDER_APP_DEPLOY_HOOK` in environment `dev` | GitHub, environment `dev` | `winlog-app-dev` → **Settings** → Deploy Hook | job **Deploy to dev** |
 | `RENDER_API_DEPLOY_HOOK` in environment `production` | GitHub, environment `production` | `winlog-api` → **Settings** → Deploy Hook | job **Deploy to production**, only after approval |
@@ -559,9 +562,12 @@ secrets, which is expected. Make the GHCR package public (migration step 5).
    created: renaming it later does not change the URL. Region Frankfurt, instance type
    **Free**. Under **Advanced**: the health check path `/health`, and the environment values
    `DATABASE_URL` (the dev string, step 1), `AI_PROVIDER` = `mock`, `CORS_ALLOWED_ORIGINS` =
-   `https://winlog-app-dev.onrender.com` and `DEMO_EMAIL` = `demo@example.com`. The backend's
-   defaults for every other value are the values in `render.yaml`, and the Blueprint writes them
-   all in step 6. Create the service: its first deploy runs the migrations on the empty
+   `https://winlog-app-dev.onrender.com` and `DEMO_EMAIL` = `demo@example.com`, and for the
+   telemetry `OTEL_EXPORTER_OTLP_ENDPOINT` (its value in `render.yaml`),
+   `OTEL_EXPORTER_OTLP_HEADERS` (dev's header value, [Hosted
+   telemetry](#hosted-telemetry-grafana-cloud), steps 1 to 3), `TELEMETRY_ENVIRONMENT` = `dev`
+   and `OTEL_METRIC_EXPORT_INTERVAL` = `60000`. The backend's defaults for every other value are
+   the values in `render.yaml`, and the Blueprint writes them all in step 6. Create the service: its first deploy runs the migrations on the empty
    database and creates the demo account.
 2. **The dev static site.** **New > Static Site**, this repository, branch `main`, the name
    `winlog-app-dev` (check the **Name** here too), publish directory `frontend/dist`, build
@@ -587,7 +593,9 @@ Only after dev has been checked:
    `AI_API_KEY` (the production key, step 2), `AI_PROVIDER` = `openai-compatible`,
    `AI_BASE_URL` = `https://openrouter.ai/api/v1`, `AI_MODEL` (its value in `render.yaml`),
    `CORS_ALLOWED_ORIGINS` = `https://winlog-app.onrender.com` and `DEMO_EMAIL` =
-   `demo@example.com`.
+   `demo@example.com`, and for the telemetry `OTEL_EXPORTER_OTLP_ENDPOINT` (its value in
+   `render.yaml`), `OTEL_EXPORTER_OTLP_HEADERS` (production's header value),
+   `TELEMETRY_ENVIRONMENT` = `production` and `OTEL_METRIC_EXPORT_INTERVAL` = `60000`.
 2. **The production static site**, as in step 4.2, with the name `winlog-app` and
    `VITE_API_BASE_URL` = `https://winlog-api.onrender.com`; then **Auto-Deploy** **Off** and the
    rewrite rule.
@@ -697,13 +705,14 @@ If step 1 or 2 fails, the script exits with a non-zero code and the server never
 
 The access log stays off (`backend/app/telemetry.py`, #74), and the start command does not turn
 it back on, so request lines with query strings (such as `?tag=<name>`) never reach Render's
-logs. The backend prints only its JSON log lines and sends no telemetry in production
-(`OTEL_EXPORTER_OTLP_ENDPOINT` is not set, `docs/observability.md`; hosted telemetry is #92).
+logs. The backend prints only its JSON log lines, and sends its traces, metrics and the same
+log records to Grafana Cloud ([Hosted telemetry](#hosted-telemetry-grafana-cloud),
+`docs/observability.md`).
 
 ## Environment variables
 
 Change non-secret values in **`render.yaml`**, not in the Render Dashboard: a Blueprint sync
-overwrites dashboard edits of every value the file sets. Only the three secrets are kept in the
+overwrites dashboard edits of every value the file sets. Only the five secrets are kept in the
 Dashboard. Real values never go into `.env.example`, which documents every backend variable.
 After a merged change to `render.yaml` has been promoted, start a **Manual Sync** of the
 Blueprint (Auto Sync stays off, [Blueprint syncs](#blueprint-syncs)).
@@ -735,11 +744,14 @@ Blueprint (Auto Sync stays off, [Blueprint syncs](#blueprint-syncs)).
 | `REQUEST_BODY_MAX_BYTES` | `262144` | `render.yaml` | no |
 | `HSTS_MAX_AGE_SECONDS` | `31536000` | `render.yaml` | no |
 | `DEMO_EMAIL` | `demo@example.com` (the reset creates it before the server accepts requests, so nobody can register it first) | `render.yaml` | no |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `https://otlp-gateway-prod-eu-west-4.grafana.net/otlp`, the Grafana Cloud stack's OTLP endpoint (the same on both backends; why it is not a secret: `docs/observability.md`, "Hosted telemetry") | `render.yaml` | no |
+| `OTEL_EXPORTER_OTLP_HEADERS` | `Authorization=Basic%20<base64 of instanceID:token>` with production's own Grafana Cloud token | Render Dashboard (`sync: false`), [Hosted telemetry](#hosted-telemetry-grafana-cloud) | **yes** |
+| `TELEMETRY_ENVIRONMENT` | `production` (the resource attribute `deployment.environment.name`) | `render.yaml` | no |
+| `OTEL_METRIC_EXPORT_INTERVAL` | `60000` (one metric export per minute) | `render.yaml` | no |
 | `PORT` | the port the server listens on | set by Render itself; not in `render.yaml` | no |
 
-Not set in production, on purpose: `OTEL_EXPORTER_OTLP_ENDPOINT` (no telemetry export, #92),
-and the variables only Docker Compose or the tests use (`POSTGRES_*`, `*_HOST_PORT`,
-`VITE_API_BASE_URL` on the backend, `TEST_DATABASE_URL`).
+Not set in production, on purpose: the variables only Docker Compose or the tests use
+(`POSTGRES_*`, `*_HOST_PORT`, `VITE_API_BASE_URL` on the backend, `TEST_DATABASE_URL`).
 
 **When the database stops answering** (#95): every request that waits on it ends with the app's
 "Something went wrong" error (500 `internal_error`) after at most about
@@ -784,11 +796,14 @@ The same as `winlog-api`, except these rows:
 | `CORS_ALLOWED_ORIGINS` | `https://winlog-app-dev.onrender.com` | `render.yaml` | no |
 | `AI_PROVIDER` | `mock` | `render.yaml` | no |
 | `AI_API_KEY`, `AI_BASE_URL`, `AI_MODEL` | not set: the mock needs none, and dev never calls a real AI | – | – |
+| `OTEL_EXPORTER_OTLP_HEADERS` | the same form with dev's own Grafana Cloud token, never production's | Render Dashboard (`sync: false`), [Hosted telemetry](#hosted-telemetry-grafana-cloud) | **yes** |
+| `TELEMETRY_ENVIRONMENT` | `dev` | `render.yaml` | no |
 
 All other values (AI timeouts, AI usage limits, login limits, token lifetime, both database
 timeouts `DATABASE_CONNECT_TIMEOUT_SECONDS` and `DATABASE_QUERY_TIMEOUT_SECONDS`, the request
-body limit `REQUEST_BODY_MAX_BYTES`, the HSTS header's `HSTS_MAX_AGE_SECONDS`, `DEMO_EMAIL`) are
-the same as production's. Keep them the same when one changes.
+body limit `REQUEST_BODY_MAX_BYTES`, the HSTS header's `HSTS_MAX_AGE_SECONDS`, `DEMO_EMAIL`, the
+telemetry endpoint `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_METRIC_EXPORT_INTERVAL`) are the same
+as production's. Keep them the same when one changes.
 
 ### Static sites (`winlog-app`, `winlog-app-dev`)
 
@@ -825,6 +840,56 @@ uv run python -m scripts.model_comparison check deepseek/deepseek-v4.1-flash
 Then change `AI_MODEL` in `render.yaml` with a normal task, merge it, promote it, and sync the
 Blueprint ([Blueprint syncs](#blueprint-syncs)). Dev keeps the mock.
 
+## Hosted telemetry: Grafana Cloud
+
+Both backends send their traces, metrics and JSON log records over OTLP/HTTP to one Grafana
+Cloud stack, the product owner's, on its free plan (#92). `render.yaml` sets the endpoint,
+`TELEMETRY_ENVIRONMENT` (`production` or `dev`) and a metric export every 60 seconds. Each
+backend's access token is a secret, `OTEL_EXPORTER_OTLP_HEADERS` (`sync: false`), which only
+the product owner enters in the Render Dashboard. What is sent, how to find it in Grafana Cloud
+and what failed exports look like: `docs/observability.md`, "Hosted telemetry (dev and
+production)".
+
+The product owner's steps, in this order. Agents never do them: they change Render and Grafana
+Cloud settings.
+
+1. **Grafana Cloud: note the endpoint and the instance ID.** In the Grafana Cloud portal, open
+   the stack's **OpenTelemetry** configuration and note the OTLP endpoint and the instance ID.
+   The endpoint must be the one in `render.yaml`
+   (`https://otlp-gateway-prod-eu-west-4.grafana.net/otlp`); if it differs, stop and report
+   it.
+2. **Grafana Cloud: one access policy, two tokens.** Create an access policy for this app with
+   only the scopes `metrics:write`, `logs:write` and `traces:write`, and two tokens in it: one
+   for `winlog-api`, one for `winlog-api-dev`. Either can then be revoked alone.
+3. **Build each header value.** For each token, build the header value
+   `Authorization=Basic%20<base64 of instanceID:token>` (the portal's OpenTelemetry page can
+   generate it). Never paste it into a chat, issue, file or log.
+4. **Render: enter the values.** Render → `winlog-api-dev` → **Environment** → add
+   `OTEL_EXPORTER_OTLP_HEADERS` with the dev value and save; the same on `winlog-api` with the
+   production value. Do this **before** the Blueprint sync: a later sync does not ask for a new
+   `sync: false` value, and until the endpoint is set the value has no effect. Saving restarts
+   the backend, which still exports nothing until step 5 sets the endpoint. Check that each
+   restart succeeds (**Events**, and `/health` answers 200): a malformed value stops the
+   backend at startup ([below](#hosted-telemetry-grafana-cloud)).
+5. **Render: Manual Sync, after the promotion.** After the merged change has been promoted to
+   production, and while the newest commit on `main` is the one production runs: Blueprint →
+   **Manual Sync**. The expected list: on both backends, `OTEL_EXPORTER_OTLP_ENDPOINT`,
+   `TELEMETRY_ENVIRONMENT` and `OTEL_METRIC_EXPORT_INTERVAL` are added; the headers keep the
+   value entered in step 4. Anything else is read as in [Blueprint syncs](#blueprint-syncs).
+6. **Check it.** Run the checks in section E of #92 (and later, the same checks after any
+   change).
+
+**If a token may have leaked:** delete it in Grafana Cloud (its access policy → the token →
+**Delete**), create a new one in the same policy, build its header value (step 3) and replace
+the value on the service's **Environment** page in Render. Saving restarts the backend with the
+new value.
+
+**No paid plan or add-on** is chosen in Grafana Cloud without the product owner's approval.
+Over a free-plan limit, Grafana Cloud drops the data; the app works the same.
+
+A backend whose `OTEL_EXPORTER_OTLP_HEADERS` is malformed does not start: its log shows
+`OTEL_EXPORTER_OTLP_HEADERS is invalid`, never the value. Fix the value on the service's
+**Environment** page.
 
 ## Free-plan limits
 
@@ -859,6 +924,14 @@ are from search results and memory, so check Neon's pricing page.
   and scales to zero after a few minutes idle.
 - **GitHub:** Actions minutes are free on public repositories, and GHCR storage and transfer
   are free for public packages. Every `sha-<commit>` image stays in GHCR: rollbacks need it.
+- **Grafana Cloud free plan** (hosted telemetry, approved by the product owner on
+  16 November 2026: no paid plan or add-on, $0): one stack for dev and production. Its limits,
+  per Grafana Cloud's pricing page as found by search on 16 November 2026 (the product owner's
+  stack is the authority): 10,000 active metric series, 50 GB of logs and 50 GB of traces per
+  month, and 14 days' retention. The estimate is about 1,600 active series per environment
+  (`docs/observability.md`, "Hosted telemetry"). Over a limit, Grafana Cloud drops the data and
+  the app works the same. See the usage in the Grafana Cloud portal, on the stack's usage or
+  billing page; it also warns there when a limit comes near.
 
 ## End-to-end test: dev yes, production never
 
