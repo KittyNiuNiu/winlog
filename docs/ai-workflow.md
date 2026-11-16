@@ -5279,3 +5279,35 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Whether Grafana Cloud makes `deployment.environment.name` a metric label as the local stack does is checked only in section E. If it does not, dev and production series with the same labels would merge, because there is no `service.instance.id`. Section E's "Environments told apart" check would show it.
   - Per-signal header variables (`OTEL_EXPORTER_OTLP_TRACES_HEADERS` and the like) are out of scope and not validated. If one were ever set in Render, the SDK would read it unchecked.
   - The free-plan figures come from search results. The product owner's stack is the authority.
+
+## 2026-11-16: PM: groom #117 (task 69, alert on server errors in the hosted Grafana Cloud stack)
+
+- **Task:** groom #117 following `docs/pm.md`, under the standing rule of 2026-11-14 as extended to task 69.
+- **What I did:**
+  - Rewrote the body of #117 using the template, in six sections:
+    - A: two hosted rules in a Prometheus rule file, `ops/grafana-cloud/alert-rules.yaml`;
+    - B: a unit test that keeps the hosted query in step with the local one;
+    - C: `docs/observability.md`, `ops/deployment.md` and the spec;
+    - D: a live check of the same file in the local stack;
+    - E: the product owner's Grafana Cloud steps, recorded on the issue;
+    - F: checks.
+  - Posted the PM comment with the decisions and two questions (6924821784).
+  - Labels unchanged. No screen changes, no change to `openapi.yaml` or `render.yaml`, and no follow-up issues.
+- **Decisions under the standing rule, recorded in the issue:**
+  - The product owner imports the rules in Grafana Cloud's UI from a Prometheus rule file. Grafana Cloud has no file provisioning, and the import needs no API token or new tool.
+  - One rule per environment, each with a fixed environment matcher and label, and no `by`.
+  - The same query and 5% threshold as locally.
+  - The import's conversion defaults are accepted and documented.
+  - Routing goes through a child notification policy on `service=winlog-backend`.
+  - The rules are verified firing in the local stack, not in Grafana Cloud.
+  - The 429 wording and the label sentence in `docs/observability.md` are fixed here.
+  - No CI change.
+- **Questions for the product owner, returned to the orchestrator:**
+  - the contact point: recommended, email to the product owner's own Grafana Cloud login address;
+  - whether dev alerts notify: recommended, yes.
+- **How I verified it:**
+  - grafana.com could not be opened from this session, so I read Grafana's docs from its source repository (`docs/sources`, branch `main`). Checked there: no file provisioning in Grafana Cloud; the Prometheus YAML import; the free plan's 500 Grafana-managed rules; no SMTP needed for email in Grafana Cloud.
+  - In this session, with `grafana/otel-lgtm:0.39.0` (Grafana 13.3.0) and nothing committed, the UI's import form for a Prometheus YAML file was present, and a draft of the file imported through the convert API: it became a Grafana-managed rule with the expected uid, group, labels and pending period, a 1-minute offset, no-data and error states `OK`, and evaluated `inactive` with health `ok`. An always-true converted rule went pending and then firing.
+  - The email restriction on new free accounts and Render's health-check interval come from search results, and the issue says so.
+  - The saved issue body was compared with the text sent. No AI call, and no Grafana Cloud, Render or GitHub setting changed.
+- **Left open:** the two questions above. The body assumes the recommended answers; if an answer differs, the PM updates sections A, C and E.
