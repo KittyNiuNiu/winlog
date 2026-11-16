@@ -5205,3 +5205,10 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Local spec edits, not committed, each undone with `git checkout -- docs/product-spec.md`: header set to 14 November 2026 (first test fails: "Last updated is 14 November 2026, the newest §14 entry is 15 November 2026"); top entry set to 16 November 2026 (first test fails); the 0.1 entry moved to the top (second test fails: "§14 entry 2 (15 November 2026) is later than entry 1 above it (1 November 2026)"); header line deleted (both fail: no "Last updated" line). Also no §14 heading, no entry, a misspelt month and a missing full stop: both fail and say which.
   - `uv run ruff check .`, `uv run ruff format --check .` and `uv run pytest tests/unit` (1813 passed, with PostgreSQL stopped, and again with `LC_ALL=C`); `./test-all.sh` passed. CI on the pushed branch is reported on the issue. No AI call.
 - **Left open:** nothing.
+
+## 2026-11-16: Orchestrator: close #114 (spec header date in step with §14), end of the batch
+
+- **Task:** task 66, run with `/orchestrate all`. No screens change; `render.yaml` and the spec do not change.
+- **What happened:** PM grooming (6903047327); engineer (6903631478, CI 43778202663 passed); QA PASS (6903829357). Closed as completed.
+- **Open point, left in this log under the standing rule** (no work needed): a §14 paragraph that does not start with a bold version number is skipped without a message.
+- **Batch:** tasks 48 to 66 are closed. The run stops before #92 (task 67), as the product owner asked. #111, #112 and #114 are on the branch and wait for the product owner's merge; none changes `render.yaml`.
