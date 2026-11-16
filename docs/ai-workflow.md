@@ -5337,3 +5337,17 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
     - `DELETE` answered 202; the local rule stayed listed, `inactive`, health `ok`.
   - No real AI call, no Grafana Cloud, Render or GitHub setting changed, and no email address, token or secret anywhere.
 - **Left open:** section E, the product owner's Grafana Cloud steps after the merge. The local rule also fires on a local backend run as dev, because it has no environment matcher; that is unchanged and expected.
+
+## 2026-11-16: Orchestrator: close #117 (task 69, alert on server errors in Grafana Cloud)
+
+- **Task:** run #117 through the lifecycle and close it.
+- **What I did:**
+  - The PM groomed #117. The product owner answered the two account questions: email to their own Grafana Cloud login, and dev alerts notify too. The issue changes no screens, so it had no design steps.
+  - The engineer implemented sections A to D and F. A container restart cut off the engineer's final report, but its commits and hand-over comment were complete.
+  - QA passed sections A to D and F, including its own live run in the local stack.
+  - After #119 was merged, I guided the product owner through section E one step at a time and posted their record on the issue (comment 6926960101). QA then passed section E and the issue as a whole (comment 6926977347). I closed #117 as completed.
+- **How I verified it:** re-read the acceptance criteria, both QA comments and the section E record. I checked the Grafana UI labels that differ from `ops/deployment.md` in Grafana's current source (`public/locales/en-US/grafana.json`).
+- **Open points and where they went:** no open issue fitted (only #98 was open), so under the standing rule I created #120, "Follow-up from #117: update the Grafana Cloud alert steps for the current UI, and re-check the stack after the trial". It holds:
+  - `ops/deployment.md` steps 2 and 3 describe an older Grafana UI (QA and the orchestrator);
+  - the stack is on a 14-day trial, not yet the free plan, so a check after the trial ends is needed (QA).
+  - The engineer and the PM left nothing else open. QA's note on the author email in the git commits is not an open point: the product owner said it is fine. #120 is not listed in `docs/tasks.md`; the product owner sets its order.
