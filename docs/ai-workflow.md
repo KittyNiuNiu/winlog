@@ -5316,3 +5316,24 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 
   Both match the recommendations. I changed two places in the body: the note at the top now records the decisions, and the out-of-scope line on a non-email contact point now says email was chosen. I recorded the answers in a comment (6924875812). The issue is groomed.
 - **Left open:** nothing for grooming.
+
+## 2026-11-16: Engineer: implement #117 (task 69, alert on server errors in the hosted Grafana Cloud stack)
+
+- **Task:** sections A to D and F of #117: the hosted alert rules as code, their unit test, the docs and the spec, and a live check of the file in the local stack. Section E is the product owner's, after the merge.
+- **What I did:**
+  - `ops/grafana-cloud/alert-rules.yaml` (new): Prometheus rule-file format, `namespace: Winlog`, one group `user-impact` (interval `1m`) with two rules, production first. Each is the local rule's query with `deployment_environment_name="<env>"` in both selectors and ` > 0.05` at the end, `for: "1m"`, fixed labels (`__grafana_alert_rule_uid__`, `severity`, `service`, `environment`) and fixed annotations. No address, URL or data source uid.
+  - `backend/tests/unit/test_hosted_alert_rules.py` (new, 11 tests): top-level keys, group, rules, labels and annotations, the shape the import form needs, no `{{`, `@` or `://`, the header comment, and that each hosted `expr` equals the local `expr` with the matcher and threshold added. Changing one `[5m]` in the hosted file made that test fail.
+  - `docs/observability.md`: the subsection "Hosted alerts (dev and production)" replaces the "Hosted telemetry (#92)" paragraph, with the live figures and the commands to check the file locally. The `429` bullet now gives what the SDK logs (checked in the installed exporter's source), and the label paragraph states #92's result.
+  - `ops/deployment.md`: the section "Hosted alerts: Grafana Cloud" with the product owner's steps, and the alerting limits in the Grafana Cloud free-plan bullet.
+  - `docs/product-spec.md`: §9, §10.2 and §14 word for word from the issue; the header date was already 16 November 2026.
+- **How I verified it:**
+  - `uv run ruff check .`, `uv run ruff format --check .`, `uv run pytest tests/unit` (1877 passed), `uv run pytest tests/integration` (1202 passed, through `./test-all.sh`) and `./test-all.sh` (all three suites passed).
+  - Section D live, `grafana/otel-lgtm:0.39.0`, the group imported through the convert API into `Winlog hosted check` (202), the backend on the host as dev with `AI_PROVIDER=mock` and a 60-second export:
+    - both rules `inactive`, health `ok`; the dev rule's labels, annotations, `for: 1m` and 60-second interval as expected;
+    - 30 `GET /health` (200) left both `inactive` for over 3 minutes;
+    - after `docker compose stop db`, first 503 at 18:16:23, dev Pending at 18:19:50, Firing at 18:20:50; production stayed `inactive`;
+    - the firing alert's labels were only `alertname`, `grafana_folder`, `severity`, `service`, `environment` and `__` labels, and its annotations the fixed texts plus Grafana's values;
+    - after `docker compose start db`, last 503 at 18:21:06, dev `inactive` again at 18:26:50;
+    - `DELETE` answered 202; the local rule stayed listed, `inactive`, health `ok`.
+  - No real AI call, no Grafana Cloud, Render or GitHub setting changed, and no email address, token or secret anywhere.
+- **Left open:** section E, the product owner's Grafana Cloud steps after the merge. The local rule also fires on a local backend run as dev, because it has no environment matcher; that is unchanged and expected.
