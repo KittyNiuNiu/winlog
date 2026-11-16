@@ -1,7 +1,7 @@
 """The backend's settings under Docker Compose, without Docker (issue #61).
 
 `docker-compose.yml` passes every variable in the repository-root `.env` to the backend
-container with `env_file`, and keeps six entries under `environment:` that take precedence over
+container with `env_file`, and keeps eight entries under `environment:` that take precedence over
 `.env`. No requirement ID covers Docker Compose (product-spec.md §9 "Reproducibility" has none),
 so the test names describe the behaviour. `docker compose config` and the running system are
 checked by CI's Full system job; the last test here reads that job's step that starts the
@@ -28,6 +28,8 @@ OVERRIDES = {
     "HSTS_MAX_AGE_SECONDS",
     "AI_PROVIDER",
     "OTEL_EXPORTER_OTLP_ENDPOINT",
+    "OTEL_EXPORTER_OTLP_HEADERS",
+    "TELEMETRY_ENVIRONMENT",
     "PORT",
 }
 CI_STEP = "Backend starts with the openai-compatible settings and the demo"
@@ -56,6 +58,10 @@ def test_docker_compose_backend_overrides_only_what_compose_sets_or_requires():
     # The db and lgtm services, not the host addresses in .env.
     assert urlsplit(environment["DATABASE_URL"]).hostname == "db"
     assert environment["OTEL_EXPORTER_OTLP_ENDPOINT"] == "http://lgtm:4318"
+    # Never a hosted token from .env to the local lgtm service, and always marked local (#92).
+    assert environment["OTEL_EXPORTER_OTLP_HEADERS"] == ""
+    assert environment["TELEMETRY_ENVIRONMENT"] == "local"
+    assert "OTEL_METRIC_EXPORT_INTERVAL" not in environment
     # Required: Compose stops before anything starts when .env has no value.
     for name in ("CORS_ALLOWED_ORIGINS", "AI_PROVIDER"):
         assert environment[name] == f"${{{name}:?set {name} in .env}}"

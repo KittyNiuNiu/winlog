@@ -42,6 +42,10 @@ services:
     # - OTEL_EXPORTER_OTLP_ENDPOINT: traces, metrics and logs go to the lgtm service over
     #   OTLP/HTTP (issue #74), not to the host address in .env. There is deliberately no
     #   depends_on on lgtm: the backend works the same while it is down.
+    # - OTEL_EXPORTER_OTLP_HEADERS and TELEMETRY_ENVIRONMENT: always empty and local (issue #92),
+    #   so a hosted Grafana Cloud token copied into .env is never sent to the local lgtm service,
+    #   and local telemetry is always marked local. OTEL_METRIC_EXPORT_INTERVAL comes from .env
+    #   or its default.
     # - PORT: 8000, the container port that `ports:` publishes, whatever .env says.
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
@@ -49,6 +53,8 @@ services:
       HSTS_MAX_AGE_SECONDS: ${HSTS_MAX_AGE_SECONDS:-0}
       AI_PROVIDER: ${AI_PROVIDER:?set AI_PROVIDER in .env}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://lgtm:4318
+      OTEL_EXPORTER_OTLP_HEADERS: ""
+      TELEMETRY_ENVIRONMENT: local
       PORT: "8000"
     ports:
       - "${BACKEND_HOST_PORT:-8000}:8000"

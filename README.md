@@ -165,6 +165,8 @@ backend setting there applies in the same way. Compose sets only these itself:
 
 - `DATABASE_URL`: the `db` service;
 - `OTEL_EXPORTER_OTLP_ENDPOINT`: the `lgtm` service;
+- `OTEL_EXPORTER_OTLP_HEADERS`: empty, so a hosted telemetry token never goes to `lgtm`;
+- `TELEMETRY_ENVIRONMENT`: `local`;
 - `PORT`: 8000;
 - `HSTS_MAX_AGE_SECONDS`: 0 when `.env` has no value.
 
