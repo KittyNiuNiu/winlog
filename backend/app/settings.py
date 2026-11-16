@@ -4,8 +4,10 @@ Locally, values can also come from the repository-root `.env` file (see `.env.ex
 Real environment variables take precedence over the file, and a missing file is ignored.
 """
 
+import re
 from pathlib import Path
-from typing import Annotated, Literal
+from typing import Annotated, Literal, get_args
+from urllib.parse import unquote
 
 from pydantic import (
     EmailStr,
@@ -64,6 +66,65 @@ MAX_REQUEST_BODY_MAX_BYTES = 10_485_760
 
 # The longest HSTS_MAX_AGE_SECONDS (issue #99): two years, a sanity bound like the others.
 MAX_HSTS_MAX_AGE_SECONDS = 63_072_000
+
+# The environments TELEMETRY_ENVIRONMENT can name (issue #92). The value becomes the resource
+# attribute `deployment.environment.name`, so dev and production can be told apart in one
+# hosted Grafana Cloud stack. `local` is a developer's computer, Docker Compose included.
+TelemetryEnvironment = Literal["local", "dev", "production"]
+TELEMETRY_ENVIRONMENTS: tuple[str, ...] = get_args(TelemetryEnvironment)
+
+# The range of OTEL_METRIC_EXPORT_INTERVAL in milliseconds (issue #92): from 1 second to
+# 5 minutes. The default, 10 seconds, is what the local stack and its alert timings expect.
+MIN_METRIC_EXPORT_INTERVAL_MILLIS = 1_000
+MAX_METRIC_EXPORT_INTERVAL_MILLIS = 300_000
+
+# OTEL_EXPORTER_OTLP_HEADERS (issue #92): comma-separated `name=value` pairs, as the
+# OpenTelemetry SDK reads them (opentelemetry.util.re.parse_env_headers with liberal=True, the
+# form the OTLP/HTTP exporters use). The patterns are the SDK's: a pair whose value is URL-encoded
+# is decoded; a value with a literal space (Grafana Cloud's `Basic <credentials>`) is taken as it
+# is. Every value the settings accept is one the SDK reads the same way without a warning, so the
+# SDK never prints the value (its warning for a malformed pair contains the whole pair).
+_OTLP_HEADER_NAME = r"[\x21\x23-\x27\x2a\x2b\x2d\x2e\x30-\x39\x41-\x5a\x5e-\x7a\x7c\x7e]+"
+_OTLP_HEADER_PAIR = re.compile(
+    rf"[ \t]*{_OTLP_HEADER_NAME}[ \t]*=[ \t]*[\x21\x23-\x2b\x2d-\x3a\x3c-\x5b\x5d-\x7e]*[ \t]*"
+)
+_OTLP_HEADER_PAIR_WITH_SPACES = re.compile(
+    rf"[ \t]*{_OTLP_HEADER_NAME}[ \t]*=[ \t]*[\x20\x21\x23-\x2b\x2d-\x3a\x3c-\x5b\x5d-\x7e]*[ \t]*"
+)
+_OTLP_HEADER_DELIMITER = re.compile(r"[ \t]*,[ \t]*")
+# After decoding, a name must still be an HTTP token and a value printable ASCII. Otherwise the
+# HTTP client would refuse the header at the first export, and the export error it logs would
+# contain the value.
+_HTTP_TOKEN = re.compile(r"[!#$%&'*+\-.^_`|~0-9A-Za-z]+")
+_HTTP_HEADER_VALUE = re.compile(r"[\x20-\x7e]*")
+
+
+def parse_otlp_headers(text: str) -> dict[str, str]:
+    """The headers in an OTEL_EXPORTER_OTLP_HEADERS value, names in lower case, as the SDK reads
+    them. Raises ValueError for a malformed value; the message never contains the value."""
+    headers: dict[str, str] = {}
+    for pair in _OTLP_HEADER_DELIMITER.split(text):
+        if not pair:
+            continue
+        pair = pair.strip()
+        if _OTLP_HEADER_PAIR.fullmatch(pair):
+            name, value = pair.split("=", 1)
+            name, value = unquote(name).strip().lower(), unquote(value).strip()
+        elif _OTLP_HEADER_PAIR_WITH_SPACES.fullmatch(pair):
+            name, value = pair.split("=", 1)
+            name, value = name.strip().lower(), value.strip()
+        else:
+            raise ValueError(_OTLP_HEADERS_FORMAT)
+        if not _HTTP_TOKEN.fullmatch(name) or not _HTTP_HEADER_VALUE.fullmatch(value):
+            raise ValueError(_OTLP_HEADERS_FORMAT)
+        headers[name] = value
+    return headers
+
+
+_OTLP_HEADERS_FORMAT = (
+    "must be comma-separated name=value pairs with URL-encoded values, such as "
+    "Authorization=Basic%20<credentials> (the value is not shown, because it holds a credential)"
+)
 
 
 class Settings(BaseSettings):
@@ -154,6 +215,21 @@ class Settings(BaseSettings):
     # http://localhost:4318. Empty or not set turns the export off: nothing is sent anywhere,
     # and the JSON logs on stdout still carry trace and span IDs (app/telemetry.py).
     otel_exporter_otlp_endpoint: str | None = None
+    # Headers sent with every OTLP export request (issue #92), the standard OpenTelemetry
+    # variable: comma-separated `name=value` pairs with URL-encoded values. For Grafana Cloud,
+    # `Authorization=Basic%20<base64 of instanceID:token>`. A secret, entered only in the Render
+    # Dashboard. Empty or not set sends no extra header. Read here, so a value in .env works too,
+    # checked at startup and passed to the exporters (app/telemetry.py). Only with an https://
+    # endpoint; with no endpoint it has no effect. It comes after the endpoint, so its validator
+    # can read it.
+    otel_exporter_otlp_headers: SecretStr | None = None
+    # Marks every signal with the resource attribute `deployment.environment.name` (issue #92):
+    # `local`, `dev` or `production`. Empty or not set is `local`.
+    telemetry_environment: TelemetryEnvironment = "local"
+    # Milliseconds between two metric exports (issue #92), the standard OpenTelemetry name. Only
+    # used while the export is on. A whole number from MIN_METRIC_EXPORT_INTERVAL_MILLIS (1000) to
+    # MAX_METRIC_EXPORT_INTERVAL_MILLIS (300000). Default 10000; the hosted backends use 60000.
+    otel_metric_export_interval: int = 10_000
 
     @field_validator("database_url")
     @classmethod
@@ -200,6 +276,58 @@ class Settings(BaseSettings):
         if not value.startswith(("http://", "https://")):
             raise ValueError("must start with http:// or https://, or be empty to turn it off")
         return value
+
+    @field_validator("otel_exporter_otlp_headers", mode="before")
+    @classmethod
+    def _check_otlp_headers(cls, value: object, info: ValidationInfo) -> SecretStr | None:
+        if isinstance(value, SecretStr):
+            value = value.get_secret_value()
+        if value is None:
+            return None
+        if not isinstance(value, str):
+            raise ValueError(_OTLP_HEADERS_FORMAT)
+        if not value.strip():
+            # An empty value, as in `OTEL_EXPORTER_OTLP_HEADERS=` in .env, sends no header.
+            return None
+        parse_otlp_headers(value)
+        endpoint = info.data.get("otel_exporter_otlp_endpoint")
+        if isinstance(endpoint, str) and endpoint.startswith("http://"):
+            raise ValueError(
+                "must be used with an https:// OTEL_EXPORTER_OTLP_ENDPOINT, not http://, because "
+                "the headers carry a credential"
+            )
+        return SecretStr(value.strip())
+
+    @field_validator("telemetry_environment", mode="before")
+    @classmethod
+    def _check_telemetry_environment(cls, value: object) -> object:
+        allowed = ", ".join(TELEMETRY_ENVIRONMENTS)
+        if value is None:
+            return "local"
+        if not isinstance(value, str):
+            raise ValueError(f"must be one of {allowed}")
+        value = value.strip()
+        if not value:
+            # An empty value, as in `TELEMETRY_ENVIRONMENT=` in .env, is the default.
+            return "local"
+        if value not in TELEMETRY_ENVIRONMENTS:
+            raise ValueError(f"must be one of {allowed}")
+        return value
+
+    @field_validator("otel_metric_export_interval", mode="before")
+    @classmethod
+    def _check_metric_export_interval(cls, value: object) -> int:
+        return _whole_number(
+            value,
+            minimum=MIN_METRIC_EXPORT_INTERVAL_MILLIS,
+            maximum=MAX_METRIC_EXPORT_INTERVAL_MILLIS,
+        )
+
+    def otlp_headers(self) -> dict[str, str]:
+        """The headers of OTEL_EXPORTER_OTLP_HEADERS, parsed; empty when it is not set."""
+        if self.otel_exporter_otlp_headers is None:
+            return {}
+        return parse_otlp_headers(self.otel_exporter_otlp_headers.get_secret_value())
 
     @field_validator("database_connect_timeout_seconds", mode="before")
     @classmethod

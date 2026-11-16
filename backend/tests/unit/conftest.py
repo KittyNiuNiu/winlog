@@ -65,6 +65,9 @@ def no_env_file(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("DEMO_LOGIN_MAX_ATTEMPTS", raising=False)
     monkeypatch.delenv("DEMO_LOGIN_WINDOW_MINUTES", raising=False)
     monkeypatch.delenv("OTEL_EXPORTER_OTLP_ENDPOINT", raising=False)
+    monkeypatch.delenv("OTEL_EXPORTER_OTLP_HEADERS", raising=False)
+    monkeypatch.delenv("TELEMETRY_ENVIRONMENT", raising=False)
+    monkeypatch.delenv("OTEL_METRIC_EXPORT_INTERVAL", raising=False)
 
 
 class FakeAttempts:
