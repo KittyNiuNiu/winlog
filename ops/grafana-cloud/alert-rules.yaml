@@ -1,0 +1,44 @@
+# Winlog's hosted alerts on user impact (issue #117), in Prometheus rule-file format: one rule
+# per hosted environment, production and dev, for the product owner's Grafana Cloud stack.
+# Grafana Cloud does not load this file by itself: the product owner imports it in Grafana
+# Cloud's UI as Grafana-managed rules (ops/deployment.md, "Hosted alerts: Grafana Cloud").
+# docker-compose.yml does not mount it, so the local stack does not load it either; the local
+# rule is ops/grafana/alerting/user-impact.yaml.
+# What the rules measure, how the import converts them, how they notify and how to check this
+# file in the local stack: docs/observability.md, section "Alerts".
+# Labels and annotations are fixed text, and the query aggregates with sum(...) and no `by`, so
+# an alert holds no label from the data and no customer data. The data source is chosen in the
+# import form, so no data source uid is committed.
+namespace: Winlog
+groups:
+  - name: user-impact
+    interval: 1m
+    rules:
+      - alert: Server errors above 5% in production
+        expr: >-
+          sum(increase(http_server_request_duration_seconds_count{service_name="winlog-backend", deployment_environment_name="production", http_response_status_code=~"5.."}[5m]))
+          / sum(increase(http_server_request_duration_seconds_count{service_name="winlog-backend", deployment_environment_name="production"}[5m]))
+          > 0.05
+        for: "1m"
+        labels:
+          __grafana_alert_rule_uid__: winlog-server-errors-production
+          severity: critical
+          service: winlog-backend
+          environment: production
+        annotations:
+          summary: More than 5% of the backend's requests in production failed with a server error (5xx) in the last 5 minutes.
+          description: See docs/observability.md, section "Alerts", for what the rule measures and what to check.
+      - alert: Server errors above 5% in dev
+        expr: >-
+          sum(increase(http_server_request_duration_seconds_count{service_name="winlog-backend", deployment_environment_name="dev", http_response_status_code=~"5.."}[5m]))
+          / sum(increase(http_server_request_duration_seconds_count{service_name="winlog-backend", deployment_environment_name="dev"}[5m]))
+          > 0.05
+        for: "1m"
+        labels:
+          __grafana_alert_rule_uid__: winlog-server-errors-dev
+          severity: critical
+          service: winlog-backend
+          environment: dev
+        annotations:
+          summary: More than 5% of the backend's requests in dev failed with a server error (5xx) in the last 5 minutes.
+          description: See docs/observability.md, section "Alerts", for what the rule measures and what to check.

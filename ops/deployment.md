@@ -891,6 +891,42 @@ A backend whose `OTEL_EXPORTER_OTLP_HEADERS` is malformed does not start: its lo
 `OTEL_EXPORTER_OTLP_HEADERS is invalid`, never the value. Fix the value on the service's
 **Environment** page.
 
+## Hosted alerts: Grafana Cloud
+
+The hosted dev and production backends each have an alert on server errors in the same Grafana
+Cloud stack, which emails the product owner when it fires (#117). The two rules are code in
+`ops/grafana-cloud/alert-rules.yaml`, in Prometheus rule-file format. Grafana Cloud has no file
+provisioning, so the product owner imports the file in its UI. What the rules measure, how the
+import converts them and how to check the file in the local stack: `docs/observability.md`,
+section "Alerts", "Hosted alerts (dev and production)".
+
+The product owner's steps, in this order. Agents never do them: they change Grafana Cloud
+settings. None of them costs anything on the free plan.
+
+1. **Contact point.** Grafana Cloud → **Alerting** → **Contact points** → **+ New contact
+   point**: name `Winlog email`, integration **Email**, address the product owner's own Grafana
+   Cloud login address. A new free account can send alert email only to users of its own stack.
+   Save, then **Test**: the test email arrives. The address is entered only here, never in the
+   repository, an issue or a chat.
+2. **Notification policy.** **Alerting** → **Notification policies** → the default policy →
+   **+ New child policy**: matcher `service` `=` `winlog-backend`, contact point `Winlog email`.
+   Leave the timings at their defaults. The default policy itself stays unchanged.
+3. **Import the rules.** **Alerting** → **Alert rules** → **Import to Grafana-managed rules**
+   (in newer versions **More** → **Import alert rules**).
+   - Import source **Prometheus YAML file**; upload `ops/grafana-cloud/alert-rules.yaml` from
+     `main`.
+   - Data source: the stack's Prometheus data source (named `grafanacloud-<stack>-prom`).
+   - Leave the target folder empty, so the folder is `Winlog`. Leave both pause options off.
+   - **Import**: the preview lists exactly the two rules. **Yes, import**.
+4. **Check it**, as in section E of #117: both rules in folder `Winlog`, group `user-impact`,
+   Normal and without an error; the label queries in **Explore** return a number for each
+   environment; no free-plan limit warning.
+
+After a change to the file, import it again the same way: the group in folder `Winlog` is
+replaced. Do not edit the rules in the UI: the file is the source, and the next import
+overwrites the edits. To stop notifications for a while, use a silence in Grafana Cloud
+(**Alerting** → **Silences**), not an edit of the rules.
+
 ## Free-plan limits
 
 Dev and production use free plans only. **No paid plan is chosen without the product owner's
@@ -931,7 +967,10 @@ are from search results and memory, so check Neon's pricing page.
   month, and 14 days' retention. The estimate is about 1,600 active series per environment
   (`docs/observability.md`, "Hosted telemetry"). Over a limit, Grafana Cloud drops the data and
   the app works the same. See the usage in the Grafana Cloud portal, on the stack's usage or
-  billing page; it also warns there when a limit comes near.
+  billing page; it also warns there when a limit comes near. Alerting (#117): up to 500
+  Grafana-managed alert rules, each with up to 1,000 alert instances (Winlog uses 2 rules with
+  1 instance each). Email needs no set-up, but on a new free account it goes only to users of
+  the stack. No add-on (for example Grafana IRM) without the product owner's approval.
 
 ## End-to-end test: dev yes, production never
 
