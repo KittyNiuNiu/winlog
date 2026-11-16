@@ -138,9 +138,9 @@ queries are the same as [locally](#open-grafana), with the environment added:
   same label on `http_server_request_duration_seconds_count` and the AI histogram.
 
 Locally, `deployment_environment_name` is a label of every Loki stream and Prometheus series
-(checked on #92). That Grafana Cloud does the same is checked after the merge, in section E of
-#92, whose record names the label or query that tells the environments apart in each signal
-(input for #117).
+(checked on #92). Grafana Cloud does the same, as checked on #92 after the merge (its section E
+records 6922675242 and 6924332073): in Grafana Cloud, logs and metrics carry the label
+`deployment_environment_name`, and traces the attribute `resource.deployment.environment.name`.
 
 **Metric interval.** The hosted backends export metrics every 60 seconds
 (`OTEL_METRIC_EXPORT_INTERVAL=60000`): one data point per series per minute. Locally it stays
@@ -168,8 +168,11 @@ Render shows a line from the OpenTelemetry exporter on stderr, such as
 
 - `401` (or `403`): the token is wrong, revoked or lacks a write scope. Create a new token and
   replace the value in Render (`ops/deployment.md`, "Hosted telemetry: Grafana Cloud").
-- `429`: a free-plan limit was hit, and Grafana Cloud drops the data. Check the stack's usage
-  page; do not choose a paid plan without the product owner's approval.
+- `429` (Too Many Requests): a free-plan limit was hit, and Grafana Cloud drops the data. The
+  exporter retries a 429, so the log does not show `code: 429`, and searching it for `429` finds
+  nothing. It shows `Transient error Too Many Requests encountered while exporting … retrying
+  in …`, and then `Failed to export … due to timeout, max retries or shutdown.` Check the
+  stack's usage page; do not choose a paid plan without the product owner's approval.
 - A connection error or timeout: Grafana Cloud did not answer within 2 seconds. Exports resume
   by themselves.
 
@@ -268,10 +271,101 @@ allowlisted labels (below), and it aggregates them with `sum(...)` and no `by`, 
 carries no label from the data. Its labels (`severity: critical`) and annotations (a summary,
 and a description with the share and a pointer to this section) are fixed text.
 
-**Hosted telemetry (#92).** This rule runs only in the local Grafana. An alert on the hosted
-dev and production telemetry in Grafana Cloud, with a contact point, is #117: it needs #92's
-data first (the hosted labels, the health checks' `GET /health` traffic for the threshold, the
-60-second interval). #92 creates nothing in Grafana Cloud: no rule, contact point or dashboard.
+### Hosted alerts (dev and production)
+
+The hosted dev and production backends ([Hosted telemetry](#hosted-telemetry-dev-and-production))
+each have the same alert in the product owner's Grafana Cloud stack, and it emails the product
+owner when it fires (issue #117).
+
+**Rules and file.** Two rules, in folder `Winlog`, group `user-impact`:
+
+| Title | UID | Environment |
+|---|---|---|
+| `Server errors above 5% in production` | `winlog-server-errors-production` | `production` |
+| `Server errors above 5% in dev` | `winlog-server-errors-dev` | `dev` |
+
+Each measures what the local rule measures, with the local query, but only for its own
+environment: both selectors add `deployment_environment_name="production"` (or `"dev"`) after
+`service_name="winlog-backend"`. Each fires when the share is above 5% (` > 0.05` at the end of
+the query), is evaluated every minute, is Pending for 1 minute before it is Firing, and is
+Normal when there is no data. They are defined in `ops/grafana-cloud/alert-rules.yaml`, in
+Prometheus rule-file format, and the product owner imports them in Grafana Cloud's UI
+(`ops/deployment.md`, "Hosted alerts: Grafana Cloud"). `docker-compose.yml` does not mount that
+file, so the local stack does not load it. `backend/tests/unit/test_hosted_alert_rules.py`
+checks that its query stays the local query with the environment and the threshold added.
+
+**How the import converts them.** The import (**Import to Grafana-managed rules** →
+**Prometheus YAML file**) turns them into Grafana-managed rules. Grafana runs the query with a
+1-minute offset (it looks at the data up to 1 minute before each evaluation), treats no data
+and query errors as Normal, and keeps the labels, the annotations and the 1-minute pending
+period. An alert that stops matching resolves at the next evaluation. Why this format: Grafana
+Cloud has no file provisioning, and an import in the UI needs no API token in a terminal.
+
+**Timings.** The hosted backends export metrics every 60 seconds, so the first minute of a new
+error series is not counted (`increase()`, [above](#make-it-fire-on-purpose)), and the query
+looks 1 minute back. The rule fires about 3 to 6 minutes after server errors start, and
+resolves within about 10 minutes after they stop.
+
+What the live check on #117 showed (2026-11-16, the file imported into the local Grafana as
+below, the backend on the host as dev with a 60-second export, one request every 2 seconds):
+about 30 `GET /health` answering 200 (18:12:03 to 18:13:04) left both rules Normal for over
+3 minutes. After `docker compose stop db`, the first 503 was at 18:16:23. The dev rule was
+Pending at the evaluation at 18:19:50 (3 min 27 s later, share 1) and Firing at 18:20:50
+(4 min 27 s). The production rule stayed Normal the whole time. After `docker compose start db`,
+the last 503 was at 18:21:06, and the dev rule was Normal again at 18:26:50 (5 min 44 s later).
+The local rule also saw this backend (it has no environment matcher) and, on the same data but
+with no query offset, went Pending, Firing and Normal 70 seconds earlier each time (18:18:40,
+18:19:40 and 18:25:40).
+
+**Health checks.** Render calls `GET /health` every few seconds while a backend is awake, and
+these requests count in the share. A single failing user request among them can therefore stay
+below 5%. When the database is unreachable, `/health` itself answers 503, and the rule fires.
+The threshold stays 5%, the same as locally.
+
+**What it cannot see.** A backend that is asleep (a free instance after 15 minutes without
+requests), not started or crashed sends no telemetry. The rule is then Normal (no data). It
+detects server errors only while the backend runs.
+
+**Notifications.** The rules route by the label `service=winlog-backend` to the contact point
+`Winlog email`, through a child of the default notification policy that the product owner sets
+up. The email address is entered only in Grafana Cloud and is never written in the repository.
+An email holds only the rule's fixed labels and annotations, Grafana's own values (the share)
+and links to the stack.
+
+**Privacy.** As for the local rule: the rules use only the allowlisted metric
+`http.server.request.duration`, its allowlisted labels and `deployment_environment_name`, and
+aggregate with `sum(...)` and no `by`, so an alert carries no label from the data. Their labels
+(`severity: critical`, `service: winlog-backend`, `environment`) and annotations (a summary and
+a pointer to this section) are fixed text, with no template.
+
+**Check the file locally.** Anyone can run the hosted rules in the local stack before
+importing them. No Grafana Cloud access and no AI call is needed. The import lands in a
+separate folder, `Winlog hosted check`, so the local `Winlog` folder is not touched.
+
+```sh
+# Repo root: the database and the local stack (copy .env.example to .env first if it is missing).
+docker compose up -d --wait db lgtm
+# Import the file's one group (groups[0]) through the convert API, as the UI's import does.
+# The answer is 202 with "status":"success".
+(cd backend && uv run python -c 'import sys, yaml; sys.stdout.write(yaml.safe_dump(yaml.safe_load(open("../ops/grafana-cloud/alert-rules.yaml"))["groups"][0], sort_keys=False))') \
+  | curl -sS -X POST 'http://127.0.0.1:3000/api/convert/prometheus/config/v1/rules/Winlog%20hosted%20check' \
+      -H 'Content-Type: application/yaml' -H 'X-Grafana-Alerting-Datasource-UID: prometheus' --data-binary @-
+# backend/: run the backend as dev runs on Render, with the mock AI.
+uv run alembic upgrade head
+AI_PROVIDER=mock OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 TELEMETRY_ENVIRONMENT=dev \
+  OTEL_METRIC_EXPORT_INTERVAL=60000 uv run uvicorn app.main:app --port 8000
+```
+
+Then watch `curl http://127.0.0.1:3000/api/prometheus/grafana/api/v1/rules` (for example every
+10 seconds), and make the dev rule fire as [above](#make-it-fire-on-purpose): `docker compose
+stop db`, `GET /health` every 2 seconds, then `docker compose start db`. The dev rule goes to
+Pending and Firing, the production rule stays Normal, and
+`curl http://127.0.0.1:3000/api/alertmanager/grafana/api/v2/alerts` shows the alert's fixed
+labels and annotations. Afterwards remove the check folder's rules (the answer is 202):
+
+```sh
+curl -sS -X DELETE 'http://127.0.0.1:3000/api/convert/prometheus/config/v1/rules/Winlog%20hosted%20check'
+```
 
 ## Signals
 
