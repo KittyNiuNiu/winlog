@@ -69,6 +69,10 @@ services:
     volumes:
       # Traces, metrics, logs and Grafana's data, kept across restarts.
       - lgtm-data:/data
+      # The alert rule on user impact (server errors above 5%, issue #112), loaded by Grafana's
+      # file provisioning on every start; see docs/observability.md, section "Alerts". A single
+      # read-only file, so the image's own files in that folder stay.
+      - ./ops/grafana/alerting/user-impact.yaml:/otel-lgtm/grafana/conf/provisioning/alerting/winlog-user-impact.yaml:ro
 
   frontend:
     # The production build of the React app, served by nginx (see frontend/Dockerfile).

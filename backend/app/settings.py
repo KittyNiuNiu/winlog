@@ -112,8 +112,9 @@ class Settings(BaseSettings):
     ai_base_url: str | None = Field(default=None, validate_default=True)
     ai_api_key: SecretStr | None = Field(default=None, validate_default=True)
     ai_model: str | None = Field(default=None, validate_default=True)
-    # Seconds the OpenAI-compatible provider waits for an answer before it gives up. Each a
-    # whole number from 1 to 600.
+    # Seconds the OpenAI-compatible provider waits for an answer before it gives up. Each
+    # limits the whole request, from connecting to the last byte of the answer (issue #111).
+    # Each a whole number from 1 to 600.
     ai_suggestion_timeout_seconds: int = 15
     ai_summary_timeout_seconds: int = 60
     # The most tokens the OpenAI-compatible provider lets the model write for one summary

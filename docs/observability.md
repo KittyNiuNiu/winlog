@@ -92,6 +92,101 @@ gives up after 2 seconds, so the backend still stops within a few seconds.
 The tests never need a collector. They capture telemetry with in-memory exporters
 (`backend/tests/telemetry_capture.py`) and never use `OTEL_EXPORTER_OTLP_ENDPOINT`.
 
+## Alerts
+
+Local Grafana has one alert rule on user impact (issue #112):
+
+| | |
+|---|---|
+| Title | `Server errors above 5%` |
+| UID | `winlog-server-errors` |
+| Folder, rule group | `Winlog`, `user-impact` |
+| Measures | the share of the backend's HTTP requests answered with a server error (5xx) among all of its requests over the last 5 minutes |
+| Fires when | the share is above 5% (`0.05`) |
+| Evaluated | every minute; the condition must hold for 1 minute (Pending) before the rule is Firing |
+| No data | Normal: no request, or no 5xx answer at all, in the last 5 minutes is not user impact |
+
+The query, on the Prometheus data source (uid `prometheus`):
+
+```promql
+sum(increase(http_server_request_duration_seconds_count{service_name="winlog-backend", http_response_status_code=~"5.."}[5m]))
+/ sum(increase(http_server_request_duration_seconds_count{service_name="winlog-backend"}[5m]))
+```
+
+**Why 5xx and not 4xx or 429.** A 5xx answer is what a user feels as "it is broken": the
+database is unreachable (`GET /health` answers 503 `database_unreachable`), an unexpected
+error, or the AI is unavailable (`POST /summaries` and `POST /suggestions` answer 503
+`ai_unavailable`, which is recorded in the HTTP metric with status `503`). 401, 422 and 429
+(`limit_reached`) are expected answers to the user's own input or limits, so they do not count.
+
+**Where it is defined.** The rule is code in `ops/grafana/alerting/user-impact.yaml`, in
+Grafana's file-provisioning format. `docker-compose.yml` mounts that one file read-only into
+the `lgtm` service's alerting provisioning folder, and Grafana loads it on every start, also
+on an existing `lgtm-data` volume. It shows as provisioned and cannot be edited in the UI.
+After changing the file, run `docker compose restart lgtm`.
+
+**Where to see it.** In Grafana (http://localhost:3000), **Alerting → Alert rules**, folder
+`Winlog`. Or over the HTTP API, without a login:
+
+```sh
+# The rule as provisioned: folder, group, query, threshold, pending period, no-data state.
+curl http://127.0.0.1:3000/api/v1/provisioning/alert-rules/winlog-server-errors
+# The rule's state (inactive, pending or firing), health and last evaluation.
+curl http://127.0.0.1:3000/api/prometheus/grafana/api/v1/rules
+# The alerts that are firing now.
+curl http://127.0.0.1:3000/api/alertmanager/grafana/api/v2/alerts
+```
+
+### Make it fire on purpose
+
+No AI call is needed. Run the system (or the backend on your computer against the stack, as
+above) with `AI_PROVIDER=mock`, then:
+
+1. Stop the database: `docker compose stop db`. `GET /health` now answers 503.
+2. Send `GET /health` repeatedly for a few minutes, for example one request every 2 seconds:
+   `while true; do curl -s -o /dev/null -w '%{http_code}\n' http://localhost:8000/health; sleep 2; done`.
+3. Watch the rule in **Alerting → Alert rules**: it goes to **Pending** at its next
+   evaluation and to **Firing** one minute later.
+4. Start the database again: `docker compose start db`, and keep sending `GET /health` (now
+   200).
+5. The rule goes back to **Normal** once the 5xx share of the last 5 minutes is 5% or less.
+
+The timings: the backend exports metrics every 10 seconds, the rule is evaluated every minute,
+it is Pending for 1 minute, and it looks at a 5-minute window. So it fires about 1 to 3
+minutes after the first 5xx, and resolves up to about 6 minutes after the last one, depending
+on how many good requests follow.
+
+`increase()` does not count the first export of a series that has just appeared, such as the
+first 503s after a start: it only counts what was added between two exports. Errors sent in
+one short burst, inside one 10-second export, may therefore not fire the rule at all. Spread
+them over more than one export, as the steps above do.
+
+What the live check on #112 showed (2026-11-15, the backend on the host, one request every
+2 seconds): the first 503 at 22:45:30, Pending at the evaluation at 22:46:20 (share 0.52),
+Firing at 22:47:20 (share 1, the first 2 requests of the new 503 series were not counted).
+After `docker compose start db` at 22:47:33, the rule was Normal again at 22:52:20 (share 0).
+About 30 requests answering 200, and then about 30 answering 401, left it Normal (no data,
+because there was no 5xx series). With the backend running and no request in the last
+5 minutes, the share is `NaN` (0 / 0), and the rule stayed Normal with health ok (22:58:20).
+It still loaded after `docker compose restart lgtm` and on an `lgtm-data` volume created
+without it.
+
+**No contact point.** No contact point, notification policy or mute timing is provisioned:
+the alert shows in Grafana only, and nothing is sent anywhere. Grafana's default notification
+policy may log a failed delivery to its unconfigured default contact point, which is expected.
+In `grafana/otel-lgtm:0.39.0` the default policy routes to a receiver named `empty`, with no
+integration.
+
+**Privacy.** The rule uses only the allowlisted metric `http.server.request.duration` and its
+allowlisted labels (below), and it aggregates them with `sum(...)` and no `by`, so an alert
+carries no label from the data. Its labels (`severity: critical`) and annotations (a summary,
+and a description with the share and a pointer to this section) are fixed text.
+
+**Hosted telemetry (#92).** The same query and threshold can be created in the hosted Grafana,
+for example through its alerting provisioning HTTP API or with Terraform, using the hosted
+Prometheus data source's uid instead of `prometheus`. The threshold may need tuning there,
+because the platform's health checks add `GET /health` traffic. Nothing for #92 is built here.
+
 ## Signals
 
 ### Spans

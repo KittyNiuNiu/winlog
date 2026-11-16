@@ -88,8 +88,8 @@ Then open:
 
 - the app: http://localhost:8080
 - the backend's health check: http://localhost:8000/health
-- local Grafana, with the backend's traces, metrics and logs: http://localhost:3000 (no login;
-  see [`docs/observability.md`](docs/observability.md))
+- local Grafana, with the backend's traces, metrics and logs and an alert rule on server errors:
+  http://localhost:3000 (no login; see [`docs/observability.md`](docs/observability.md))
 
 `.env.example` sets `AI_PROVIDER=mock`, so suggestions and summaries come from the mock AI
 provider, which needs no API key.

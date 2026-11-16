@@ -16,6 +16,7 @@ Sources of truth (read them before starting any task):
 - Implement only what `docs/product-spec.md` describes. If a task needs behaviour the spec does not cover, stop and ask. Do not invent requirements.
 - Contract first: every API change starts in `openapi.yaml`, then the backend, then the frontend.
 - Do not edit `docs/product-spec.md` or `openapi.yaml` unless the task explicitly says so.
+- A task that edits `docs/product-spec.md` adds an entry at the top of §14 "Change log" and sets the header's "Last updated" date to that entry's date. `backend/tests/unit/test_product_spec.py` checks this.
 - For a task that touches more than one module, propose a plan before editing.
 - Keep changes small and focused on the task. Do not refactor unrelated code.
 - A task is done only when lint and all tests pass.

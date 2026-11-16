@@ -12,8 +12,20 @@ AI_API_KEY, AI_MODEL and AI_SUMMARY_MAX_TOKENS configure it (`.env.example`).
 - Summary requests send `max_tokens` (AI_SUMMARY_MAX_TOKENS), which bounds the cost of one
   summary and leaves room for a 10,000-character summary in any language (issue #17).
   Suggestion requests send none: their answer is a short JSON object.
-- An answer the model cut off (`finish_reason` "length", for example at `max_tokens`) raises
-  `AIProviderError`: a cut-off summary or suggestion is not a usable answer (issue #17).
+- Only an answer the model finished normally is used: `finish_reason` "stop", or no finish
+  reason (`null` or missing). Any other value raises `AIProviderError` with a fixed message,
+  even when the text would be valid: "length" (cut off, for example at `max_tokens`, issue
+  #17), "content_filter", OpenRouter's "error", "tool_calls" (Winlog sends no tools) and any
+  value not known today (issue #111). The finish reason is never logged or put in a message.
+- AI_SUGGESTION_TIMEOUT_SECONDS and AI_SUMMARY_TIMEOUT_SECONDS limit the whole request, from
+  the start of the call (before connecting) to the last byte of the answer (issue #111). The
+  `openai` SDK's own timeout applies to each phase (connect, write, pool, each read)
+  separately, so a slow answer could take longer. The provider therefore runs the SDK's async
+  client in its own event loop (`asyncio.run`; the endpoints are synchronous and run in worker
+  threads without one) under an `asyncio.timeout` for the whole request. When it runs out, the
+  request's task is cancelled, which closes the connection, and then the HTTP client is
+  closed: nothing goes on reading in the background. Each call gets its own HTTP client,
+  because a connection pool cannot be shared between event loops.
 - Suggestions are asked for as JSON, then parsed and checked here. The adapter
   (`app/ai/adapter.py`) checks the output again, as it does for every provider.
 - A timeout raises `AITimeoutError`. Network errors, 4xx and 5xx answers and unreadable
@@ -25,9 +37,11 @@ logs the API key, entry text, tag names or summary text, and its error messages 
 them (`AGENTS.md`).
 """
 
+import asyncio
 import json
 import logging
 import time
+from collections.abc import Callable
 from typing import Any
 
 import httpx2
@@ -48,6 +62,10 @@ logger = logging.getLogger(__name__)
 
 # OpenRouter's provider routing: only endpoints with a zero-data-retention policy (§8).
 ZERO_DATA_RETENTION = {"provider": {"zdr": True}}
+
+# The finish reasons of an answer the model finished normally (issue #111). No finish reason
+# (`null` or missing, which the SDK reads as None) is accepted too: some models leave it out.
+FINISHED_NORMALLY = ("stop", None)
 
 _CATEGORY_LIST = ", ".join(f'"{category}"' for category in CATEGORIES)
 
@@ -87,16 +105,17 @@ class OpenAICompatibleProvider(AIProvider):
         suggestion_timeout_seconds: float,
         summary_timeout_seconds: float,
         summary_max_tokens: int,
-        http_client: httpx2.Client | None = None,
+        http_client_factory: Callable[[], httpx2.AsyncClient] | None = None,
     ) -> None:
-        """`http_client` lets tests stub the HTTP layer; by default the SDK makes its own."""
-        self._client = openai.OpenAI(
+        """`http_client_factory` makes the HTTP client for one request, which is closed after
+        it. Tests use it to stub the HTTP layer; by default it is the SDK's default client."""
+        self._client = openai.AsyncOpenAI(
             base_url=base_url,
             api_key=api_key,
             # The SDK retries twice by default; one user action makes at most one AI call.
             max_retries=0,
-            http_client=http_client,
         )
+        self._http_client_factory = http_client_factory or openai.DefaultAsyncHttpxClient
         self._model = model
         self._suggestion_timeout = suggestion_timeout_seconds
         self._summary_timeout = summary_timeout_seconds
@@ -104,7 +123,9 @@ class OpenAICompatibleProvider(AIProvider):
 
     @classmethod
     def from_settings(
-        cls, settings: Settings, http_client: httpx2.Client | None = None
+        cls,
+        settings: Settings,
+        http_client_factory: Callable[[], httpx2.AsyncClient] | None = None,
     ) -> "OpenAICompatibleProvider":
         # The settings already require these when AI_PROVIDER selects this provider.
         missing = [
@@ -133,7 +154,7 @@ class OpenAICompatibleProvider(AIProvider):
             suggestion_timeout_seconds=settings.ai_suggestion_timeout_seconds,
             summary_timeout_seconds=settings.ai_summary_timeout_seconds,
             summary_max_tokens=settings.ai_summary_max_tokens,
-            http_client=http_client,
+            http_client_factory=http_client_factory,
         )
 
     def _suggest(self, text: str) -> Suggestion:
@@ -158,27 +179,22 @@ class OpenAICompatibleProvider(AIProvider):
         )
 
     def _complete(self, messages: list[dict[str, str]], *, timeout: float, **options: Any) -> str:
-        """Make one Chat Completions call and return the answer's text."""
+        """Make one Chat Completions call and return the answer's text.
+
+        `timeout` limits the whole call, from its start to the last byte of the answer.
+        """
         started = time.monotonic()
-        status: int | None = None
+        answer = _Answer()
         try:
-            response = self._client.chat.completions.with_raw_response.create(
-                model=self._model,
-                messages=messages,  # type: ignore[arg-type]
-                timeout=timeout,
-                extra_body=ZERO_DATA_RETENTION,
-                **options,
-            )
-            status = response.http_response.status_code
-            completion = response.parse()
-            choice = completion.choices[0]
-            finish_reason = choice.finish_reason
-            content = choice.message.content
-        except openai.APITimeoutError:
+            asyncio.run(self._request(answer, messages, timeout=timeout, **options))
+        except (TimeoutError, openai.APITimeoutError):
+            # TimeoutError: the whole-request limit ran out. APITimeoutError: one phase did.
             raise AITimeoutError("The AI provider did not answer in time.") from None
         except openai.APIStatusError as error:
-            status = error.status_code
-            raise AIProviderError(f"The AI provider answered with status {status}.") from None
+            answer.status = error.status_code
+            raise AIProviderError(
+                f"The AI provider answered with status {answer.status}."
+            ) from None
         except openai.APIConnectionError:
             raise AIProviderError("The AI provider could not be reached.") from None
         except Exception:
@@ -189,17 +205,53 @@ class OpenAICompatibleProvider(AIProvider):
             logger.info(
                 "AI request to model %s answered with status %s in %d ms",
                 self._model,
-                status if status is not None else "none",
+                answer.status if answer.status is not None else "none",
                 duration_ms,
                 # Allowlisted fields only (app/telemetry.py): the model id and the status stay
                 # in the message.
                 extra={"winlog.ai.provider": self.name, "duration_ms": duration_ms},
             )
-        if finish_reason == "length":
+        if answer.finish_reason == "length":
             raise AIProviderError("The AI provider cut off its answer at the output limit.")
-        if not isinstance(content, str):
+        if answer.finish_reason not in FINISHED_NORMALLY:
+            raise AIProviderError("The AI provider did not finish its answer normally.")
+        if not isinstance(answer.content, str):
             raise AIProviderError("The AI provider returned an answer without text.")
-        return content
+        return answer.content
+
+    async def _request(
+        self, answer: "_Answer", messages: list[dict[str, str]], *, timeout: float, **options: Any
+    ) -> None:
+        """The call itself, under one time limit for the whole request.
+
+        When the limit runs out, `asyncio.timeout` cancels this task: the read in progress
+        stops, the connection and the HTTP client are closed, and `TimeoutError` is raised.
+        """
+        async with asyncio.timeout(timeout):
+            async with self._http_client_factory() as http_client:
+                client = self._client.copy(http_client=http_client)
+                response = await client.chat.completions.with_raw_response.create(
+                    model=self._model,
+                    messages=messages,  # type: ignore[arg-type]
+                    # Still sent: it bounds each phase too, and never exceeds the whole limit.
+                    timeout=timeout,
+                    extra_body=ZERO_DATA_RETENTION,
+                    **options,
+                )
+                answer.status = response.http_response.status_code
+                completion = response.parse()
+        choice = completion.choices[0]
+        answer.finish_reason = choice.finish_reason
+        answer.content = choice.message.content
+
+
+class _Answer:
+    """What one call learned: the response status, and the answer's finish reason and text."""
+
+    def __init__(self) -> None:
+        self.status: int | None = None
+        self.finish_reason: str | None = None
+        self.content: object = None
 
 
 def _parse_suggestion(content: str) -> Suggestion:

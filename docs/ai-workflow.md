@@ -5058,3 +5058,157 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - `./test-all.sh` passed: backend unit (1794), backend integration (1198) and frontend (1421).
   - No hook call, sync, approval, job re-run or settings change. No AI call.
 - **Left open:** section E, the product owner's Manual Sync after the merge, which alone shows whether Render keeps these forms.
+
+## 2026-11-15: PM: groom #111 (task 64, an overall AI time limit and finish reasons other than "length")
+
+- **What I read:**
+  - the issue (no comments yet) and its source comments on #13 (QA finding 3), #14 (engineer), #17 (engineer and QA note 2) and #61 (two comments);
+  - `backend/app/ai/` (`openai_compatible.py`, `mock.py`, `limits.py`), `backend/app/settings.py`, `.env.example`, `render.yaml`, `backend/tests/unit/test_ai_openai_compatible.py`, `docs/observability.md`, `docs/decisions/default-model.md` and `docs/product-spec.md` §7.3, §7.4, §8, §9 and §14;
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md` and `AGENTS.md`.
+- **What I did:**
+  - Rewrote the body of #111 using the template, with sections A (one time limit for the whole request), B (finish reasons), C (documentation) and D (checks).
+  - Posted the PM comment with the decisions and the facts I checked (6902049285).
+  - Labels unchanged. No follow-up issue. No screen changes, no change to `render.yaml` (no Blueprint sync needed), `openapi.yaml` or `docs/product-spec.md`.
+- **Decisions under the standing rule (tasks 48 to 68), recorded in the issue:**
+  - `AI_SUGGESTION_TIMEOUT_SECONDS` and `AI_SUMMARY_TIMEOUT_SECONDS` become the limit for the whole request: no new setting, same defaults (15 and 60) and range.
+  - When the limit runs out, the request must actually stop. An abandoned thread that keeps reading does not count. The engineer chooses the method, with no new dependency.
+  - Only `finish_reason` `"stop"`, `null` or a missing value are accepted. Every other value, including unknown ones, raises `AIProviderError`, like `"length"`.
+  - `null` stays accepted, because rejecting it could turn off AI in production for a model that leaves the field out, and that cannot be checked without a real AI call.
+  - No new telemetry: the existing outcomes `timeout` and `provider_error` cover both cases.
+- **How I verified it:**
+  - `httpx2` 2.16.0 (from `uv.lock`, read in the installed package): `Timeout` has only `connect`, `read`, `write` and `pool`, with no overall timeout.
+  - `openai` 3.46.0 with a fake `httpx2.MockTransport` (no network, no AI call): `"error"`, `"content_filter"` and unknown values reach `finish_reason` unchanged; `null` and a missing field arrive as `None`.
+  - OpenRouter's normalized finish reasons come from a web search, because `openrouter.ai` cannot be reached from this session. The groomed rule does not depend on that list.
+  - The saved issue body was checked through the REST API, and its labels are still empty.
+  - No change to project code. No AI call.
+- **Left open:** nothing.
+
+## 2026-11-15: Engineer: implement #111 (task 64, one AI time limit for the whole request, and finish reasons)
+
+- **Task:** sections A to D of #111 as the PM groomed it (comment 6902049285). No screens change.
+- **What I did:**
+  - Commit 3df3ff7:
+    - `backend/app/ai/openai_compatible.py`: the provider now runs the SDK's async client (`openai.AsyncOpenAI`) in its own event loop (`asyncio.run`, from the synchronous `suggest` and `summarise`) under one `asyncio.timeout` for the whole request: from before connecting to the last byte of the answer. When the limit runs out, the request's task is cancelled, which stops the read in progress and closes the connection, and the request's HTTP client is closed before `AITimeoutError` is raised. Each call gets its own HTTP client (`http_client_factory`, by default `openai.DefaultAsyncHttpxClient`), because a connection pool cannot be shared between event loops. The SDK's per-phase `timeout` is still sent (it never exceeds the whole limit), retries stay off, `zdr` stays on, the SDK's exceptions stay unchained, and the provider's single log line is unchanged (status `none` when no complete answer arrived). Only `finish_reason` `"stop"` or none (`null` or missing) is accepted; `"length"` keeps its fixed message, every other value raises `AIProviderError("The AI provider did not finish its answer normally.")`. The module docstring describes both rules.
+    - `backend/app/settings.py` and `.env.example`: comments only; the two settings limit the whole request, from connecting to the last byte of the answer. Names, defaults, range and value lines unchanged.
+    - `backend/scripts/model_comparison/comparison.py`: as far as needed to keep working with the new constructor: `make_provider` passes `http_client_factory` with the SDK's default async client, and `AnswerRecorder` gets an async `hook` for it. The script was not run.
+    - `backend/tests/unit/test_ai_openai_compatible.py`: the test helper and the `from_settings` test build a stub async client per request (`httpx2.MockTransport`); no existing check changed. New tests: finish reasons (parametrized: `length`, `content_filter`, `error`, `tool_calls`, `function_call`, `something_new`; and `stop`, `null`, missing still used and checked), slow drip for suggest and summarise, no answer at all (handler cancelled), the request stops (stream closed when the error is raised, no further pieces read, the request's event loop closed, no thread left), each operation's own limit from the constructor and from the settings, and the timeout's log line. The privacy test now includes a `"content_filter"` answer. `test_ai_openai_uses_the_timeout_of_each_operation` still fits (the per-phase values are still sent), so it stays.
+  - Commit e2279f1: `backend/tests/integration/test_suggestions.py` and `test_summaries.py`: through the endpoints, with the OpenAI-compatible provider on stubbed HTTP and in-memory telemetry: a timeout and a `"content_filter"` answer each give 503 `ai_unavailable`, make one HTTP request, count for the user and globally, save nothing, and show `winlog.ai.outcome` `timeout` or `provider_error` on the span and the metric.
+- **Decisions (my recommended options, recorded on the issue):**
+  - The async SDK client under `asyncio.timeout`, run with `asyncio.run`, rather than streaming with a per-read deadline: `httpx2` reads its read timeout once per request, so a sync read cannot wait "at most the time left"; cancelling an async task stops the read at once. No new dependency.
+  - A new HTTP client for each call instead of one shared pool: a pool is bound to the event loop it was used on. The cost is one new connection per AI call, which is small next to the AI's own seconds.
+  - The constructor's test hook is now `http_client_factory` (a function that returns an `httpx2.AsyncClient`) instead of `http_client`; only tests and the comparison script pass it.
+  - `"length"` keeps its own fixed message; every other refused finish reason shares one fixed message. Neither contains the value.
+- **How I verified it:**
+  - In `backend/`: `uv run ruff check .` and `uv run ruff format --check .` pass; `uv run pytest tests/unit` 1811 passed (the provider tests' time-limit tests take about 7 s in all; the longest is 3 s, from the settings' whole-number limits of 1 and 2 s).
+  - `./test-all.sh` passed: backend unit (1811), backend integration (1202) and frontend (1421).
+  - The old provider, with a sync dripping body and a 1 s limit, returned the answer after 2.4 s (one-off script, not committed), so the slow drip case failed before this task.
+  - A one-off check against a local slow HTTP server on 127.0.0.1 (no AI): a dripping answer and a silent server both gave `AITimeoutError` after 1.0 s with a 1 s limit, and the server saw the connection closed at that moment.
+  - No real AI call. The model-comparison script was not run.
+- **Left open:**
+  - A DNS lookup runs in a thread of the event loop's default executor, which no Python code can cancel. If the system resolver hangs past the limit, `asyncio.run` waits for that lookup before it raises `AITimeoutError`, so the error comes later than the limit (bounded by the resolver's own timeout). Nothing reads the answer meanwhile. No change proposed; noted for the record.
+
+## 2026-11-15: Orchestrator: close #109 (Blueprint syncs list no repeated changes)
+
+- **Task:** task 63, run with `/orchestrate all`. No screens change; `render.yaml` changes.
+- **What happened:**
+  - PM grooming (6901710148), engineer (6901852342), QA PASS on sections A to D (6901992419).
+  - The product owner merged PR #115 (195c289), deployed dev and production, applied a first Manual Sync and read a second one without applying it (record 6902362438).
+  - The first sync listed only `frontend/dist` on both static sites and redeployed only them; the second reported everything up to date. QA PASS on section E (6902383005).
+  - Closed as completed.
+- **Open point, left in this log under the standing rule** (no work needed): the `winlog-app-dev` comment in `render.yaml` refers back to `winlog-app`'s instead of repeating it.
+
+## 2026-11-15: PM: groom #112 (task 65, an alert on user impact in the local telemetry stack)
+
+- **What I read:**
+  - the issue and the orchestrator's input comment (from #103's grooming), #114 and #92;
+  - `docs/observability.md`, `docker-compose.yml`, `.github/workflows/ci.yml` (the Full system job), `render.yaml`, `backend/app/health.py`, `backend/app/ai/mock.py`, `.env.example`, `README.md` and `docs/product-spec.md` §9, §10 and §14;
+  - `docs/pm.md`, `docs/process.md`, `docs/task-template.md` and `AGENTS.md`.
+- **What I did:**
+  - Rewrote the body of #112 using the template, with sections A (the rule as code), B (loaded by `lgtm`), C (behaviour, live with the mock), D (docs and spec), E (CI), F (checks), and how QA checks it, live or with a fallback.
+  - Posted the PM comment with the decisions and the facts I checked (6902469626), and an input comment on #92 for the part moved there (6902469824).
+  - Labels unchanged. No follow-up issue. No screen changes, no change to `render.yaml` or `openapi.yaml`. The task edits `docs/product-spec.md` §9, §10.2 and §14 and the header's "Last updated" date.
+- **Decisions under the standing rule (tasks 48 to 68), recorded in the issue:**
+  - One alert: the share of the backend's requests answered with 5xx over 5 minutes, above 5%, pending 1 minute, evaluated every minute, on the existing metric `http.server.request.duration`. AI failures (503 `ai_unavailable`) count in it; 4xx and 429 do not.
+  - No data is Normal. No contact point. The rule file is `ops/grafana/alerting/user-impact.yaml`, mounted into the `lgtm` service.
+  - It is made to fire by stopping the database and calling `GET /health`: no AI call, no code change.
+  - CI's Full system job checks that the rule is loaded, healthy and inactive before it stops `lgtm`; firing is checked live.
+  - The spec's §9 and §10.2 Observability rows each get one sentence, with a §14 entry and the header date in step (#103, #114).
+  - Carry-over to hosted telemetry is only a pointer in `docs/observability.md`; alerting on deployed telemetry is moved to #92.
+- **How I verified it:**
+  - Ran `grafana/otel-lgtm:0.39.0` (Grafana 13.3.0) with a probe rule mounted into `/otel-lgtm/grafana/conf/provisioning/alerting/` (scratch files, not committed): it loaded on start, showed in the provisioning API, and with a true condition showed `firing` in the rules and Alertmanager APIs without a login. The groomed ratio query on an empty stack gave `inactive` with health `ok`.
+  - Read the image's data source and Prometheus configuration: data source uid `prometheus`; `service.name` is promoted to the label `service_name`.
+  - The saved issue body was compared with the text sent, and its labels are still empty. No AI call.
+- **Left open:** nothing.
+
+## 2026-11-15: Orchestrator: close #111 (one AI time limit, finish reasons)
+
+- **Task:** task 64, run with `/orchestrate all`. No screens change; `render.yaml` does not change.
+- **What happened:** PM grooming (6902049285); engineer (6902259325, CI 43768287481 passed); QA PASS (6902488631). Closed as completed.
+- **Open points, left in this log under the standing rule** (no work needed):
+  - a hanging DNS lookup cannot be cancelled, so the timeout can come late, bounded by the system resolver. It is not a regression, and QA judged it acceptable;
+  - the no-answer test passes on the old code too (the per-read limit); the slow-drip case shows the change;
+  - a timeout after the headers logs `status none`, as before.
+
+## 2026-11-15: Engineer: implement #112 (task 65, an alert on user impact in the local telemetry stack)
+
+- **Task:** one provisioned Grafana alert rule on the share of server errors (5xx) in the local `lgtm` stack, a CI check, the docs and the spec changes the issue lists.
+- **What I did:**
+  - `ops/grafana/alerting/user-impact.yaml` (new): rule `winlog-server-errors`, `Server errors above 5%`, folder `Winlog`, group `user-impact`, every 1m, `for: 1m`, threshold `gt 0.05`, `noDataState: OK`, label `severity: critical`, fixed annotations. No contact point or policy.
+  - `docker-compose.yml`: a read-only single-file mount of the rule into the `lgtm` service's alerting provisioning folder, with a comment.
+  - `.github/workflows/ci.yml`: a new Full system step before `lgtm` is stopped. It checks that the rule is evaluated, healthy and inactive, retrying for up to 2 minutes.
+  - `docs/observability.md`: a new "Alerts" section. `README.md`: the Grafana line mentions the alert. `docs/product-spec.md`: the §9 and §10.2 sentences and a §14 entry; the header date already showed 15 November 2026.
+  - Commits 8294ea7, 09f53da and e433a99. Hand-over comment: 6903004331.
+- **Decisions under the standing rule, recorded in the issue:**
+  - The query stays exactly as groomed, because the idle case (0/0, `NaN`) was seen to evaluate as Normal.
+  - The CI check is a new step.
+- **How I verified it:**
+  - Live, with `db` and `lgtm` in Docker and the backend on the host (`AI_PROVIDER=mock`): 200s and 401s left the rule `inactive`. With the database stopped and `GET /health` every 2 s, it went `pending` at 22:46:20 and `firing` at 22:47:20 (first 503 at 22:45:30). The alert list held one alert with only `alertname`, `grafana_folder`, `severity` and Grafana's `__` labels. After the database started (22:47:33), it was `inactive` at 22:52:20.
+  - The rule also loaded after `docker compose restart lgtm` and on an `lgtm-data` volume created without it.
+  - `docker compose config --quiet` and the YAML parse pass, and the CI step's script passed locally.
+  - `./test-all.sh` passed, and so did ruff and eslint. CI on the pushed branch is reported on the issue. No AI call.
+- **Left open:** nothing.
+
+## 2026-11-15: PM: groom #114 (task 66, keep the spec's "Last updated" date in step with its change log)
+
+- **What I read:** the issue (no comments), #103's grooming, `docs/product-spec.md` (header and §14), its `git log` (and 8d2a722 and 4f05f9d through the GitHub API, since the clone is shallow), `backend/tests/unit/test_docker_compose.py`, `.github/workflows/ci.yml`, `docs/tasks.md`, `docs/pm.md`, `docs/process.md`, `docs/task-template.md` and `AGENTS.md`.
+- **What I did:**
+  - Rewrote the body of #114 using the template: A (a backend unit test, `backend/tests/unit/test_product_spec.py`), B (one line in `AGENTS.md`), C (the spec stays as it is), D (checks).
+  - Posted the PM comment with the decisions and the facts I checked (6903047327).
+  - Labels unchanged. No follow-up issue. No screen changes, no change to `render.yaml` or `openapi.yaml`. `docs/product-spec.md` does not change, unless it is out of step when implementation starts.
+- **Decisions under the standing rule (tasks 48 to 68), recorded in the issue:**
+  - Both a rule and a test; the test is a backend unit test that reads the spec from the repository root, run by CI through `./test-all.sh`.
+  - The header date must equal the latest date among the §14 entries, and a second test checks that the entries are newest first.
+  - The rule is one line in `AGENTS.md` "Working rules"; the process and role docs stay as they are.
+  - The spec gets no §14 entry: the header already equals the newest entry (15 November 2026).
+  - The header's version is not checked; #92 no longer needs its own criterion for the header date.
+- **How I verified it:** a scratch probe (not committed) read all 9 §14 entries in both forms and the header from the current file; the saved issue body was compared with the text sent, and its labels are still empty. No AI call.
+- **Left open:** nothing.
+
+## 2026-11-15: Orchestrator: close #112 (alert on server errors in the local stack)
+
+- **Task:** task 65, run with `/orchestrate all`. No screens change; `render.yaml` does not change. No on-call agent, by the product owner's decision.
+- **What happened:** PM grooming (6902469626); engineer (6903004331, CI 43773772526 passed, including the new Full system step); QA PASS with its own live run (6903484006). Closed as completed.
+- **Open points, left in this log under the standing rule** (no work needed):
+  - a share between 0 and 5% was not tested live; the threshold `gt 0.05` settles it on reading;
+  - no failed-delivery line was seen in the `lgtm` log; the docs only say one may appear.
+
+## 2026-11-16: Engineer: implement #114 (task 66, keep the spec's "Last updated" date in step with §14)
+
+- **Task:** a backend unit test that compares the spec's header date with its §14 change log, and one rule in `AGENTS.md`.
+- **What I did:**
+  - `backend/tests/unit/test_product_spec.py` (new): reads `docs/product-spec.md` from the repository root, the header date and the dates of all §14 entries in both forms (`**0.2, updated <date>.**` and `**0.2 (<date>).**`); 9 entries on the current file. `test_product_spec_header_date_equals_the_newest_change_log_entry` and `test_product_spec_change_log_is_newest_first` (same-day entries allowed). Dates are read with a fixed list of English month names (no `strptime`, so no locale) and compared as `date` values. Only the standard library.
+  - `AGENTS.md`: one line under "Working rules", after the rule on editing the spec. Nothing else changed.
+  - `docs/product-spec.md` is unchanged: when I started, its header (15 November 2026) equalled its newest §14 entry.
+  - Commits 4ac3615 (test) and 60db656 (rule).
+- **Decision under the standing rule, recorded in the issue:** both tests read the header and §14 through one helper, so a missing header line, a missing §14 heading, an empty §14 or an unreadable entry date fails both tests with the same message.
+- **How I verified it:**
+  - Local spec edits, not committed, each undone with `git checkout -- docs/product-spec.md`: header set to 14 November 2026 (first test fails: "Last updated is 14 November 2026, the newest §14 entry is 15 November 2026"); top entry set to 16 November 2026 (first test fails); the 0.1 entry moved to the top (second test fails: "§14 entry 2 (15 November 2026) is later than entry 1 above it (1 November 2026)"); header line deleted (both fail: no "Last updated" line). Also no §14 heading, no entry, a misspelt month and a missing full stop: both fail and say which.
+  - `uv run ruff check .`, `uv run ruff format --check .` and `uv run pytest tests/unit` (1813 passed, with PostgreSQL stopped, and again with `LC_ALL=C`); `./test-all.sh` passed. CI on the pushed branch is reported on the issue. No AI call.
+- **Left open:** nothing.
+
+## 2026-11-16: Orchestrator: close #114 (spec header date in step with §14), end of the batch
+
+- **Task:** task 66, run with `/orchestrate all`. No screens change; `render.yaml` and the spec do not change.
+- **What happened:** PM grooming (6903047327); engineer (6903631478, CI 43778202663 passed); QA PASS (6903829357). Closed as completed.
+- **Open point, left in this log under the standing rule** (no work needed): a §14 paragraph that does not start with a bold version number is skipped without a message.
+- **Batch:** tasks 48 to 66 are closed. The run stops before #92 (task 67), as the product owner asked. #111, #112 and #114 are on the branch and wait for the product owner's merge; none changes `render.yaml`.
