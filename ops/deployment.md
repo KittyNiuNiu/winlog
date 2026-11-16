@@ -908,16 +908,25 @@ settings. None of them costs anything on the free plan.
    Cloud login address. A new free account can send alert email only to users of its own stack.
    Save, then **Test**: the test email arrives. The address is entered only here, never in the
    repository, an issue or a chat.
-2. **Notification policy.** **Alerting** → **Notification policies** → the default policy →
-   **+ New child policy**: matcher `service` `=` `winlog-backend`, contact point `Winlog email`.
-   Leave the timings at their defaults. The default policy itself stays unchanged.
-3. **Import the rules.** **Alerting** → **Alert rules** → **Import to Grafana-managed rules**
-   (in newer versions **More** → **Import alert rules**).
-   - Import source **Prometheus YAML file**; upload `ops/grafana-cloud/alert-rules.yaml` from
-     `main`.
+2. **Notification policy.** **Alerting** → **Notification configuration** → **Notification
+   policies** → on the **Default policy** row, **Add route** (older versions: **+ New child
+   policy**): matcher `service` `=` `winlog-backend`, contact point `Winlog email`. Leave the
+   timings at their defaults. The default policy itself stays unchanged. Do not use **+ New
+   notification policy**: it creates a separate policy tree, which the imported rules do not
+   use. Afterwards the Default policy shows 1 route, `service = winlog-backend`, delivered to
+   `Winlog email`.
+3. **Import the rules.** **Alerting** → **Alert rules** → **More** → **Import alert rules**
+   (older versions: **Import to Grafana-managed rules**). Newer versions show a wizard:
+   - **Import notification configuration:** **Skip**. Importing one creates a separate policy
+     tree.
+   - **Import rules:** source **YAML file** (older versions: **Prometheus YAML file**); upload
+     `ops/grafana-cloud/alert-rules.yaml` from `main`.
    - Data source: the stack's Prometheus data source (named `grafanacloud-<stack>-prom`).
    - Leave the target folder empty, so the folder is `Winlog`. Leave both pause options off.
-   - **Import**: the preview lists exactly the two rules. **Yes, import**.
+   - **Notification routing** → **Policy tree:** leave it on the default policy tree, where the
+     route from step 2 is.
+   - **Review:** it lists exactly the two rules and no policy tree other than the default.
+     **Start import** and confirm (older versions: **Import** → **Yes, import**).
 4. **Check it**, as in section E of #117: both rules in folder `Winlog`, group `user-impact`,
    Normal and without an error; the label queries in **Explore** return a number for each
    environment; no free-plan limit warning.

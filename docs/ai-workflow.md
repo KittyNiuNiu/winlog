@@ -5351,3 +5351,12 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - `ops/deployment.md` steps 2 and 3 describe an older Grafana UI (QA and the orchestrator);
   - the stack is on a 14-day trial, not yet the free plan, so a check after the trial ends is needed (QA).
   - The engineer and the PM left nothing else open. QA's note on the author email in the git commits is not an open point: the product owner said it is fine. #120 is not listed in `docs/tasks.md`; the product owner sets its order.
+
+## 2026-11-16: Orchestrator: update the Grafana Cloud alert steps for the current UI (point 1 of #120)
+
+- **Task:** the product owner asked the orchestrator to fix the setup docs directly, without the role subagents.
+- **What I did:**
+  - `ops/deployment.md`, "Hosted alerts: Grafana Cloud": step 2 now says **Add route** on the Default policy, warns against **+ New notification policy**, and says what the result looks like. Step 3 describes the import wizard: skip **Import notification configuration**, source **YAML file**, keep the policy tree on the default, then **Start import**. The older labels stay in brackets.
+  - `docs/observability.md`, "How the import converts them": the same new labels, with the older ones in brackets.
+- **How I verified it:** the product owner's screenshot of the Notification policies page and their account of the import; the labels in Grafana's current source (`public/locales/en-US/grafana.json`). `uv run pytest tests/unit`: 1877 passed. Only Markdown changed.
+- **Left open:** point 2 of #120, the check after the Grafana Cloud trial ends. It stays on #120.
