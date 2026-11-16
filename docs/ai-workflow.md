@@ -5245,3 +5245,8 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Task:** the product owner asked to add #117 (alert on server errors in the hosted Grafana Cloud stack, with a contact point; created by the PM while grooming #92) after #98 in `docs/tasks.md`.
 - **What I did:** added it as task 69 and noted the addition in the intro. No other task moved.
 - **Open:** the standing rule in `docs/process.md` covers tasks 48 to 68, so task 69 is not covered unless the product owner extends it.
+
+## 2026-11-16: Orchestrator: extend the standing rule to #117
+
+- **Task:** the product owner asked to extend the standing rule to #117 (task 69).
+- **What I did:** the rule in `docs/process.md` now covers tasks 48 to 69. What still goes to the product owner is unchanged: severe or critical decisions, stop points, real AI calls, account steps, merges and production approvals. A contact point for #117 is an account step and may have a cost, so it still goes to the product owner.
