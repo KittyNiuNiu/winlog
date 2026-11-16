@@ -5280,6 +5280,19 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Per-signal header variables (`OTEL_EXPORTER_OTLP_TRACES_HEADERS` and the like) are out of scope and not validated. If one were ever set in Render, the SDK would read it unchecked.
   - The free-plan figures come from search results. The product owner's stack is the authority.
 
+## 2026-11-16: Orchestrator: close #92 (hosted telemetry in Grafana Cloud)
+
+- **Task:** task 67, run with `/orchestrate 92`. No screens change; `render.yaml` and the spec change.
+- **Product owner's decisions:** the endpoint `https://otlp-gateway-prod-eu-west-4.grafana.net/otlp` is written in `render.yaml`; the free plan is approved for dev and production ($0).
+- **What happened:**
+  - PM grooming (6911643050, answers 6913929650); engineer (6914531799, CI 43853645188 passed); QA PASS on A–D and F (6914756915).
+  - The product owner merged PR #118 (1421cc4), entered the two header values in Render, applied the Manual Sync (six expected lines) and checked the data in Grafana Cloud.
+  - QA on section E failed first (6922726682), because my record was incomplete and overstated one line (correction 6922738001). After a fuller record from the product owner (6924332073), QA passed (6924393703). Closed as completed.
+- **Open points:**
+  - posted on #117 as grooming input: the 429 wording in `docs/observability.md`, re-checking the usage page (0 shown, 306 series counted in Explore), and the label names;
+  - left in this log under the standing rule: the per-signal header variables are not validated (none is set), and the three open points from #74 stay as decided.
+- **Lesson:** I now send the product owner the full section E list of a task, not a shortened one.
+
 ## 2026-11-16: PM: groom #117 (task 69, alert on server errors in the hosted Grafana Cloud stack)
 
 - **Task:** groom #117 following `docs/pm.md`, under the standing rule of 2026-11-14 as extended to task 69.
