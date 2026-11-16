@@ -5373,3 +5373,13 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - `docs/observability.md`, "How the import converts them": the same new labels, with the older ones in brackets.
 - **How I verified it:** the product owner's screenshot of the Notification policies page and their account of the import; the labels in Grafana's current source (`public/locales/en-US/grafana.json`). `uv run pytest tests/unit`: 1877 passed. Only Markdown changed.
 - **Left open:** point 2 of #120, the check after the Grafana Cloud trial ends. It stays on #120.
+
+## 2026-11-16: Orchestrator: close #98 for now, keep #120 open
+
+- **Task:** the product owner decided to close #98 (task 68, AI summaries repeat the entries' wording) for now, because there is no time before the project is submitted, and to reopen it later. #120 stays open as a reminder of the check after the Grafana Cloud trial ends.
+- **What I did:**
+  - Commented on #98 with the reason and closed it as not planned.
+  - In `docs/tasks.md`, task 68 keeps its place and now says it is closed for now. "Closed as not planned" lists it as deferred, to be reopened.
+  - #120 is unchanged and not listed in `docs/tasks.md`.
+- **How I verified it:** read both issues back from GitHub and checked the two lines in `docs/tasks.md`.
+- **Left open:** reopening #98 later, and #120 point 2, the check after the trial ends.
