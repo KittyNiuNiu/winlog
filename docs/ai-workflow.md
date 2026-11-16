@@ -5191,3 +5191,17 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Open points, left in this log under the standing rule** (no work needed):
   - a share between 0 and 5% was not tested live; the threshold `gt 0.05` settles it on reading;
   - no failed-delivery line was seen in the `lgtm` log; the docs only say one may appear.
+
+## 2026-11-16: Engineer: implement #114 (task 66, keep the spec's "Last updated" date in step with §14)
+
+- **Task:** a backend unit test that compares the spec's header date with its §14 change log, and one rule in `AGENTS.md`.
+- **What I did:**
+  - `backend/tests/unit/test_product_spec.py` (new): reads `docs/product-spec.md` from the repository root, the header date and the dates of all §14 entries in both forms (`**0.2, updated <date>.**` and `**0.2 (<date>).**`); 9 entries on the current file. `test_product_spec_header_date_equals_the_newest_change_log_entry` and `test_product_spec_change_log_is_newest_first` (same-day entries allowed). Dates are read with a fixed list of English month names (no `strptime`, so no locale) and compared as `date` values. Only the standard library.
+  - `AGENTS.md`: one line under "Working rules", after the rule on editing the spec. Nothing else changed.
+  - `docs/product-spec.md` is unchanged: when I started, its header (15 November 2026) equalled its newest §14 entry.
+  - Commits 4ac3615 (test) and 60db656 (rule).
+- **Decision under the standing rule, recorded in the issue:** both tests read the header and §14 through one helper, so a missing header line, a missing §14 heading, an empty §14 or an unreadable entry date fails both tests with the same message.
+- **How I verified it:**
+  - Local spec edits, not committed, each undone with `git checkout -- docs/product-spec.md`: header set to 14 November 2026 (first test fails: "Last updated is 14 November 2026, the newest §14 entry is 15 November 2026"); top entry set to 16 November 2026 (first test fails); the 0.1 entry moved to the top (second test fails: "§14 entry 2 (15 November 2026) is later than entry 1 above it (1 November 2026)"); header line deleted (both fail: no "Last updated" line). Also no §14 heading, no entry, a misspelt month and a missing full stop: both fail and say which.
+  - `uv run ruff check .`, `uv run ruff format --check .` and `uv run pytest tests/unit` (1813 passed, with PostgreSQL stopped, and again with `LC_ALL=C`); `./test-all.sh` passed. CI on the pushed branch is reported on the issue. No AI call.
+- **Left open:** nothing.
