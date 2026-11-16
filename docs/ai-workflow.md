@@ -5280,6 +5280,19 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - Per-signal header variables (`OTEL_EXPORTER_OTLP_TRACES_HEADERS` and the like) are out of scope and not validated. If one were ever set in Render, the SDK would read it unchecked.
   - The free-plan figures come from search results. The product owner's stack is the authority.
 
+## 2026-11-16: Orchestrator: close #92 (hosted telemetry in Grafana Cloud)
+
+- **Task:** task 67, run with `/orchestrate 92`. No screens change; `render.yaml` and the spec change.
+- **Product owner's decisions:** the endpoint `https://otlp-gateway-prod-eu-west-4.grafana.net/otlp` is written in `render.yaml`; the free plan is approved for dev and production ($0).
+- **What happened:**
+  - PM grooming (6911643050, answers 6913929650); engineer (6914531799, CI 43853645188 passed); QA PASS on A–D and F (6914756915).
+  - The product owner merged PR #118 (1421cc4), entered the two header values in Render, applied the Manual Sync (six expected lines) and checked the data in Grafana Cloud.
+  - QA on section E failed first (6922726682), because my record was incomplete and overstated one line (correction 6922738001). After a fuller record from the product owner (6924332073), QA passed (6924393703). Closed as completed.
+- **Open points:**
+  - posted on #117 as grooming input: the 429 wording in `docs/observability.md`, re-checking the usage page (0 shown, 306 series counted in Explore), and the label names;
+  - left in this log under the standing rule: the per-signal header variables are not validated (none is set), and the three open points from #74 stay as decided.
+- **Lesson:** I now send the product owner the full section E list of a task, not a shortened one.
+
 ## 2026-11-16: PM: groom #117 (task 69, alert on server errors in the hosted Grafana Cloud stack)
 
 - **Task:** groom #117 following `docs/pm.md`, under the standing rule of 2026-11-14 as extended to task 69.
@@ -5337,3 +5350,36 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
     - `DELETE` answered 202; the local rule stayed listed, `inactive`, health `ok`.
   - No real AI call, no Grafana Cloud, Render or GitHub setting changed, and no email address, token or secret anywhere.
 - **Left open:** section E, the product owner's Grafana Cloud steps after the merge. The local rule also fires on a local backend run as dev, because it has no environment matcher; that is unchanged and expected.
+
+## 2026-11-16: Orchestrator: close #117 (task 69, alert on server errors in Grafana Cloud)
+
+- **Task:** run #117 through the lifecycle and close it.
+- **What I did:**
+  - The PM groomed #117. The product owner answered the two account questions: email to their own Grafana Cloud login, and dev alerts notify too. The issue changes no screens, so it had no design steps.
+  - The engineer implemented sections A to D and F. A container restart cut off the engineer's final report, but its commits and hand-over comment were complete.
+  - QA passed sections A to D and F, including its own live run in the local stack.
+  - After #119 was merged, I guided the product owner through section E one step at a time and posted their record on the issue (comment 6926960101). QA then passed section E and the issue as a whole (comment 6926977347). I closed #117 as completed.
+- **How I verified it:** re-read the acceptance criteria, both QA comments and the section E record. I checked the Grafana UI labels that differ from `ops/deployment.md` in Grafana's current source (`public/locales/en-US/grafana.json`).
+- **Open points and where they went:** no open issue fitted (only #98 was open), so under the standing rule I created #120, "Follow-up from #117: update the Grafana Cloud alert steps for the current UI, and re-check the stack after the trial". It holds:
+  - `ops/deployment.md` steps 2 and 3 describe an older Grafana UI (QA and the orchestrator);
+  - the stack is on a 14-day trial, not yet the free plan, so a check after the trial ends is needed (QA).
+  - The engineer and the PM left nothing else open. QA's note on the author email in the git commits is not an open point: the product owner said it is fine. #120 is not listed in `docs/tasks.md`; the product owner sets its order.
+
+## 2026-11-16: Orchestrator: update the Grafana Cloud alert steps for the current UI (point 1 of #120)
+
+- **Task:** the product owner asked the orchestrator to fix the setup docs directly, without the role subagents.
+- **What I did:**
+  - `ops/deployment.md`, "Hosted alerts: Grafana Cloud": step 2 now says **Add route** on the Default policy, warns against **+ New notification policy**, and says what the result looks like. Step 3 describes the import wizard: skip **Import notification configuration**, source **YAML file**, keep the policy tree on the default, then **Start import**. The older labels stay in brackets.
+  - `docs/observability.md`, "How the import converts them": the same new labels, with the older ones in brackets.
+- **How I verified it:** the product owner's screenshot of the Notification policies page and their account of the import; the labels in Grafana's current source (`public/locales/en-US/grafana.json`). `uv run pytest tests/unit`: 1877 passed. Only Markdown changed.
+- **Left open:** point 2 of #120, the check after the Grafana Cloud trial ends. It stays on #120.
+
+## 2026-11-16: Orchestrator: close #98 for now, keep #120 open
+
+- **Task:** the product owner decided to close #98 (task 68, AI summaries repeat the entries' wording) for now, because there is no time before the project is submitted, and to reopen it later. #120 stays open as a reminder of the check after the Grafana Cloud trial ends.
+- **What I did:**
+  - Commented on #98 with the reason and closed it as not planned.
+  - In `docs/tasks.md`, task 68 keeps its place and now says it is closed for now. "Closed as not planned" lists it as deferred, to be reopened.
+  - #120 is unchanged and not listed in `docs/tasks.md`.
+- **How I verified it:** read both issues back from GitHub and checked the two lines in `docs/tasks.md`.
+- **Left open:** reopening #98 later, and #120 point 2, the check after the trial ends.

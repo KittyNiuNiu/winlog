@@ -73,7 +73,7 @@ Tasks 48 to 69 are follow-up issues created from open points of earlier tasks, p
 65. [Alert on user impact in the local telemetry stack](https://github.com/KittyNiuNiu/winlog/issues/112) (#112)
 66. [Follow-up from #103: keep the spec's "Last updated" date in step with its change log](https://github.com/KittyNiuNiu/winlog/issues/114) (#114)
 67. [Follow-up from #74: send telemetry from the deployed dev and production environments to a hosted UI](https://github.com/KittyNiuNiu/winlog/issues/92) (#92)
-68. [Follow-up from #38: AI summaries mostly repeat the entries' own wording](https://github.com/KittyNiuNiu/winlog/issues/98) (#98)
+68. [Follow-up from #38: AI summaries mostly repeat the entries' own wording](https://github.com/KittyNiuNiu/winlog/issues/98) (#98). Closed as not planned on 2026-11-16, for now: see "Closed as not planned".
 69. [Follow-up from #92: alert on server errors in the hosted Grafana Cloud stack, with a contact point](https://github.com/KittyNiuNiu/winlog/issues/117) (#117)
 
 ## Closed as not planned
@@ -82,3 +82,7 @@ Out of scope, by the product owner's decision of 2026-11-14 (skipped), and close
 
 - [Follow-up from #31: typed dates on the review page can lose digits on a slow device](https://github.com/KittyNiuNiu/winlog/issues/87) (#87)
 - [Follow-up from #26 and #30: check message announcements with a screen reader, and screens at a larger text size](https://github.com/KittyNiuNiu/winlog/issues/91) (#91)
+
+Deferred by the product owner's decision of 2026-11-16 and closed as not planned on that day, because there is no time before the project is submitted. It is to be reopened later and keeps its place in the build order (task 68).
+
+- [Follow-up from #38: AI summaries mostly repeat the entries' own wording](https://github.com/KittyNiuNiu/winlog/issues/98) (#98)

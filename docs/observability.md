@@ -294,8 +294,8 @@ Prometheus rule-file format, and the product owner imports them in Grafana Cloud
 file, so the local stack does not load it. `backend/tests/unit/test_hosted_alert_rules.py`
 checks that its query stays the local query with the environment and the threshold added.
 
-**How the import converts them.** The import (**Import to Grafana-managed rules** →
-**Prometheus YAML file**) turns them into Grafana-managed rules. Grafana runs the query with a
+**How the import converts them.** The import (**Import alert rules**, source **YAML file**;
+in older versions **Import to Grafana-managed rules** → **Prometheus YAML file**) turns them into Grafana-managed rules. Grafana runs the query with a
 1-minute offset (it looks at the data up to 1 minute before each evaluation), treats no data
 and query errors as Normal, and keeps the labels, the annotations and the 1-minute pending
 period. An alert that stops matching resolves at the next evaluation. Why this format: Grafana
