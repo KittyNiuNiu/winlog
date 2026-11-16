@@ -5250,3 +5250,32 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 
 - **Task:** the product owner asked to extend the standing rule to #117 (task 69).
 - **What I did:** the rule in `docs/process.md` now covers tasks 48 to 69. What still goes to the product owner is unchanged: severe or critical decisions, stop points, real AI calls, account steps, merges and production approvals. A contact point for #117 is an account step and may have a cost, so it still goes to the product owner.
+
+## 2026-11-16: Engineer: implement #92 (task 67, telemetry from dev and production in Grafana Cloud)
+
+- **Task:** sections A to D and F of #92: three new settings, the headers passed to the exporters, the environment as a resource attribute, `render.yaml` and Docker Compose, and the docs and spec. Section E is the product owner's, after the merge.
+- **What I did:**
+  - `backend/app/settings.py`: `OTEL_EXPORTER_OTLP_HEADERS` (`SecretStr`), `TELEMETRY_ENVIRONMENT` (`local`, `dev`, `production`, default `local`) and `OTEL_METRIC_EXPORT_INTERVAL` (1000 to 300000, default 10000, `_whole_number`). `parse_otlp_headers` reads the value with the SDK's own patterns. It also refuses a decoded name that is not an HTTP token, and a decoded value that is not printable ASCII. A malformed value or an `http://` endpoint stops the app with a message that names the variables and never the value.
+  - `backend/app/telemetry.py`: the parsed headers go to all three OTLP exporters, the interval to the metric reader, and the resource gets `deployment.environment.name`, the one new key in `ALLOWED_RESOURCE_KEYS`.
+  - `render.yaml`: on both backends, the Grafana Cloud endpoint, the headers as `sync: false`, `TELEMETRY_ENVIRONMENT` (`production`, `dev`) and `OTEL_METRIC_EXPORT_INTERVAL` `"60000"`. The "not set on purpose" comments are corrected, and the header comment lists the new secret.
+  - `docker-compose.yml`: `OTEL_EXPORTER_OTLP_HEADERS: ""` and `TELEMETRY_ENVIRONMENT: local` for the backend. `.env.example` documents all three settings.
+  - Docs:
+    - `docs/observability.md`: the section "Hosted telemetry (dev and production)", the allowlist, the local run, and the alert paragraph pointing to #117;
+    - `ops/deployment.md`: the section "Hosted telemetry: Grafana Cloud" with the product owner's six steps, plus the secrets, environment variables, set-up, start and free-plan updates;
+    - `docs/product-spec.md` §9, §10.2, §14 and the header date, word for word from the issue.
+  - Tests:
+    - `tests/unit/test_telemetry.py`: the settings, the export with fake exporters and no connection, and the resource;
+    - `tests/unit/test_deployment.py`: the Blueprint values and valid settings;
+    - `tests/integration/test_telemetry.py`: the privacy test with a marker headers value, and the resource key.
+- **Decisions under the standing rule (recorded on the issue):**
+  - Three files outside the issue's list, each needed for a criterion: `backend/tests/unit/test_docker_compose.py` (its list of Compose overrides gains the two new entries), `backend/tests/unit/conftest.py` (`no_env_file` also clears the three new variables) and `README.md` (its list of what Compose sets itself).
+  - `ops/deployment.md` "Set up from scratch": the hand-entered values of both backends now include the four telemetry variables, because `test_deploy_guide_set_up_hand_entered_values_and_backend_defaults_give_render_yaml` requires every secret and every non-default value there.
+  - Decoded header names and values are checked too. Otherwise the HTTP client would refuse such a header at export time, and the exporter logs that error, which would contain the value.
+- **How I verified it:**
+  - `uv run ruff check .`, `uv run ruff format --check .`, `uv run pytest tests/unit` (1866 passed), `uv run pytest tests/integration` (1202 passed) and `./test-all.sh` (all three suites passed).
+  - Live with `docker compose up -d --wait db lgtm`, the backend on the host with `AI_PROVIDER=mock`, `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318` and `TELEMETRY_ENVIRONMENT=local`: a drafted summary's trace in Tempo has `deployment.environment.name` = `local` and the four child spans. Loki and Prometheus both show it as the label `deployment_environment_name` on every stream and series (also on `target_info`). The alert rule stayed `inactive` with health `ok`. With a headers value and the `http://` endpoint, and with a malformed value, the backend refused to start, named the variables and printed the marker 0 times.
+  - No real AI call. No token or header value anywhere; the tests use clearly fake values.
+- **Left open:**
+  - Whether Grafana Cloud makes `deployment.environment.name` a metric label as the local stack does is checked only in section E. If it does not, dev and production series with the same labels would merge, because there is no `service.instance.id`. Section E's "Environments told apart" check would show it.
+  - Per-signal header variables (`OTEL_EXPORTER_OTLP_TRACES_HEADERS` and the like) are out of scope and not validated. If one were ever set in Render, the SDK would read it unchecked.
+  - The free-plan figures come from search results. The product owner's stack is the authority.
