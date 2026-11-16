@@ -5239,3 +5239,9 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - The saved issue body was compared with the text sent. The labels on #92 and #117 are empty. No AI call.
 - **Product owner's answers (2026-11-16, through the orchestrator):** the endpoint is `https://otlp-gateway-prod-eu-west-4.grafana.net/otlp`, written in `render.yaml`, and `docs/observability.md` is to record why committing it is safe (reading needs the Grafana login, sending needs the token, which is only in Render); the free plan is approved for dev and production ($0, no add-on, 14 days' retention). I updated the issue body, so no placeholder is left, and recorded both in a comment (6913929650). The issue is groomed.
 - **Left open:** #117 is not yet listed in `docs/tasks.md`.
+
+## 2026-11-16: Orchestrator: add #117 to the task list
+
+- **Task:** the product owner asked to add #117 (alert on server errors in the hosted Grafana Cloud stack, with a contact point; created by the PM while grooming #92) after #98 in `docs/tasks.md`.
+- **What I did:** added it as task 69 and noted the addition in the intro. No other task moved.
+- **Open:** the standing rule in `docs/process.md` covers tasks 48 to 68, so task 69 is not covered unless the product owner extends it.

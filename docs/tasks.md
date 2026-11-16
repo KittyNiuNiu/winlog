@@ -4,7 +4,7 @@ The backlog lives in GitHub issues. Each task below links to its issue, which ho
 
 Tasks follow `product-spec.md` (v0.2) and are listed in build order. Each issue title starts with the same number as below, so the order is also visible in the GitHub issue list. Issue numbers and task numbers differ: #1 is a pull request, and #43, #46, #73, #74, #75, #77, #78 and #79 were added later. References such as FR-E1 or §8 in the issues point to the spec.
 
-Tasks 48 to 68 are follow-up issues created from open points of earlier tasks, plus one new task (65). The product owner set their order on 2026-11-14: first what protects the live app, then the pipeline and developer set-up, then interface polish, and last the larger tasks that need an account or real AI calls. On 2026-11-15 the product owner added five small follow-ups (tasks 60 to 64) before those larger tasks, asked for an alert on user impact (task 65, #112), and added #114 (task 66) before the larger tasks. They keep their original titles, without a task number.
+Tasks 48 to 69 are follow-up issues created from open points of earlier tasks, plus one new task (65). The product owner set their order on 2026-11-14: first what protects the live app, then the pipeline and developer set-up, then interface polish, and last the larger tasks that need an account or real AI calls. On 2026-11-15 the product owner added five small follow-ups (tasks 60 to 64) before those larger tasks, asked for an alert on user impact (task 65, #112), and added #114 (task 66) before the larger tasks. On 2026-11-16 they added #117 (task 69) after #98. They keep their original titles, without a task number.
 
 1. [Write the OpenAPI contract](https://github.com/KittyNiuNiu/winlog/issues/2) (#2)
 2. [Set up the backend project skeleton](https://github.com/KittyNiuNiu/winlog/issues/3) (#3)
@@ -74,6 +74,7 @@ Tasks 48 to 68 are follow-up issues created from open points of earlier tasks, p
 66. [Follow-up from #103: keep the spec's "Last updated" date in step with its change log](https://github.com/KittyNiuNiu/winlog/issues/114) (#114)
 67. [Follow-up from #74: send telemetry from the deployed dev and production environments to a hosted UI](https://github.com/KittyNiuNiu/winlog/issues/92) (#92)
 68. [Follow-up from #38: AI summaries mostly repeat the entries' own wording](https://github.com/KittyNiuNiu/winlog/issues/98) (#98)
+69. [Follow-up from #92: alert on server errors in the hosted Grafana Cloud stack, with a contact point](https://github.com/KittyNiuNiu/winlog/issues/117) (#117)
 
 ## Closed as not planned
 
