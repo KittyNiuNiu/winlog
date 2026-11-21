@@ -5383,3 +5383,19 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
   - #120 is unchanged and not listed in `docs/tasks.md`.
 - **How I verified it:** read both issues back from GitHub and checked the two lines in `docs/tasks.md`.
 - **Left open:** reopening #98 later, and #120 point 2, the check after the trial ends.
+
+## 2026-11-21: Rewrite the README around the project criteria and the current deployment
+
+- **Task:** the product owner asked to bring `README.md` up to date with the latest deployment, drop outdated information and organise it around the course's project criteria. The product owner asked for this directly, without the role subagents, and it changes only Markdown.
+- **What I did:**
+  - Added a "Project criteria at a glance" table that maps each criterion to its section and evidence. Added sections for the problem (from spec §2 to §5), the expected behaviour, the specification and public task tracker (with #117 as an example of the agents' comments), the agent team and process (roles, lifecycle, labels, stop points), the context for the agents (`AGENTS.md` and the modular docs), tests (with today's counts), CI/CD (the six CI jobs, dev deployed automatically, production after approval, rollback), observability and alerting on user impact.
+  - Removed outdated information. The architecture table said deployed environments send no telemetry; dev and production have sent it to Grafana Cloud since #92, with hosted alerts since #117. The cold-start figure is now the one measured today. Added the dev environment and a table comparing dev and production.
+  - Shortened the configuration section and kept the AI, local start and command sections.
+- **How I verified it:**
+  - Live, read-only (no AI call, no login): `GET /health` on `winlog-api` and `winlog-api-dev` answered `status ok`, `database ok` after a cold start of about 49 s each. Production named commit 3185075 and dev f70d37e, and both static sites' `/version.json` named the same commits.
+  - On GitHub: Deploy run 125 (f70d37e) passed Publish image and Deploy to dev, and Deploy to production waits for approval. Run 124 (3185075) deployed production on 2026-11-16. The repository is public. Issue #117 holds the PM's grooming, the engineer's hand-over and QA's PASS comments.
+  - Checked each new statement against its source (`docs/process.md`, the role docs, `.claude/agents/`, `ci.yml`, `deploy.yml`, `render.yaml`, `docker-compose.yml`, `docs/observability.md`, `ops/deployment.md`, the spec). Every relative link in the README points to an existing file, and every in-page link to a heading.
+  - `./test-all.sh` (with Node 26.13.0 from `frontend/.nvmrc`): backend unit tests 1877 passed, backend integration tests 1202 passed, frontend tests 1421 passed.
+- **Left open:**
+  - The product owner listed 11 criteria worth 22 points but said there are 12 worth 24; the README covers the 11 given.
+  - Once this is merged into `main`, CD deploys it to dev; production waits for the product owner's approval as usual. Run 125's production step for f70d37e is still waiting.
