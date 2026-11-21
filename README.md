@@ -1,11 +1,10 @@
 # Winlog
 
 > [!NOTE]
-> **Updated after submission (21 November 2026): only documentation changed.** Compared with
+> **Updated after submission (21 November 2026): only the README changed.** Compared with
 > the submitted commit, only this README was updated, because some places in it did not
-> reflect the project's updated process and deployment. The change is also recorded in the
-> work log, [`docs/ai-workflow.md`](docs/ai-workflow.md). No code, configuration or tests
-> changed.
+> reflect the project's updated process and deployment. No code, configuration, tests or other
+> documents changed.
 
 Winlog is a personal success diary for professionals. You record work achievements, learnings
 and feedback as they happen. At review time, Winlog turns them into editable, AI-generated
