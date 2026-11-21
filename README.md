@@ -1,5 +1,12 @@
 # Winlog
 
+> [!NOTE]
+> **Updated after submission (21 November 2026): only documentation changed.** Compared with
+> the submitted commit, only this README was updated, because some places in it did not
+> reflect the project's updated process and deployment. The change is also recorded in the
+> work log, [`docs/ai-workflow.md`](docs/ai-workflow.md). No code, configuration or tests
+> changed.
+
 Winlog is a personal success diary for professionals. You record work achievements, learnings
 and feedback as they happen. At review time, Winlog turns them into editable, AI-generated
 summaries for performance reviews and appraisal conversations. It is a responsive web app that
@@ -12,21 +19,23 @@ Winlog is the final project for the AI Dev Tools Zoomcamp 2026. A team of AI age
 (a PM, a UX designer, a software engineer and QA, coordinated by an orchestrator) for a human
 product owner, through a public GitHub issue tracker.
 
-## Project criteria at a glance
+## For reviewers
 
-| Criterion | Where to find it |
-|---|---|
-| Problem description | [The problem](#the-problem) and [What Winlog does](#what-winlog-does) |
-| Product specification | [`docs/product-spec.md`](docs/product-spec.md) (requirements with IDs and acceptance criteria) and the public tracker, [GitHub Issues](https://github.com/KittyNiuNiu/winlog/issues?q=is%3Aissue): see [Specification and task tracker](#specification-and-task-tracker) |
-| Agent team | [Agent team and process](#agent-team-and-process), [`docs/process.md`](docs/process.md) and [`.claude/agents/`](.claude/agents/) |
-| Context management | [`AGENTS.md`](AGENTS.md), which points to the modular docs: see [Context for the agents](#context-for-the-agents) |
-| Application | React frontend → FastAPI backend → PostgreSQL: see [Architecture](#architecture) and [Run it locally](#run-it-locally) |
-| Testing | Unit and integration tests, all with one command, `./test-all.sh`: see [Tests](#tests) |
-| Containerization | The full system, database included, starts with `docker compose up --build`: see [Run it locally](#run-it-locally) |
-| Deployment | Production at [https://winlog-app.onrender.com](https://winlog-app.onrender.com), with a demo account: see [Deployment](#deployment) |
-| CI/CD | CI checks every push; CD deploys to dev automatically and to production after a manual approval: see [CI/CD](#cicd) |
-| Observability | OpenTelemetry traces, metrics and structured logs that share a trace ID, viewable in Grafana (local and Grafana Cloud): see [Observability](#observability) |
-| Alerting on user impact | An alert on the share of server errors, locally and for dev and production in Grafana Cloud, with email notification: see [Alerting on user impact](#alerting-on-user-impact) |
+Each criterion, the proof for it, and the section of this README with the details.
+
+| Criterion | Proof | Details |
+|---|---|---|
+| Problem description | The problem, what the system does and the expected behaviour are in this README; in full in [`docs/product-spec.md`](docs/product-spec.md), §2 to §9 | [The problem](#the-problem), [What Winlog does](#what-winlog-does) |
+| Product specification | The spec, with requirement IDs (for example FR-E1) and acceptance criteria: [`docs/product-spec.md`](docs/product-spec.md). The public tracker: [GitHub Issues](https://github.com/KittyNiuNiu/winlog/issues?q=is%3Aissue), every issue groomed into Goal, Acceptance criteria, Out of scope and Constraints ([`docs/task-template.md`](docs/task-template.md)). The agents using it: [#117](https://github.com/KittyNiuNiu/winlog/issues/117) has the PM's grooming, the engineer's hand-over and QA's PASS comments | [Specification and task tracker](#specification-and-task-tracker) |
+| Agent team | Roles, lifecycle, status labels and stop points: [`docs/process.md`](docs/process.md). The agents: [`.claude/agents/`](.claude/agents/) (`pm`, `ux-designer`, `software-engineer`, `qa-engineer`) and the orchestrator, [`.claude/skills/orchestrate/SKILL.md`](.claude/skills/orchestrate/SKILL.md) | [Agent team and process](#agent-team-and-process) |
+| Context management | [`AGENTS.md`](AGENTS.md) describes the project and points to the modular docs: [`docs/product-spec.md`](docs/product-spec.md), [`openapi.yaml`](openapi.yaml), [`docs/process.md`](docs/process.md) (which points to the role docs), [`DESIGN.md`](DESIGN.md), [`PRODUCT.md`](PRODUCT.md), [`docs/observability.md`](docs/observability.md) and [`docs/ai-workflow.md`](docs/ai-workflow.md) | [Context for the agents](#context-for-the-agents) |
+| Application | Live: [https://winlog-app.onrender.com](https://winlog-app.onrender.com), with the backend on Render and PostgreSQL on Neon. Locally: `docker compose up --build`, then http://localhost:8080. In CI, the Playwright end-to-end test ([`frontend/e2e/`](frontend/e2e/)) runs the main user flow against the running system | [Architecture](#architecture), [Run it locally](#run-it-locally) |
+| Testing | `./test-all.sh` runs the backend unit tests ([`backend/tests/unit/`](backend/tests/unit/), 1877), the backend integration tests on real PostgreSQL ([`backend/tests/integration/`](backend/tests/integration/), 1202) and the frontend tests (1421). All passed on 21 November 2026, and CI's Tests job runs it on every push | [Tests](#tests) |
+| Containerization | [`docker-compose.yml`](docker-compose.yml) defines `db`, `backend`, `frontend` and `lgtm`; `docker compose up --build` starts them all. Images: [`backend/Dockerfile`](backend/Dockerfile) and [`frontend/Dockerfile`](frontend/Dockerfile). CI's Full system job starts the system the same way | [Run it locally](#run-it-locally) |
+| Deployment | [https://winlog-app.onrender.com](https://winlog-app.onrender.com) (click **Try the demo**). `curl https://winlog-api.onrender.com/health` shows the live commit. The services: [`render.yaml`](render.yaml) | [Deployment](#deployment) |
+| CI/CD | CI on every push: [`ci.yml`](.github/workflows/ci.yml) ([runs](https://github.com/KittyNiuNiu/winlog/actions/workflows/ci.yml)). CD: [`deploy.yml`](.github/workflows/deploy.yml) deploys to dev automatically, and to production only after the product owner approves. Example: [Deploy run 124](https://github.com/KittyNiuNiu/winlog/actions/runs/43948172488), dev and then production after the approval | [CI/CD](#cicd) |
+| Observability | Instrumentation: [`backend/app/telemetry.py`](backend/app/telemetry.py). The `POST /summaries` journey's spans, its metrics, the JSON logs with `trace_id`, and the privacy allowlist: [`docs/observability.md`](docs/observability.md). The UI: local Grafana at http://localhost:3000; dev and production in Grafana Cloud (the product owner's login). CI checks that telemetry reaches the local stack | [Observability](#observability) |
+| Alerting on user impact | The rule "server errors above 5%": [`ops/grafana/alerting/user-impact.yaml`](ops/grafana/alerting/user-impact.yaml) (local; CI checks that it is loaded) and [`ops/grafana-cloud/alert-rules.yaml`](ops/grafana-cloud/alert-rules.yaml) (dev and production; emails the product owner). [`test_hosted_alert_rules.py`](backend/tests/unit/test_hosted_alert_rules.py) keeps the two in step | [Alerting on user impact](#alerting-on-user-impact) |
 
 ## The problem
 

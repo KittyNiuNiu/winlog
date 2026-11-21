@@ -5399,3 +5399,12 @@ One entry per task done with an AI coding agent: date, task, what was done, how 
 - **Left open:**
   - The product owner listed 11 criteria worth 22 points but said there are 12 worth 24; the README covers the 11 given.
   - Once this is merged into `main`, CD deploys it to dev; production waits for the product owner's approval as usual. Run 125's production step for f70d37e is still waiting.
+
+## 2026-11-21: Add the "For reviewers" table and the post-submission note to the README
+
+- **Task:** the product owner asked for a "For reviewers" table that maps each criterion to its proof, and a note at the top of the README that only the README was updated after the submitted commit, because some places did not reflect the project's updated process. README only, no code.
+- **What I did:**
+  - Added a GitHub note callout under the title: only the README changed compared with the submitted commit, the change is recorded in this log, and no code, configuration or tests changed.
+  - Replaced the "Project criteria at a glance" table with "For reviewers". Each row names the proof (files, commands, the live URL, issue #117, Deploy run 124) and the README section with the details. Keeping both tables would have listed the criteria twice.
+- **How I verified it:** every path the table links to exists; every relative link and in-page anchor in the README resolves. Deploy run 124 (3185075) deployed dev at 20:18 UTC and production at 20:19 UTC on 2026-11-16, after the approval. `git diff --stat origin/main...HEAD` lists only `README.md` and `docs/ai-workflow.md`. Only Markdown changed, so I did not run the tests again; they passed earlier today (see the entry above).
+- **Left open:** the repository has no tag for the submitted commit, so the note names none. Since 3185075 (the last merge, 2026-11-16), `main` changed only `README.md` (f70d37e).
