@@ -231,6 +231,6 @@ promotion to production, rollback and the set-up from scratch.
 | [`DESIGN.md`](DESIGN.md) | The design system: colours, type, layout, components, icons and illustrations |
 | [`PRODUCT.md`](PRODUCT.md) | The product facts that design work relies on |
 | [`AGENTS.md`](AGENTS.md) | Instructions for AI coding agents: working rules, repository layout, conventions and all commands |
-| [`docs/process.md`](docs/process.md) | The development process: roles, the issue lifecycle and status labels |
+| [`docs/process.md`](docs/process.md) | The development process: agent team, roles, the issue lifecycle and status labels |
 | [`docs/tasks.md`](docs/tasks.md) | The backlog in build order, with links to the GitHub issues |
 | [`docs/ai-workflow.md`](docs/ai-workflow.md) | The log of every task: what was done, how it was verified and what was left open |
